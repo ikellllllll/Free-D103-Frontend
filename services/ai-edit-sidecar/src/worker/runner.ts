@@ -1,81 +1,69 @@
-#!/usr/bin/env node
+import { spawn } from "node:child_process";
+import fs from "node:fs/promises";
+import fsSync from "node:fs";
 
-const fs = require("node:fs/promises");
-const fsSync = require("node:fs");
-const path = require("node:path");
-const { spawn } = require("node:child_process");
+import { aiEditConfig } from "../config";
+import type { AiEditState } from "../shared/types";
 
-const stateFile = process.env.AI_EDIT_STATE_FILE;
+const resolvedStateFile = process.env.AI_EDIT_STATE_FILE;
 
-if (!stateFile) {
+if (!resolvedStateFile) {
   console.error("AI_EDIT_STATE_FILE is required.");
   process.exit(1);
 }
 
+const stateFile = resolvedStateFile;
+
 const sudoBin = "/usr/bin/sudo";
 const flockBin = "/usr/bin/flock";
-const APP_DIR_LOCK = process.env.AIG_APP_DIR_LOCK || "/home/studio/logs/app-dir.lock";
-
-const config = {
-  appDir: process.env.AIG_WORKSHOP_FRONTEND_APP_DIR || "/home/studio/apps/Free-D103-Frontend",
-  appDirOwner: process.env.AIG_WORKSHOP_APP_DIR_OWNER || "studio:studio",
-  pm2ProcessName: process.env.AIG_FRONTEND_PM2_NAME || "studio-pyan-frontend",
-  openClawBin: process.env.AIG_WORKSHOP_OPENCLAW_BIN || "/home/openclaw-studio/.openclaw/bin/openclaw",
-  openClawUser: process.env.AIG_WORKSHOP_OPENCLAW_USER || "openclaw-studio",
-  restartFrontendScript: process.env.AIG_WORKSHOP_RESTART_SCRIPT || "/home/studio/deploy/restart-frontend.sh",
-  workspaceDir: process.env.AIG_AI_EDIT_WORKSPACE || "/home/openclaw-studio/ai-edit-workspace",
-  model: process.env.AIG_AI_EDIT_MODEL || "openai-codex/gpt-5.4",
-  thinking: process.env.AIG_AI_EDIT_THINKING || "medium",
-  agentTimeoutSeconds: Number(process.env.AIG_AI_EDIT_TIMEOUT || "900"),
-  installTimeoutMs: Number(process.env.AIG_AI_EDIT_INSTALL_TIMEOUT_MS || "600000"),
-  buildTimeoutMs: Number(process.env.AIG_AI_EDIT_BUILD_TIMEOUT_MS || "900000"),
-  agentId: "ai-edit"
-};
 
 const shouldRestartAfterEdit =
   process.env.AIG_AI_EDIT_RESTART === "true" ||
   (!Object.prototype.hasOwnProperty.call(process.env, "AIG_AI_EDIT_RESTART") &&
     process.platform === "linux" &&
-    fsSync.existsSync(config.restartFrontendScript));
+    fsSync.existsSync(aiEditConfig.restartFrontendScript));
 
-function clone(value) {
-  return JSON.parse(JSON.stringify(value));
-}
+const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
 async function readState() {
-  const raw = JSON.parse(await fs.readFile(stateFile, "utf8"));
-  if (!Array.isArray(raw.queue)) raw.queue = [];
+  const raw = JSON.parse(await fs.readFile(stateFile, "utf8")) as AiEditState;
+  if (!Array.isArray(raw.queue)) {
+    raw.queue = [];
+  }
   return raw;
 }
 
-async function writeState(state) {
+async function writeState(state: AiEditState) {
   const next = { ...state, updatedAt: new Date().toISOString() };
   await fs.writeFile(stateFile, JSON.stringify(next, null, 2), "utf8");
   return next;
 }
 
-async function updateState(mutator) {
+async function updateState(mutator: (state: AiEditState) => AiEditState | Promise<AiEditState>) {
   const current = await readState();
   const next = await mutator(clone(current));
   return writeState(next);
 }
 
-async function pulseState({ step, label }) {
+async function pulseState({ step, label }: { step?: string | null; label?: string | null }) {
   const timestamp = new Date().toISOString();
-  await updateState((state) => {
-    state.currentStep = step ?? state.currentStep;
-    state.heartbeatAt = timestamp;
-    state.heartbeatLabel = label ?? state.heartbeatLabel;
-    return state;
-  });
+  await updateState((state) => ({
+    ...state,
+    currentStep: step ?? state.currentStep,
+    heartbeatAt: timestamp,
+    heartbeatLabel: label ?? state.heartbeatLabel
+  }));
 }
 
-async function withHeartbeat({ step, label, intervalMs = 8000 }, task) {
-  await pulseState({ step, label });
+async function withHeartbeat<T>(
+  config: { step: string; label: string; intervalMs?: number },
+  task: () => Promise<T>
+) {
+  await pulseState({ step: config.step, label: config.label });
 
   const timer = setInterval(() => {
-    void pulseState({ step, label }).catch(() => {});
-  }, intervalMs);
+    void pulseState({ step: config.step, label: config.label }).catch(() => undefined);
+  }, config.intervalMs ?? 8000);
 
   try {
     return await task();
@@ -84,17 +72,26 @@ async function withHeartbeat({ step, label, intervalMs = 8000 }, task) {
   }
 }
 
-function runCommand(command, args, options = {}) {
-  return new Promise((resolve, reject) => {
+function runCommand(
+  command: string,
+  args: string[],
+  options: {
+    cwd?: string;
+    env?: NodeJS.ProcessEnv;
+    input?: string;
+    timeoutMs?: number;
+  } = {}
+) {
+  return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: options.cwd,
-      env: { ...process.env, ...(options.env || {}) },
+      env: { ...process.env, ...(options.env ?? {}) },
       stdio: ["pipe", "pipe", "pipe"]
     });
 
     let stdout = "";
     let stderr = "";
-    let timeoutId = null;
+    let timeoutId: NodeJS.Timeout | null = null;
 
     if (options.timeoutMs) {
       timeoutId = setTimeout(() => {
@@ -112,12 +109,16 @@ function runCommand(command, args, options = {}) {
     });
 
     child.on("error", (error) => {
-      if (timeoutId) clearTimeout(timeoutId);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       reject(error);
     });
 
     child.on("close", (code, signal) => {
-      if (timeoutId) clearTimeout(timeoutId);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
 
       if (code === 0) {
         resolve({ stdout, stderr });
@@ -140,15 +141,17 @@ function runCommand(command, args, options = {}) {
   });
 }
 
-function runAsOpenClaw(args, options = {}) {
-  return runCommand(sudoBin, ["-u", config.openClawUser, ...args], options);
-}
+const runAsOpenClaw = (args: string[], options: Parameters<typeof runCommand>[2] = {}) =>
+  runCommand(sudoBin, ["-u", aiEditConfig.openClawUser, ...args], options);
 
-function runAsOpenClawInDir(workingDir, args, options = {}) {
-  return runAsOpenClaw(["bash", "-lc", 'cd "$1" && shift && exec "$@"', "--", workingDir, ...args], options);
-}
+const runAsOpenClawInDir = (
+  workingDir: string,
+  args: string[],
+  options: Parameters<typeof runCommand>[2] = {}
+) =>
+  runAsOpenClaw(["bash", "-lc", 'cd "$1" && shift && exec "$@"', "--", workingDir, ...args], options);
 
-function getRouteHints(jobTargetPath) {
+function getRouteHints(jobTargetPath: string) {
   if (jobTargetPath === "/login" || jobTargetPath === "/signup") {
     return [
       "- Start with auth files only: app/(auth)/login/page.tsx, app/(auth)/signup/page.tsx, components/auth/, app/(auth)/layout.tsx, app/globals.css.",
@@ -165,14 +168,14 @@ function getRouteHints(jobTargetPath) {
 }
 
 async function prepareWorkspace() {
-  await runCommand(sudoBin, ["rm", "-rf", config.workspaceDir]);
-  await runCommand(sudoBin, ["mkdir", "-p", config.workspaceDir]);
+  await runCommand(sudoBin, ["rm", "-rf", aiEditConfig.workspaceDir]);
+  await runCommand(sudoBin, ["mkdir", "-p", aiEditConfig.workspaceDir]);
 
   await runCommand(flockBin, [
     "-s",
     "-w",
     "60",
-    APP_DIR_LOCK,
+    aiEditConfig.appDirLock,
     sudoBin,
     "rsync",
     "-a",
@@ -183,19 +186,19 @@ async function prepareWorkspace() {
     "node_modules",
     "--exclude",
     ".next",
-    `${config.appDir}/`,
-    `${config.workspaceDir}/`
+    `${aiEditConfig.appDir}/`,
+    `${aiEditConfig.workspaceDir}/`
   ]);
 
   await runCommand(sudoBin, [
     "chown",
     "-R",
-    `${config.openClawUser}:${config.openClawUser}`,
-    config.workspaceDir
+    `${aiEditConfig.openClawUser}:${aiEditConfig.openClawUser}`,
+    aiEditConfig.workspaceDir
   ]);
 }
 
-function createBrief(jobPrompt, jobTargetPath) {
+function createBrief(jobPrompt: string, jobTargetPath: string) {
   return [
     "# AI UI Edit Request",
     "",
@@ -221,45 +224,45 @@ function createBrief(jobPrompt, jobTargetPath) {
   ].join("\n");
 }
 
-async function writeBrief(jobPrompt, jobTargetPath) {
-  await runAsOpenClaw(["tee", `${config.workspaceDir}/EDIT_BRIEF.md`], {
+async function writeBrief(jobPrompt: string, jobTargetPath: string) {
+  await runAsOpenClaw(["tee", `${aiEditConfig.workspaceDir}/EDIT_BRIEF.md`], {
     input: createBrief(jobPrompt, jobTargetPath)
   });
 }
 
 async function ensureAgent() {
-  const result = await runAsOpenClaw([config.openClawBin, "agents", "list", "--json"]);
-  const agents = JSON.parse(result.stdout || "[]");
+  const result = await runAsOpenClaw([aiEditConfig.openClawBin, "agents", "list", "--json"]);
+  const agents = JSON.parse(result.stdout || "[]") as Array<{ id?: string }>;
 
-  if (agents.some((agent) => agent.id === config.agentId)) {
-    return config.agentId;
+  if (agents.some((agent) => agent.id === aiEditConfig.agentId)) {
+    return aiEditConfig.agentId;
   }
 
   await runAsOpenClaw([
-    config.openClawBin,
+    aiEditConfig.openClawBin,
     "agents",
     "add",
-    config.agentId,
+    aiEditConfig.agentId,
     "--workspace",
-    config.workspaceDir,
+    aiEditConfig.workspaceDir,
     "--model",
-    config.model,
+    aiEditConfig.model,
     "--non-interactive",
     "--json"
   ]);
 
-  return config.agentId;
+  return aiEditConfig.agentId;
 }
 
-async function installWorkspaceDependencies() {
+function installWorkspaceDependencies() {
   return runAsOpenClawInDir(
-    config.workspaceDir,
+    aiEditConfig.workspaceDir,
     ["/usr/bin/corepack", "yarn", "install", "--frozen-lockfile"],
-    { timeoutMs: config.installTimeoutMs }
+    { timeoutMs: aiEditConfig.installTimeoutMs }
   );
 }
 
-async function runAgent(agentId, jobId, jobTargetPath) {
+function runAgent(agentId: string, jobId: string, jobTargetPath: string) {
   const routeFocus =
     jobTargetPath === "/login" || jobTargetPath === "/signup"
       ? "Focus on the auth routes, their shared auth components, and auth-related CSS only."
@@ -276,29 +279,29 @@ async function runAgent(agentId, jobId, jobTargetPath) {
   ].join(" ");
 
   return runAsOpenClawInDir(
-    config.workspaceDir,
+    aiEditConfig.workspaceDir,
     [
-      config.openClawBin,
+      aiEditConfig.openClawBin,
       "agent",
       "--agent",
       agentId,
       "--session-id",
       jobId,
       "--thinking",
-      config.thinking,
+      aiEditConfig.thinking,
       "--timeout",
-      String(config.agentTimeoutSeconds),
+      String(aiEditConfig.agentTimeoutSeconds),
       "--json",
       "-m",
       agentMessage
     ],
-    { timeoutMs: (config.agentTimeoutSeconds + 120) * 1000 }
+    { timeoutMs: (aiEditConfig.agentTimeoutSeconds + 120) * 1000 }
   );
 }
 
-function collectTextPayloads(payloads) {
-  const summaryParts = [];
-  const thinkingParts = [];
+function collectTextPayloads(payloads: Array<{ text?: string; thinking?: string; type?: string }>) {
+  const summaryParts: string[] = [];
+  const thinkingParts: string[] = [];
 
   for (const item of payloads) {
     if (item.type === "thinking" && item.thinking) {
@@ -317,7 +320,7 @@ function collectTextPayloads(payloads) {
   };
 }
 
-function detectAgentFailure(rawOutput, summary) {
+function detectAgentFailure(rawOutput: string, summary: string) {
   const haystack = `${rawOutput}\n${summary}`.toLowerCase();
 
   if (haystack.includes("request timed out before a response was generated")) {
@@ -335,39 +338,36 @@ function detectAgentFailure(rawOutput, summary) {
   return null;
 }
 
-function parseAgentResult(stdout) {
+function parseAgentResult(stdout: string) {
   try {
-    const payload = JSON.parse(stdout);
+    const payload = JSON.parse(stdout) as {
+      content?: Array<{ text?: string; thinking?: string; type?: string }>;
+      result?: { payloads?: Array<{ text?: string; thinking?: string; type?: string }> };
+    };
     const payloads = payload?.result?.payloads ?? payload?.content ?? [];
     const { summary, thinking } = collectTextPayloads(Array.isArray(payloads) ? payloads : []);
     const failure = detectAgentFailure(stdout, summary);
 
     return {
-      summary: summary || "변경 작업을 완료했습니다.",
+      summary: summary || "변경 작업이 완료되었습니다.",
       thinking,
       failure
     };
   } catch {
     const failure = detectAgentFailure(stdout, stdout);
     return {
-      summary: stdout.trim() || "변경 작업을 완료했습니다.",
+      summary: stdout.trim() || "변경 작업이 완료되었습니다.",
       thinking: null,
       failure
     };
   }
 }
 
-async function buildWorkspace() {
+function buildWorkspace() {
   return runAsOpenClawInDir(
-    config.workspaceDir,
-    [
-      "env",
-      "NEXT_TELEMETRY_DISABLED=1",
-      "/usr/bin/node",
-      "./node_modules/next/dist/bin/next",
-      "build"
-    ],
-    { timeoutMs: config.buildTimeoutMs }
+    aiEditConfig.workspaceDir,
+    ["env", "NEXT_TELEMETRY_DISABLED=1", "/usr/bin/node", "./node_modules/next/dist/bin/next", "build"],
+    { timeoutMs: aiEditConfig.buildTimeoutMs }
   );
 }
 
@@ -376,7 +376,7 @@ async function syncToAppDir() {
     "-x",
     "-w",
     "60",
-    APP_DIR_LOCK,
+    aiEditConfig.appDirLock,
     sudoBin,
     "rsync",
     "-a",
@@ -403,29 +403,29 @@ async function syncToAppDir() {
     "TOOLS.md",
     "--exclude",
     "USER.md",
-    `${config.workspaceDir}/`,
-    `${config.appDir}/`
+    `${aiEditConfig.workspaceDir}/`,
+    `${aiEditConfig.appDir}/`
   ]);
 
   if (process.platform === "linux") {
-    await runCommand(sudoBin, ["chown", "-R", config.appDirOwner, config.appDir]);
+    await runCommand(sudoBin, ["chown", "-R", aiEditConfig.appDirOwner, aiEditConfig.appDir]);
   }
 }
 
-async function restartFrontend() {
+function restartFrontend() {
   if (process.platform === "linux") {
     return runCommand("bash", [
       "-lc",
-      `nohup env HOME=/home/studio PM2_HOME=/home/studio/.pm2 pm2 restart '${config.pm2ProcessName}' >/home/studio/logs/ai-edit/pm2-restart.log 2>&1 < /dev/null &`
+      `nohup env HOME=/home/studio PM2_HOME=/home/studio/.pm2 pm2 restart '${aiEditConfig.pm2ProcessName}' >/home/studio/logs/ai-edit/pm2-restart.log 2>&1 < /dev/null &`
     ]);
   }
 
-  return runCommand(config.restartFrontendScript, []);
+  return runCommand(aiEditConfig.restartFrontendScript, []);
 }
 
 async function dequeueNext() {
   const state = await readState();
-  if (!state.queue || state.queue.length === 0) {
+  if (state.queue.length === 0) {
     return null;
   }
 
@@ -438,7 +438,7 @@ async function dequeueNext() {
     pid: process.pid,
     prompt: next.prompt,
     targetPath: next.targetPath,
-    currentStep: `대기 중이던 AI 수정 작업을 시작합니다. (남은 대기 ${remaining.length}개)`,
+    currentStep: `대기 중이던 AI 수정 작업을 시작합니다. (남은 대기 ${remaining.length}건)`,
     heartbeatAt: null,
     heartbeatLabel: null,
     thinking: null,
@@ -451,7 +451,7 @@ async function dequeueNext() {
   return next;
 }
 
-async function processJob(jobId, jobPrompt, jobTargetPath) {
+async function processJob(jobId: string, jobPrompt: string, jobTargetPath: string) {
   await withHeartbeat(
     {
       step: "워크스페이스를 준비하고 있습니다.",
@@ -465,14 +465,14 @@ async function processJob(jobId, jobPrompt, jobTargetPath) {
 
   await withHeartbeat(
     {
-      step: "AI 작업용 의존성을 준비하고 있습니다.",
+      step: "AI 작업 의존성을 준비하고 있습니다.",
       label: "Install"
     },
     () => installWorkspaceDependencies()
   );
 
   await pulseState({
-    step: "AI 편집 세션을 초기화하고 있습니다.",
+    step: "AI 편집 에이전트를 초기화하고 있습니다.",
     label: "Initializing"
   });
 
@@ -493,7 +493,7 @@ async function processJob(jobId, jobPrompt, jobTargetPath) {
 
   await withHeartbeat(
     {
-      step: "에이전트 결과를 워크스페이스에서 빌드 검증하고 있습니다.",
+      step: "수정 결과를 워크스페이스에서 빌드 검증하고 있습니다.",
       label: "Build"
     },
     () => buildWorkspace()
@@ -501,28 +501,42 @@ async function processJob(jobId, jobPrompt, jobTargetPath) {
 
   await withHeartbeat(
     {
-      step: "변경 사항을 서비스 코드로 반영하고 있습니다.",
+      step: "변경 사항을 서비스 코드에 반영하고 있습니다.",
       label: "Syncing"
     },
     () => syncToAppDir()
   );
 
-  await updateState((state) => {
-    state.status = "done";
-    state.pid = null;
-    state.currentStep = summary;
-    state.heartbeatAt = new Date().toISOString();
-    state.heartbeatLabel = "Done";
-    state.thinking = thinking;
-    state.error = null;
-    state.completedAt = new Date().toISOString();
-    return state;
-  });
-
   if (shouldRestartAfterEdit) {
+    await updateState((state) => ({
+      ...state,
+      status: "running",
+      pid: process.pid,
+      currentStep: summary,
+      heartbeatAt: new Date().toISOString(),
+      heartbeatLabel: "Restarting",
+      thinking,
+      error: null,
+      completedAt: null
+    }));
+
     await restartFrontend();
-    return;
+    return false;
   }
+
+  await updateState((state) => ({
+    ...state,
+    status: "done",
+    pid: null,
+    currentStep: summary,
+    heartbeatAt: new Date().toISOString(),
+    heartbeatLabel: "Done",
+    thinking,
+    error: null,
+    completedAt: new Date().toISOString()
+  }));
+
+  return true;
 }
 
 async function main() {
@@ -532,18 +546,21 @@ async function main() {
 
   while (true) {
     try {
-      await processJob(currentJobId, currentPrompt, currentTargetPath);
+      const canContinue = await processJob(currentJobId, currentPrompt, currentTargetPath);
+      if (!canContinue) {
+        break;
+      }
     } catch (error) {
-      await updateState((state) => {
-        state.status = "failed";
-        state.pid = null;
-        state.currentStep = null;
-        state.heartbeatAt = new Date().toISOString();
-        state.heartbeatLabel = "Failed";
-        state.error = error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.";
-        state.completedAt = new Date().toISOString();
-        return state;
-      });
+      await updateState((state) => ({
+        ...state,
+        status: "failed",
+        pid: null,
+        currentStep: null,
+        heartbeatAt: new Date().toISOString(),
+        heartbeatLabel: "Failed",
+        error: error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.",
+        completedAt: new Date().toISOString()
+      }));
     }
 
     const next = await dequeueNext();
@@ -557,19 +574,21 @@ async function main() {
   }
 }
 
-main().catch(async (error) => {
+void main().catch(async (error) => {
   try {
-    await updateState((state) => {
-      state.status = "failed";
-      state.pid = null;
-      state.currentStep = null;
-      state.heartbeatAt = new Date().toISOString();
-      state.heartbeatLabel = "Failed";
-      state.error = error instanceof Error ? error.message : "AI 수정 작업이 실패했습니다.";
-      state.completedAt = new Date().toISOString();
-      return state;
-    });
-  } catch {}
+    await updateState((state) => ({
+      ...state,
+      status: "failed",
+      pid: null,
+      currentStep: null,
+      heartbeatAt: new Date().toISOString(),
+      heartbeatLabel: "Failed",
+      error: error instanceof Error ? error.message : "AI 수정 작업이 실패했습니다.",
+      completedAt: new Date().toISOString()
+    }));
+  } catch {
+    // ignore
+  }
 
   process.exit(1);
 });

@@ -3,54 +3,53 @@ param(
   [string]$RemoteUser = "studio",
   [string]$KeyPath = "C:\SSAFY\personal\keys\ssh-key-2025-08-13.key",
   [string]$RemoteAppDir = "/home/studio/apps/Free-D103-Frontend",
-  [string]$RemoteArchivePath = "/home/studio/deploy/frontend-deploy.tar.gz",
-  [string]$RemoteRestartScript = "/home/studio/deploy/restart-frontend.sh"
+  [string]$RemoteRestartScript = "/home/studio/deploy/restart-frontend.sh",
+  [string]$RemoteFrontendPm2Name = "studio-pyan-frontend",
+  [string]$RemoteSidecarPm2Name = "aig-ai-edit-sidecar",
+  [switch]$SkipFrontendRestart,
+  [switch]$SkipSidecarRestart
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$repoRoot = Split-Path -Parent $PSScriptRoot
-$archivePath = Join-Path ([System.IO.Path]::GetTempPath()) "frontend-deploy.tar.gz"
 $sshTarget = "$RemoteUser@$HostName"
 
 if (-not (Test-Path $KeyPath)) {
   throw "SSH key not found: $KeyPath"
 }
 
-if (Test-Path $archivePath) {
-  Remove-Item $archivePath -Force
+$remoteCommands = New-Object System.Collections.Generic.List[string]
+$remoteCommands.Add("set -euo pipefail")
+$remoteCommands.Add("cd '$RemoteAppDir'")
+$remoteCommands.Add("git fetch --all --prune")
+$remoteCommands.Add("git pull --ff-only origin main")
+$remoteCommands.Add("yarn install --frozen-lockfile")
+$remoteCommands.Add("yarn build")
+
+if (-not $SkipSidecarRestart) {
+  $remoteCommands.Add("yarn build:sidecar")
+  $remoteCommands.Add("env HOME=/home/studio PM2_HOME=/home/studio/.pm2 pm2 describe '$RemoteSidecarPm2Name' >/dev/null 2>&1 && env HOME=/home/studio PM2_HOME=/home/studio/.pm2 pm2 restart '$RemoteSidecarPm2Name' || env HOME=/home/studio PM2_HOME=/home/studio/.pm2 pm2 start '$RemoteAppDir/services/ai-edit-sidecar/dist/server.cjs' --name '$RemoteSidecarPm2Name' --cwd '$RemoteAppDir'")
+  $remoteCommands.Add("env HOME=/home/studio PM2_HOME=/home/studio/.pm2 pm2 save >/dev/null")
 }
 
-Write-Host "Creating deployment archive..."
-tar.exe `
-  --exclude=.git `
-  --exclude=.next `
-  --exclude=node_modules `
-  --exclude=*.log `
-  --exclude=*.png `
-  -czf $archivePath `
-  -C $repoRoot `
-  .
+if (-not $SkipFrontendRestart) {
+  $remoteCommands.Add("'$RemoteRestartScript'")
+  $remoteCommands.Add("for i in 1 2 3 4 5 6 7 8 9 10; do curl -fsSI http://127.0.0.1:3002/login >/dev/null && break; sleep 1; done")
+  $remoteCommands.Add("curl -I http://127.0.0.1:3002/login | sed -n '1,10p'")
+} else {
+  $remoteCommands.Add("env HOME=/home/studio PM2_HOME=/home/studio/.pm2 pm2 restart '$RemoteFrontendPm2Name'")
+  $remoteCommands.Add("env HOME=/home/studio PM2_HOME=/home/studio/.pm2 pm2 save >/dev/null")
+}
 
-Write-Host "Uploading archive to $sshTarget..."
-scp.exe -i $KeyPath $archivePath "${sshTarget}:${RemoteArchivePath}" | Out-Null
+$joinedCommand = $remoteCommands -join "; "
 
-$remoteCommands = @(
-  "set -euo pipefail",
-  "rm -rf '$RemoteAppDir'",
-  "mkdir -p '$RemoteAppDir'",
-  "tar -xzf '$RemoteArchivePath' -C '$RemoteAppDir'",
-  "'$RemoteRestartScript'",
-  "for i in 1 2 3 4 5 6 7 8 9 10; do curl -fsSI http://127.0.0.1:3002/login >/dev/null && break; sleep 1; done",
-  "curl -I http://127.0.0.1:3002/login | sed -n '1,10p'"
-) -join "; "
-
-Write-Host "Restarting remote app..."
-ssh.exe -i $KeyPath $sshTarget $remoteCommands
-
-Remove-Item $archivePath -Force
+Write-Host "Deploying to $sshTarget..."
+ssh.exe -i $KeyPath $sshTarget $joinedCommand
 
 Write-Host ""
 Write-Host "Deploy complete."
-Write-Host "Preview: https://studio.pyan.kr/login"
+Write-Host "Frontend: https://studio.pyan.kr/login"
+if (-not $SkipSidecarRestart) {
+  Write-Host "Sidecar: https://studio-ai.pyan.kr"
+}

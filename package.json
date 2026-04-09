@@ -3,10 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "packageManager": "yarn@1.22.22",
+  "workspaces": [
+    "services/*"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "build:all": "yarn build && yarn build:sidecar",
+    "build:sidecar": "yarn workspace @aig/ai-edit-sidecar build",
+    "start": "next start",
+    "start:sidecar": "yarn workspace @aig/ai-edit-sidecar start"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
