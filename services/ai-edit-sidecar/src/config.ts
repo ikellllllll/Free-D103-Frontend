@@ -3,8 +3,26 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 
 const isLinux = process.platform === "linux";
-const distDir = path.resolve(__dirname, "..");
-const serviceRoot = path.resolve(distDir, "..");
+
+const resolveServiceRoot = () => {
+  if (process.env.AIG_AI_EDIT_SERVICE_ROOT) {
+    return process.env.AIG_AI_EDIT_SERVICE_ROOT;
+  }
+
+  const cwd = process.cwd();
+  if (existsSync(path.join(cwd, "build.mjs")) && existsSync(path.join(cwd, "src"))) {
+    return cwd;
+  }
+
+  const nested = path.join(cwd, "services", "ai-edit-sidecar");
+  if (existsSync(nested)) {
+    return nested;
+  }
+
+  return path.resolve(__dirname, "..");
+};
+
+const serviceRoot = resolveServiceRoot();
 
 const normalizeBasePath = (value: string | undefined, fallback: string) => {
   const trimmed = (value ?? fallback).trim();
