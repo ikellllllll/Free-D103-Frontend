@@ -3,8 +3,8 @@ import path from "node:path";
 
 import { renderAdminHtml } from "./admin";
 import { aiEditConfig } from "./config";
-import { getAdminHealth, readAiEditState, startAiEdit } from "./state";
-import type { AiEditStartInput } from "./shared/types";
+import { cancelAiEdit, getAdminHealth, readAiEditState, startAiEdit } from "./state";
+import type { AiEditCancelInput, AiEditStartInput } from "./shared/types";
 
 const app = express();
 const runtimeBases = Array.from(new Set([aiEditConfig.runtimeBasePath, aiEditConfig.runtimeAliasPath]));
@@ -58,6 +58,14 @@ for (const basePath of runtimeBases) {
     asyncRoute(async (request, response) => {
       setNoStore(response);
       response.json(await startAiEdit(request.body as AiEditStartInput));
+    })
+  );
+
+  app.post(
+    `${basePath}/api/cancel`,
+    asyncRoute(async (request, response) => {
+      setNoStore(response);
+      response.json(await cancelAiEdit(request.body as AiEditCancelInput));
     })
   );
 }

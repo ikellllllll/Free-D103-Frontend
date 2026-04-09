@@ -1,12 +1,26 @@
 export {};
 
-type AiEditStatus = "idle" | "running" | "done" | "failed";
+type AiEditStatus = "idle" | "running" | "canceling" | "done" | "failed" | "canceled";
+type AiEditMode = "edit" | "chat";
+type AiEditMessageRole = "user" | "assistant" | "system";
+type AiEditMessageStatus = "queued" | "running" | "done" | "failed" | "canceled";
 
 interface AiEditQueueItem {
   jobId: string;
   prompt: string;
   targetPath: string;
   enqueuedAt: string;
+  mode: AiEditMode;
+}
+
+interface AiEditMessage {
+  id: string;
+  jobId: string | null;
+  role: AiEditMessageRole;
+  mode: AiEditMode;
+  text: string;
+  createdAt: string;
+  status: AiEditMessageStatus | null;
 }
 
 interface AiEditState {
@@ -16,15 +30,18 @@ interface AiEditState {
   pid: number | null;
   prompt: string;
   targetPath: string;
+  mode: AiEditMode | null;
   currentStep: string | null;
   heartbeatAt: string | null;
   heartbeatLabel: string | null;
   thinking: string | null;
+  activityLog: string[];
   error: string | null;
   startedAt: string | null;
   completedAt: string | null;
   updatedAt: string;
   queue: AiEditQueueItem[];
+  messages: AiEditMessage[];
 }
 
 interface RuntimeConfig {
@@ -39,7 +56,6 @@ declare global {
 }
 
 const POLL_INTERVAL_MS = 3500;
-
 const emptyState: AiEditState = {
   configured: false,
   status: "idle",
@@ -47,15 +63,18 @@ const emptyState: AiEditState = {
   pid: null,
   prompt: "",
   targetPath: "",
+  mode: null,
   currentStep: null,
   heartbeatAt: null,
   heartbeatLabel: null,
   thinking: null,
+  activityLog: [],
   error: null,
   startedAt: null,
   completedAt: null,
   updatedAt: new Date(0).toISOString(),
-  queue: []
+  queue: [],
+  messages: []
 };
 
 const styles = `
@@ -70,8 +89,8 @@ const styles = `
     color: #ecf2ff;
   }
   .trigger {
-    width: 56px;
-    height: 56px;
+    width: 58px;
+    height: 58px;
     border: 1px solid rgba(121, 144, 255, 0.28);
     border-radius: 18px;
     display: inline-flex;
@@ -93,14 +112,16 @@ const styles = `
   .panel {
     position: absolute;
     right: 0;
-    bottom: 72px;
-    width: min(360px, calc(100vw - 32px));
+    bottom: 74px;
+    width: min(420px, calc(100vw - 32px));
+    max-height: min(82vh, 860px);
     border-radius: 22px;
     border: 1px solid rgba(132, 151, 199, 0.18);
-    background:
-      linear-gradient(180deg, rgba(12, 16, 24, 0.98), rgba(16, 23, 38, 0.98));
+    background: linear-gradient(180deg, rgba(12, 16, 24, 0.98), rgba(16, 23, 38, 0.98));
     box-shadow: 0 28px 70px rgba(0, 0, 0, 0.46);
     overflow: hidden;
+    display: grid;
+    grid-template-rows: auto 1fr;
   }
   .panel__header {
     display: flex;
@@ -131,35 +152,124 @@ const styles = `
   }
   .body {
     display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
     gap: 12px;
     padding: 16px;
+    min-height: 0;
   }
-  .path, .meta, .status, .queue, .queue-list, .prompt-card, .thinking {
+  .path, .status, .meta, .messages, .details, .composer {
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 16px;
     background: rgba(255, 255, 255, 0.03);
   }
-  .path, .meta, .prompt-card { padding: 12px 14px; }
-  .path__label, .prompt-card__label, .footer__left {
+  .path, .status, .meta, .composer { padding: 12px 14px; }
+  .path__label, .composer__label {
     display: block;
     color: #8b97b5;
     font-size: 0.76rem;
+    margin-bottom: 6px;
   }
-  .path__label, .prompt-card__label { margin-bottom: 6px; }
-  .path code, .prompt-card__text, .queue-item__text {
+  .path code {
     font-family: "JetBrains Mono", monospace;
     font-size: 0.83rem;
     line-height: 1.55;
+  }
+  .mode-switch {
+    display: inline-grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.03);
+  }
+  .mode-switch__button {
+    border: 0;
+    border-radius: 12px;
+    padding: 10px 12px;
+    background: transparent;
+    color: #9aa8ca;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .mode-switch__button--active {
+    background: rgba(84, 111, 255, 0.2);
+    color: #eef3ff;
+  }
+  .messages {
+    min-height: 220px;
+    max-height: 320px;
+    overflow-y: auto;
+    padding: 10px;
+    display: grid;
+    gap: 10px;
+    align-content: start;
+  }
+  .messages--empty {
+    display: grid;
+    place-items: center;
+    color: #8b97b5;
+    font-size: 0.82rem;
+    text-align: center;
+    padding: 18px;
+  }
+  .message {
+    display: grid;
+    gap: 6px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .message--user {
+    background: rgba(84, 111, 255, 0.12);
+    border-color: rgba(84, 111, 255, 0.2);
+  }
+  .message--assistant {
+    background: rgba(70, 194, 139, 0.08);
+    border-color: rgba(70, 194, 139, 0.16);
+  }
+  .message--system {
+    background: rgba(255, 191, 84, 0.08);
+    border-color: rgba(255, 191, 84, 0.16);
+  }
+  .message__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75rem;
+    color: #9aa8ca;
+  }
+  .message__badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.07);
+    color: #dbe4ff;
+  }
+  .message__status {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #afbddf;
+  }
+  .message__body {
+    white-space: pre-wrap;
+    font-size: 0.84rem;
+    line-height: 1.62;
+    word-break: break-word;
   }
   .status {
     display: flex;
     gap: 10px;
     align-items: flex-start;
-    padding: 12px 14px;
     font-size: 0.84rem;
     line-height: 1.55;
   }
-  .status--running {
+  .status--running, .status--canceling {
     border-color: rgba(94, 132, 255, 0.28);
     background: rgba(94, 132, 255, 0.08);
   }
@@ -167,7 +277,7 @@ const styles = `
     border-color: rgba(70, 194, 139, 0.28);
     background: rgba(70, 194, 139, 0.08);
   }
-  .status--failed {
+  .status--failed, .status--canceled {
     border-color: rgba(255, 120, 120, 0.28);
     background: rgba(255, 120, 120, 0.08);
   }
@@ -177,38 +287,10 @@ const styles = `
     font-size: 0.8rem;
   }
   .meta strong { font-weight: 700; }
-  .queue {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 14px;
-    font-size: 0.82rem;
+  .details {
+    overflow: hidden;
   }
-  .queue__total {
-    margin-left: auto;
-    color: #8b97b5;
-  }
-  .queue-list { overflow: hidden; }
-  .queue-list__head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 14px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    font-size: 0.82rem;
-  }
-  .queue-item {
-    display: grid;
-    grid-template-columns: 24px 1fr;
-    gap: 10px;
-    padding: 11px 14px;
-    border-top: 1px solid rgba(255, 255, 255, 0.04);
-    font-size: 0.8rem;
-  }
-  .queue-item:first-of-type { border-top: 0; }
-  .queue-item__num { color: #8b97b5; }
-  .thinking { overflow: hidden; }
-  .thinking__toggle {
+  .details__toggle {
     width: 100%;
     border: 0;
     padding: 12px 14px;
@@ -220,7 +302,7 @@ const styles = `
     cursor: pointer;
     text-align: left;
   }
-  .thinking__badge {
+  .details__badge {
     margin-left: auto;
     padding: 2px 7px;
     border-radius: 999px;
@@ -229,20 +311,22 @@ const styles = `
     font-size: 0.72rem;
     text-transform: uppercase;
   }
-  .thinking__body {
+  .details__body {
     margin: 0;
     padding: 0 14px 14px;
     white-space: pre-wrap;
     font: 12px/1.65 "JetBrains Mono", monospace;
     color: #d7dff9;
+    max-height: 180px;
+    overflow: auto;
   }
-  .form {
+  .composer {
     display: grid;
     gap: 12px;
   }
   .textarea {
     width: 100%;
-    min-height: 116px;
+    min-height: 120px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 16px;
     background: rgba(5, 7, 12, 0.72);
@@ -255,27 +339,47 @@ const styles = `
     opacity: 0.72;
     cursor: not-allowed;
   }
-  .footer {
+  .composer__footer {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
   }
-  .footer__left {
+  .composer__hint {
     display: grid;
     gap: 3px;
+    color: #8b97b5;
+    font-size: 0.76rem;
   }
-  .footer__warn { color: #ff9d9d; }
-  .submit {
+  .composer__hint strong {
+    color: #dbe4ff;
+    font-size: 0.8rem;
+  }
+  .actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .button {
     border: 0;
     border-radius: 14px;
     padding: 11px 16px;
+    cursor: pointer;
+    font-weight: 700;
+  }
+  .button--ghost {
+    background: rgba(255, 255, 255, 0.06);
+    color: #dbe4ff;
+  }
+  .button--danger {
+    background: rgba(255, 120, 120, 0.16);
+    color: #ffd8d8;
+  }
+  .button--primary {
     background: linear-gradient(135deg, #4e6dff, #7e94ff);
     color: white;
-    font-weight: 700;
-    cursor: pointer;
   }
-  .submit:disabled {
+  .button:disabled {
     opacity: 0.54;
     cursor: not-allowed;
   }
@@ -284,7 +388,7 @@ const styles = `
     right: 0;
     bottom: calc(100% + 12px);
     min-width: 220px;
-    max-width: 300px;
+    max-width: 320px;
     padding: 12px 14px;
     border-radius: 14px;
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -350,9 +454,12 @@ const shadowRoot = root.attachShadow({ mode: "open" });
 const uiState = {
   isOpen: false,
   isSubmitting: false,
+  isCanceling: false,
   prompt: "",
-  showThinking: false,
-  myQueuedJobId: null as string | null,
+  mode: "edit" as AiEditMode,
+  showThinking: true,
+  showLogs: true,
+  lastSubmittedJobId: null as string | null,
   toast: null as null | { message: string; tone: "info" | "success" | "error" },
   toastTimer: 0
 };
@@ -362,7 +469,7 @@ let serverState: AiEditState = { ...emptyState };
 const runtimePath = (suffix: string) => `${config.baseUrl}${suffix}`;
 const currentPath = () => window.location.pathname;
 
-const formatHeartbeat = (iso: string | null) => {
+const formatTime = (iso: string | null) => {
   if (!iso) {
     return null;
   }
@@ -405,34 +512,41 @@ const showToast = (message: string, tone: "info" | "success" | "error") => {
   render();
 };
 
-const shouldPoll = () => {
-  const myQueuePosition = uiState.myQueuedJobId
-    ? serverState.queue.findIndex((item) => item.jobId === uiState.myQueuedJobId) + 1
-    : 0;
-  return serverState.status === "running" || serverState.queue.length > 0 || myQueuePosition > 0;
+const getTrackedQueuePosition = () => {
+  if (!uiState.lastSubmittedJobId) {
+    return 0;
+  }
+  return serverState.queue.findIndex((item) => item.jobId === uiState.lastSubmittedJobId) + 1;
 };
 
-const syncState = async (withOutcomeToast = false) => {
-  try {
-    const previousStatus = serverState.status;
-    const next = await fetchJson<AiEditState>(runtimePath("/api/status"));
-    serverState = next;
-    if (uiState.myQueuedJobId && next.queue.every((item) => item.jobId !== uiState.myQueuedJobId)) {
-      uiState.myQueuedJobId = null;
-    }
-    if (withOutcomeToast && previousStatus === "running" && next.status === "done") {
-      showToast("AI 수정이 완료되었습니다. 화면을 확인해 주세요.", "success");
-      return;
-    }
-    if (withOutcomeToast && previousStatus === "running" && next.status === "failed") {
-      showToast(next.error ?? "AI 수정 작업이 실패했습니다.", "error");
-      return;
-    }
-    render();
-  } catch {
-    render();
+const shouldPoll = () =>
+  serverState.status === "running" ||
+  serverState.status === "canceling" ||
+  serverState.queue.length > 0 ||
+  getTrackedQueuePosition() > 0;
+
+const getStatusLabel = () => {
+  if (serverState.status === "running" || serverState.status === "canceling") {
+    return serverState.currentStep ?? "작업을 진행하고 있습니다.";
   }
+  if (serverState.status === "done") {
+    return serverState.currentStep ?? "작업을 완료했습니다.";
+  }
+  if (serverState.status === "failed") {
+    return serverState.error ?? "작업 중 오류가 발생했습니다.";
+  }
+  if (serverState.status === "canceled") {
+    return serverState.error ?? "작업이 취소되었습니다.";
+  }
+  return "";
 };
+
+const getPlaceholder = () =>
+  uiState.mode === "edit"
+    ? "예: 로그인/회원가입 탭 전환을 더 부드럽게 만들고, 현재 구조와 한국어 문구는 유지해줘."
+    : "예: 이 화면이 왜 이렇게 동작하는지 설명해줘. 관련 파일도 같이 알려줘.";
+
+const getComposerTitle = () => (uiState.mode === "edit" ? "수정 요청" : "질문 보내기");
 
 const bindHistory = () => {
   const dispatch = () => window.dispatchEvent(new Event("aig-devtools:navigation"));
@@ -449,65 +563,108 @@ const bindHistory = () => {
   window.addEventListener("popstate", dispatch);
 };
 
+const syncState = async (withOutcomeToast = false) => {
+  try {
+    const previousStatus = serverState.status;
+    const previousJobId = serverState.jobId;
+    const next = await fetchJson<AiEditState>(runtimePath("/api/status"));
+    serverState = next;
+
+    if (uiState.lastSubmittedJobId && next.queue.every((item) => item.jobId !== uiState.lastSubmittedJobId)) {
+      if (next.jobId !== uiState.lastSubmittedJobId && next.status !== "running" && next.status !== "canceling") {
+        uiState.lastSubmittedJobId = null;
+      }
+    }
+
+    if (withOutcomeToast && previousJobId && previousStatus !== next.status && previousJobId === next.jobId) {
+      if (next.status === "done") {
+        showToast(next.mode === "chat" ? "답변을 받았습니다." : "수정 작업을 완료했습니다.", "success");
+        return;
+      }
+      if (next.status === "failed") {
+        showToast(next.error ?? "작업이 실패했습니다.", "error");
+        return;
+      }
+      if (next.status === "canceled") {
+        showToast("요청을 취소했습니다.", "info");
+        return;
+      }
+    }
+
+    render();
+  } catch {
+    render();
+  }
+};
+
+const renderMessages = () => {
+  const messages = serverState.messages.slice(-12);
+  if (messages.length === 0) {
+    return `<div class="messages messages--empty">이 페이지에 대해 질문하거나, 수정 요청을 보내면 여기 대화가 쌓입니다.</div>`;
+  }
+
+  return `
+    <div class="messages">
+      ${messages
+        .map((message) => {
+          const roleLabel =
+            message.role === "assistant" ? "AIG" : message.role === "system" ? "시스템" : "나";
+          const modeLabel = message.mode === "chat" ? "대화" : "수정";
+          const statusLabel = message.status
+            ? {
+                queued: "대기",
+                running: "진행 중",
+                done: "완료",
+                failed: "실패",
+                canceled: "취소"
+              }[message.status]
+            : "";
+
+          return `
+            <article class="message message--${message.role}">
+              <div class="message__head">
+                <strong>${escapeHtml(roleLabel)}</strong>
+                <span class="message__badge">${escapeHtml(modeLabel)}</span>
+                ${statusLabel ? `<span class="message__status">${escapeHtml(statusLabel)}</span>` : ""}
+                <span>${escapeHtml(formatTime(message.createdAt) ?? "")}</span>
+              </div>
+              <div class="message__body">${escapeHtml(message.text)}</div>
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+};
+
 const render = () => {
-  const isRunning = serverState.status === "running";
-  const isBusy = isRunning || uiState.isSubmitting;
-  const myQueuePosition = uiState.myQueuedJobId
-    ? serverState.queue.findIndex((item) => item.jobId === uiState.myQueuedJobId) + 1
-    : 0;
+  const isWorking = serverState.status === "running" || serverState.status === "canceling";
+  const isBusy = isWorking || uiState.isSubmitting || uiState.isCanceling;
+  const queuePosition = getTrackedQueuePosition();
+  const heartbeat = [serverState.heartbeatLabel, formatTime(serverState.heartbeatAt)].filter(Boolean).join(" / ");
+  const activeMode = serverState.mode ?? uiState.mode;
+  const statusLabel = getStatusLabel();
+  const canCancel = isWorking || queuePosition > 0;
+  const logs = serverState.activityLog.slice(-20).join("\n");
 
-  const statusClass =
-    serverState.status === "running"
-      ? "status status--running"
-      : serverState.status === "done"
-        ? "status status--done"
-        : serverState.status === "failed"
-          ? "status status--failed"
-          : "";
-
-  const statusLabel =
-    serverState.status === "running"
-      ? serverState.currentStep ?? "작업 중입니다."
-      : serverState.status === "done"
-        ? serverState.currentStep ?? "작업이 완료되었습니다."
-        : serverState.status === "failed"
-          ? serverState.error ?? "오류가 발생했습니다."
-          : "";
-
-  const heartbeat = isRunning
-    ? [serverState.heartbeatLabel, formatHeartbeat(serverState.heartbeatAt)].filter(Boolean).join(" · ")
-    : null;
-
-  const queueList =
-    !myQueuePosition && serverState.queue.length > 0
-      ? `
-        <div class="queue-list">
-          <div class="queue-list__head">
-            <span class="spinner" aria-hidden="true"></span>
-            <span>대기 중 ${serverState.queue.length}건</span>
-          </div>
-          ${serverState.queue
-            .map(
-              (item, index) => `
-                <div class="queue-item">
-                  <span class="queue-item__num">${index + 1}</span>
-                  <span class="queue-item__text">${escapeHtml(item.prompt)}</span>
-                </div>
-              `
-            )
-            .join("")}
-        </div>
-      `
-      : "";
+  const previousActive = shadowRoot.activeElement as HTMLElement | null;
+  const shouldRestoreTextareaFocus = previousActive?.classList.contains("textarea") ?? false;
+  const previousSelection =
+    shouldRestoreTextareaFocus && previousActive instanceof HTMLTextAreaElement
+      ? {
+          start: previousActive.selectionStart,
+          end: previousActive.selectionEnd
+        }
+      : null;
 
   shadowRoot.innerHTML = `
     <style>${styles}</style>
     <div class="aig-root">
       ${uiState.toast ? `<div class="toast toast--${uiState.toast.tone}">${escapeHtml(uiState.toast.message)}</div>` : ""}
       ${uiState.isOpen ? `
-        <div class="panel" role="dialog" aria-label="AI UI 수정">
+        <div class="panel" role="dialog" aria-label="AIG 개발 도구">
           <div class="panel__header">
-            <div class="panel__title">${sparkIcon}<span>AI UI 수정</span></div>
+            <div class="panel__title">${sparkIcon}<span>AIG 개발 도구</span></div>
             <button class="icon-button" type="button" data-action="close" aria-label="닫기">${closeIcon}</button>
           </div>
           <div class="body">
@@ -515,36 +672,61 @@ const render = () => {
               <span class="path__label">현재 페이지</span>
               <code>${escapeHtml(currentPath())}</code>
             </div>
-            ${statusClass && statusLabel ? `<div class="${statusClass}">${isRunning ? '<span class="spinner" aria-hidden="true"></span>' : ""}<span>${escapeHtml(statusLabel)}</span></div>` : ""}
-            ${heartbeat ? `<div class="meta"><span>상태 갱신</span><strong>${escapeHtml(heartbeat)}</strong></div>` : ""}
-            ${isRunning && serverState.prompt ? `<div class="prompt-card"><span class="prompt-card__label">요청 내용</span><div class="prompt-card__text">${escapeHtml(serverState.prompt)}</div></div>` : ""}
-            ${myQueuePosition > 0 ? `<div class="queue"><span class="spinner" aria-hidden="true"></span><span>${myQueuePosition}번째 대기 중</span>${serverState.queue.length > 1 ? `<span class="queue__total">전체 ${serverState.queue.length}건</span>` : ""}</div>` : ""}
-            ${queueList}
-            ${serverState.thinking ? `
-              <div class="thinking">
-                <button class="thinking__toggle" type="button" data-action="toggle-thinking">
-                  <span>${uiState.showThinking ? "▾" : "▸"}</span>
-                  <span>AI 사고 과정</span>
-                  <span class="thinking__badge">thinking</span>
-                </button>
-                ${uiState.showThinking ? `<pre class="thinking__body">${escapeHtml(serverState.thinking)}</pre>` : ""}
+            <div class="mode-switch">
+              <button class="mode-switch__button ${uiState.mode === "chat" ? "mode-switch__button--active" : ""}" type="button" data-action="mode-chat">대화</button>
+              <button class="mode-switch__button ${uiState.mode === "edit" ? "mode-switch__button--active" : ""}" type="button" data-action="mode-edit">수정</button>
+            </div>
+            ${renderMessages()}
+            ${statusLabel ? `
+              <div class="status status--${serverState.status}">
+                ${(serverState.status === "running" || serverState.status === "canceling") ? '<span class="spinner" aria-hidden="true"></span>' : ""}
+                <span>${escapeHtml(statusLabel)}</span>
               </div>
             ` : ""}
-            <form class="form" data-action="submit">
-              <textarea class="textarea" rows="4" placeholder="수정 요청을 입력해 주세요.\n예: 로그인/회원가입 페이지 탭 전환을 부드럽게 만들고, 짧은 fade/slide 애니메이션을 추가해줘." ${isBusy ? "disabled" : ""}></textarea>
-              <div class="footer">
-                <div class="footer__left">
-                  ${serverState.configured ? '<span>Ctrl/Cmd + Enter 전송</span>' : '<span class="footer__warn">서버 설정이 아직 연결되지 않았습니다.</span>'}
-                  ${serverState.configured ? "" : '<span>sidecar와 OpenClaw, 배포 스크립트를 확인해 주세요.</span>'}
+            ${heartbeat ? `<div class="meta"><span>상태 갱신</span><strong>${escapeHtml(heartbeat)}</strong>${serverState.mode ? `<span>현재 작업: ${serverState.mode === "chat" ? "대화" : "수정"}</span>` : ""}${queuePosition > 0 ? `<span>내 요청 대기 순서: ${queuePosition}번째</span>` : ""}</div>` : ""}
+            ${serverState.thinking ? `
+              <div class="details">
+                <button class="details__toggle" type="button" data-action="toggle-thinking">
+                  <span>${uiState.showThinking ? "▾" : "▸"}</span>
+                  <span>실시간 Thinking</span>
+                  <span class="details__badge">thinking</span>
+                </button>
+                ${uiState.showThinking ? `<pre class="details__body">${escapeHtml(serverState.thinking)}</pre>` : ""}
+              </div>
+            ` : ""}
+            ${logs ? `
+              <div class="details">
+                <button class="details__toggle" type="button" data-action="toggle-logs">
+                  <span>${uiState.showLogs ? "▾" : "▸"}</span>
+                  <span>실시간 로그</span>
+                  <span class="details__badge">tail</span>
+                </button>
+                ${uiState.showLogs ? `<pre class="details__body">${escapeHtml(logs)}</pre>` : ""}
+              </div>
+            ` : ""}
+            <form class="composer" data-action="submit">
+              <div>
+                <span class="composer__label">${getComposerTitle()}</span>
+                <textarea class="textarea" rows="4" placeholder="${escapeHtml(getPlaceholder())}" ${isBusy ? "disabled" : ""}></textarea>
+              </div>
+              <div class="composer__footer">
+                <div class="composer__hint">
+                  <strong>${activeMode === "chat" ? "설명/질문" : "실제 수정"}</strong>
+                  <span>${serverState.configured ? "Ctrl/Cmd + Enter로 바로 전송" : "서버 설정이 아직 연결되지 않았습니다."}</span>
                 </div>
-                <button class="submit" type="submit" ${!serverState.configured || isBusy || !uiState.prompt.trim() ? "disabled" : ""}>${isBusy ? "작업 중..." : "수정 요청"}</button>
+                <div class="actions">
+                  ${canCancel ? `<button class="button button--danger" type="button" data-action="cancel" ${uiState.isCanceling ? "disabled" : ""}>취소</button>` : ""}
+                  <button class="button button--primary" type="submit" ${!serverState.configured || isBusy || !uiState.prompt.trim() ? "disabled" : ""}>
+                    ${uiState.isSubmitting ? "전송 중..." : uiState.mode === "chat" ? "보내기" : "요청하기"}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
         </div>
       ` : ""}
-      <button class="trigger ${isRunning ? "trigger--busy" : ""}" type="button" data-action="toggle" aria-label="${uiState.isOpen ? "AI 수정 닫기" : "AI 수정 열기"}" title="AI로 현재 화면 수정">
-        ${isRunning ? '<span class="spinner" aria-hidden="true"></span>' : sparkIcon}
+      <button class="trigger ${isWorking ? "trigger--busy" : ""}" type="button" data-action="toggle" aria-label="${uiState.isOpen ? "AIG 개발 도구 닫기" : "AIG 개발 도구 열기"}" title="현재 화면에 대해 질문하거나 수정 요청">
+        ${isWorking ? '<span class="spinner" aria-hidden="true"></span>' : sparkIcon}
       </button>
     </div>
   `;
@@ -552,6 +734,12 @@ const render = () => {
   const promptField = shadowRoot.querySelector<HTMLTextAreaElement>(".textarea");
   if (promptField) {
     promptField.value = uiState.prompt;
+    if (shouldRestoreTextareaFocus) {
+      promptField.focus({ preventScroll: true });
+      if (previousSelection) {
+        promptField.setSelectionRange(previousSelection.start, previousSelection.end);
+      }
+    }
   }
 
   shadowRoot.querySelector<HTMLElement>("[data-action='toggle']")?.addEventListener("click", () => {
@@ -564,9 +752,22 @@ const render = () => {
     render();
   });
 
+  shadowRoot.querySelector<HTMLElement>("[data-action='mode-chat']")?.addEventListener("click", () => {
+    uiState.mode = "chat";
+    render();
+  });
+
+  shadowRoot.querySelector<HTMLElement>("[data-action='mode-edit']")?.addEventListener("click", () => {
+    uiState.mode = "edit";
+    render();
+  });
+
   promptField?.addEventListener("input", (event) => {
     uiState.prompt = (event.target as HTMLTextAreaElement).value;
-    render();
+    const submit = shadowRoot.querySelector<HTMLButtonElement>(".button--primary");
+    if (submit) {
+      submit.disabled = !serverState.configured || isBusy || !uiState.prompt.trim();
+    }
   });
 
   promptField?.addEventListener("keydown", (event) => {
@@ -581,10 +782,43 @@ const render = () => {
     render();
   });
 
+  shadowRoot.querySelector<HTMLElement>("[data-action='toggle-logs']")?.addEventListener("click", () => {
+    uiState.showLogs = !uiState.showLogs;
+    render();
+  });
+
+  shadowRoot.querySelector<HTMLElement>("[data-action='cancel']")?.addEventListener("click", async () => {
+    if (uiState.isCanceling) {
+      return;
+    }
+
+    uiState.isCanceling = true;
+    render();
+
+    try {
+      const next = await fetchJson<AiEditState>(runtimePath("/api/cancel"), {
+        method: "POST",
+        body: JSON.stringify({
+          jobId:
+            (serverState.jobId && uiState.lastSubmittedJobId === serverState.jobId ? serverState.jobId : null) ??
+            uiState.lastSubmittedJobId ??
+            undefined
+        })
+      });
+      serverState = next;
+      showToast("취소 요청을 보냈습니다.", "info");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "취소 요청을 처리하지 못했습니다.", "error");
+    } finally {
+      uiState.isCanceling = false;
+      render();
+    }
+  });
+
   shadowRoot.querySelector<HTMLFormElement>("[data-action='submit']")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const trimmed = uiState.prompt.trim();
-    if (!trimmed || uiState.isSubmitting || isRunning) {
+    if (!trimmed || uiState.isSubmitting || isWorking) {
       return;
     }
 
@@ -596,24 +830,24 @@ const render = () => {
         method: "POST",
         body: JSON.stringify({
           prompt: trimmed,
-          targetPath: currentPath()
+          targetPath: currentPath(),
+          mode: uiState.mode
         })
       });
 
       serverState = next;
       uiState.prompt = "";
-      uiState.showThinking = false;
 
       const lastQueued = next.queue[next.queue.length - 1];
+      uiState.lastSubmittedJobId = lastQueued?.jobId ?? next.jobId ?? null;
+
       if (lastQueued) {
-        uiState.myQueuedJobId = lastQueued.jobId;
-        showToast(`대기열에 추가되었습니다. (${next.queue.length}번째)`, "info");
+        showToast(`대기열에 추가했습니다. (${next.queue.length}번째)`, "info");
       } else {
-        uiState.myQueuedJobId = null;
-        showToast("AI 수정 작업을 시작했습니다.", "info");
+        showToast(uiState.mode === "chat" ? "질문을 보냈습니다." : "수정 요청을 시작했습니다.", "info");
       }
     } catch (error) {
-      showToast(error instanceof Error ? error.message : "AI 수정 작업을 시작하지 못했습니다.", "error");
+      showToast(error instanceof Error ? error.message : "요청을 시작하지 못했습니다.", "error");
     } finally {
       uiState.isSubmitting = false;
       render();
