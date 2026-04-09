@@ -25,6 +25,7 @@ const config = {
   model: process.env.AIG_AI_EDIT_MODEL || "openai-codex/gpt-5.4",
   thinking: process.env.AIG_AI_EDIT_THINKING || "medium",
   agentTimeoutSeconds: Number(process.env.AIG_AI_EDIT_TIMEOUT || "900"),
+  buildTimeoutMs: Number(process.env.AIG_AI_EDIT_BUILD_TIMEOUT_MS || "900000"),
   agentId: "ai-edit"
 };
 
@@ -265,6 +266,7 @@ async function runAgent(agentId, jobId, jobTargetPath) {
     routeFocus,
     "Do not scan or refactor the whole repository.",
     "Implement the requested UI change completely in this workspace.",
+    "Run a production build in this workspace and fix any issues until it passes.",
     "Keep behavior intact, then review the modified files for obvious issues.",
     "Respond in 2 or 3 lines summarizing the actual changes you made."
   ].join(" ");
@@ -351,6 +353,20 @@ function parseAgentResult(stdout) {
   }
 }
 
+async function buildWorkspace() {
+  return runAsOpenClawInDir(
+    config.workspaceDir,
+    [
+      "env",
+      "NEXT_TELEMETRY_DISABLED=1",
+      "/usr/bin/node",
+      "./node_modules/next/dist/bin/next",
+      "build"
+    ],
+    { timeoutMs: config.buildTimeoutMs }
+  );
+}
+
 async function syncToAppDir() {
   await runCommand(flockBin, [
     "-x",
@@ -431,6 +447,14 @@ async function processJob(jobId, jobPrompt, jobTargetPath) {
   if (failure) {
     throw new Error(failure);
   }
+
+  await withHeartbeat(
+    {
+      step: "에이전트 결과를 워크스페이스에서 빌드 검증하고 있습니다.",
+      label: "Build"
+    },
+    () => buildWorkspace()
+  );
 
   await withHeartbeat(
     {
