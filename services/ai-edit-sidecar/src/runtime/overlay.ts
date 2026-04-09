@@ -529,6 +529,9 @@ const getStatusLabel = () => {
   if (serverState.status === "running" || serverState.status === "canceling") {
     return serverState.currentStep ?? "작업을 진행하고 있습니다.";
   }
+  if (serverState.status === "done" && serverState.mode === "chat") {
+    return "답변을 남겼습니다. 아래 대화 내용을 확인하세요.";
+  }
   if (serverState.status === "done") {
     return serverState.currentStep ?? "작업을 완료했습니다.";
   }
@@ -644,8 +647,10 @@ const render = () => {
   const heartbeat = [serverState.heartbeatLabel, formatTime(serverState.heartbeatAt)].filter(Boolean).join(" / ");
   const activeMode = serverState.mode ?? uiState.mode;
   const statusLabel = getStatusLabel();
+  const showStatusCard = Boolean(statusLabel) && !(serverState.status === "done" && serverState.mode === "chat");
   const canCancel = isWorking || queuePosition > 0;
   const logs = serverState.activityLog.slice(-20).join("\n");
+  const modeMetaLabel = isWorking ? "현재 작업" : serverState.mode ? "최근 작업" : "";
 
   const previousActive = shadowRoot.activeElement as HTMLElement | null;
   const shouldRestoreTextareaFocus = previousActive?.classList.contains("textarea") ?? false;
@@ -677,13 +682,13 @@ const render = () => {
               <button class="mode-switch__button ${uiState.mode === "edit" ? "mode-switch__button--active" : ""}" type="button" data-action="mode-edit">수정</button>
             </div>
             ${renderMessages()}
-            ${statusLabel ? `
+            ${showStatusCard ? `
               <div class="status status--${serverState.status}">
                 ${(serverState.status === "running" || serverState.status === "canceling") ? '<span class="spinner" aria-hidden="true"></span>' : ""}
                 <span>${escapeHtml(statusLabel)}</span>
               </div>
             ` : ""}
-            ${heartbeat ? `<div class="meta"><span>상태 갱신</span><strong>${escapeHtml(heartbeat)}</strong>${serverState.mode ? `<span>현재 작업: ${serverState.mode === "chat" ? "대화" : "수정"}</span>` : ""}${queuePosition > 0 ? `<span>내 요청 대기 순서: ${queuePosition}번째</span>` : ""}</div>` : ""}
+            ${(heartbeat || modeMetaLabel || queuePosition > 0) ? `<div class="meta">${heartbeat ? `<span>상태 갱신</span><strong>${escapeHtml(heartbeat)}</strong>` : ""}${modeMetaLabel ? `<span>${modeMetaLabel}: ${serverState.mode === "chat" ? "대화" : "수정"}</span>` : ""}${queuePosition > 0 ? `<span>내 요청 대기 순서: ${queuePosition}번째</span>` : ""}</div>` : ""}
             ${serverState.thinking ? `
               <div class="details">
                 <button class="details__toggle" type="button" data-action="toggle-thinking">
