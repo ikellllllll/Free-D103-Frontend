@@ -3,6 +3,8 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 
 const isLinux = process.platform === "linux";
+const distDir = path.resolve(__dirname, "..");
+const serviceRoot = path.resolve(distDir, "..");
 
 const normalizeBasePath = (value: string | undefined, fallback: string) => {
   const trimmed = (value ?? fallback).trim();
@@ -53,8 +55,8 @@ export const aiEditConfig = {
   host: process.env.AIG_AI_EDIT_SIDECAR_HOST ?? "127.0.0.1",
   runtimeBasePath: normalizeBasePath(process.env.AIG_AI_EDIT_RUNTIME_BASE_PATH, "/_aig"),
   runtimeAliasPath: normalizeBasePath(process.env.AIG_AI_EDIT_RUNTIME_ALIAS_PATH, "/runtime"),
-  workerScript: path.join(process.cwd(), "dist", "worker", "runner.cjs"),
-  staticDir: path.join(process.cwd(), "dist", "public")
+  workerScript: process.env.AIG_AI_EDIT_WORKER_SCRIPT ?? path.join(serviceRoot, "dist", "worker", "runner.cjs"),
+  staticDir: process.env.AIG_AI_EDIT_STATIC_DIR ?? path.join(serviceRoot, "dist", "public")
 };
 
 export function pathExists(targetPath: string) {
