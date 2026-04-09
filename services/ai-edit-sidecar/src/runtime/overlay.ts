@@ -200,10 +200,11 @@ const styles = `
     min-height: 220px;
     max-height: 320px;
     overflow-y: auto;
-    padding: 10px;
+    padding: 14px;
     display: grid;
-    gap: 10px;
+    gap: 12px;
     align-content: start;
+    align-items: start;
   }
   .messages--empty {
     display: grid;
@@ -213,6 +214,17 @@ const styles = `
     text-align: center;
     padding: 18px;
   }
+  .message-row {
+    display: flex;
+    width: 100%;
+  }
+  .message-row--user {
+    justify-content: flex-end;
+  }
+  .message-row--assistant,
+  .message-row--system {
+    justify-content: flex-start;
+  }
   .message {
     display: grid;
     gap: 6px;
@@ -220,33 +232,39 @@ const styles = `
     border-radius: 14px;
     border: 1px solid rgba(255, 255, 255, 0.06);
     background: rgba(255, 255, 255, 0.02);
+    width: fit-content;
+    max-width: min(84%, 320px);
   }
   .message--user {
     background: rgba(84, 111, 255, 0.12);
     border-color: rgba(84, 111, 255, 0.2);
+    border-bottom-right-radius: 6px;
   }
   .message--assistant {
     background: rgba(70, 194, 139, 0.08);
     border-color: rgba(70, 194, 139, 0.16);
+    border-bottom-left-radius: 6px;
   }
   .message--system {
     background: rgba(255, 191, 84, 0.08);
     border-color: rgba(255, 191, 84, 0.16);
+    border-bottom-left-radius: 6px;
+  }
+  .message--pending {
+    border-style: dashed;
+    background: rgba(255, 255, 255, 0.04);
   }
   .message__head {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    flex-wrap: wrap;
     font-size: 0.75rem;
     color: #9aa8ca;
   }
-  .message__badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 3px 7px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.07);
-    color: #dbe4ff;
+  .message__name {
+    font-weight: 700;
+    color: #eef3ff;
   }
   .message__status {
     display: inline-flex;
@@ -256,11 +274,24 @@ const styles = `
     background: rgba(255, 255, 255, 0.05);
     color: #afbddf;
   }
+  .message__time {
+    margin-left: auto;
+  }
   .message__body {
     white-space: pre-wrap;
     font-size: 0.84rem;
     line-height: 1.62;
     word-break: break-word;
+  }
+  .message__body--typing {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .message__sub {
+    color: #8b97b5;
+    font-size: 0.75rem;
+    line-height: 1.45;
   }
   .status {
     display: flex;
@@ -602,9 +633,17 @@ const syncState = async (withOutcomeToast = false) => {
 
 const renderMessages = () => {
   const messages = serverState.messages.slice(-12);
-  if (messages.length === 0) {
+  const showPendingChatBubble =
+    serverState.mode === "chat" && (serverState.status === "running" || serverState.status === "canceling");
+
+  if (messages.length === 0 && !showPendingChatBubble) {
     return `<div class="messages messages--empty">이 페이지에 대해 질문하거나, 수정 요청을 보내면 여기 대화가 쌓입니다.</div>`;
   }
+
+  const pendingStatusLabel =
+    serverState.status === "canceling" ? "취소 중" : serverState.status === "running" ? "답변 작성 중" : "";
+  const pendingTime = formatTime(serverState.heartbeatAt) ?? formatTime(serverState.startedAt) ?? "";
+  const pendingSub = [serverState.heartbeatLabel, pendingTime].filter(Boolean).join(" / ");
 
   return `
     <div class="messages">
@@ -612,7 +651,6 @@ const renderMessages = () => {
         .map((message) => {
           const roleLabel =
             message.role === "assistant" ? "AIG" : message.role === "system" ? "시스템" : "나";
-          const modeLabel = message.mode === "chat" ? "대화" : "수정";
           const statusLabel = message.status
             ? {
                 queued: "대기",
@@ -624,18 +662,39 @@ const renderMessages = () => {
             : "";
 
           return `
-            <article class="message message--${message.role}">
-              <div class="message__head">
-                <strong>${escapeHtml(roleLabel)}</strong>
-                <span class="message__badge">${escapeHtml(modeLabel)}</span>
-                ${statusLabel ? `<span class="message__status">${escapeHtml(statusLabel)}</span>` : ""}
-                <span>${escapeHtml(formatTime(message.createdAt) ?? "")}</span>
-              </div>
-              <div class="message__body">${escapeHtml(message.text)}</div>
-            </article>
+            <div class="message-row message-row--${message.role}">
+              <article class="message message--${message.role}">
+                <div class="message__head">
+                  <span class="message__name">${escapeHtml(roleLabel)}</span>
+                  ${statusLabel && statusLabel !== "완료" ? `<span class="message__status">${escapeHtml(statusLabel)}</span>` : ""}
+                  <span class="message__time">${escapeHtml(formatTime(message.createdAt) ?? "")}</span>
+                </div>
+                <div class="message__body">${escapeHtml(message.text)}</div>
+              </article>
+            </div>
           `;
         })
         .join("")}
+      ${
+        showPendingChatBubble
+          ? `
+            <div class="message-row message-row--assistant">
+              <article class="message message--assistant message--pending">
+                <div class="message__head">
+                  <span class="message__name">AIG</span>
+                  ${pendingStatusLabel ? `<span class="message__status">${escapeHtml(pendingStatusLabel)}</span>` : ""}
+                  ${pendingTime ? `<span class="message__time">${escapeHtml(pendingTime)}</span>` : ""}
+                </div>
+                <div class="message__body message__body--typing">
+                  <span class="spinner" aria-hidden="true"></span>
+                  <span>${escapeHtml(serverState.currentStep ?? "응답을 준비하는 중입니다.")}</span>
+                </div>
+                ${pendingSub ? `<div class="message__sub">${escapeHtml(pendingSub)}</div>` : ""}
+              </article>
+            </div>
+          `
+          : ""
+      }
     </div>
   `;
 };
@@ -646,11 +705,13 @@ const render = () => {
   const queuePosition = getTrackedQueuePosition();
   const heartbeat = [serverState.heartbeatLabel, formatTime(serverState.heartbeatAt)].filter(Boolean).join(" / ");
   const activeMode = serverState.mode ?? uiState.mode;
+  const isChatView = activeMode === "chat";
   const statusLabel = getStatusLabel();
-  const showStatusCard = Boolean(statusLabel) && !(serverState.status === "done" && serverState.mode === "chat");
+  const showStatusCard = Boolean(statusLabel) && !isChatView;
   const canCancel = isWorking || queuePosition > 0;
   const logs = serverState.activityLog.slice(-20).join("\n");
   const modeMetaLabel = isWorking ? "현재 작업" : serverState.mode ? "최근 작업" : "";
+  const showMetaCard = !isChatView && Boolean(heartbeat || modeMetaLabel || queuePosition > 0);
 
   const previousActive = shadowRoot.activeElement as HTMLElement | null;
   const shouldRestoreTextareaFocus = previousActive?.classList.contains("textarea") ?? false;
@@ -688,7 +749,7 @@ const render = () => {
                 <span>${escapeHtml(statusLabel)}</span>
               </div>
             ` : ""}
-            ${(heartbeat || modeMetaLabel || queuePosition > 0) ? `<div class="meta">${heartbeat ? `<span>상태 갱신</span><strong>${escapeHtml(heartbeat)}</strong>` : ""}${modeMetaLabel ? `<span>${modeMetaLabel}: ${serverState.mode === "chat" ? "대화" : "수정"}</span>` : ""}${queuePosition > 0 ? `<span>내 요청 대기 순서: ${queuePosition}번째</span>` : ""}</div>` : ""}
+            ${showMetaCard ? `<div class="meta">${heartbeat ? `<span>상태 갱신</span><strong>${escapeHtml(heartbeat)}</strong>` : ""}${modeMetaLabel ? `<span>${modeMetaLabel}: ${serverState.mode === "chat" ? "대화" : "수정"}</span>` : ""}${queuePosition > 0 ? `<span>내 요청 대기 순서: ${queuePosition}번째</span>` : ""}</div>` : ""}
             ${serverState.thinking ? `
               <div class="details">
                 <button class="details__toggle" type="button" data-action="toggle-thinking">
@@ -737,6 +798,7 @@ const render = () => {
   `;
 
   const promptField = shadowRoot.querySelector<HTMLTextAreaElement>(".textarea");
+  const messagesPanel = shadowRoot.querySelector<HTMLElement>(".messages");
   if (promptField) {
     promptField.value = uiState.prompt;
     if (shouldRestoreTextareaFocus) {
@@ -745,6 +807,9 @@ const render = () => {
         promptField.setSelectionRange(previousSelection.start, previousSelection.end);
       }
     }
+  }
+  if (messagesPanel) {
+    messagesPanel.scrollTop = messagesPanel.scrollHeight;
   }
 
   shadowRoot.querySelector<HTMLElement>("[data-action='toggle']")?.addEventListener("click", () => {
