@@ -1,10 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { AuthHero } from "@/components/auth/AuthHero";
+import { AuthShell } from "@/components/auth/AuthShell";
 import { mockApi } from "@/lib/api/mockApi";
 import { useAuthStore } from "@/store/authStore";
 import { useUiStore } from "@/store/uiStore";
@@ -32,64 +31,48 @@ export default function LoginPage() {
   };
 
   return (
-    <>
-      <AuthHero
-        title="백엔드 과제 풀이를 위한 공용 작업 공간"
-        description="과제 요구사항 확인, IDE 작업, 제출 기록, 리포트 검토를 한 흐름으로 묶은 AIG 작업 공간입니다."
-      />
+    <AuthShell
+      mode="login"
+      heroTitle="과제 풀이를 바로 이어갈 수 있는 작업 공간"
+      heroDescription="과제 요구사항 확인, IDE 작업, 제출 기록, 피드백 리포트까지 한 흐름으로 이어지는 AIG 워크스페이스입니다."
+      sectionLabel="작업 시작"
+      heading="기존 세션 이어서 시작"
+      description="이전 실습 기록과 제출 흐름을 이어서 확인할 수 있습니다."
+      footerText="아직 계정이 없나요?"
+      footerHref="/signup"
+      footerAction="회원가입"
+    >
+      <button className="button social-button" type="button">
+        GitHub 계정으로 계속
+      </button>
 
-      <section className="auth-form-panel">
-        <div className="auth-form-panel__tabs">
-          <span className="auth-form-panel__tab auth-form-panel__tab--active">로그인</span>
-          <Link href="/signup" className="auth-form-panel__tab">
-            회원가입
-          </Link>
-        </div>
+      <div className="divider">
+        <span>또는 이메일로 로그인</span>
+      </div>
 
-        <div className="stack-24">
-          <div>
-            <span className="eyebrow">작업 시작</span>
-            <h1>기존 세션 이어서 시작</h1>
-            <p className="muted-copy">이전 실습 기록과 제출 흐름을 이어서 확인합니다.</p>
-          </div>
+      <div className="stack-16">
+        <label className="field">
+          <span>이메일</span>
+          <input className="input" value={email} onChange={(event) => setEmail(event.target.value)} />
+        </label>
 
-          <button className="button social-button" type="button">
-            GitHub 계정으로 계속
-          </button>
+        <label className="field">
+          <span>비밀번호</span>
+          <input
+            className="input"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+        </label>
+      </div>
 
-          <div className="divider">
-            <span>또는 이메일로 로그인</span>
-          </div>
-
-          <div className="stack-16">
-            <label className="field">
-              <span>이메일</span>
-              <input className="input" value={email} onChange={(event) => setEmail(event.target.value)} />
-            </label>
-
-            <label className="field">
-              <span>비밀번호</span>
-              <input
-                className="input"
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-              />
-            </label>
-          </div>
-
-          <div className="form-row">
-            <span className="text-link">비밀번호 찾기</span>
-            <button className="button button--primary" onClick={handleLogin} disabled={loading}>
-              {loading ? "로그인 중..." : "로그인"}
-            </button>
-          </div>
-        </div>
-
-        <p className="auth-form-panel__foot">
-          아직 계정이 없나요? <Link href="/signup">회원가입</Link>
-        </p>
-      </section>
-    </>
+      <div className="form-row">
+        <span className="text-link">비밀번호 찾기</span>
+        <button className="button button--primary" onClick={handleLogin} disabled={loading}>
+          {loading ? "로그인 중..." : "로그인"}
+        </button>
+      </div>
+    </AuthShell>
   );
 }

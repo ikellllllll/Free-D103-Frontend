@@ -253,6 +253,10 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var
   display: grid;
   place-items: center;
   padding: 28px;
+  background:
+    radial-gradient(circle at top left, rgba(217, 119, 87, 0.08), transparent 32%),
+    radial-gradient(circle at bottom right, rgba(59, 124, 255, 0.08), transparent 28%),
+    var(--bg);
 }
 
 .auth-page__tools {
@@ -283,6 +287,8 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var
   padding: 48px;
   background: var(--auth-hero-bg);
   border-right: 1px solid var(--line);
+  view-transition-name: auth-hero;
+  animation: auth-fade-up 380ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .auth-hero__top { display: grid; gap: 8px; }
@@ -337,9 +343,13 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var
   justify-content: space-between;
   gap: 28px;
   padding: 40px 36px 36px;
+  position: relative;
+  view-transition-name: auth-panel;
+  animation: auth-fade-up 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .auth-form-panel__tabs {
+  position: relative;
   display: inline-grid;
   grid-template-columns: 1fr 1fr;
   gap: 4px;
@@ -347,9 +357,30 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var
   border-radius: 6px;
   border: 1px solid var(--line);
   background: var(--subtle-bg);
+  isolation: isolate;
+}
+
+.auth-form-panel__tab-indicator {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  border-radius: 4px;
+  background: var(--panel-strong);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  transform: translateX(0);
+  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 0;
+}
+
+.auth-form-panel__tabs[data-auth-mode="signup"] .auth-form-panel__tab-indicator {
+  transform: translateX(calc(100% + 4px));
 }
 
 .auth-form-panel__tab {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   justify-content: center;
   padding: 8px 12px;
@@ -357,11 +388,28 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var
   color: var(--muted);
   font-weight: 600;
   font-size: 0.88rem;
+  transition: color var(--transition-fast), transform var(--transition-fast);
+}
+
+.auth-form-panel__tab:hover {
+  color: var(--text);
 }
 
 .auth-form-panel__tab--active {
-  background: var(--panel-strong);
   color: var(--text);
+}
+
+.auth-form-panel__content {
+  animation: auth-panel-content-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.auth-form-panel[data-auth-mode="signup"] .auth-form-panel__content {
+  animation-name: auth-panel-content-in-reverse;
+}
+
+.auth-form-panel__intro {
+  display: grid;
+  gap: 10px;
 }
 
 .auth-form-panel__foot {
@@ -371,6 +419,59 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var
 }
 
 .auth-form-panel__foot a { color: var(--accent); }
+
+@keyframes auth-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes auth-panel-content-in {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes auth-panel-content-in-reverse {
+  from {
+    opacity: 0;
+    transform: translateX(-18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+::view-transition-old(auth-panel),
+::view-transition-new(auth-panel),
+::view-transition-old(auth-hero),
+::view-transition-new(auth-hero) {
+  animation-duration: 220ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-hero,
+  .auth-form-panel,
+  .auth-form-panel__content {
+    animation: none;
+  }
+
+  .auth-form-panel__tab-indicator {
+    transition: none;
+  }
+}
 
 /* ─── Stacks ─────────────────────────────────────────────────── */
 .stack-24 { display: grid; gap: 24px; }
@@ -2379,6 +2480,24 @@ html[data-theme="light"] .toast { background: var(--panel-strong); }
   color: var(--red);
   background: rgba(248, 81, 73, 0.08);
   border-bottom-color: rgba(248, 81, 73, 0.2);
+}
+
+.ai-edit-float__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--subtle-bg);
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-family: var(--font-mono);
+}
+
+.ai-edit-float__meta strong {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .ai-edit-float__queue {

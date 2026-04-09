@@ -1,10 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { AuthHero } from "@/components/auth/AuthHero";
+import { AuthShell } from "@/components/auth/AuthShell";
 import { mockApi } from "@/lib/api/mockApi";
 import { useAuthStore } from "@/store/authStore";
 import { useUiStore } from "@/store/uiStore";
@@ -39,65 +38,52 @@ export default function SignupPage() {
   };
 
   return (
-    <>
-      <AuthHero
-        title="실습 기록이 남는 개발 워크스페이스"
-        description="세션, Trace, 제출 리포트를 계정 단위로 이어서 확인할 수 있는 AIG 작업 공간입니다."
-      />
+    <AuthShell
+      mode="signup"
+      heroTitle="풀이 기록이 쌓이는 개인 워크스페이스"
+      heroDescription="세션, Trace, 제출 리포트를 계정 단위로 이어서 확인할 수 있는 AIG 작업 공간입니다."
+      sectionLabel="계정 생성"
+      heading="새 작업 계정 만들기"
+      description="실습 기록, 세션 상태, 제출 리포트를 관리할 계정을 생성합니다."
+      footerText="이미 계정이 있나요?"
+      footerHref="/login"
+      footerAction="로그인"
+    >
+      <div className="stack-16">
+        <label className="field">
+          <span>이름</span>
+          <input className="input" value={name} onChange={(event) => setName(event.target.value)} />
+        </label>
 
-      <section className="auth-form-panel">
-        <div className="auth-form-panel__tabs">
-          <Link href="/login" className="auth-form-panel__tab">
-            로그인
-          </Link>
-          <span className="auth-form-panel__tab auth-form-panel__tab--active">회원가입</span>
-        </div>
+        <label className="field">
+          <span>이메일</span>
+          <input className="input" value={email} onChange={(event) => setEmail(event.target.value)} />
+        </label>
 
-        <div className="stack-24">
-          <div>
-            <span className="eyebrow">계정 생성</span>
-            <h1>새 작업 계정 만들기</h1>
-            <p className="muted-copy">실습 기록, 세션 상태, 제출 리포트를 저장할 계정을 생성합니다.</p>
-          </div>
+        <label className="field">
+          <span>비밀번호</span>
+          <input
+            className="input"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+        </label>
 
-          <div className="stack-16">
-            <label className="field">
-              <span>이름</span>
-              <input className="input" value={name} onChange={(event) => setName(event.target.value)} />
-            </label>
-            <label className="field">
-              <span>이메일</span>
-              <input className="input" value={email} onChange={(event) => setEmail(event.target.value)} />
-            </label>
-            <label className="field">
-              <span>비밀번호</span>
-              <input
-                className="input"
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-              />
-            </label>
-            <label className="field">
-              <span>비밀번호 확인</span>
-              <input
-                className="input"
-                type="password"
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-              />
-            </label>
-          </div>
+        <label className="field">
+          <span>비밀번호 확인</span>
+          <input
+            className="input"
+            type="password"
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+          />
+        </label>
+      </div>
 
-          <button className="button button--primary" onClick={handleSignup} disabled={loading}>
-            {loading ? "생성 중..." : "계정 만들기"}
-          </button>
-        </div>
-
-        <p className="auth-form-panel__foot">
-          이미 계정이 있나요? <Link href="/login">로그인</Link>
-        </p>
-      </section>
-    </>
+      <button className="button button--primary" onClick={handleSignup} disabled={loading}>
+        {loading ? "생성 중..." : "계정 만들기"}
+      </button>
+    </AuthShell>
   );
 }

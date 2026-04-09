@@ -1,9 +1,9 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 
 import type { AiEditQueueItem, AiEditStartInput, AiEditState } from "@/lib/ai-edit/types";
@@ -29,13 +29,13 @@ export const aiEditConfig = {
   restartFrontendScript: process.env.AIG_WORKSHOP_RESTART_SCRIPT ?? "/home/studio/deploy/restart-frontend.sh",
   workspaceDir: process.env.AIG_AI_EDIT_WORKSPACE ?? "/home/openclaw-studio/ai-edit-workspace",
   model: process.env.AIG_AI_EDIT_MODEL ?? "openai-codex/gpt-5.4",
-  thinking: process.env.AIG_AI_EDIT_THINKING ?? "high",
-  agentTimeoutSeconds: Number(process.env.AIG_AI_EDIT_TIMEOUT ?? "600"),
+  thinking: process.env.AIG_AI_EDIT_THINKING ?? "medium",
+  agentTimeoutSeconds: Number(process.env.AIG_AI_EDIT_TIMEOUT ?? "900"),
   stateDir: defaultStateDir(),
   stateFile: path.join(defaultStateDir(), "state.json"),
-  // 교차 충돌 방지용 — workshop 상태 파일 위치
-  workshopStateFile: process.env.AIG_WORKSHOP_STATE_FILE
-    ?? (isLinux && existsSync("/home/studio/logs")
+  workshopStateFile:
+    process.env.AIG_WORKSHOP_STATE_FILE ??
+    (isLinux && existsSync("/home/studio/logs")
       ? "/home/studio/logs/preview-workshop/state.json"
       : path.join(process.cwd(), ".workshop-runtime", "state.json"))
 };
@@ -49,10 +49,7 @@ function pathExists(targetPath: string) {
 }
 
 export function isAiEditConfigured() {
-  return (
-    pathExists(aiEditConfig.openClawBin) &&
-    pathExists(aiEditConfig.restartFrontendScript)
-  );
+  return pathExists(aiEditConfig.openClawBin) && pathExists(aiEditConfig.restartFrontendScript);
 }
 
 const createInitialState = (): AiEditState => ({
@@ -63,6 +60,8 @@ const createInitialState = (): AiEditState => ({
   prompt: "",
   targetPath: "",
   currentStep: null,
+  heartbeatAt: null,
+  heartbeatLabel: null,
   thinking: null,
   error: null,
   startedAt: null,
@@ -92,7 +91,7 @@ export async function writeAiEditState(next: AiEditState) {
   return payload;
 }
 
-function spawnRunner(jobId: string, prompt: string, targetPath: string): number | null {
+function spawnRunner(jobId: string, prompt: string, targetPath: string) {
   const workerPath = path.join(process.cwd(), "scripts", "ai-edit-runner.js");
   const child = spawn(process.execPath, [workerPath], {
     detached: true,
@@ -109,69 +108,10 @@ function spawnRunner(jobId: string, prompt: string, targetPath: string): number 
   return child.pid ?? null;
 }
 
-export async function readAiEditState(): Promise<AiEditState> {
-  await ensureStateDir();
-
-  if (!existsSync(aiEditConfig.stateFile)) {
-    return writeAiEditState(createInitialState());
-  }
-
-  const raw = JSON.parse(await readFile(aiEditConfig.stateFile, "utf8")) as AiEditState;
-
-  // queue 필드 없는 구 버전 상태 파일 호환
-  if (!Array.isArray(raw.queue)) raw.queue = [];
-
-  if (raw.status === "running" && raw.pid && !isPidAlive(raw.pid)) {
-    // runner가 죽었으면 실패 처리
-    return writeAiEditState({
-      ...raw,
-      status: "failed",
-      pid: null,
-      currentStep: null,
-      error: "작업이 비정상 종료되었습니다.",
-      queue: raw.queue
-    });
-  }
-
-  // idle 상태인데 큐에 작업이 있으면 (워크숍 종료 후 방치된 경우) 자동으로 러너 시작
-  if (
-    (raw.status === "idle" || raw.status === "done" || raw.status === "failed") &&
-    raw.queue.length > 0 &&
-    !(await isWorkshopBusy())
-  ) {
-    const [next, ...remaining] = raw.queue;
-    const started: AiEditState = {
-      ...raw,
-      configured: isAiEditConfigured(),
-      status: "running",
-      jobId: next.jobId,
-      pid: null,
-      prompt: next.prompt,
-      targetPath: next.targetPath,
-      currentStep: "대기 중이던 작업을 시작합니다.",
-      thinking: null,
-      error: null,
-      startedAt: new Date().toISOString(),
-      completedAt: null,
-      queue: remaining
-    };
-    await writeAiEditState(started);
-    const pid = spawnRunner(next.jobId, next.prompt, next.targetPath);
-    return writeAiEditState({ ...started, pid });
-  }
-
-  const configured = isAiEditConfigured();
-  if (raw.configured !== configured) {
-    return writeAiEditState({ ...raw, configured });
-  }
-
-  return raw;
-}
-
-// workshop 상태 파일을 직접 읽어 실행 중인지 확인 (순환 import 방지)
-async function isWorkshopBusy(): Promise<boolean> {
+async function isWorkshopBusy() {
   try {
     if (!existsSync(aiEditConfig.workshopStateFile)) return false;
+
     const raw = JSON.parse(await readFile(aiEditConfig.workshopStateFile, "utf8"));
     const busy = raw?.status === "running" || raw?.status === "promoting";
     return busy && isPidAlive(raw?.currentPid ?? null);
@@ -180,16 +120,84 @@ async function isWorkshopBusy(): Promise<boolean> {
   }
 }
 
+export async function readAiEditState(): Promise<AiEditState> {
+  await ensureStateDir();
+
+  if (!existsSync(aiEditConfig.stateFile)) {
+    return writeAiEditState(createInitialState());
+  }
+
+  const raw = JSON.parse(await readFile(aiEditConfig.stateFile, "utf8")) as Partial<AiEditState>;
+  const state: AiEditState = {
+    ...createInitialState(),
+    ...raw,
+    queue: Array.isArray(raw.queue) ? raw.queue : []
+  };
+
+  if (state.status === "running" && state.pid && !isPidAlive(state.pid)) {
+    return writeAiEditState({
+      ...state,
+      status: "failed",
+      pid: null,
+      currentStep: null,
+      heartbeatAt: null,
+      heartbeatLabel: null,
+      error: "AI 수정 작업이 비정상 종료되었습니다."
+    });
+  }
+
+  if (
+    (state.status === "idle" || state.status === "done" || state.status === "failed") &&
+    state.queue.length > 0 &&
+    !(await isWorkshopBusy())
+  ) {
+    const [next, ...remaining] = state.queue;
+    const started: AiEditState = {
+      ...state,
+      configured: isAiEditConfigured(),
+      status: "running",
+      jobId: next.jobId,
+      pid: null,
+      prompt: next.prompt,
+      targetPath: next.targetPath,
+      currentStep: "대기 중이던 AI 수정 작업을 시작합니다.",
+      heartbeatAt: null,
+      heartbeatLabel: null,
+      thinking: null,
+      error: null,
+      startedAt: new Date().toISOString(),
+      completedAt: null,
+      queue: remaining
+    };
+
+    await writeAiEditState(started);
+    const pid = spawnRunner(next.jobId, next.prompt, next.targetPath);
+    return writeAiEditState({ ...started, pid });
+  }
+
+  const configured = isAiEditConfigured();
+  if (state.configured !== configured) {
+    return writeAiEditState({ ...state, configured });
+  }
+
+  return state;
+}
+
 export async function startAiEdit(input: AiEditStartInput) {
   const prompt = input.prompt.trim();
-  if (!prompt) throw new Error("수정 요청을 입력해 주세요.");
-  if (!isAiEditConfigured()) throw new Error("AI 에디팅 런타임이 아직 서버에 준비되지 않았습니다.");
+
+  if (!prompt) {
+    throw new Error("수정 요청을 입력해 주세요.");
+  }
+
+  if (!isAiEditConfigured()) {
+    throw new Error("AI 수정 환경이 아직 서버에 준비되지 않았습니다.");
+  }
 
   const current = await readAiEditState();
   const isRunning = current.status === "running" && isPidAlive(current.pid);
   const workshopBusy = await isWorkshopBusy();
 
-  // 바쁜 경우 → 큐에 추가하고 반환 (에러 아님)
   if (isRunning || workshopBusy) {
     const item: AiEditQueueItem = {
       jobId: randomUUID(),
@@ -197,18 +205,18 @@ export async function startAiEdit(input: AiEditStartInput) {
       targetPath: input.targetPath ?? "",
       enqueuedAt: new Date().toISOString()
     };
-    const reason = workshopBusy
-      ? "워크숍 작업 완료 후 처리됩니다."
-      : "현재 작업 완료 후 처리됩니다.";
+
     return writeAiEditState({
       ...current,
-      queue: [...(current.queue ?? []), item],
-      // currentStep에 큐 힌트를 남겨두면 폴링 UI에서 볼 수 있음
-      currentStep: current.currentStep ?? reason
+      queue: [...current.queue, item],
+      currentStep:
+        current.currentStep ??
+        (workshopBusy
+          ? "워크숍 작업이 끝나는 즉시 처리됩니다."
+          : "현재 실행 중인 작업이 끝나는 즉시 처리됩니다.")
     });
   }
 
-  // 즉시 실행
   const jobId = randomUUID();
   const nextState: AiEditState = {
     configured: true,
@@ -217,13 +225,15 @@ export async function startAiEdit(input: AiEditStartInput) {
     pid: null,
     prompt,
     targetPath: input.targetPath ?? "",
-    currentStep: "수정 작업을 준비하는 중입니다.",
+    currentStep: "AI 수정 작업을 준비하고 있습니다.",
+    heartbeatAt: null,
+    heartbeatLabel: null,
     thinking: null,
     error: null,
     startedAt: new Date().toISOString(),
     completedAt: null,
     updatedAt: new Date().toISOString(),
-    queue: current.queue ?? []
+    queue: current.queue
   };
 
   await writeAiEditState(nextState);

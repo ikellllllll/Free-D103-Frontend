@@ -10,3 +10,5 @@ out
 tsconfig.tsbuildinfo
 current-problems*.png
 ide-vscode-like.png
+.ai-edit-runtime
+.workshop-runtime

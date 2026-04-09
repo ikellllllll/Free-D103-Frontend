@@ -16,6 +16,8 @@ const emptyState: AiEditState = {
   prompt: "",
   targetPath: "",
   currentStep: null,
+  heartbeatAt: null,
+  heartbeatLabel: null,
   thinking: null,
   error: null,
   startedAt: null,
@@ -30,8 +32,12 @@ async function fetchJson<T>(input: RequestInfo, init?: RequestInit) {
     headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
     cache: "no-store"
   });
+
   const data = (await response.json()) as T & { error?: string };
-  if (!response.ok) throw new Error(data.error ?? "요청 처리에 실패했습니다.");
+  if (!response.ok) {
+    throw new Error(data.error ?? "요청 처리에 실패했습니다.");
+  }
+
   return data;
 }
 
@@ -63,6 +69,18 @@ function Spinner({ size = 14 }: { size?: number }) {
   );
 }
 
+function formatHeartbeat(iso: string | null) {
+  if (!iso) return null;
+  const value = new Date(iso);
+  if (Number.isNaN(value.getTime())) return null;
+
+  return new Intl.DateTimeFormat("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  }).format(value);
+}
+
 export function AiEditFloat() {
   const pathname = usePathname();
   const addToast = useUiStore((state) => state.addToast);
@@ -72,7 +90,6 @@ export function AiEditFloat() {
   const [state, setState] = useState<AiEditState>(emptyState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showThinking, setShowThinking] = useState(false);
-  // 내가 방금 큐에 넣은 jobId 추적 (대기 순번 표시용)
   const [myQueuedJobId, setMyQueuedJobId] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -80,18 +97,15 @@ export function AiEditFloat() {
   const isRunning = state.status === "running";
   const isBusy = isRunning || isSubmitting;
 
-  // 초기 상태 로드
   useEffect(() => {
     void fetchJson<AiEditState>("/api/ai-edit/status").then(setState).catch(() => null);
   }, []);
 
-  // 큐에 내 작업이 있는지 확인하고 순번 반환
   const myQueuePosition = myQueuedJobId
     ? state.queue.findIndex((item: AiEditQueueItem) => item.jobId === myQueuedJobId) + 1
     : 0;
 
-  // 실행 중이거나 큐에 내 항목 있으면 폴링
-  const shouldPoll = isRunning || myQueuePosition > 0;
+  const shouldPoll = state.status === "running" || state.queue.length > 0 || myQueuePosition > 0;
 
   useEffect(() => {
     if (!shouldPoll) return;
@@ -101,34 +115,33 @@ export function AiEditFloat() {
         .then((next) => {
           setState(next);
 
-          // 내 큐 항목이 없어졌으면 실행 중이거나 완료된 것
-          if (myQueuedJobId && next.queue.every((item: AiEditQueueItem) => item.jobId !== myQueuedJobId)) {
+          if (myQueuedJobId && next.queue.every((item) => item.jobId !== myQueuedJobId)) {
             setMyQueuedJobId(null);
           }
 
           if (next.status === "done") {
-            addToast("UI 수정이 완료되었습니다. 화면을 확인해 주세요.", "success");
+            addToast("AI 수정이 완료되었습니다. 화면을 확인해 주세요.", "success");
           } else if (next.status === "failed") {
-            addToast(next.error ?? "수정 작업에 실패했습니다.", "error");
+            addToast(next.error ?? "AI 수정 작업이 실패했습니다.", "error");
           }
         })
         .catch(() => null);
     }, POLL_INTERVAL_MS);
 
     return () => window.clearInterval(id);
-  }, [shouldPoll, myQueuedJobId, addToast]);
+  }, [addToast, myQueuedJobId, shouldPoll]);
 
-  // 패널 열릴 때 textarea 포커스
   useEffect(() => {
-    if (isOpen) window.setTimeout(() => textareaRef.current?.focus(), 60);
+    if (isOpen) {
+      window.setTimeout(() => textareaRef.current?.focus(), 60);
+    }
   }, [isOpen]);
 
-  // 패널 외부 클릭 닫기
   useEffect(() => {
     if (!isOpen) return;
 
-    const handler = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+    const handler = (event: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
@@ -137,8 +150,8 @@ export function AiEditFloat() {
     return () => document.removeEventListener("mousedown", handler);
   }, [isOpen]);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     const trimmed = prompt.trim();
     if (!trimmed || isBusy) return;
 
@@ -150,78 +163,83 @@ export function AiEditFloat() {
         method: "POST",
         body: JSON.stringify(input)
       });
+
       setState(next);
       setPrompt("");
       setShowThinking(false);
 
-      // 큐에 들어갔는지 확인 (상태가 여전히 running이고 queue 마지막 항목이 내 것)
-      const lastQueued = next.queue[next.queue.length - 1] as AiEditQueueItem | undefined;
+      const lastQueued = next.queue[next.queue.length - 1];
       if (lastQueued) {
         setMyQueuedJobId(lastQueued.jobId);
-        addToast(`대기열에 추가됐습니다. (${next.queue.length}번째)`, "info");
+        addToast(`대기열에 추가되었습니다. (${next.queue.length}번째)`, "info");
       } else {
         setMyQueuedJobId(null);
-        addToast("AI 에디팅 작업을 시작했습니다.", "info");
+        addToast("AI 수정 작업을 시작했습니다.", "info");
       }
     } catch (error) {
-      addToast(error instanceof Error ? error.message : "작업을 시작하지 못했습니다.", "error");
+      addToast(error instanceof Error ? error.message : "AI 수정 작업을 시작하지 못했습니다.", "error");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      e.currentTarget.form?.requestSubmit();
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      event.currentTarget.form?.requestSubmit();
     }
   };
 
   const statusClass =
-    state.status === "running" ? "ai-edit-float__status ai-edit-float__status--running"
-    : state.status === "done"  ? "ai-edit-float__status ai-edit-float__status--done"
-    : state.status === "failed" ? "ai-edit-float__status ai-edit-float__status--failed"
-    : null;
+    state.status === "running"
+      ? "ai-edit-float__status ai-edit-float__status--running"
+      : state.status === "done"
+        ? "ai-edit-float__status ai-edit-float__status--done"
+        : state.status === "failed"
+          ? "ai-edit-float__status ai-edit-float__status--failed"
+          : null;
 
   const statusLabel =
-    state.status === "running" ? (state.currentStep ?? "작업 중...")
-    : state.status === "done"  ? (state.currentStep ?? "완료되었습니다.")
-    : state.status === "failed" ? (state.error ?? "오류가 발생했습니다.")
+    state.status === "running"
+      ? (state.currentStep ?? "작업 중입니다.")
+      : state.status === "done"
+        ? (state.currentStep ?? "작업이 완료되었습니다.")
+        : state.status === "failed"
+          ? (state.error ?? "오류가 발생했습니다.")
+          : null;
+
+  const heartbeatLabel = isRunning
+    ? [state.heartbeatLabel, formatHeartbeat(state.heartbeatAt)].filter(Boolean).join(" · ")
     : null;
 
   return (
     <div className="ai-edit-float" ref={panelRef}>
-      {/* 플로팅 버튼 */}
       <button
         className={`ai-edit-float__trigger${isRunning ? " ai-edit-float__trigger--busy" : ""}`}
-        onClick={() => setIsOpen((v) => !v)}
-        aria-label={isOpen ? "AI 편집 닫기" : "AI 편집 열기"}
+        onClick={() => setIsOpen((value) => !value)}
+        aria-label={isOpen ? "AI 수정 닫기" : "AI 수정 열기"}
         title="AI로 UI 수정"
       >
         {isRunning ? <Spinner size={18} /> : <SparkIcon size={18} />}
       </button>
 
-      {/* 채팅 패널 */}
       {isOpen && (
-        <div className="ai-edit-float__panel" role="dialog" aria-label="AI UI 에디터">
-          {/* 헤더 */}
+        <div className="ai-edit-float__panel" role="dialog" aria-label="AI UI 수정">
           <div className="ai-edit-float__header">
             <div className="ai-edit-float__header-left">
               <SparkIcon size={13} />
-              <span>AI UI 에디터</span>
+              <span>AI UI 수정</span>
             </div>
             <button className="ai-edit-float__close" onClick={() => setIsOpen(false)} aria-label="닫기">
               <CloseIcon size={13} />
             </button>
           </div>
 
-          {/* 현재 페이지 경로 */}
           <div className="ai-edit-float__path">
             <span className="ai-edit-float__path-label">현재 페이지</span>
             <code className="ai-edit-float__path-value">{pathname}</code>
           </div>
 
-          {/* 작업 상태 */}
           {statusClass && statusLabel && (
             <div className={statusClass}>
               {isRunning && <Spinner size={12} />}
@@ -229,7 +247,13 @@ export function AiEditFloat() {
             </div>
           )}
 
-          {/* 현재 작업 프롬프트 (실행 중일 때) */}
+          {heartbeatLabel && (
+            <div className="ai-edit-float__meta">
+              <span>상태 갱신</span>
+              <strong>{heartbeatLabel}</strong>
+            </div>
+          )}
+
           {isRunning && state.prompt && (
             <div className="ai-edit-float__current-prompt">
               <span className="ai-edit-float__current-prompt-label">요청 내용</span>
@@ -237,7 +261,6 @@ export function AiEditFloat() {
             </div>
           )}
 
-          {/* 대기열 상태 */}
           {myQueuePosition > 0 && (
             <div className="ai-edit-float__queue">
               <Spinner size={12} />
@@ -247,61 +270,68 @@ export function AiEditFloat() {
               )}
             </div>
           )}
+
           {!myQueuePosition && state.queue.length > 0 && (
             <div className="ai-edit-float__queue-list">
               <div className="ai-edit-float__queue-list-head">
                 <Spinner size={11} />
                 <span>대기 중 {state.queue.length}개</span>
               </div>
-              {state.queue.map((item, i) => (
+              {state.queue.map((item, index) => (
                 <div key={item.jobId} className="ai-edit-float__queue-item">
-                  <span className="ai-edit-float__queue-item-num">{i + 1}</span>
+                  <span className="ai-edit-float__queue-item-num">{index + 1}</span>
                   <span className="ai-edit-float__queue-item-text">{item.prompt}</span>
                 </div>
               ))}
             </div>
           )}
 
-          {/* 추론 과정 (thinking) */}
           {state.thinking && (
             <div className="ai-edit-float__thinking-wrap">
               <button
                 className="ai-edit-float__thinking-toggle"
-                onClick={() => setShowThinking((v) => !v)}
+                onClick={() => setShowThinking((value) => !value)}
                 type="button"
               >
                 <svg
                   className={`ai-edit-float__thinking-chevron${showThinking ? " ai-edit-float__thinking-chevron--open" : ""}`}
-                  width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  aria-hidden
                 >
-                  <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                  <path
+                    d="M3 4.5L6 7.5L9 4.5"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
-                <span>AI 추론 과정</span>
+                <span>AI 사고 과정</span>
                 <span className="ai-edit-float__thinking-badge">thinking</span>
               </button>
-              {showThinking && (
-                <pre className="ai-edit-float__thinking-body">{state.thinking}</pre>
-              )}
+              {showThinking && <pre className="ai-edit-float__thinking-body">{state.thinking}</pre>}
             </div>
           )}
 
-          {/* 입력 폼 */}
           <form className="ai-edit-float__form" onSubmit={handleSubmit}>
             <textarea
               ref={textareaRef}
               className="ai-edit-float__textarea"
-              placeholder={"수정 요청을 입력하세요.\n예: 로그인 버튼을 우측 상단으로 옮기고 더 눈에 띄게 만들어줘"}
+              placeholder={
+                "수정 요청을 입력해 주세요.\n예) 로그인/회원가입 탭 전환에 애니메이션을 추가해서 더 부드럽게 넘어가게 해줘"
+              }
               value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
+              onChange={(event) => setPrompt(event.target.value)}
               onKeyDown={handleKeyDown}
               disabled={isBusy}
               rows={4}
             />
             <div className="ai-edit-float__footer">
-              {!state.configured && (
-                <span className="ai-edit-float__warn">런타임 미연결</span>
-              )}
-              <span className="ai-edit-float__hint">⌘↵ 전송</span>
+              {!state.configured && <span className="ai-edit-float__warn">서버 설정이 연결되지 않았습니다.</span>}
+              <span className="ai-edit-float__hint">Ctrl/Cmd + Enter 전송</span>
               <button
                 className="button button--primary ai-edit-float__send"
                 type="submit"

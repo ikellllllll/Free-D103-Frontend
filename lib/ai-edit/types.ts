@@ -15,6 +15,8 @@ export interface AiEditState {
   prompt: string;
   targetPath: string;
   currentStep: string | null;
+  heartbeatAt: string | null;
+  heartbeatLabel: string | null;
   thinking: string | null;
   error: string | null;
   startedAt: string | null;
