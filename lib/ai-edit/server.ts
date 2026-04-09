@@ -6,7 +6,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 
-import type { AiEditStartInput, AiEditState } from "@/lib/ai-edit/types";
+import type { AiEditQueueItem, AiEditStartInput, AiEditState } from "@/lib/ai-edit/types";
 
 const isLinux = process.platform === "linux";
 
@@ -67,7 +67,8 @@ const createInitialState = (): AiEditState => ({
   error: null,
   startedAt: null,
   completedAt: null,
-  updatedAt: new Date().toISOString()
+  updatedAt: new Date().toISOString(),
+  queue: []
 });
 
 export async function ensureStateDir() {
@@ -100,13 +101,18 @@ export async function readAiEditState(): Promise<AiEditState> {
 
   const raw = JSON.parse(await readFile(aiEditConfig.stateFile, "utf8")) as AiEditState;
 
+  // queue 필드 없는 구 버전 상태 파일 호환
+  if (!Array.isArray(raw.queue)) raw.queue = [];
+
   if (raw.status === "running" && raw.pid && !isPidAlive(raw.pid)) {
+    // runner가 죽었으면: 큐에 항목이 있어도 새 runner가 없으므로 실패 처리
     return writeAiEditState({
       ...raw,
       status: "failed",
       pid: null,
       currentStep: null,
-      error: "작업이 비정상 종료되었습니다."
+      error: "작업이 비정상 종료되었습니다.",
+      queue: raw.queue
     });
   }
 
@@ -136,14 +142,29 @@ export async function startAiEdit(input: AiEditStartInput) {
   if (!isAiEditConfigured()) throw new Error("AI 에디팅 런타임이 아직 서버에 준비되지 않았습니다.");
 
   const current = await readAiEditState();
-  if (current.status === "running" && isPidAlive(current.pid)) {
-    throw new Error("다른 AI 편집 작업이 진행 중입니다. 완료 후 다시 시도해 주세요.");
+  const isRunning = current.status === "running" && isPidAlive(current.pid);
+  const workshopBusy = await isWorkshopBusy();
+
+  // 바쁜 경우 → 큐에 추가하고 반환 (에러 아님)
+  if (isRunning || workshopBusy) {
+    const item: AiEditQueueItem = {
+      jobId: randomUUID(),
+      prompt,
+      targetPath: input.targetPath ?? "",
+      enqueuedAt: new Date().toISOString()
+    };
+    const reason = workshopBusy
+      ? "워크숍 작업 완료 후 처리됩니다."
+      : "현재 작업 완료 후 처리됩니다.";
+    return writeAiEditState({
+      ...current,
+      queue: [...(current.queue ?? []), item],
+      // currentStep에 큐 힌트를 남겨두면 폴링 UI에서 볼 수 있음
+      currentStep: current.currentStep ?? reason
+    });
   }
 
-  if (await isWorkshopBusy()) {
-    throw new Error("워크숍 작업이 진행 중입니다. 완료 후 다시 시도해 주세요.");
-  }
-
+  // 즉시 실행
   const jobId = randomUUID();
   const nextState: AiEditState = {
     configured: true,
@@ -157,7 +178,8 @@ export async function startAiEdit(input: AiEditStartInput) {
     error: null,
     startedAt: new Date().toISOString(),
     completedAt: null,
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
+    queue: current.queue ?? []
   };
 
   await writeAiEditState(nextState);

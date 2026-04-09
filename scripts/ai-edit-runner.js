@@ -4,7 +4,7 @@
  * ai-edit-runner.js
  *
  * 백그라운드 AI 편집 실행기.
- * 흐름: 워크스페이스 준비 → OpenClaw 에이전트 실행 → rsync → (선택) 프론트엔드 재시작
+ * 흐름: 워크스페이스 준비 → OpenClaw 에이전트 실행 → rsync → 큐 처리 반복
  *
  * dev 모드 기본값: rsync 후 Next.js HMR이 자동 감지 — 재시작 없음
  * 프로덕션 재시작 필요 시: AIG_AI_EDIT_RESTART=true
@@ -17,9 +17,6 @@ const { spawn } = require("node:child_process");
 
 // ── 환경 변수 ────────────────────────────────────────────────────
 const stateFile = process.env.AI_EDIT_STATE_FILE;
-const jobId = process.env.AI_EDIT_JOB_ID || "";
-const requestPrompt = process.env.AI_EDIT_PROMPT || "";
-const targetPath = process.env.AI_EDIT_TARGET_PATH || "";
 
 if (!stateFile) {
   console.error("AI_EDIT_STATE_FILE is required.");
@@ -49,7 +46,9 @@ function clone(value) {
 }
 
 async function readState() {
-  return JSON.parse(await fs.readFile(stateFile, "utf8"));
+  const raw = JSON.parse(await fs.readFile(stateFile, "utf8"));
+  if (!Array.isArray(raw.queue)) raw.queue = [];
+  return raw;
 }
 
 async function writeState(state) {
@@ -94,17 +93,8 @@ function runCommand(command, args, options = {}) {
 
     child.on("close", (code, signal) => {
       if (timeoutId) clearTimeout(timeoutId);
-
-      if (code === 0) {
-        resolve({ stdout, stderr });
-        return;
-      }
-
-      if (signal) {
-        reject(new Error(`${command} was terminated by ${signal}`));
-        return;
-      }
-
+      if (code === 0) { resolve({ stdout, stderr }); return; }
+      if (signal) { reject(new Error(`${command} was terminated by ${signal}`)); return; }
       reject(new Error(stderr.trim() || stdout.trim() || `${command} exited with ${code}`));
     });
 
@@ -129,7 +119,7 @@ async function prepareWorkspace() {
   await runCommand(sudoBin, ["rm", "-rf", config.workspaceDir]);
   await runAsOpenClaw(["mkdir", "-p", config.workspaceDir]);
 
-  // flock: appDir 읽기 중 다른 프로세스의 쓰기 방지
+  // flock -s (공유 읽기 잠금): appDir 읽는 동안 다른 프로세스의 쓰기 방지
   await runCommand(flockBin, [
     "-s", "-w", "60", APP_DIR_LOCK,
     sudoBin, "rsync", "-a", "--delete",
@@ -154,14 +144,14 @@ async function prepareWorkspace() {
 }
 
 // ── EDIT_BRIEF.md 생성 ───────────────────────────────────────────
-function createBrief() {
+function createBrief(jobPrompt, jobTargetPath) {
   return [
     "# UI 편집 요청",
     "",
-    targetPath ? `대상 페이지: ${targetPath}` : "대상 페이지: 전체 (명시되지 않음)",
+    jobTargetPath ? `대상 페이지: ${jobTargetPath}` : "대상 페이지: 전체 (명시되지 않음)",
     "",
     "## 요청 내용",
-    requestPrompt,
+    jobPrompt,
     "",
     "## 제약 조건",
     "- 이 프로젝트는 커스텀 CSS를 사용합니다 (Tailwind 미사용). className 변경 시 app/globals.css의 기존 클래스를 활용하세요.",
@@ -180,10 +170,10 @@ function createBrief() {
   ].join("\n");
 }
 
-async function writeBrief() {
+async function writeBrief(jobPrompt, jobTargetPath) {
   await runAsOpenClaw(
     ["tee", `${config.workspaceDir}/EDIT_BRIEF.md`],
-    { input: createBrief() }
+    { input: createBrief(jobPrompt, jobTargetPath) }
   );
 }
 
@@ -192,9 +182,7 @@ async function ensureAgent() {
   const result = await runAsOpenClaw([config.openClawBin, "agents", "list", "--json"]);
   const agents = JSON.parse(result.stdout || "[]");
 
-  if (agents.some((agent) => agent.id === config.agentId)) {
-    return config.agentId;
-  }
+  if (agents.some((agent) => agent.id === config.agentId)) return config.agentId;
 
   await runAsOpenClaw([
     config.openClawBin, "agents", "add",
@@ -209,7 +197,7 @@ async function ensureAgent() {
 }
 
 // ── OpenClaw 에이전트 실행 ────────────────────────────────────────
-async function runAgent(agentId) {
+async function runAgent(agentId, jobId) {
   const agentMessage = [
     "Read EDIT_BRIEF.md first.",
     "Explore the codebase, identify the files that need changing, and implement the edit request completely.",
@@ -234,7 +222,7 @@ async function runAgent(agentId) {
   );
 }
 
-// ── 결과 파싱 (summary + thinking) ───────────────────────────────
+// ── 결과 파싱 ────────────────────────────────────────────────────
 function parseAgentResult(stdout) {
   try {
     const payload = JSON.parse(stdout);
@@ -264,7 +252,7 @@ function parseAgentResult(stdout) {
 
 // ── 변경사항 앱에 반영 ───────────────────────────────────────────
 async function syncToAppDir() {
-  // flock -x: 배타적 잠금 — 동시 쓰기 방지
+  // flock -x (배타 잠금): 동시 쓰기 방지
   await runCommand(flockBin, [
     "-x", "-w", "60", APP_DIR_LOCK,
     sudoBin, "rsync", "-a", "--delete",
@@ -276,64 +264,119 @@ async function syncToAppDir() {
   ]);
 }
 
-// ── 메인 ────────────────────────────────────────────────────────
+// ── 큐에서 다음 항목 꺼내기 ─────────────────────────────────────
+// 반환값: 다음 job 객체 또는 null (큐 비었음)
+async function dequeueNext() {
+  const state = await readState();
+  if (!state.queue || state.queue.length === 0) return null;
+
+  const [next, ...remaining] = state.queue;
+
+  await writeState({
+    ...state,
+    status: "running",
+    jobId: next.jobId,
+    pid: process.pid,
+    prompt: next.prompt,
+    targetPath: next.targetPath,
+    currentStep: `대기 중이던 작업을 시작합니다. (남은 대기 ${remaining.length}개)`,
+    thinking: null,
+    error: null,
+    startedAt: new Date().toISOString(),
+    completedAt: null,
+    queue: remaining
+  });
+
+  return next;
+}
+
+// ── 단일 작업 실행 ───────────────────────────────────────────────
+async function processJob(jobId, jobPrompt, jobTargetPath) {
+  await updateState((state) => {
+    state.currentStep = "워크스페이스를 준비하는 중입니다.";
+    return state;
+  });
+  await prepareWorkspace();
+  await writeBrief(jobPrompt, jobTargetPath);
+
+  await updateState((state) => {
+    state.currentStep = "AI 에이전트를 초기화하는 중입니다.";
+    return state;
+  });
+  const agentId = await ensureAgent();
+
+  await updateState((state) => {
+    state.currentStep = "코드를 분석하고 수정하는 중입니다. 잠시 기다려 주세요.";
+    return state;
+  });
+  const agentResult = await runAgent(agentId, jobId);
+  const { summary, thinking } = parseAgentResult(agentResult.stdout);
+
+  await updateState((state) => {
+    state.currentStep = "변경사항을 적용하는 중입니다.";
+    return state;
+  });
+  await syncToAppDir();
+
+  if (process.env.AIG_AI_EDIT_RESTART === "true") {
+    await updateState((state) => {
+      state.currentStep = "빌드 및 서버를 재시작하는 중입니다. (1~3분 소요)";
+      return state;
+    });
+    await runCommand(config.restartFrontendScript, []);
+  }
+
+  await updateState((state) => {
+    state.status = "done";
+    state.pid = null;
+    state.currentStep = summary;
+    state.thinking = thinking;
+    state.completedAt = new Date().toISOString();
+    return state;
+  });
+}
+
+// ── 메인: 현재 작업 + 큐 처리 루프 ─────────────────────────────
 async function main() {
-  try {
-    await updateState((state) => {
-      state.currentStep = "워크스페이스를 준비하는 중입니다.";
-      return state;
-    });
-    await prepareWorkspace();
-    await writeBrief();
+  // 최초 실행 시 env에서 job 정보 읽기
+  let currentJobId = process.env.AI_EDIT_JOB_ID || "";
+  let currentPrompt = process.env.AI_EDIT_PROMPT || "";
+  let currentTargetPath = process.env.AI_EDIT_TARGET_PATH || "";
 
-    await updateState((state) => {
-      state.currentStep = "AI 에이전트를 초기화하는 중입니다.";
-      return state;
-    });
-    const agentId = await ensureAgent();
-
-    await updateState((state) => {
-      state.currentStep = "코드를 분석하고 수정하는 중입니다. 잠시 기다려 주세요.";
-      return state;
-    });
-    const agentResult = await runAgent(agentId);
-    const { summary, thinking } = parseAgentResult(agentResult.stdout);
-
-    await updateState((state) => {
-      state.currentStep = "변경사항을 적용하는 중입니다.";
-      return state;
-    });
-    await syncToAppDir();
-
-    // dev 모드: rsync 후 HMR이 자동 감지
-    // 프로덕션 빌드 필요 시: AIG_AI_EDIT_RESTART=true
-    if (process.env.AIG_AI_EDIT_RESTART === "true") {
+  while (true) {
+    try {
+      await processJob(currentJobId, currentPrompt, currentTargetPath);
+    } catch (error) {
       await updateState((state) => {
-        state.currentStep = "빌드 및 서버를 재시작하는 중입니다. (1~3분 소요)";
+        state.status = "failed";
+        state.pid = null;
+        state.currentStep = null;
+        state.thinking = state.thinking ?? null;
+        state.error = error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.";
         return state;
       });
-      await runCommand(config.restartFrontendScript, []);
+      // 실패해도 큐는 계속 처리
     }
 
-    await updateState((state) => {
-      state.status = "done";
-      state.pid = null;
-      state.currentStep = summary;
-      state.thinking = thinking;
-      state.completedAt = new Date().toISOString();
-      return state;
-    });
-  } catch (error) {
+    // 큐에서 다음 항목 가져오기
+    const next = await dequeueNext();
+    if (!next) break; // 큐 비었으면 종료
+
+    currentJobId = next.jobId;
+    currentPrompt = next.prompt;
+    currentTargetPath = next.targetPath;
+  }
+}
+
+main().catch(async (error) => {
+  try {
     await updateState((state) => {
       state.status = "failed";
       state.pid = null;
       state.currentStep = null;
-      state.thinking = state.thinking ?? null;
-      state.error = error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.";
+      state.error = error instanceof Error ? error.message : "워크숍 작업이 실패했습니다.";
       return state;
     });
-    process.exit(1);
-  }
-}
-
-main();
+  } catch {}
+  process.exit(1);
+});

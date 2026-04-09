@@ -2232,6 +2232,29 @@ html[data-theme="light"] .toast { background: var(--panel-strong); }
   border-bottom-color: rgba(248, 81, 73, 0.2);
 }
 
+.ai-edit-float__queue {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  font-size: 0.82rem;
+  color: var(--amber);
+  background: rgba(210, 153, 34, 0.08);
+  border-bottom: 1px solid rgba(210, 153, 34, 0.2);
+}
+
+.ai-edit-float__queue-total {
+  margin-left: auto;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.ai-edit-float__queue--idle {
+  color: var(--muted);
+  background: var(--subtle-bg);
+  border-bottom-color: var(--line);
+}
+
 .ai-edit-float__thinking-wrap { border-bottom: 1px solid var(--line); }
 
 .ai-edit-float__thinking-toggle {

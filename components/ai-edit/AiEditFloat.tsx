@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
-import type { AiEditStartInput, AiEditState } from "@/lib/ai-edit/types";
+import type { AiEditQueueItem, AiEditStartInput, AiEditState } from "@/lib/ai-edit/types";
 import { useUiStore } from "@/store/uiStore";
 
 const POLL_INTERVAL_MS = 3500;
@@ -20,7 +20,8 @@ const emptyState: AiEditState = {
   error: null,
   startedAt: null,
   completedAt: null,
-  updatedAt: new Date(0).toISOString()
+  updatedAt: new Date(0).toISOString(),
+  queue: []
 };
 
 async function fetchJson<T>(input: RequestInfo, init?: RequestInit) {
@@ -71,6 +72,8 @@ export function AiEditFloat() {
   const [state, setState] = useState<AiEditState>(emptyState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showThinking, setShowThinking] = useState(false);
+  // 내가 방금 큐에 넣은 jobId 추적 (대기 순번 표시용)
+  const [myQueuedJobId, setMyQueuedJobId] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -82,14 +85,27 @@ export function AiEditFloat() {
     void fetchJson<AiEditState>("/api/ai-edit/status").then(setState).catch(() => null);
   }, []);
 
-  // 실행 중 폴링
+  // 큐에 내 작업이 있는지 확인하고 순번 반환
+  const myQueuePosition = myQueuedJobId
+    ? state.queue.findIndex((item: AiEditQueueItem) => item.jobId === myQueuedJobId) + 1
+    : 0;
+
+  // 실행 중이거나 큐에 내 항목 있으면 폴링
+  const shouldPoll = isRunning || myQueuePosition > 0;
+
   useEffect(() => {
-    if (!isRunning) return;
+    if (!shouldPoll) return;
 
     const id = window.setInterval(() => {
       void fetchJson<AiEditState>("/api/ai-edit/status")
         .then((next) => {
           setState(next);
+
+          // 내 큐 항목이 없어졌으면 실행 중이거나 완료된 것
+          if (myQueuedJobId && next.queue.every((item: AiEditQueueItem) => item.jobId !== myQueuedJobId)) {
+            setMyQueuedJobId(null);
+          }
+
           if (next.status === "done") {
             addToast("UI 수정이 완료되었습니다. 화면을 확인해 주세요.", "success");
           } else if (next.status === "failed") {
@@ -100,7 +116,7 @@ export function AiEditFloat() {
     }, POLL_INTERVAL_MS);
 
     return () => window.clearInterval(id);
-  }, [isRunning, addToast]);
+  }, [shouldPoll, myQueuedJobId, addToast]);
 
   // 패널 열릴 때 textarea 포커스
   useEffect(() => {
@@ -137,7 +153,16 @@ export function AiEditFloat() {
       setState(next);
       setPrompt("");
       setShowThinking(false);
-      addToast("AI 에디팅 작업을 시작했습니다.", "info");
+
+      // 큐에 들어갔는지 확인 (상태가 여전히 running이고 queue 마지막 항목이 내 것)
+      const lastQueued = next.queue[next.queue.length - 1] as AiEditQueueItem | undefined;
+      if (lastQueued) {
+        setMyQueuedJobId(lastQueued.jobId);
+        addToast(`대기열에 추가됐습니다. (${next.queue.length}번째)`, "info");
+      } else {
+        setMyQueuedJobId(null);
+        addToast("AI 에디팅 작업을 시작했습니다.", "info");
+      }
     } catch (error) {
       addToast(error instanceof Error ? error.message : "작업을 시작하지 못했습니다.", "error");
     } finally {
@@ -201,6 +226,22 @@ export function AiEditFloat() {
             <div className={statusClass}>
               {isRunning && <Spinner size={12} />}
               <span>{statusLabel}</span>
+            </div>
+          )}
+
+          {/* 대기열 상태 */}
+          {myQueuePosition > 0 && (
+            <div className="ai-edit-float__queue">
+              <Spinner size={12} />
+              <span>{myQueuePosition}번째 대기 중</span>
+              {state.queue.length > 1 && (
+                <span className="ai-edit-float__queue-total">전체 {state.queue.length}개</span>
+              )}
+            </div>
+          )}
+          {!myQueuePosition && state.queue.length > 0 && (
+            <div className="ai-edit-float__queue ai-edit-float__queue--idle">
+              <span>대기 중 {state.queue.length}개</span>
             </div>
           )}
 

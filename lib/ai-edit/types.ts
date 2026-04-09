@@ -1,5 +1,12 @@
 export type AiEditStatus = "idle" | "running" | "done" | "failed";
 
+export interface AiEditQueueItem {
+  jobId: string;
+  prompt: string;
+  targetPath: string;
+  enqueuedAt: string;
+}
+
 export interface AiEditState {
   configured: boolean;
   status: AiEditStatus;
@@ -13,6 +20,7 @@ export interface AiEditState {
   startedAt: string | null;
   completedAt: string | null;
   updatedAt: string;
+  queue: AiEditQueueItem[];
 }
 
 export interface AiEditStartInput {
