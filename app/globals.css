@@ -2504,3 +2504,77 @@ html[data-theme="light"] .toast { background: var(--panel-strong); }
 }
 
 .ai-edit-spinner { animation: ai-edit-spin 0.8s linear infinite; flex-shrink: 0; }
+
+/* 현재 실행 중인 작업 프롬프트 */
+.ai-edit-float__current-prompt {
+  display: grid;
+  gap: 4px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--subtle-bg);
+}
+
+.ai-edit-float__current-prompt-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.ai-edit-float__current-prompt-text {
+  font-size: 0.84rem;
+  color: var(--text);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+/* 대기열 목록 (상세) */
+.ai-edit-float__queue-list {
+  display: grid;
+  gap: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.ai-edit-float__queue-list-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  background: var(--subtle-bg);
+  border-bottom: 1px solid var(--line);
+}
+
+.ai-edit-float__queue-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.82rem;
+}
+
+.ai-edit-float__queue-item:last-child { border-bottom: none; }
+
+.ai-edit-float__queue-item-num {
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--subtle-bg-2);
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  margin-top: 1px;
+}
+
+.ai-edit-float__queue-item-text {
+  color: var(--muted);
+  line-height: 1.5;
+  word-break: break-word;
+}

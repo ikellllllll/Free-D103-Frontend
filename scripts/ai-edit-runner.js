@@ -117,9 +117,10 @@ function runAsOpenClawInDir(workingDir, args, options = {}) {
 // ── 워크스페이스 준비 ────────────────────────────────────────────
 async function prepareWorkspace() {
   await runCommand(sudoBin, ["rm", "-rf", config.workspaceDir]);
-  await runAsOpenClaw(["mkdir", "-p", config.workspaceDir]);
+  await runCommand(sudoBin, ["mkdir", "-p", config.workspaceDir]);
 
   // flock -s (공유 읽기 잠금): appDir 읽는 동안 다른 프로세스의 쓰기 방지
+  // rsync -a 는 소스 디렉토리 소유권(studio)을 목적지에 그대로 복사함
   await runCommand(flockBin, [
     "-s", "-w", "60", APP_DIR_LOCK,
     sudoBin, "rsync", "-a", "--delete",
@@ -130,16 +131,18 @@ async function prepareWorkspace() {
     `${config.workspaceDir}/`
   ]);
 
-  await runAsOpenClaw([
-    "ln", "-sfn",
-    `${config.appDir}/node_modules`,
-    `${config.workspaceDir}/node_modules`
-  ]);
-
+  // rsync 후 소유권이 studio로 바뀌므로 → symlink 전에 먼저 chown
   await runCommand(sudoBin, [
     "chown", "-R",
     `${config.openClawUser}:${config.openClawUser}`,
     config.workspaceDir
+  ]);
+
+  // openclaw-studio가 workspaceDir를 소유하므로 symlink 생성 가능
+  await runAsOpenClaw([
+    "ln", "-sfn",
+    `${config.appDir}/node_modules`,
+    `${config.workspaceDir}/node_modules`
   ]);
 }
 

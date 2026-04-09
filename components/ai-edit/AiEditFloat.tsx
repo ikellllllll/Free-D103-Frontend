@@ -229,6 +229,14 @@ export function AiEditFloat() {
             </div>
           )}
 
+          {/* 현재 작업 프롬프트 (실행 중일 때) */}
+          {isRunning && state.prompt && (
+            <div className="ai-edit-float__current-prompt">
+              <span className="ai-edit-float__current-prompt-label">요청 내용</span>
+              <span className="ai-edit-float__current-prompt-text">{state.prompt}</span>
+            </div>
+          )}
+
           {/* 대기열 상태 */}
           {myQueuePosition > 0 && (
             <div className="ai-edit-float__queue">
@@ -240,8 +248,17 @@ export function AiEditFloat() {
             </div>
           )}
           {!myQueuePosition && state.queue.length > 0 && (
-            <div className="ai-edit-float__queue ai-edit-float__queue--idle">
-              <span>대기 중 {state.queue.length}개</span>
+            <div className="ai-edit-float__queue-list">
+              <div className="ai-edit-float__queue-list-head">
+                <Spinner size={11} />
+                <span>대기 중 {state.queue.length}개</span>
+              </div>
+              {state.queue.map((item, i) => (
+                <div key={item.jobId} className="ai-edit-float__queue-item">
+                  <span className="ai-edit-float__queue-item-num">{i + 1}</span>
+                  <span className="ai-edit-float__queue-item-text">{item.prompt}</span>
+                </div>
+              ))}
             </div>
           )}
 

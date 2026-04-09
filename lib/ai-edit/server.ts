@@ -92,6 +92,23 @@ export async function writeAiEditState(next: AiEditState) {
   return payload;
 }
 
+function spawnRunner(jobId: string, prompt: string, targetPath: string): number | null {
+  const workerPath = path.join(process.cwd(), "scripts", "ai-edit-runner.js");
+  const child = spawn(process.execPath, [workerPath], {
+    detached: true,
+    stdio: "ignore",
+    env: {
+      ...process.env,
+      AI_EDIT_JOB_ID: jobId,
+      AI_EDIT_PROMPT: prompt,
+      AI_EDIT_TARGET_PATH: targetPath,
+      AI_EDIT_STATE_FILE: aiEditConfig.stateFile
+    }
+  });
+  child.unref();
+  return child.pid ?? null;
+}
+
 export async function readAiEditState(): Promise<AiEditState> {
   await ensureStateDir();
 
@@ -105,7 +122,7 @@ export async function readAiEditState(): Promise<AiEditState> {
   if (!Array.isArray(raw.queue)) raw.queue = [];
 
   if (raw.status === "running" && raw.pid && !isPidAlive(raw.pid)) {
-    // runner가 죽었으면: 큐에 항목이 있어도 새 runner가 없으므로 실패 처리
+    // runner가 죽었으면 실패 처리
     return writeAiEditState({
       ...raw,
       status: "failed",
@@ -114,6 +131,33 @@ export async function readAiEditState(): Promise<AiEditState> {
       error: "작업이 비정상 종료되었습니다.",
       queue: raw.queue
     });
+  }
+
+  // idle 상태인데 큐에 작업이 있으면 (워크숍 종료 후 방치된 경우) 자동으로 러너 시작
+  if (
+    (raw.status === "idle" || raw.status === "done" || raw.status === "failed") &&
+    raw.queue.length > 0 &&
+    !(await isWorkshopBusy())
+  ) {
+    const [next, ...remaining] = raw.queue;
+    const started: AiEditState = {
+      ...raw,
+      configured: isAiEditConfigured(),
+      status: "running",
+      jobId: next.jobId,
+      pid: null,
+      prompt: next.prompt,
+      targetPath: next.targetPath,
+      currentStep: "대기 중이던 작업을 시작합니다.",
+      thinking: null,
+      error: null,
+      startedAt: new Date().toISOString(),
+      completedAt: null,
+      queue: remaining
+    };
+    await writeAiEditState(started);
+    const pid = spawnRunner(next.jobId, next.prompt, next.targetPath);
+    return writeAiEditState({ ...started, pid });
   }
 
   const configured = isAiEditConfigured();
@@ -184,21 +228,7 @@ export async function startAiEdit(input: AiEditStartInput) {
 
   await writeAiEditState(nextState);
 
-  const workerPath = path.join(process.cwd(), "scripts", "ai-edit-runner.js");
-  const child = spawn(process.execPath, [workerPath], {
-    detached: true,
-    stdio: "ignore",
-    env: {
-      ...process.env,
-      AI_EDIT_JOB_ID: jobId,
-      AI_EDIT_PROMPT: prompt,
-      AI_EDIT_TARGET_PATH: input.targetPath ?? "",
-      AI_EDIT_STATE_FILE: aiEditConfig.stateFile
-    }
-  });
-
-  child.unref();
-
-  nextState.pid = child.pid ?? null;
+  const pid = spawnRunner(jobId, prompt, input.targetPath ?? "");
+  nextState.pid = pid;
   return writeAiEditState(nextState);
 }
