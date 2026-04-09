@@ -1,0 +1,161 @@
+import "server-only";
+
+import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { spawn, spawnSync } from "node:child_process";
+import path from "node:path";
+
+import type { AiEditStartInput, AiEditState } from "@/lib/ai-edit/types";
+
+const isLinux = process.platform === "linux";
+
+const defaultStateDir = () => {
+  if (process.env.AIG_AI_EDIT_STATE_DIR) {
+    return process.env.AIG_AI_EDIT_STATE_DIR;
+  }
+
+  if (isLinux && existsSync("/home/studio/logs")) {
+    return "/home/studio/logs/ai-edit";
+  }
+
+  return path.join(process.cwd(), ".ai-edit-runtime");
+};
+
+export const aiEditConfig = {
+  appDir: process.env.AIG_WORKSHOP_FRONTEND_APP_DIR ?? "/home/studio/apps/Free-D103-Frontend",
+  openClawBin: process.env.AIG_WORKSHOP_OPENCLAW_BIN ?? "/home/openclaw-studio/.openclaw/bin/openclaw",
+  openClawUser: process.env.AIG_WORKSHOP_OPENCLAW_USER ?? "openclaw-studio",
+  restartFrontendScript: process.env.AIG_WORKSHOP_RESTART_SCRIPT ?? "/home/studio/deploy/restart-frontend.sh",
+  workspaceDir: process.env.AIG_AI_EDIT_WORKSPACE ?? "/home/openclaw-studio/ai-edit-workspace",
+  model: process.env.AIG_AI_EDIT_MODEL ?? "openai-codex/gpt-5.4",
+  thinking: process.env.AIG_AI_EDIT_THINKING ?? "high",
+  agentTimeoutSeconds: Number(process.env.AIG_AI_EDIT_TIMEOUT ?? "600"),
+  stateDir: defaultStateDir(),
+  stateFile: path.join(defaultStateDir(), "state.json")
+};
+
+function pathExists(targetPath: string) {
+  if (!targetPath) return false;
+  if (!isLinux) return existsSync(targetPath);
+
+  if (existsSync(targetPath)) return true;
+  return spawnSync("sudo", ["test", "-e", targetPath], { stdio: "ignore" }).status === 0;
+}
+
+export function isAiEditConfigured() {
+  return (
+    pathExists(aiEditConfig.openClawBin) &&
+    pathExists(aiEditConfig.restartFrontendScript)
+  );
+}
+
+const createInitialState = (): AiEditState => ({
+  configured: isAiEditConfigured(),
+  status: "idle",
+  jobId: null,
+  pid: null,
+  prompt: "",
+  targetPath: "",
+  currentStep: null,
+  thinking: null,
+  error: null,
+  startedAt: null,
+  completedAt: null,
+  updatedAt: new Date().toISOString()
+});
+
+export async function ensureStateDir() {
+  await mkdir(aiEditConfig.stateDir, { recursive: true });
+}
+
+function isPidAlive(pid: number | null) {
+  if (!pid) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function writeAiEditState(next: AiEditState) {
+  await ensureStateDir();
+  const payload = { ...next, updatedAt: new Date().toISOString() };
+  await writeFile(aiEditConfig.stateFile, JSON.stringify(payload, null, 2), "utf8");
+  return payload;
+}
+
+export async function readAiEditState(): Promise<AiEditState> {
+  await ensureStateDir();
+
+  if (!existsSync(aiEditConfig.stateFile)) {
+    return writeAiEditState(createInitialState());
+  }
+
+  const raw = JSON.parse(await readFile(aiEditConfig.stateFile, "utf8")) as AiEditState;
+
+  if (raw.status === "running" && raw.pid && !isPidAlive(raw.pid)) {
+    return writeAiEditState({
+      ...raw,
+      status: "failed",
+      pid: null,
+      currentStep: null,
+      error: "작업이 비정상 종료되었습니다."
+    });
+  }
+
+  const configured = isAiEditConfigured();
+  if (raw.configured !== configured) {
+    return writeAiEditState({ ...raw, configured });
+  }
+
+  return raw;
+}
+
+export async function startAiEdit(input: AiEditStartInput) {
+  const prompt = input.prompt.trim();
+  if (!prompt) throw new Error("수정 요청을 입력해 주세요.");
+  if (!isAiEditConfigured()) throw new Error("AI 에디팅 런타임이 아직 서버에 준비되지 않았습니다.");
+
+  const current = await readAiEditState();
+  if (current.status === "running" && isPidAlive(current.pid)) {
+    throw new Error("다른 수정 작업이 진행 중입니다. 완료 후 다시 시도해 주세요.");
+  }
+
+  const jobId = randomUUID();
+  const nextState: AiEditState = {
+    configured: true,
+    status: "running",
+    jobId,
+    pid: null,
+    prompt,
+    targetPath: input.targetPath ?? "",
+    currentStep: "수정 작업을 준비하는 중입니다.",
+    thinking: null,
+    error: null,
+    startedAt: new Date().toISOString(),
+    completedAt: null,
+    updatedAt: new Date().toISOString()
+  };
+
+  await writeAiEditState(nextState);
+
+  const workerPath = path.join(process.cwd(), "scripts", "ai-edit-runner.js");
+  const child = spawn(process.execPath, [workerPath], {
+    detached: true,
+    stdio: "ignore",
+    env: {
+      ...process.env,
+      AI_EDIT_JOB_ID: jobId,
+      AI_EDIT_PROMPT: prompt,
+      AI_EDIT_TARGET_PATH: input.targetPath ?? "",
+      AI_EDIT_STATE_FILE: aiEditConfig.stateFile
+    }
+  });
+
+  child.unref();
+
+  nextState.pid = child.pid ?? null;
+  return writeAiEditState(nextState);
+}

@@ -3,6 +3,7 @@ import { IBM_Plex_Sans_KR, JetBrains_Mono } from "next/font/google";
 
 import "./globals.css";
 import Providers from "./providers";
+import { AiEditFloat } from "@/components/ai-edit/AiEditFloat";
 
 const sans = IBM_Plex_Sans_KR({
   subsets: ["latin"],
@@ -42,6 +43,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${sans.variable} ${mono.variable}`}>
         <Providers>
           {children}
+
+          <AiEditFloat />
 
           <div className="mobile-warning">
             <div className="mobile-warning__panel">
