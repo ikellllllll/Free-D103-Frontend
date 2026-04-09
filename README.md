@@ -24,3 +24,11 @@
 yarn install
 yarn dev
 ```
+
+배포:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\deploy-to-studio.ps1
+```
+
+배포 대상 서버는 `studio.pyan.kr`이고, 서버 내부에서는 `127.0.0.1:3002`에 Next.js 프로덕션 서버가 떠 있습니다.
