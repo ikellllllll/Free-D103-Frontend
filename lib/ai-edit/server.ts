@@ -31,6 +31,7 @@ export const aiEditConfig = {
   model: process.env.AIG_AI_EDIT_MODEL ?? "openai-codex/gpt-5.4",
   thinking: process.env.AIG_AI_EDIT_THINKING ?? "medium",
   agentTimeoutSeconds: Number(process.env.AIG_AI_EDIT_TIMEOUT ?? "900"),
+  healthcheckUrl: process.env.AIG_AI_EDIT_HEALTHCHECK_URL ?? "http://127.0.0.1:3002/login",
   stateDir: defaultStateDir(),
   stateFile: path.join(defaultStateDir(), "state.json"),
   workshopStateFile:
@@ -79,6 +80,22 @@ function isPidAlive(pid: number | null) {
   try {
     process.kill(pid, 0);
     return true;
+  } catch {
+    return false;
+  }
+}
+
+async function isFrontendHealthy() {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const response = await fetch(aiEditConfig.healthcheckUrl, {
+      method: "GET",
+      cache: "no-store",
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    return response.ok;
   } catch {
     return false;
   }
@@ -135,6 +152,27 @@ export async function readAiEditState(): Promise<AiEditState> {
   };
 
   if (state.status === "running" && state.pid && !isPidAlive(state.pid)) {
+    if (state.heartbeatLabel === "Restarting") {
+      if (await isFrontendHealthy()) {
+        return writeAiEditState({
+          ...state,
+          status: "done",
+          pid: null,
+          currentStep: "수정 내용을 반영했고 서비스를 다시 시작했습니다.",
+          heartbeatAt: new Date().toISOString(),
+          heartbeatLabel: "Done",
+          error: null,
+          completedAt: new Date().toISOString()
+        });
+      }
+
+      const restartAgeMs =
+        state.heartbeatAt ? Date.now() - new Date(state.heartbeatAt).getTime() : Number.POSITIVE_INFINITY;
+      if (restartAgeMs < 90_000) {
+        return state;
+      }
+    }
+
     return writeAiEditState({
       ...state,
       status: "failed",
