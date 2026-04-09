@@ -28,6 +28,8 @@ if (!stateFile) {
 
 // ── 설정 ────────────────────────────────────────────────────────
 const sudoBin = "/usr/bin/sudo";
+const flockBin = "/usr/bin/flock";
+const APP_DIR_LOCK = process.env.AIG_APP_DIR_LOCK || "/home/studio/logs/app-dir.lock";
 
 const config = {
   appDir: process.env.AIG_WORKSHOP_FRONTEND_APP_DIR || "/home/studio/apps/Free-D103-Frontend",
@@ -127,8 +129,10 @@ async function prepareWorkspace() {
   await runCommand(sudoBin, ["rm", "-rf", config.workspaceDir]);
   await runAsOpenClaw(["mkdir", "-p", config.workspaceDir]);
 
-  await runCommand(sudoBin, [
-    "rsync", "-a", "--delete",
+  // flock: appDir 읽기 중 다른 프로세스의 쓰기 방지
+  await runCommand(flockBin, [
+    "-s", "-w", "60", APP_DIR_LOCK,
+    sudoBin, "rsync", "-a", "--delete",
     "--exclude", ".git",
     "--exclude", "node_modules",
     "--exclude", ".next",
@@ -260,8 +264,10 @@ function parseAgentResult(stdout) {
 
 // ── 변경사항 앱에 반영 ───────────────────────────────────────────
 async function syncToAppDir() {
-  await runCommand(sudoBin, [
-    "rsync", "-a", "--delete",
+  // flock -x: 배타적 잠금 — 동시 쓰기 방지
+  await runCommand(flockBin, [
+    "-x", "-w", "60", APP_DIR_LOCK,
+    sudoBin, "rsync", "-a", "--delete",
     "--exclude", ".git",
     "--exclude", "node_modules",
     "--exclude", ".next",

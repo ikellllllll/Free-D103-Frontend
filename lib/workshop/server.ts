@@ -50,6 +50,18 @@ export const workshopConfig: WorkshopConfig = {
   variantRoot: process.env.AIG_WORKSHOP_VARIANT_ROOT ?? "/home/openclaw-studio/preview-workshop/variants"
 };
 
+// 교차 충돌 방지용 — ai-edit 상태 파일 위치
+const aiEditStateFile = process.env.AIG_AI_EDIT_STATE_FILE
+  ?? (isLinux && existsSync("/home/studio/logs")
+    ? "/home/studio/logs/ai-edit/state.json"
+    : path.join(process.cwd(), ".ai-edit-runtime", "state.json"));
+
+// appDir 동시 접근 방지용 flock 파일
+const APP_DIR_LOCK = process.env.AIG_APP_DIR_LOCK
+  ?? (isLinux && existsSync("/home/studio/logs")
+    ? "/home/studio/logs/app-dir.lock"
+    : path.join(process.cwd(), ".app-dir.lock"));
+
 function pathExistsForWorkshop(targetPath: string) {
   if (!targetPath) {
     return false;
@@ -125,6 +137,22 @@ const mergeState = (raw: Partial<WorkshopState> | null | undefined): WorkshopSta
     }))
   };
 };
+
+// ai-edit 상태 파일을 직접 읽어 실행 중인지 확인 (순환 import 방지)
+async function isAiEditBusy(): Promise<boolean> {
+  try {
+    if (!existsSync(aiEditStateFile)) return false;
+    const raw = JSON.parse(await readFile(aiEditStateFile, "utf8"));
+    return raw?.status === "running" && isPidAliveSync(raw?.pid ?? null);
+  } catch {
+    return false;
+  }
+}
+
+function isPidAliveSync(pid: number | null): boolean {
+  if (!pid) return false;
+  try { process.kill(pid, 0); return true; } catch { return false; }
+}
 
 export function isWorkshopConfigured() {
   return (
@@ -232,6 +260,10 @@ export async function startWorkshopGeneration(input: WorkshopGenerateInput) {
     throw new Error("다른 워크숍 작업이 진행 중입니다. 완료 후 다시 시도해 주세요.");
   }
 
+  if (await isAiEditBusy()) {
+    throw new Error("AI 편집 작업이 진행 중입니다. 완료 후 다시 시도해 주세요.");
+  }
+
   const currentJobId = randomUUID();
   const nextState = createInitialState(true);
   nextState.status = "running";
@@ -318,6 +350,10 @@ export async function promoteWorkshopVariant(variantId: WorkshopVariantId) {
     throw new Error("반영 가능한 시안이 아닙니다.");
   }
 
+  if (await isAiEditBusy()) {
+    throw new Error("AI 편집 작업이 진행 중입니다. 완료 후 다시 시도해 주세요.");
+  }
+
   state.status = "promoting";
   state.error = null;
   state.runningStep = `${variant.title}을 본 서비스에 반영하는 중입니다.`;
@@ -326,16 +362,14 @@ export async function promoteWorkshopVariant(variantId: WorkshopVariantId) {
   await writeWorkshopState(state);
 
   const sourceDir = path.join(workshopConfig.variantRoot, variantId);
-  await runCommand("sudo", [
-    "rsync",
+  await runCommand("flock", [
+    "-x", "-w", "60", APP_DIR_LOCK,
+    "sudo", "rsync",
     "-a",
     "--delete",
-    "--exclude",
-    ".git",
-    "--exclude",
-    "node_modules",
-    "--exclude",
-    ".next",
+    "--exclude", ".git",
+    "--exclude", "node_modules",
+    "--exclude", ".next",
     `${sourceDir}/`,
     `${workshopConfig.appDir}/`
   ]);

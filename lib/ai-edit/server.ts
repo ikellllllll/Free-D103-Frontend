@@ -32,7 +32,12 @@ export const aiEditConfig = {
   thinking: process.env.AIG_AI_EDIT_THINKING ?? "high",
   agentTimeoutSeconds: Number(process.env.AIG_AI_EDIT_TIMEOUT ?? "600"),
   stateDir: defaultStateDir(),
-  stateFile: path.join(defaultStateDir(), "state.json")
+  stateFile: path.join(defaultStateDir(), "state.json"),
+  // 교차 충돌 방지용 — workshop 상태 파일 위치
+  workshopStateFile: process.env.AIG_WORKSHOP_STATE_FILE
+    ?? (isLinux && existsSync("/home/studio/logs")
+      ? "/home/studio/logs/preview-workshop/state.json"
+      : path.join(process.cwd(), ".workshop-runtime", "state.json"))
 };
 
 function pathExists(targetPath: string) {
@@ -113,6 +118,18 @@ export async function readAiEditState(): Promise<AiEditState> {
   return raw;
 }
 
+// workshop 상태 파일을 직접 읽어 실행 중인지 확인 (순환 import 방지)
+async function isWorkshopBusy(): Promise<boolean> {
+  try {
+    if (!existsSync(aiEditConfig.workshopStateFile)) return false;
+    const raw = JSON.parse(await readFile(aiEditConfig.workshopStateFile, "utf8"));
+    const busy = raw?.status === "running" || raw?.status === "promoting";
+    return busy && isPidAlive(raw?.currentPid ?? null);
+  } catch {
+    return false;
+  }
+}
+
 export async function startAiEdit(input: AiEditStartInput) {
   const prompt = input.prompt.trim();
   if (!prompt) throw new Error("수정 요청을 입력해 주세요.");
@@ -120,7 +137,11 @@ export async function startAiEdit(input: AiEditStartInput) {
 
   const current = await readAiEditState();
   if (current.status === "running" && isPidAlive(current.pid)) {
-    throw new Error("다른 수정 작업이 진행 중입니다. 완료 후 다시 시도해 주세요.");
+    throw new Error("다른 AI 편집 작업이 진행 중입니다. 완료 후 다시 시도해 주세요.");
+  }
+
+  if (await isWorkshopBusy()) {
+    throw new Error("워크숍 작업이 진행 중입니다. 완료 후 다시 시도해 주세요.");
   }
 
   const jobId = randomUUID();
