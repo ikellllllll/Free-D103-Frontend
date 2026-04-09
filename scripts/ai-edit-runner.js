@@ -414,13 +414,10 @@ async function syncToAppDir() {
 
 async function restartFrontend() {
   if (process.platform === "linux") {
-    return runCommand("pm2", ["restart", config.pm2ProcessName], {
-      env: {
-        ...process.env,
-        HOME: "/home/studio",
-        PM2_HOME: "/home/studio/.pm2"
-      }
-    });
+    return runCommand("bash", [
+      "-lc",
+      `nohup env HOME=/home/studio PM2_HOME=/home/studio/.pm2 pm2 restart '${config.pm2ProcessName}' >/home/studio/logs/ai-edit/pm2-restart.log 2>&1 < /dev/null &`
+    ]);
   }
 
   return runCommand(config.restartFrontendScript, []);
@@ -510,16 +507,6 @@ async function processJob(jobId, jobPrompt, jobTargetPath) {
     () => syncToAppDir()
   );
 
-  if (shouldRestartAfterEdit) {
-    await withHeartbeat(
-      {
-        step: "새 빌드 결과로 서비스를 다시 시작하고 있습니다.",
-        label: "Restarting"
-      },
-      () => restartFrontend()
-    );
-  }
-
   await updateState((state) => {
     state.status = "done";
     state.pid = null;
@@ -531,6 +518,11 @@ async function processJob(jobId, jobPrompt, jobTargetPath) {
     state.completedAt = new Date().toISOString();
     return state;
   });
+
+  if (shouldRestartAfterEdit) {
+    await restartFrontend();
+    return;
+  }
 }
 
 async function main() {
