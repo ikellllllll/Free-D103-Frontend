@@ -1,5 +1,7 @@
 "use client";
 
+import { Sun, Moon } from "lucide-react";
+
 import { useThemeStore } from "@/store/themeStore";
 
 export function ThemeToggle({ inline = false }: { inline?: boolean }) {
@@ -18,7 +20,9 @@ export function ThemeToggle({ inline = false }: { inline?: boolean }) {
       onClick={toggleTheme}
       aria-label={`${theme === "dark" ? "라이트 모드" : "다크 모드"}로 전환`}
     >
-      <span className="theme-toggle__icon">{theme === "dark" ? "L" : "D"}</span>
+      <span className="theme-toggle__icon">
+        {theme === "dark" ? <Sun size={14} strokeWidth={1.8} /> : <Moon size={14} strokeWidth={1.8} />}
+      </span>
       <span className="theme-toggle__label">{theme === "dark" ? "라이트" : "다크"}</span>
     </button>
   );

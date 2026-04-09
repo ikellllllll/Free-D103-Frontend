@@ -1,11 +1,11 @@
 import { AuthGate } from "@/components/auth/AuthGate";
-import { AppHeader } from "@/components/layout/AppHeader";
+import { AppSidebar } from "@/components/layout/AppSidebar";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGate>
       <div className="app-shell">
-        <AppHeader />
+        <AppSidebar />
         <main className="page-shell">{children}</main>
       </div>
     </AuthGate>

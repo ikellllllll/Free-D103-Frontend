@@ -440,37 +440,48 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       });
     }
 
+    let selectionDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
     editor.onDidChangeCursorSelection(() => {
-      const selection = editor.getSelection();
+      if (selectionDebounceTimer) clearTimeout(selectionDebounceTimer);
+      selectionDebounceTimer = setTimeout(() => {
+        const selection = editor.getSelection();
 
-      if (!selection || selection.isEmpty()) {
-        const position = editor.getPosition();
+        if (!selection || selection.isEmpty()) {
+          const position = editor.getPosition();
 
-        if (position) {
-          setCursorPosition({
-            line: position.lineNumber,
-            column: position.column
-          });
+          if (position) {
+            setCursorPosition({
+              line: position.lineNumber,
+              column: position.column
+            });
+          }
+
+          setSelection("", null);
+          return;
         }
 
-        setSelection("", null);
-        return;
-      }
+        const position = selection.getPosition();
+        const model = editor.getModel();
+        if (!model) return;
 
-      const position = selection.getPosition();
-      const code = editor.getModel()?.getValueInRange(selection) ?? "";
-      const range: SelectionRange = {
-        startLineNumber: selection.startLineNumber,
-        startColumn: selection.startColumn,
-        endLineNumber: selection.endLineNumber,
-        endColumn: selection.endColumn
-      };
+        const code = model.getValueInRange(selection) ?? "";
+        const lineCount = model.getLineCount();
+        const startLine = Math.min(selection.startLineNumber, lineCount);
+        const endLine = Math.min(selection.endLineNumber, lineCount);
+        const range: SelectionRange = {
+          startLineNumber: startLine,
+          startColumn: selection.startColumn,
+          endLineNumber: endLine,
+          endColumn: selection.endColumn
+        };
 
-      setCursorPosition({
-        line: position.lineNumber,
-        column: position.column
-      });
-      setSelection(code, range);
+        setCursorPosition({
+          line: position.lineNumber,
+          column: position.column
+        });
+        setSelection(code, range);
+      }, 80);
     });
   };
 
@@ -526,6 +537,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const fillPresetPrompt = (value: string) => {
     setAiOpen(true);
     setAiMode("chat");
+    setSuggestion(null);
     setChatInput(value);
   };
 
@@ -552,14 +564,25 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       return;
     }
 
+    const model = editorRef.current.getModel();
+    if (!model) return;
+
+    const lineCount = model.getLineCount();
+    const clampedRange = {
+      startLineNumber: Math.min(selectedRange.startLineNumber, lineCount),
+      startColumn: selectedRange.startColumn,
+      endLineNumber: Math.min(selectedRange.endLineNumber, lineCount),
+      endColumn: selectedRange.endColumn
+    };
+
     editorRef.current.executeEdits("ai-edit", [
       {
-        range: selectedRange,
+        range: clampedRange,
         text: suggestion.replacement
       }
     ]);
 
-    const nextContent = editorRef.current.getValue();
+    const nextContent = model.getValue() ?? "";
     updateFileContent(activeFile.path, nextContent);
     await mockApi.applyAiEdit(sessionId, activeFile.path, nextContent, suggestion.summary);
     setSuggestion(null);
@@ -1142,7 +1165,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                 <button
                   type="button"
                   className={aiMode === "chat" ? "chip chip--active" : "chip"}
-                  onClick={() => setAiMode("chat")}
+                  onClick={() => { setAiMode("chat"); setSuggestion(null); }}
                 >
                   채팅
                 </button>
