@@ -641,7 +641,15 @@ function processAgentChunk(chunk: string, channel: "stdout" | "stderr") {
       continue;
     } catch {}
 
-    queueLog([`[${channel}] ${line}`]);
+    const looksLikeJsonFragment =
+      /^[\[\]{},"0-9.\-]+$/.test(line) ||
+      line.includes('":') ||
+      line.endsWith(",") ||
+      line === "]";
+
+    if (channel === "stderr" || !looksLikeJsonFragment) {
+      queueLog([`[${channel}] ${line}`]);
+    }
   }
 }
 
@@ -981,6 +989,7 @@ async function processJob(jobId: string, jobPrompt: string, jobTargetPath: strin
   });
 
   const agentId = await ensureAgent();
+  queueLog(["AI 에이전트를 준비했습니다.", "모델 응답을 기다리는 중입니다."]);
 
   const agentResult = await withHeartbeat(
     {
