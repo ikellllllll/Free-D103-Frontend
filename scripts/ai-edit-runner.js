@@ -18,6 +18,7 @@ const APP_DIR_LOCK = process.env.AIG_APP_DIR_LOCK || "/home/studio/logs/app-dir.
 
 const config = {
   appDir: process.env.AIG_WORKSHOP_FRONTEND_APP_DIR || "/home/studio/apps/Free-D103-Frontend",
+  appDirOwner: process.env.AIG_WORKSHOP_APP_DIR_OWNER || "studio:studio",
   openClawBin: process.env.AIG_WORKSHOP_OPENCLAW_BIN || "/home/openclaw-studio/.openclaw/bin/openclaw",
   openClawUser: process.env.AIG_WORKSHOP_OPENCLAW_USER || "openclaw-studio",
   restartFrontendScript: process.env.AIG_WORKSHOP_RESTART_SCRIPT || "/home/studio/deploy/restart-frontend.sh",
@@ -388,6 +389,10 @@ async function syncToAppDir() {
     `${config.workspaceDir}/`,
     `${config.appDir}/`
   ]);
+
+  if (process.platform === "linux") {
+    await runCommand(sudoBin, ["chown", "-R", config.appDirOwner, config.appDir]);
+  }
 }
 
 async function dequeueNext() {
