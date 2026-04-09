@@ -25,6 +25,7 @@ const config = {
   model: process.env.AIG_AI_EDIT_MODEL || "openai-codex/gpt-5.4",
   thinking: process.env.AIG_AI_EDIT_THINKING || "medium",
   agentTimeoutSeconds: Number(process.env.AIG_AI_EDIT_TIMEOUT || "900"),
+  installTimeoutMs: Number(process.env.AIG_AI_EDIT_INSTALL_TIMEOUT_MS || "600000"),
   buildTimeoutMs: Number(process.env.AIG_AI_EDIT_BUILD_TIMEOUT_MS || "900000"),
   agentId: "ai-edit"
 };
@@ -190,13 +191,6 @@ async function prepareWorkspace() {
     `${config.openClawUser}:${config.openClawUser}`,
     config.workspaceDir
   ]);
-
-  await runAsOpenClaw([
-    "ln",
-    "-sfn",
-    `${config.appDir}/node_modules`,
-    `${config.workspaceDir}/node_modules`
-  ]);
 }
 
 function createBrief(jobPrompt, jobTargetPath) {
@@ -253,6 +247,14 @@ async function ensureAgent() {
   ]);
 
   return config.agentId;
+}
+
+async function installWorkspaceDependencies() {
+  return runAsOpenClawInDir(
+    config.workspaceDir,
+    ["yarn", "install", "--frozen-lockfile"],
+    { timeoutMs: config.installTimeoutMs }
+  );
 }
 
 async function runAgent(agentId, jobId, jobTargetPath) {
@@ -426,6 +428,14 @@ async function processJob(jobId, jobPrompt, jobTargetPath) {
       await prepareWorkspace();
       await writeBrief(jobPrompt, jobTargetPath);
     }
+  );
+
+  await withHeartbeat(
+    {
+      step: "AI 작업용 의존성을 준비하고 있습니다.",
+      label: "Install"
+    },
+    () => installWorkspaceDependencies()
   );
 
   await pulseState({
