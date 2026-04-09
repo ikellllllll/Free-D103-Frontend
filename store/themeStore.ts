@@ -1,0 +1,59 @@
+"use client";
+
+import { create } from "zustand";
+
+export type ThemeMode = "dark" | "light";
+
+const STORAGE_KEY = "aig-theme-mode";
+const LEGACY_STORAGE_KEY = "ait-theme-mode";
+
+interface ThemeState {
+  theme: ThemeMode;
+  hydrated: boolean;
+  hydrate: () => void;
+  setTheme: (theme: ThemeMode) => void;
+  toggleTheme: () => void;
+}
+
+const applyTheme = (theme: ThemeMode) => {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  document.documentElement.dataset.theme = theme;
+};
+
+const resolveInitialTheme = (): ThemeMode => {
+  if (typeof window === "undefined") {
+    return "dark";
+  }
+
+  const stored = window.localStorage.getItem(STORAGE_KEY) ?? window.localStorage.getItem(LEGACY_STORAGE_KEY);
+  if (stored === "light" || stored === "dark") {
+    return stored;
+  }
+
+  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+};
+
+export const useThemeStore = create<ThemeState>((set, get) => ({
+  theme: "dark",
+  hydrated: false,
+  hydrate: () => {
+    const theme = resolveInitialTheme();
+    applyTheme(theme);
+    set({ theme, hydrated: true });
+  },
+  setTheme: (theme) => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(STORAGE_KEY, theme);
+    }
+
+    applyTheme(theme);
+    set({ theme });
+  },
+  toggleTheme: () => {
+    const next = get().theme === "dark" ? "light" : "dark";
+    get().setTheme(next);
+  }
+}));

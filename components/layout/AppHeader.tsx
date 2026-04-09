@@ -1,0 +1,73 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+
+import { ThemeToggle } from "@/components/system/ThemeToggle";
+import { mockApi } from "@/lib/api/mockApi";
+import { useAuthStore } from "@/store/authStore";
+import { useUiStore } from "@/store/uiStore";
+
+const navItems = [
+  { href: "/problems", label: "과제" },
+  { href: "/mypage", label: "마이페이지" }
+];
+
+export function AppHeader() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const user = useAuthStore((state) => state.user);
+  const signOut = useAuthStore((state) => state.signOut);
+  const addToast = useUiStore((state) => state.addToast);
+
+  const handleLogout = async () => {
+    await mockApi.logout();
+    signOut();
+    addToast("로그아웃되었습니다.", "success");
+    router.replace("/login");
+  };
+
+  return (
+    <header className="app-header">
+      <div className="app-header__inner">
+        <Link href="/problems" className="brand">
+          <span className="brand__mark">AIT</span>
+          <span className="brand__meta">
+            <strong>AI-based Integrated Test</strong>
+            <span>실무 과제 · AI 활용 피드백</span>
+          </span>
+        </Link>
+
+        <nav className="top-nav">
+          {navItems.map((item) => {
+            const active = pathname?.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={active ? "top-nav__link top-nav__link--active" : "top-nav__link"}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="app-header__actions">
+          <ThemeToggle inline />
+
+          <div className="profile-pill">
+            <span className="profile-pill__avatar">{user?.name?.slice(0, 1) ?? "U"}</span>
+            <div>
+              <strong style={{ fontSize: "0.88rem" }}>{user?.name ?? "사용자"}</strong>
+              <span style={{ fontSize: "0.76rem" }}>{user?.email ?? "세션 없음"}</span>
+            </div>
+            <button className="button button--ghost" onClick={handleLogout} style={{ fontSize: "0.82rem", padding: "4px 10px" }}>
+              로그아웃
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
