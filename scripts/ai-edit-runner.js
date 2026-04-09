@@ -252,7 +252,7 @@ async function ensureAgent() {
 async function installWorkspaceDependencies() {
   return runAsOpenClawInDir(
     config.workspaceDir,
-    ["yarn", "install", "--frozen-lockfile"],
+    ["/usr/bin/corepack", "yarn", "install", "--frozen-lockfile"],
     { timeoutMs: config.installTimeoutMs }
   );
 }
