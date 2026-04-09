@@ -7,5 +7,6 @@ frontend-deploy.tar.gz
 dist
 out
 *.local
+tsconfig.tsbuildinfo
 current-problems*.png
 ide-vscode-like.png
