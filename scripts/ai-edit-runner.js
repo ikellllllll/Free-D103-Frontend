@@ -19,6 +19,7 @@ const APP_DIR_LOCK = process.env.AIG_APP_DIR_LOCK || "/home/studio/logs/app-dir.
 const config = {
   appDir: process.env.AIG_WORKSHOP_FRONTEND_APP_DIR || "/home/studio/apps/Free-D103-Frontend",
   appDirOwner: process.env.AIG_WORKSHOP_APP_DIR_OWNER || "studio:studio",
+  pm2ProcessName: process.env.AIG_FRONTEND_PM2_NAME || "studio-pyan-frontend",
   openClawBin: process.env.AIG_WORKSHOP_OPENCLAW_BIN || "/home/openclaw-studio/.openclaw/bin/openclaw",
   openClawUser: process.env.AIG_WORKSHOP_OPENCLAW_USER || "openclaw-studio",
   restartFrontendScript: process.env.AIG_WORKSHOP_RESTART_SCRIPT || "/home/studio/deploy/restart-frontend.sh",
@@ -385,7 +386,23 @@ async function syncToAppDir() {
     "--exclude",
     "node_modules",
     "--exclude",
-    ".next",
+    ".openclaw",
+    "--exclude",
+    "AGENTS.md",
+    "--exclude",
+    "BOOTSTRAP.md",
+    "--exclude",
+    "EDIT_BRIEF.md",
+    "--exclude",
+    "HEARTBEAT.md",
+    "--exclude",
+    "IDENTITY.md",
+    "--exclude",
+    "SOUL.md",
+    "--exclude",
+    "TOOLS.md",
+    "--exclude",
+    "USER.md",
     `${config.workspaceDir}/`,
     `${config.appDir}/`
   ]);
@@ -393,6 +410,20 @@ async function syncToAppDir() {
   if (process.platform === "linux") {
     await runCommand(sudoBin, ["chown", "-R", config.appDirOwner, config.appDir]);
   }
+}
+
+async function restartFrontend() {
+  if (process.platform === "linux") {
+    return runCommand("pm2", ["restart", config.pm2ProcessName], {
+      env: {
+        ...process.env,
+        HOME: "/home/studio",
+        PM2_HOME: "/home/studio/.pm2"
+      }
+    });
+  }
+
+  return runCommand(config.restartFrontendScript, []);
 }
 
 async function dequeueNext() {
@@ -482,10 +513,10 @@ async function processJob(jobId, jobPrompt, jobTargetPath) {
   if (shouldRestartAfterEdit) {
     await withHeartbeat(
       {
-        step: "빌드 후 서비스를 다시 시작하고 있습니다.",
+        step: "새 빌드 결과로 서비스를 다시 시작하고 있습니다.",
         label: "Restarting"
       },
-      () => runCommand(config.restartFrontendScript, [])
+      () => restartFrontend()
     );
   }
 
