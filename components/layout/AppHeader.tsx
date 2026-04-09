@@ -10,6 +10,7 @@ import { useUiStore } from "@/store/uiStore";
 
 const navItems = [
   { href: "/problems", label: "과제" },
+  { href: "/workshop", label: "워크숍" },
   { href: "/mypage", label: "마이페이지" }
 ];
 
@@ -31,16 +32,16 @@ export function AppHeader() {
     <header className="app-header">
       <div className="app-header__inner">
         <Link href="/problems" className="brand">
-          <span className="brand__mark">AIT</span>
+          <span className="brand__mark">AIG</span>
           <span className="brand__meta">
-            <strong>AI-based Integrated Test</strong>
-            <span>실무 과제 · AI 활용 피드백</span>
+            <strong>AI Interview Guide</strong>
+            <span>과제 풀이, AI 활용 흐름, 피드백 리포트를 한 곳에서 다룹니다.</span>
           </span>
         </Link>
 
         <nav className="top-nav">
           {navItems.map((item) => {
-            const active = pathname?.startsWith(item.href);
+            const active = pathname === item.href || pathname?.startsWith(`${item.href}/`);
             return (
               <Link
                 key={item.href}
@@ -62,7 +63,11 @@ export function AppHeader() {
               <strong style={{ fontSize: "0.88rem" }}>{user?.name ?? "사용자"}</strong>
               <span style={{ fontSize: "0.76rem" }}>{user?.email ?? "세션 없음"}</span>
             </div>
-            <button className="button button--ghost" onClick={handleLogout} style={{ fontSize: "0.82rem", padding: "4px 10px" }}>
+            <button
+              className="button button--ghost"
+              onClick={handleLogout}
+              style={{ fontSize: "0.82rem", padding: "4px 10px" }}
+            >
               로그아웃
             </button>
           </div>

@@ -1743,6 +1743,203 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var
 
 .mobile-warning { display: none; }
 
+/* Workshop */
+.workshop-hero {
+  grid-template-columns: minmax(0, 1.2fr) 320px;
+}
+
+.workshop-hero__stats {
+  align-content: start;
+}
+
+.workshop-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) 340px;
+  gap: 20px;
+  align-items: start;
+}
+
+.workshop-console,
+.workshop-sidebar {
+  display: grid;
+  gap: 16px;
+}
+
+.workshop-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.workshop-form {
+  display: grid;
+  gap: 16px;
+}
+
+.workshop-form__row,
+.workshop-form__actions,
+.workshop-status,
+.workshop-status__meta,
+.variant-card__head,
+.variant-card__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.workshop-form__actions {
+  align-items: flex-end;
+}
+
+.workshop-form__hint {
+  max-width: 34rem;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.workshop-status {
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.workshop-status__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.workshop-status__item {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--subtle-bg);
+}
+
+.workshop-status__item span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-family: var(--font-mono);
+}
+
+.workshop-status__item strong {
+  font-size: 0.95rem;
+}
+
+.workshop-status__meta {
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+.workshop-alert {
+  display: grid;
+  gap: 8px;
+}
+
+.workshop-alert--error {
+  border-color: rgba(248, 81, 73, 0.28);
+  background: rgba(248, 81, 73, 0.08);
+}
+
+.workshop-alert p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.variant-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.variant-card {
+  display: grid;
+  gap: 14px;
+  min-height: 100%;
+}
+
+.variant-card--selected {
+  border-color: rgba(20, 184, 166, 0.32);
+  box-shadow: inset 0 0 0 1px rgba(20, 184, 166, 0.18);
+}
+
+.variant-card__head {
+  align-items: flex-start;
+}
+
+.variant-card__body {
+  display: grid;
+  gap: 10px;
+}
+
+.variant-card__meta {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-family: var(--font-mono);
+}
+
+.variant-card__summary {
+  min-height: 144px;
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--subtle-bg);
+  color: var(--text);
+  line-height: 1.7;
+  font-size: 0.86rem;
+}
+
+.variant-card__actions {
+  align-items: flex-end;
+}
+
+.variant-card__actions code,
+.workshop-inline-code {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--subtle-bg);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workshop-example-list {
+  display: grid;
+  gap: 10px;
+}
+
+.workshop-example {
+  width: 100%;
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--subtle-bg);
+  color: var(--text);
+  text-align: left;
+  font-size: 0.88rem;
+}
+
+.workshop-example:hover {
+  border-color: var(--line-strong);
+  background: var(--subtle-bg-2);
+}
+
 /* ─── Toast ──────────────────────────────────────────────────── */
 .toast-viewport {
   position: fixed;
@@ -1809,7 +2006,10 @@ html[data-theme="light"] .toast { background: var(--panel-strong); }
   .detail-layout,
   .timeline-board,
   .grid-2,
-  .hero-panel {
+  .hero-panel,
+  .workshop-layout,
+  .workshop-status__grid,
+  .variant-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1861,6 +2061,15 @@ html[data-theme="light"] .toast { background: var(--panel-strong); }
   .problem-table__head { display: none; }
   .top-nav,
   .profile-pill { display: none; }
+
+  .workshop-form__row,
+  .workshop-form__actions,
+  .workshop-status,
+  .variant-card__head,
+  .variant-card__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 @media (max-width: 900px) {
