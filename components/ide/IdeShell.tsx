@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Badge } from "@/components/common/Badge";
@@ -252,6 +252,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const theme = useThemeStore((state) => state.theme);
 
   const editorRef = useRef<any>(null);
+  const editorHostRef = useRef<HTMLDivElement | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
 
@@ -287,6 +288,28 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const effectiveSidebarWidth = Math.min(sidebarWidth, maxSidebarWidth);
   const effectiveAiPanelWidth = Math.min(aiPanelWidth, maxAiPanelWidth);
   const effectiveBottomPanelHeight = Math.min(bottomPanelHeight, maxBottomPanelHeight);
+
+  const requestEditorLayout = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const editor = editorRef.current;
+        const host = editorHostRef.current;
+
+        if (!editor || !host || typeof editor.layout !== "function") {
+          return;
+        }
+
+        const width = host.clientWidth;
+        const height = host.clientHeight;
+
+        if (!width || !height) {
+          return;
+        }
+
+        editor.layout({ width, height });
+      });
+    });
+  }, []);
 
   const { messages, streaming, requestCount, loadMessages, send } = useAiChat(sessionId);
   useAutoSave(sessionId);
@@ -337,6 +360,22 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   }, [messages, streaming]);
 
   useEffect(() => {
+    if (!editorHostRef.current || typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      requestEditorLayout();
+    });
+
+    observer.observe(editorHostRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [requestEditorLayout]);
+
+  useEffect(() => {
     const clampWorkbenchLayout = () => {
       const viewportHeight = window.innerHeight;
       const viewportWidth = window.innerWidth;
@@ -364,6 +403,21 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       window.removeEventListener("resize", clampWorkbenchLayout);
     };
   }, [aiPanelWidth, bottomPanelHeight, setAiPanelWidth, setBottomPanelHeight, setSidebarWidth, sidebarWidth]);
+
+  useEffect(() => {
+    requestEditorLayout();
+  }, [
+    activePath,
+    aiOpen,
+    bottomPanelOpen,
+    effectiveAiPanelWidth,
+    effectiveBottomPanelHeight,
+    effectiveSidebarWidth,
+    requestEditorLayout,
+    sidebarOpen,
+    viewportSize.height,
+    viewportSize.width
+  ]);
 
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
@@ -481,6 +535,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     ai: requestTotal ? `${requestTotal}` : null,
     output: testResult ? `${testResult.failed}` : traces.length ? `${traces.length}` : null
   };
+  const sidebarPanelLabel = activityItems.find((item) => item.id === sidebarView)?.label ?? "탐색기";
+  const aiPanelMeta = aiMode === "chat" ? `대화 ${requestTotal}회` : "수정 준비";
+  const outputPanelMeta = `${bottomTabs.find((tab) => tab.id === bottomPanelTab)?.label ?? "출력"} · ${bottomTabMeta[bottomPanelTab]}`;
 
   const handleMount = (editor: any) => {
     editorRef.current = editor;
@@ -536,6 +593,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         setSelection(code, range);
       }, 80);
     });
+
+    requestEditorLayout();
   };
 
   const beginResize = (mode: DragMode) => (event: React.MouseEvent<HTMLDivElement>) => {
@@ -574,6 +633,18 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     }
 
     setSidebarView(view);
+  };
+
+  const handleToggleSidebarPanel = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
+  const handleToggleBottomPanel = () => {
+    setBottomPanelOpen(!bottomPanelOpen);
+  };
+
+  const handleToggleAiPanel = () => {
+    toggleAiOpen();
   };
 
   const refreshSession = () => {
@@ -998,15 +1069,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         </div>
 
         <div className="hero-actions">
-          <button className="button" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            {sidebarOpen ? "탐색기 닫기" : "탐색기 열기"}
-          </button>
-          <button className="button" onClick={() => setBottomPanelOpen(!bottomPanelOpen)}>
-            {bottomPanelOpen ? "하단 패널 닫기" : "하단 패널 열기"}
-          </button>
-          <button className="button" onClick={toggleAiOpen}>
-            {aiOpen ? "AI 패널 닫기" : "AI 패널 열기"}
-          </button>
           <button className="button" onClick={handleRun} disabled={runLoading}>
             {runLoading ? "실행 중..." : "실행"}
           </button>
@@ -1039,29 +1101,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               </button>
             ))}
           </div>
-
-          <div className="activity-bar__group activity-bar__group--bottom">
-            <button
-              type="button"
-              className={aiOpen ? "activity-bar__item activity-bar__item--active" : "activity-bar__item"}
-              title="AI 보조 패널"
-              onClick={toggleAiOpen}
-            >
-              <span className="activity-bar__label">AI</span>
-              {activityMeta.ai ? <span className="activity-bar__badge">{activityMeta.ai}</span> : null}
-            </button>
-            <button
-              type="button"
-              className={
-                bottomPanelOpen ? "activity-bar__item activity-bar__item--active" : "activity-bar__item"
-              }
-              title="하단 패널"
-              onClick={() => setBottomPanelOpen(!bottomPanelOpen)}
-            >
-              <span className="activity-bar__label">OUT</span>
-              {activityMeta.output ? <span className="activity-bar__badge">{activityMeta.output}</span> : null}
-            </button>
-          </div>
         </aside>
 
         {sidebarOpen ? (
@@ -1073,7 +1112,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   <strong>{activityItems.find((item) => item.id === sidebarView)?.label ?? "탐색기"}</strong>
                 </div>
                 <button type="button" className="icon-button" onClick={() => setSidebarOpen(false)}>
-                  닫기
+                  숨기기
                 </button>
               </div>
 
@@ -1089,6 +1128,54 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         ) : null}
 
         <div className="ide-shell__main">
+          <div className="ide-toolbar">
+            <div className="ide-toolbar__group">
+              <span className="ide-toolbar__title">workbench</span>
+              <span className="ide-toolbar__path">{activeFile.path}</span>
+              <span className="ide-toolbar__chip">{dirtyCount ? `미저장 ${dirtyCount}개` : "저장됨"}</span>
+            </div>
+
+            <div className="ide-toolbar__group ide-toolbar__group--actions">
+              <span className="ide-toolbar__title">panels</span>
+
+              <button
+                type="button"
+                className={sidebarOpen ? "toolbar-button toolbar-button--active" : "toolbar-button"}
+                aria-pressed={sidebarOpen}
+                onClick={handleToggleSidebarPanel}
+              >
+                <span className="toolbar-button__stack">
+                  <span className="toolbar-button__label">왼쪽 패널</span>
+                  <span className="toolbar-button__meta">{sidebarPanelLabel}</span>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                className={bottomPanelOpen ? "toolbar-button toolbar-button--active" : "toolbar-button"}
+                aria-pressed={bottomPanelOpen}
+                onClick={handleToggleBottomPanel}
+              >
+                <span className="toolbar-button__stack">
+                  <span className="toolbar-button__label">하단 패널</span>
+                  <span className="toolbar-button__meta">{outputPanelMeta}</span>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                className={aiOpen ? "toolbar-button toolbar-button--active" : "toolbar-button"}
+                aria-pressed={aiOpen}
+                onClick={handleToggleAiPanel}
+              >
+                <span className="toolbar-button__stack">
+                  <span className="toolbar-button__label">AI 보조</span>
+                  <span className="toolbar-button__meta">{aiPanelMeta}</span>
+                </span>
+              </button>
+            </div>
+          </div>
+
           <div className="editor-tabs">
             {files.map((file) => (
               <button
@@ -1115,7 +1202,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           </div>
 
           <div className="editor-stage">
-            <div className="editor-host">
+            <div ref={editorHostRef} className="editor-host">
               <MonacoEditor
                 path={activeFile.path}
                 theme={theme === "dark" ? "vs-dark" : "vs"}
@@ -1167,7 +1254,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                     </div>
 
                     <button type="button" className="icon-button" onClick={() => setBottomPanelOpen(false)}>
-                      닫기
+                      숨기기
                     </button>
                   </div>
 
@@ -1209,8 +1296,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   <span className="panel-title panel-title--compact">aig assistant</span>
                   <strong>AI 보조 패널</strong>
                 </div>
-                <button type="button" className="icon-button" onClick={toggleAiOpen}>
-                  닫기
+                <button type="button" className="icon-button" onClick={handleToggleAiPanel}>
+                  숨기기
                 </button>
               </div>
 

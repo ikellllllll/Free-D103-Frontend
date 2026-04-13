@@ -1047,7 +1047,8 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var
   width: 52px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 12px;
   padding: 10px 8px;
   border-right: 1px solid var(--ide-border);
   background: var(--ide-activity-bg);
@@ -1452,7 +1453,7 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var
   flex: 1 1 auto;
   min-width: 0;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   background: var(--ide-workbench-bg);
 }
 
@@ -1460,6 +1461,7 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--ide-border);
@@ -1474,6 +1476,7 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var
 }
 
 .ide-toolbar__group--actions {
+  margin-left: auto;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
@@ -1509,23 +1512,48 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 32px;
-  padding: 0 12px;
-  border-radius: 6px;
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 10px;
   border: 1px solid var(--ide-border);
   background: var(--ide-pill-bg);
   color: var(--text);
   font-size: 0.82rem;
   font-weight: 600;
+  text-align: left;
+  transition: border-color var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
 }
 
 .toolbar-button:hover {
   background: var(--ide-hover-bg);
 }
 
+.toolbar-button--active {
+  border-color: rgba(217, 119, 87, 0.32);
+  background: var(--accent-dim);
+}
+
 .toolbar-button--primary {
   border-color: rgba(59, 124, 255, 0.32);
   background: var(--accent-dim);
+}
+
+.toolbar-button__stack {
+  display: grid;
+  gap: 2px;
+}
+
+.toolbar-button__label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.toolbar-button__meta {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  line-height: 1.1;
 }
 
 .editor-tabs {
