@@ -2267,17 +2267,22 @@ html[data-theme="light"] .toast { background: var(--panel-strong); }
   }
 
   .auth-layout {
-    min-height: min(680px, calc(100dvh - 36px));
+    min-height: 0;
+    height: min(680px, calc(100dvh - 36px));
   }
 
   .auth-hero {
     gap: 20px;
     padding: 34px 32px;
+    min-height: 0;
+    overflow: auto;
   }
 
   .auth-form-panel {
     gap: 20px;
     padding: 32px 28px 28px;
+    min-height: 0;
+    overflow: auto;
   }
 
   .auth-form-panel .stack-24 {
@@ -2359,12 +2364,15 @@ html[data-theme="light"] .toast { background: var(--panel-strong); }
   }
 
   .auth-layout {
-    min-height: min(620px, calc(100dvh - 28px));
+    min-height: 0;
+    height: calc(100dvh - 28px);
   }
 
   .auth-hero {
     gap: 16px;
     padding: 28px 24px;
+    min-height: 0;
+    overflow: auto;
   }
 
   .auth-hero__body h1 {
@@ -2383,6 +2391,8 @@ html[data-theme="light"] .toast { background: var(--panel-strong); }
   .auth-form-panel {
     gap: 16px;
     padding: 24px 22px 20px;
+    min-height: 0;
+    overflow: auto;
   }
 
   .auth-form-panel .stack-24 {
@@ -3254,7 +3264,8 @@ html[data-theme="light"] .design-dev .problem-table__head {
   }
 
   .auth-layout--dev {
-    min-height: min(720px, calc(100dvh - 92px));
+    min-height: 0;
+    height: min(720px, calc(100dvh - 92px));
   }
 
   .dev-blend-bar {
@@ -3282,7 +3293,8 @@ html[data-theme="light"] .design-dev .problem-table__head {
   }
 
   .auth-layout--dev {
-    min-height: min(560px, calc(100dvh - 64px));
+    min-height: 0;
+    height: calc(100dvh - 146px);
     border-radius: 18px;
   }
 
