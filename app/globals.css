@@ -3286,6 +3286,20 @@ html[data-theme="light"] .design-dev .problem-table__head {
     border-radius: 18px;
   }
 
+  .auth-page--dev .auth-hero {
+    gap: 12px;
+    padding: 22px 20px;
+  }
+
+  .auth-page--dev .auth-form-panel {
+    gap: 12px;
+    padding: 20px 18px 16px;
+  }
+
+  .auth-page--dev .auth-form-panel .stack-24 {
+    gap: 12px;
+  }
+
   .dev-blend-bar {
     gap: 8px;
     padding: 10px 12px;
