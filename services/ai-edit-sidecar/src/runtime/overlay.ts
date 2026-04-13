@@ -639,8 +639,6 @@ const renderMessages = () => {
     return `<div class="messages messages--empty">이 페이지에 대해 질문하거나, 수정 요청을 보내면 여기 대화가 쌓입니다.</div>`;
   }
 
-  const pendingSub = getStatusHeadline() || getStatusMeta();
-
   return `
     <div class="messages">
       ${messages
@@ -674,7 +672,6 @@ const renderMessages = () => {
                   ${typingDots}
                   <span style="margin-left:10px">${escapeHtml(getPendingBubbleTitle())}</span>
                 </div>
-                ${pendingSub ? `<div class="message__sub">${escapeHtml(pendingSub)}</div>` : ""}
               </article>
             </div>
           `
