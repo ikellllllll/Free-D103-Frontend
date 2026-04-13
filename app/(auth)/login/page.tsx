@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 
 import { AuthShell } from "@/components/auth/AuthShell";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
@@ -32,6 +32,11 @@ export default function LoginPage() {
     }
   };
 
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void handleLogin();
+  };
+
   return (
     <AuthShell
       mode="login"
@@ -44,47 +49,49 @@ export default function LoginPage() {
       footerHref={withPrefix("/signup")}
       footerAction="회원가입"
     >
-      <button className="button social-button" type="button">
-        GitHub 계정으로 계속
-      </button>
-
-      <div className="divider">
-        <span>또는 이메일로 로그인</span>
-      </div>
-
-      <div className="stack-16">
-        <label className="field">
-          <span>이메일</span>
-          <input
-            id="login-email"
-            name="email"
-            className="input"
-            autoComplete="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-          />
-        </label>
-
-        <label className="field">
-          <span>비밀번호</span>
-          <input
-            id="login-password"
-            name="password"
-            className="input"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
-        </label>
-      </div>
-
-      <div className="form-row">
-        <span className="text-link">비밀번호 찾기</span>
-        <button className="button button--primary" onClick={handleLogin} disabled={loading}>
-          {loading ? "로그인 중..." : "로그인"}
+      <form className="stack-24" onSubmit={handleSubmit}>
+        <button className="button social-button" type="button">
+          GitHub 계정으로 계속
         </button>
-      </div>
+
+        <div className="divider">
+          <span>또는 이메일로 로그인</span>
+        </div>
+
+        <div className="stack-16">
+          <label className="field">
+            <span>이메일</span>
+            <input
+              id="login-email"
+              name="email"
+              className="input"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </label>
+
+          <label className="field">
+            <span>비밀번호</span>
+            <input
+              id="login-password"
+              name="password"
+              className="input"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          </label>
+        </div>
+
+        <div className="form-row">
+          <span className="text-link">비밀번호 찾기</span>
+          <button className="button button--primary" type="submit" disabled={loading}>
+            {loading ? "로그인 중..." : "로그인"}
+          </button>
+        </div>
+      </form>
     </AuthShell>
   );
 }
