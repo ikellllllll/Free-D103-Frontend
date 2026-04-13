@@ -263,6 +263,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [extensionQuery, setExtensionQuery] = useState("");
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
+  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [explorerSections, setExplorerSections] = useState<Record<ExplorerSectionKey, boolean>>({
     openEditors: true,
     project: true,
@@ -279,8 +280,29 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     enabled: !!session
   });
 
+  const maxSidebarWidth = viewportSize.width > 0 && viewportSize.width <= 1360 ? 248 : 280;
+  const maxAiPanelWidth = viewportSize.width > 0 && viewportSize.width <= 1360 ? 320 : 360;
+  const maxBottomPanelHeight =
+    viewportSize.height > 0 ? (viewportSize.height <= 740 ? 168 : viewportSize.height <= 860 ? 196 : 220) : 220;
+  const effectiveSidebarWidth = Math.min(sidebarWidth, maxSidebarWidth);
+  const effectiveAiPanelWidth = Math.min(aiPanelWidth, maxAiPanelWidth);
+  const effectiveBottomPanelHeight = Math.min(bottomPanelHeight, maxBottomPanelHeight);
+
   const { messages, streaming, requestCount, loadMessages, send } = useAiChat(sessionId);
   useAutoSave(sessionId);
+
+  useEffect(() => {
+    const syncViewport = () => {
+      setViewportSize({ width: window.innerWidth, height: window.innerHeight });
+    };
+
+    syncViewport();
+    window.addEventListener("resize", syncViewport);
+
+    return () => {
+      window.removeEventListener("resize", syncViewport);
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -523,8 +545,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       mode,
       startX: event.clientX,
       startY: event.clientY,
-      startWidth: mode === "sidebar" ? sidebarWidth : aiPanelWidth,
-      startHeight: bottomPanelHeight
+      startWidth: mode === "sidebar" ? effectiveSidebarWidth : effectiveAiPanelWidth,
+      startHeight: effectiveBottomPanelHeight
     };
 
     document.body.style.cursor = mode === "bottom" ? "row-resize" : "col-resize";
@@ -1044,7 +1066,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
         {sidebarOpen ? (
           <>
-            <aside className="ide-shell__sidebar" style={{ width: sidebarWidth }}>
+            <aside className="ide-shell__sidebar" style={{ width: effectiveSidebarWidth }}>
               <div className="sidebar-header">
                 <div>
                   <span className="panel-title panel-title--compact">{sidebarView}</span>
@@ -1124,7 +1146,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   onMouseDown={beginResize("bottom")}
                   aria-hidden="true"
                 />
-                <section className="bottom-panel" style={{ height: bottomPanelHeight }}>
+                <section className="bottom-panel" style={{ height: effectiveBottomPanelHeight }}>
                   <div className="bottom-panel__tabs">
                     <div className="bottom-panel__tab-list">
                       {bottomTabs.map((tab) => (
@@ -1181,7 +1203,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               aria-hidden="true"
             />
 
-            <aside className="ide-shell__ai" style={{ width: aiPanelWidth }}>
+            <aside className="ide-shell__ai" style={{ width: effectiveAiPanelWidth }}>
               <div className="sidebar-header">
                 <div>
                   <span className="panel-title panel-title--compact">aig assistant</span>
