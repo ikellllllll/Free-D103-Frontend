@@ -36,6 +36,8 @@ const bottomTabs: Array<{ id: BottomPanelTab; label: string }> = [
   { id: "trace", label: "Trace" }
 ];
 
+const AI_REQUEST_QUOTA = 5;
+
 const extensionItems = [
   {
     name: "AIG Assistant",
@@ -562,6 +564,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     : `Ln ${cursorPosition.line}, Col ${cursorPosition.column}`;
   const lineCount = activeFile?.content.split("\n").length ?? 0;
   const requestTotal = requestCount || session?.aiRequestCount || 0;
+  const aiQuotaLabel = `${Math.min(requestTotal, AI_REQUEST_QUOTA)}/${AI_REQUEST_QUOTA}`;
   const dirtyCount = unsavedPaths.length;
   const problemRequirementsCount = problem?.requirements.length ?? 0;
   const problemCasesCount = problem?.publicCases.length ?? 0;
@@ -576,7 +579,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     explorer: dirtyCount ? `${dirtyCount}` : openFiles.length ? `${openFiles.length}` : `${files.length}`,
     search: searchQuery.trim() ? `${searchMatches.length}` : null,
     extensions: `${extensionItems.length}`,
-    ai: requestTotal ? `${requestTotal}` : null,
+    ai: aiQuotaLabel,
     output: testResult ? `${testResult.failed}` : traces.length ? `${traces.length}` : null
   };
   const lastSavedLabel = lastSavedAt
@@ -587,6 +590,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       })}`
     : "자동 저장 대기";
   const showEmptyEditor = activeWorkbenchTab === "code" && openFiles.length === 0;
+  const showBottomPanel = bottomPanelOpen && !showEmptyEditor;
 
   const handleMount = (editor: any) => {
     editorRef.current = editor;
@@ -1115,7 +1119,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               <li>요구사항 {problemRequirementsCount}개</li>
               <li>공개 테스트 {problemCasesCount}개</li>
               <li>엔드포인트 {problem.endpoints.length}개</li>
-              <li>현재 세션 AI 요청 {requestTotal}회</li>
+              <li>현재 세션 AI quota {aiQuotaLabel}</li>
             </ul>
           </div>
         </aside>
@@ -1208,6 +1212,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       <div className="editor-tabbar__actions">
         <span className="editor-tabbar__meta">{problem?.title ?? "문제 풀이"}</span>
         <span className="editor-tabbar__meta">{lastSavedLabel}</span>
+        <span className="editor-tabbar__meta">AI {aiQuotaLabel}</span>
         <button type="button" className="ide-command-button" onClick={handleRun} disabled={runLoading}>
           {runLoading ? "실행 중..." : "실행"}
         </button>
@@ -1271,7 +1276,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
             <button
               type="button"
-              className={activeWorkbenchTab === "code" && bottomPanelOpen ? "activity-bar__item activity-bar__item--active" : "activity-bar__item"}
+              className={activeWorkbenchTab === "code" && showBottomPanel ? "activity-bar__item activity-bar__item--active" : "activity-bar__item"}
               title="콘솔"
               onClick={handleToggleBottomPanel}
             >
@@ -1303,7 +1308,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               </div>
               <div className="status-bar__group">
                 <span>{problem?.estimate ?? "예상 시간 없음"}</span>
-                <span>AI 요청 {requestTotal}회</span>
+                <span>AI quota {aiQuotaLabel}</span>
                 <span>{dirtyCount ? `미저장 ${dirtyCount}개` : "저장됨"}</span>
               </div>
             </div>
@@ -1366,7 +1371,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   </div>
                 )}
 
-                {bottomPanelOpen ? (
+                {showBottomPanel ? (
                   <>
                     <div
                       className="pane-resizer pane-resizer--horizontal"
@@ -1459,7 +1464,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                       <div className="ai-context-strip">
                         <span className="ai-context-chip">{getFileName(activeFile.path)}</span>
                         <span className="ai-context-chip">{selectedRange ? selectionSummary : "선택 없음"}</span>
-                        <span className="ai-context-chip">요청 {requestTotal}회</span>
+                        <span className="ai-context-chip">AI quota {aiQuotaLabel}</span>
                       </div>
 
                       <div className="chat-presets">
