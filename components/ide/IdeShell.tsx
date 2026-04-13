@@ -1212,7 +1212,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       <div className="editor-tabbar__actions">
         <span className="editor-tabbar__meta">{problem?.title ?? "문제 풀이"}</span>
         <span className="editor-tabbar__meta">{lastSavedLabel}</span>
-        <span className="editor-tabbar__meta">AI {aiQuotaLabel}</span>
         <button type="button" className="ide-command-button" onClick={handleRun} disabled={runLoading}>
           {runLoading ? "실행 중..." : "실행"}
         </button>
@@ -1439,32 +1438,34 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                     </div>
                   </div>
 
-                  <div className="ai-tabs">
-                    <button
-                      type="button"
-                      className={aiMode === "chat" ? "chip chip--active" : "chip"}
-                      onClick={() => {
-                        setAiMode("chat");
-                        setSuggestion(null);
-                      }}
-                    >
-                      채팅
-                    </button>
-                    <button
-                      type="button"
-                      className={aiMode === "edit" ? "chip chip--active" : "chip"}
-                      onClick={() => setAiMode("edit")}
-                    >
-                      수정
-                    </button>
-                  </div>
-
                   {aiMode === "chat" ? (
                     <div className="ai-panel ai-panel--chat">
-                      <div className="ai-context-strip">
-                        <span className="ai-context-chip">{getFileName(activeFile.path)}</span>
-                        <span className="ai-context-chip">{selectedRange ? selectionSummary : "선택 없음"}</span>
-                        <span className="ai-context-chip">AI quota {aiQuotaLabel}</span>
+                      <div className="ai-panel__head">
+                        <div className="ai-tabs">
+                          <button
+                            type="button"
+                            className="chip chip--active"
+                            onClick={() => {
+                              setAiMode("chat");
+                              setSuggestion(null);
+                            }}
+                          >
+                            채팅
+                          </button>
+                          <button
+                            type="button"
+                            className="chip"
+                            onClick={() => setAiMode("edit")}
+                          >
+                            수정
+                          </button>
+                        </div>
+
+                        <div className="ai-context-strip">
+                          <span className="ai-context-chip">{getFileName(activeFile.path)}</span>
+                          <span className="ai-context-chip">{selectedRange ? selectionSummary : "선택 없음"}</span>
+                          <span className="ai-context-chip">AI quota {aiQuotaLabel}</span>
+                        </div>
                       </div>
 
                       <div className="chat-presets">
@@ -1508,15 +1509,38 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                     </div>
                   ) : (
                     <div className="ai-panel ai-panel--edit">
+                      <div className="ai-panel__head">
+                        <div className="ai-tabs">
+                          <button
+                            type="button"
+                            className="chip"
+                            onClick={() => {
+                              setAiMode("chat");
+                              setSuggestion(null);
+                            }}
+                          >
+                            채팅
+                          </button>
+                          <button
+                            type="button"
+                            className="chip chip--active"
+                            onClick={() => setAiMode("edit")}
+                          >
+                            수정
+                          </button>
+                        </div>
+
+                        <div className="ai-context-strip">
+                          <span className="ai-context-chip">{getFolderPath(activeFile.path) || "workspace"}</span>
+                          <span className="ai-context-chip">{selectionLabel}</span>
+                          <span className="ai-context-chip">AI quota {aiQuotaLabel}</span>
+                        </div>
+                      </div>
+
                       <Card className="mini-panel mini-panel--flat">
                         <strong>선택 코드</strong>
                         <pre>{selectedCode || "에디터에서 코드를 선택하면 AI 수정 모드가 활성화됩니다."}</pre>
                       </Card>
-
-                      <div className="ai-context-strip">
-                        <span className="ai-context-chip">{getFolderPath(activeFile.path) || "workspace"}</span>
-                        <span className="ai-context-chip">{selectionLabel}</span>
-                      </div>
 
                       <label className="field">
                         <span>수정 지시</span>

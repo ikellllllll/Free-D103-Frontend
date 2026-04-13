@@ -1631,10 +1631,11 @@ body:has(.ide-route--workspace) .page-shell > * {
 }
 
 .editor-empty-state {
-  min-height: 0;
+  min-height: 100%;
   display: grid;
-  place-items: center;
-  gap: 8px;
+  align-content: center;
+  justify-items: center;
+  gap: 6px;
   padding: 32px;
   color: var(--muted);
   text-align: center;
@@ -1989,10 +1990,19 @@ body:has(.ide-route--workspace) .page-shell > * {
 
 .chat-stack--panel { min-height: 0; align-content: start; }
 
+.ai-panel__head {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--ide-border);
+  background: rgba(255, 255, 255, 0.025);
+}
+
 .ai-context-strip {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .ai-context-chip {
@@ -2011,7 +2021,7 @@ body:has(.ide-route--workspace) .page-shell > * {
 .chat-presets {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .chat-preset {
@@ -2052,13 +2062,39 @@ body:has(.ide-route--workspace) .page-shell > * {
 
 .input--textarea { min-height: 80px; resize: vertical; }
 
-.ai-tabs { display: flex; gap: 8px; padding: 0 14px; }
+.ai-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--ide-border);
+  background: var(--subtle-bg);
+}
+
+.ai-tabs .chip {
+  min-height: 34px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+}
+
+.ai-tabs .chip:hover {
+  background: var(--ide-hover-bg);
+}
+
+.ai-tabs .chip--active {
+  background: var(--accent);
+  color: #fff;
+}
 
 .ai-panel {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   min-height: 0;
-  padding: 0 14px 14px;
+  padding: 14px;
 }
 
 .ai-panel--chat {
