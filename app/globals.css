@@ -3217,6 +3217,60 @@ html[data-theme="light"] .design-dev .problem-table__head {
     rgba(255, 255, 255, 0.92);
 }
 
+@media (max-height: 860px) {
+  .page-shell--dev {
+    padding-top: 14px;
+    gap: 14px;
+  }
+
+  .auth-page--dev {
+    padding: 52px 20px 20px;
+  }
+
+  .auth-page__stack {
+    gap: 14px;
+  }
+
+  .auth-layout--dev {
+    min-height: min(720px, calc(100dvh - 92px));
+  }
+
+  .dev-blend-bar {
+    gap: 12px;
+    padding: 14px 16px;
+  }
+
+  .dev-blend-bar__lead strong {
+    font-size: 1rem;
+  }
+}
+
+@media (max-height: 740px) {
+  .page-shell--dev {
+    padding-top: 10px;
+    gap: 12px;
+  }
+
+  .auth-page--dev {
+    padding: 40px 16px 16px;
+  }
+
+  .auth-layout--dev {
+    min-height: min(620px, calc(100dvh - 72px));
+    border-radius: 20px;
+  }
+
+  .dev-blend-bar {
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 16px;
+  }
+
+  .dev-blend-bar__label {
+    font-size: 0.7rem;
+  }
+}
+
 @media (max-width: 1200px) {
   .dev-blend-bar--auth,
   .dev-reference-strip {
