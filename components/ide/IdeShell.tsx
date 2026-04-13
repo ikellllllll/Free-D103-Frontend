@@ -590,7 +590,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       })}`
     : "자동 저장 대기";
   const showEmptyEditor = activeWorkbenchTab === "code" && openFiles.length === 0;
-  const showBottomPanel = bottomPanelOpen && !showEmptyEditor;
+  const showBottomPanel = bottomPanelOpen;
 
   const handleMount = (editor: any) => {
     editorRef.current = editor;
