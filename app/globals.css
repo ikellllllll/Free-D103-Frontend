@@ -1462,6 +1462,7 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
+  min-width: 0;
   gap: 16px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--ide-border);
@@ -1559,6 +1560,7 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var
 .editor-tabs {
   display: flex;
   gap: 0;
+  min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
   border-bottom: 1px solid var(--ide-border);
@@ -1593,6 +1595,7 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   min-height: 34px;
   padding: 0 14px;
   border-bottom: 1px solid var(--ide-border);
@@ -1614,13 +1617,16 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var
 }
 
 .editor-stage {
+  min-width: 0;
   min-height: 0;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto auto;
 }
 
 .editor-host {
+  min-width: 0;
   min-height: 360px;
+  overflow: hidden;
   background: var(--ide-workbench-bg);
 }
 
@@ -1879,6 +1885,7 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var
   display: flex;
   align-items: center;
   justify-content: space-between;
+  min-width: 0;
   gap: 12px;
   padding: 7px 12px;
   background: var(--ide-status-bg);
