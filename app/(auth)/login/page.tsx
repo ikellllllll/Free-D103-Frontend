@@ -4,12 +4,14 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { AuthShell } from "@/components/auth/AuthShell";
+import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
 import { useAuthStore } from "@/store/authStore";
 import { useUiStore } from "@/store/uiStore";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { withPrefix } = useRouteScope();
   const signIn = useAuthStore((state) => state.signIn);
   const addToast = useUiStore((state) => state.addToast);
   const [email, setEmail] = useState("user@email.com");
@@ -22,7 +24,7 @@ export default function LoginPage() {
       const user = await mockApi.login({ email, password });
       signIn(user);
       addToast("로그인되었습니다.", "success");
-      router.push("/problems");
+      router.push(withPrefix("/problems"));
     } catch (error) {
       addToast(error instanceof Error ? error.message : "로그인에 실패했습니다.", "error");
     } finally {
@@ -39,7 +41,7 @@ export default function LoginPage() {
       heading="기존 세션 이어서 시작"
       description="이전 실습 기록과 제출 흐름을 이어서 확인할 수 있습니다."
       footerText="아직 계정이 없나요?"
-      footerHref="/signup"
+      footerHref={withPrefix("/signup")}
       footerAction="회원가입"
     >
       <button className="button social-button" type="button">

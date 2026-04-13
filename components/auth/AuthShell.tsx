@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { startTransition, type MouseEvent, type ReactNode } from "react";
 
 import { AuthHero } from "@/components/auth/AuthHero";
+import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 
 type AuthMode = "login" | "signup";
 
@@ -43,10 +44,13 @@ export function AuthShell({
 }: AuthShellProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const activeMode = getModeFromPath(pathname);
+  const { currentPath, withPrefix } = useRouteScope();
+  const activeMode = getModeFromPath(currentPath);
 
   const navigateWithTransition = (href: string) => (event: MouseEvent<HTMLAnchorElement>) => {
-    if (pathname === href) {
+    const nextHref = withPrefix(href);
+
+    if (pathname === nextHref) {
       event.preventDefault();
       return;
     }
@@ -55,7 +59,7 @@ export function AuthShell({
 
     const navigate = () => {
       startTransition(() => {
-        router.push(href);
+        router.push(nextHref);
       });
     };
 
@@ -76,14 +80,14 @@ export function AuthShell({
         <div className="auth-form-panel__tabs" data-auth-mode={activeMode}>
           <span className="auth-form-panel__tab-indicator" aria-hidden />
           <Link
-            href="/login"
+            href={withPrefix("/login")}
             className={`auth-form-panel__tab${activeMode === "login" ? " auth-form-panel__tab--active" : ""}`}
             onClick={navigateWithTransition("/login")}
           >
             로그인
           </Link>
           <Link
-            href="/signup"
+            href={withPrefix("/signup")}
             className={`auth-form-panel__tab${activeMode === "signup" ? " auth-form-panel__tab--active" : ""}`}
             onClick={navigateWithTransition("/signup")}
           >
@@ -104,7 +108,7 @@ export function AuthShell({
 
         <p className="auth-form-panel__foot">
           {footerText}{" "}
-          <Link href={footerHref} onClick={navigateWithTransition(footerHref)}>
+          <Link href={withPrefix(footerHref)} onClick={navigateWithTransition(footerHref)}>
             {footerAction}
           </Link>
         </p>

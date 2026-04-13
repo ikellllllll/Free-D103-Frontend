@@ -2697,3 +2697,367 @@ html[data-theme="light"] .toast { background: var(--panel-strong); }
   line-height: 1.5;
   word-break: break-word;
 }
+
+/* ─── Dev Blend Theme ────────────────────────────────────────── */
+.design-dev {
+  --bg: #0a101a;
+  --bg-soft: #0f1725;
+  --panel: #121c2b;
+  --panel-strong: #182335;
+  --line: rgba(148, 163, 184, 0.14);
+  --line-strong: rgba(148, 163, 184, 0.22);
+  --text: #ecf3ff;
+  --muted: #93a4bc;
+  --muted-2: #5f728d;
+  --accent: #6ea8ff;
+  --accent-strong: #b08cff;
+  --accent-dim: rgba(110, 168, 255, 0.16);
+  --teal: #2dd4bf;
+  --green: #4ade80;
+  --amber: #f59e0b;
+  --red: #fb7185;
+  --sidebar-bg: rgba(8, 13, 23, 0.92);
+  --header-bg: #0b111c;
+  --surface-shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
+  --body-bg: #09111c;
+  --auth-hero-bg: rgba(11, 18, 31, 0.92);
+  --hero-panel-bg: rgba(15, 24, 39, 0.94);
+  --glow-card-bg: rgba(15, 24, 39, 0.94);
+  --panel-highlight-bg: rgba(22, 34, 52, 0.98);
+  --input-bg: rgba(8, 15, 25, 0.82);
+  --chip-bg: rgba(148, 163, 184, 0.08);
+  --subtle-bg: rgba(148, 163, 184, 0.04);
+  --subtle-bg-2: rgba(148, 163, 184, 0.07);
+  --editor-bg: #0b111c;
+  --ide-workbench-bg: #0a111b;
+  --ide-sidebar-bg: #0f1725;
+  --ide-activity-bg: #080d15;
+  --ide-tab-bg: #132032;
+  --ide-tab-active-bg: #0b111c;
+  --ide-border: #223044;
+  --ide-hover-bg: rgba(110, 168, 255, 0.08);
+  --ide-pill-bg: rgba(148, 163, 184, 0.08);
+  --ide-status-bg: #5b8dff;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(110, 168, 255, 0.16), transparent 24%),
+    radial-gradient(circle at 84% 10%, rgba(244, 114, 182, 0.1), transparent 20%),
+    linear-gradient(180deg, #09111c 0%, #0a101a 52%, #0b1320 100%);
+}
+
+html[data-theme="light"] .design-dev {
+  --bg: #f4f7fb;
+  --bg-soft: #ffffff;
+  --panel: #ffffff;
+  --panel-strong: #eef3fb;
+  --line: rgba(71, 85, 105, 0.12);
+  --line-strong: rgba(71, 85, 105, 0.18);
+  --text: #0f172a;
+  --muted: #526275;
+  --muted-2: #8d98a7;
+  --accent: #2563eb;
+  --accent-strong: #7c3aed;
+  --accent-dim: rgba(37, 99, 235, 0.1);
+  --teal: #0f766e;
+  --green: #15803d;
+  --amber: #b45309;
+  --red: #e11d48;
+  --sidebar-bg: rgba(241, 245, 249, 0.92);
+  --header-bg: #f8fbff;
+  --surface-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
+  --body-bg: #f4f7fb;
+  --auth-hero-bg: rgba(248, 250, 252, 0.96);
+  --hero-panel-bg: rgba(255, 255, 255, 0.96);
+  --glow-card-bg: rgba(255, 255, 255, 0.96);
+  --panel-highlight-bg: #f2f6fd;
+  --input-bg: rgba(255, 255, 255, 0.96);
+  --chip-bg: rgba(37, 99, 235, 0.05);
+  --subtle-bg: rgba(37, 99, 235, 0.03);
+  --subtle-bg-2: rgba(37, 99, 235, 0.05);
+  --editor-bg: #f8fbff;
+  --ide-workbench-bg: #f8fbff;
+  --ide-sidebar-bg: #f1f5f9;
+  --ide-activity-bg: #e2e8f0;
+  --ide-tab-bg: #edf2fb;
+  --ide-tab-active-bg: #ffffff;
+  --ide-border: #d7e0ed;
+  --ide-hover-bg: rgba(37, 99, 235, 0.06);
+  --ide-pill-bg: rgba(37, 99, 235, 0.06);
+  --ide-status-bg: #2563eb;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(37, 99, 235, 0.1), transparent 24%),
+    radial-gradient(circle at 88% 8%, rgba(124, 58, 237, 0.08), transparent 18%),
+    linear-gradient(180deg, #f8fbff 0%, #f4f7fb 100%);
+}
+
+.auth-page--dev {
+  place-items: start center;
+  padding: 72px 28px 28px;
+  background: transparent;
+}
+
+.auth-page__stack {
+  width: min(1280px, 100%);
+  display: grid;
+  gap: 18px;
+}
+
+.auth-page__tools--dev {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.auth-layout--dev {
+  min-height: 720px;
+  border-radius: 24px;
+  border: 1px solid var(--line-strong);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 32%),
+    var(--panel);
+  overflow: hidden;
+}
+
+.app-shell--dev {
+  background: transparent;
+}
+
+.page-shell--dev {
+  padding-top: 18px;
+  display: grid;
+  gap: 18px;
+}
+
+.dev-blend-bar {
+  display: grid;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 20px;
+  background:
+    linear-gradient(135deg, rgba(110, 168, 255, 0.1), transparent 32%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 90%),
+    rgba(10, 16, 26, 0.56);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--surface-shadow);
+}
+
+.dev-blend-bar--auth {
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  align-items: center;
+}
+
+.dev-blend-bar__lead {
+  display: grid;
+  gap: 6px;
+}
+
+.dev-blend-bar__label {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.dev-blend-bar__lead strong {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.dev-blend-bar__lead p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.dev-reference-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dev-reference-chip {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(7, 12, 20, 0.46);
+}
+
+.dev-reference-chip span {
+  font-weight: 700;
+}
+
+.dev-reference-chip small {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.design-dev .auth-hero,
+.design-dev .auth-form-panel,
+.design-dev .card,
+.design-dev .hero-panel,
+.design-dev .report-hero,
+.design-dev .ide-hero,
+.design-dev .profile-card,
+.design-dev .glow-card,
+.design-dev .loader-card,
+.design-dev .empty-state {
+  border-radius: 20px;
+}
+
+.design-dev .auth-hero {
+  background:
+    linear-gradient(180deg, rgba(110, 168, 255, 0.08), transparent 46%),
+    var(--auth-hero-bg);
+}
+
+.design-dev .auth-form-panel__tabs {
+  border-radius: 14px;
+  background: rgba(7, 12, 20, 0.42);
+}
+
+.design-dev .auth-form-panel__tab-indicator {
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(110, 168, 255, 0.18), rgba(176, 140, 255, 0.12));
+  box-shadow: inset 0 0 0 1px rgba(110, 168, 255, 0.12);
+}
+
+.design-dev .app-sidebar {
+  width: 60px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 12%),
+    var(--sidebar-bg);
+  backdrop-filter: blur(18px);
+}
+
+.design-dev .app-sidebar__brand {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(110, 168, 255, 0.22), rgba(176, 140, 255, 0.18));
+  color: var(--text);
+  border-color: rgba(110, 168, 255, 0.24);
+}
+
+.design-dev .sidebar-item {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+}
+
+.design-dev .sidebar-item--active {
+  color: var(--text);
+  background: linear-gradient(180deg, rgba(110, 168, 255, 0.16), rgba(110, 168, 255, 0.1));
+  border-color: rgba(110, 168, 255, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(110, 168, 255, 0.08);
+}
+
+.design-dev .card,
+.design-dev .hero-panel,
+.design-dev .report-hero,
+.design-dev .ide-hero,
+.design-dev .profile-card,
+.design-dev .glow-card,
+.design-dev .loader-card,
+.design-dev .empty-state {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 30%),
+    var(--panel);
+  border-color: var(--line-strong);
+  box-shadow: var(--surface-shadow);
+}
+
+.design-dev .stat-card,
+.design-dev .case-card,
+.design-dev .step-card,
+.design-dev .mini-panel,
+.design-dev .score-summary,
+.design-dev .summary-banner,
+.design-dev .timeline-item,
+.design-dev .history-row,
+.design-dev .problem-row,
+.design-dev .variant-card,
+.design-dev .extension-card {
+  border-radius: 18px;
+}
+
+.design-dev .problem-table__head {
+  background: rgba(7, 12, 20, 0.44);
+  border-radius: 16px;
+}
+
+.design-dev .problem-row:hover,
+.design-dev .history-row:hover,
+.design-dev .timeline-item:hover,
+.design-dev .outline-row:hover,
+.design-dev .file-row:hover,
+.design-dev .extension-card:hover {
+  background: rgba(110, 168, 255, 0.08);
+}
+
+.design-dev .timeline-item--active,
+.design-dev .variant-card--selected {
+  background:
+    linear-gradient(180deg, rgba(244, 114, 182, 0.06), rgba(110, 168, 255, 0.06)),
+    var(--panel-highlight-bg);
+}
+
+.design-dev .ide-hero--workspace,
+.design-dev .report-hero,
+.design-dev .summary-banner {
+  background:
+    linear-gradient(135deg, rgba(110, 168, 255, 0.12), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 92%),
+    var(--panel);
+}
+
+.design-dev .ide-shell--workbench {
+  border-radius: 22px;
+  overflow: hidden;
+  border: 1px solid var(--ide-border);
+  box-shadow: var(--surface-shadow);
+}
+
+.design-dev .editor-tabs__item,
+.design-dev .bottom-panel__tab,
+.design-dev .chat-preset,
+.design-dev .chip {
+  border-radius: 12px;
+}
+
+.design-dev .status-bar {
+  background:
+    linear-gradient(90deg, rgba(110, 168, 255, 0.16), rgba(176, 140, 255, 0.18)),
+    var(--ide-status-bg);
+  color: #f8fbff;
+}
+
+.design-dev .workshop-hero,
+.design-dev .workshop-panel,
+.design-dev .workshop-status {
+  background:
+    linear-gradient(135deg, rgba(110, 168, 255, 0.12), transparent 34%),
+    var(--panel);
+}
+
+.empty-state--dev {
+  max-width: 540px;
+}
+
+html[data-theme="light"] .design-dev .dev-blend-bar,
+html[data-theme="light"] .design-dev .dev-reference-chip,
+html[data-theme="light"] .design-dev .problem-table__head {
+  background:
+    linear-gradient(180deg, rgba(37, 99, 235, 0.05), transparent 100%),
+    rgba(255, 255, 255, 0.92);
+}
+
+@media (max-width: 1200px) {
+  .dev-blend-bar--auth,
+  .dev-reference-strip {
+    grid-template-columns: 1fr;
+  }
+}

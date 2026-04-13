@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 
 import { Card } from "@/components/common/Card";
+import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
 import { useAuthStore } from "@/store/authStore";
 
@@ -17,6 +18,7 @@ interface HistoryItem {
 }
 
 export default function MyPage() {
+  const { withPrefix } = useRouteScope();
   const user = useAuthStore((state) => state.user);
   const { data } = useQuery({
     queryKey: ["mypage", user?.id],
@@ -70,7 +72,7 @@ export default function MyPage() {
               <span>{item.date}</span>
               <span>{item.passRate}</span>
               <span>{item.aiUsage}</span>
-              <Link href={item.href} className="text-link">
+              <Link href={withPrefix(item.href)} className="text-link">
                 열기
               </Link>
             </div>

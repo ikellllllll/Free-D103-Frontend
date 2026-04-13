@@ -5,9 +5,11 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { Card } from "@/components/common/Card";
+import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
 
 export function SubmissionProgress({ submissionId }: { submissionId: string }) {
+  const { withPrefix } = useRouteScope();
   const { data: submission, isLoading } = useQuery({
     queryKey: ["submission", submissionId],
     queryFn: () => mockApi.getSubmission(submissionId),
@@ -87,10 +89,10 @@ export function SubmissionProgress({ submissionId }: { submissionId: string }) {
         </div>
 
         <div className="hero-actions">
-          <Link href="/problems" className="button">
+          <Link href={withPrefix("/problems")} className="button">
             과제 목록
           </Link>
-          <Link href={`/submissions/${submissionId}/report`} className="button button--primary">
+          <Link href={withPrefix(`/submissions/${submissionId}/report`)} className="button button--primary">
             리포트 보기
           </Link>
         </div>

@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { BookOpen, Wrench, User, Sun, Moon, LogOut, Zap } from "lucide-react";
 
+import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { ThemeToggle } from "@/components/system/ThemeToggle";
 import { mockApi } from "@/lib/api/mockApi";
 import { useAuthStore } from "@/store/authStore";
@@ -17,8 +18,8 @@ const navItems = [
 ];
 
 export function AppSidebar() {
-  const pathname = usePathname();
   const router = useRouter();
+  const { currentPath, withPrefix } = useRouteScope();
   const user = useAuthStore((state) => state.user);
   const signOut = useAuthStore((state) => state.signOut);
   const theme = useThemeStore((state) => state.theme);
@@ -30,24 +31,24 @@ export function AppSidebar() {
     await mockApi.logout();
     signOut();
     addToast("로그아웃되었습니다.", "success");
-    router.replace("/login");
+    router.replace(withPrefix("/login"));
   };
 
   return (
     <aside className="app-sidebar">
       {/* Brand */}
-      <Link href="/problems" className="app-sidebar__brand" aria-label="AIG 홈">
+      <Link href={withPrefix("/problems")} className="app-sidebar__brand" aria-label="AIG 홈">
         <Zap size={16} />
       </Link>
 
       {/* Nav */}
       <nav className="app-sidebar__nav" aria-label="주 탐색">
         {navItems.map(({ href, icon: Icon, label }) => {
-          const active = pathname === href || pathname?.startsWith(`${href}/`);
+          const active = currentPath === href || currentPath.startsWith(`${href}/`);
           return (
             <Link
               key={href}
-              href={href}
+              href={withPrefix(href)}
               className={`sidebar-item${active ? " sidebar-item--active" : ""}`}
               aria-label={label}
               aria-current={active ? "page" : undefined}

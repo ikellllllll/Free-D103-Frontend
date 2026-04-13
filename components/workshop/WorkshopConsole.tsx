@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/common/Badge";
 import { Card } from "@/components/common/Card";
+import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import type {
   WorkshopGenerateInput,
   WorkshopPromoteInput,
@@ -240,6 +241,7 @@ function VariantCard({
 }
 
 export function WorkshopConsole() {
+  const { withPrefix } = useRouteScope();
   const addToast = useUiStore((state) => state.addToast);
   const [form, setForm] = useState<WorkshopGenerateInput>(defaultForm);
   const [state, setState] = useState<WorkshopState>(emptyState);
@@ -251,8 +253,8 @@ export function WorkshopConsole() {
     if (!form.targetPath.trim()) {
       return "#";
     }
-    return form.targetPath.startsWith("/") ? form.targetPath : `/${form.targetPath}`;
-  }, [form.targetPath]);
+    return withPrefix(form.targetPath.startsWith("/") ? form.targetPath : `/${form.targetPath}`);
+  }, [form.targetPath, withPrefix]);
   const workerHealth = useMemo(() => getWorkerHealth(state), [state]);
 
   const loadStatus = async (silent = false) => {
@@ -575,7 +577,7 @@ export function WorkshopConsole() {
                   ? "서버 런타임과 preview 슬롯이 연결된 상태입니다."
                   : "현재 환경에서는 서버 런타임이 연결되지 않아 실제 생성은 동작하지 않습니다."}
               </p>
-              <code className="workshop-inline-code">studio.pyan.kr{state.targetPath || liveTarget}</code>
+              <code className="workshop-inline-code">studio.pyan.kr{state.targetPath ? withPrefix(state.targetPath) : liveTarget}</code>
             </div>
           </Card>
         </div>

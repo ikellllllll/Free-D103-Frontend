@@ -7,6 +7,7 @@ import Markdown from "react-markdown";
 
 import { Badge } from "@/components/common/Badge";
 import { Card } from "@/components/common/Card";
+import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
 import type { ProblemDetail as ProblemDetailType } from "@/lib/types/problem";
 import { useAuthStore } from "@/store/authStore";
@@ -20,6 +21,7 @@ const levelTone = {
 
 export function ProblemDetail({ problemId }: { problemId: string }) {
   const router = useRouter();
+  const { withPrefix } = useRouteScope();
   const user = useAuthStore((state) => state.user);
   const addToast = useUiStore((state) => state.addToast);
   const { data: problem, isLoading, isError } = useQuery({
@@ -30,14 +32,14 @@ export function ProblemDetail({ problemId }: { problemId: string }) {
   const handleStart = async () => {
     if (!user) {
       addToast("로그인이 필요합니다.", "warning");
-      router.push("/login");
+      router.push(withPrefix("/login"));
       return;
     }
 
     try {
       const session = await mockApi.createSession(problemId, user.id);
       addToast("풀이 세션이 생성되었습니다.", "success");
-      router.push(`/sessions/${session.id}/start`);
+      router.push(withPrefix(`/sessions/${session.id}/start`));
     } catch (error) {
       addToast(error instanceof Error ? error.message : "세션 생성에 실패했습니다.", "error");
     }
@@ -75,13 +77,15 @@ function ProblemDetailContent({
   problem: ProblemDetailType;
   onStart: () => void;
 }) {
+  const { withPrefix } = useRouteScope();
+
   return (
     <div className="detail-layout">
       <div className="stack-24">
         <Card>
           <div className="section-head">
             <div>
-              <Link href="/problems" className="back-link">
+              <Link href={withPrefix("/problems")} className="back-link">
                 ← 과제 목록
               </Link>
               <div className="inline-heading">

@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { Badge } from "@/components/common/Badge";
 import { Card } from "@/components/common/Card";
+import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
 import type { ProblemCategory, ProblemLevel, ProblemStatus, ProblemSummary } from "@/lib/types/problem";
 
@@ -23,6 +24,7 @@ const statusTone: Record<ProblemStatus, "green" | "amber" | "neutral" | "red"> =
 };
 
 export function ProblemList() {
+  const { withPrefix } = useRouteScope();
   const [level, setLevel] = useState<ProblemLevel | "ALL">("ALL");
   const [category, setCategory] = useState<ProblemCategory | "ALL">("ALL");
   const { data, isLoading } = useQuery({
@@ -44,7 +46,7 @@ export function ProblemList() {
       {/* ── Page header ── */}
       <div className="section-head">
         <div>
-          <span className="eyebrow">AIT</span>
+          <span className="eyebrow">AIG</span>
           <h1 style={{ margin: "8px 0 4px", fontSize: "1.25rem", fontWeight: 700 }}>과제 목록</h1>
           <p className="muted-copy">AI와 함께 실무 API 과제를 풀고 활용 피드백을 받으세요.</p>
         </div>
@@ -122,7 +124,7 @@ export function ProblemList() {
                 </div>
               ))
             : filtered.map((problem: ProblemSummary) => (
-                <Link key={problem.id} href={`/problems/${problem.id}`} className="problem-row">
+                <Link key={problem.id} href={withPrefix(`/problems/${problem.id}`)} className="problem-row">
                   <span className="problem-row__order">{problem.order}</span>
                   <span>
                     <strong>{problem.title}</strong>

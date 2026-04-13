@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 
+import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { ThemeToggle } from "@/components/system/ThemeToggle";
 import { mockApi } from "@/lib/api/mockApi";
 import { useAuthStore } from "@/store/authStore";
@@ -15,8 +16,8 @@ const navItems = [
 ];
 
 export function AppHeader() {
-  const pathname = usePathname();
   const router = useRouter();
+  const { currentPath, withPrefix } = useRouteScope();
   const user = useAuthStore((state) => state.user);
   const signOut = useAuthStore((state) => state.signOut);
   const addToast = useUiStore((state) => state.addToast);
@@ -25,13 +26,13 @@ export function AppHeader() {
     await mockApi.logout();
     signOut();
     addToast("로그아웃되었습니다.", "success");
-    router.replace("/login");
+    router.replace(withPrefix("/login"));
   };
 
   return (
     <header className="app-header">
       <div className="app-header__inner">
-        <Link href="/problems" className="brand">
+        <Link href={withPrefix("/problems")} className="brand">
           <span className="brand__mark">AIG</span>
           <span className="brand__meta">
             <strong>AI Interview Guide</strong>
@@ -41,11 +42,11 @@ export function AppHeader() {
 
         <nav className="top-nav">
           {navItems.map((item) => {
-            const active = pathname === item.href || pathname?.startsWith(`${item.href}/`);
+            const active = currentPath === item.href || currentPath.startsWith(`${item.href}/`);
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={withPrefix(item.href)}
                 className={active ? "top-nav__link top-nav__link--active" : "top-nav__link"}
               >
                 {item.label}

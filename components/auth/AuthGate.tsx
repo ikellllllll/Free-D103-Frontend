@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
+import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { useAuthStore } from "@/store/authStore";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
@@ -10,16 +11,17 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const hydrated = useAuthStore((state) => state.hydrated);
   const router = useRouter();
   const pathname = usePathname();
+  const { currentPath, withPrefix } = useRouteScope();
 
   useEffect(() => {
     if (!hydrated) {
       return;
     }
 
-    if (!user && pathname !== "/login" && pathname !== "/signup") {
-      router.replace("/login");
+    if (!user && currentPath !== "/login" && currentPath !== "/signup") {
+      router.replace(withPrefix("/login"));
     }
-  }, [hydrated, pathname, router, user]);
+  }, [currentPath, hydrated, pathname, router, user, withPrefix]);
 
   if (!hydrated || !user) {
     return (

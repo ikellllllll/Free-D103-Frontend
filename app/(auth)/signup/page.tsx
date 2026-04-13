@@ -4,12 +4,14 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { AuthShell } from "@/components/auth/AuthShell";
+import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
 import { useAuthStore } from "@/store/authStore";
 import { useUiStore } from "@/store/uiStore";
 
 export default function SignupPage() {
   const router = useRouter();
+  const { withPrefix } = useRouteScope();
   const signIn = useAuthStore((state) => state.signIn);
   const addToast = useUiStore((state) => state.addToast);
   const [name, setName] = useState("홍길동");
@@ -29,7 +31,7 @@ export default function SignupPage() {
       const user = await mockApi.signup({ name, email, password });
       signIn(user);
       addToast("계정이 생성되었습니다.", "success");
-      router.push("/problems");
+      router.push(withPrefix("/problems"));
     } catch (error) {
       addToast(error instanceof Error ? error.message : "회원가입에 실패했습니다.", "error");
     } finally {
@@ -46,7 +48,7 @@ export default function SignupPage() {
       heading="새 작업 계정 만들기"
       description="실습 기록, 세션 상태, 제출 리포트를 관리할 계정을 생성합니다."
       footerText="이미 계정이 있나요?"
-      footerHref="/login"
+      footerHref={withPrefix("/login")}
       footerAction="로그인"
     >
       <div className="stack-16">

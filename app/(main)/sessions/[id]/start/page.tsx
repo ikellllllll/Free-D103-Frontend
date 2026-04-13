@@ -6,12 +6,14 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 
 import { Card } from "@/components/common/Card";
+import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
 import { getProblemById } from "@/lib/mock-data";
 
 export default function SessionStartPage({ params }: { params: { id: string } }) {
   const sessionId = params.id;
   const router = useRouter();
+  const { withPrefix } = useRouteScope();
   const { data: session } = useQuery({
     queryKey: ["session", sessionId],
     queryFn: () => mockApi.getSession(sessionId),
@@ -21,12 +23,12 @@ export default function SessionStartPage({ params }: { params: { id: string } })
   useEffect(() => {
     if (session?.status === "IN_PROGRESS") {
       const timer = window.setTimeout(() => {
-        router.replace(`/ide/${sessionId}`);
+        router.replace(withPrefix(`/ide/${sessionId}`));
       }, 500);
 
       return () => window.clearTimeout(timer);
     }
-  }, [router, session?.status, sessionId]);
+  }, [router, session?.status, sessionId, withPrefix]);
 
   const progress = useMemo(() => {
     if (!session) {
@@ -71,10 +73,10 @@ export default function SessionStartPage({ params }: { params: { id: string } })
         </div>
 
         <div className="hero-actions">
-          <Link href={`/problems/${problem?.id ?? "todo-api"}`} className="button">
+          <Link href={withPrefix(`/problems/${problem?.id ?? "todo-api"}`)} className="button">
             과제로 돌아가기
           </Link>
-          <Link href={`/ide/${sessionId}`} className="button button--primary">
+          <Link href={withPrefix(`/ide/${sessionId}`)} className="button button--primary">
             IDE 바로 열기
           </Link>
         </div>

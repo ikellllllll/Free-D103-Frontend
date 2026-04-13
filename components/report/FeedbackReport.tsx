@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { Badge } from "@/components/common/Badge";
 import { Card } from "@/components/common/Card";
+import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
 
 const toneMap = {
@@ -14,6 +15,7 @@ const toneMap = {
 } as const;
 
 export function FeedbackReport({ submissionId }: { submissionId: string }) {
+  const { withPrefix } = useRouteScope();
   const { data: report, isLoading } = useQuery({
     queryKey: ["report", submissionId],
     queryFn: () => mockApi.getReport(submissionId),
@@ -54,10 +56,10 @@ export function FeedbackReport({ submissionId }: { submissionId: string }) {
         </div>
 
         <div className="hero-actions">
-          <Link href={`/submissions/${submissionId}/timeline`} className="button">
+          <Link href={withPrefix(`/submissions/${submissionId}/timeline`)} className="button">
             타임라인
           </Link>
-          <Link href="/problems" className="button button--primary">
+          <Link href={withPrefix("/problems")} className="button button--primary">
             과제 목록
           </Link>
         </div>
@@ -126,7 +128,7 @@ export function FeedbackReport({ submissionId }: { submissionId: string }) {
             <span className="eyebrow">타임라인 미리보기</span>
             <h2>최근 풀이 흐름</h2>
           </div>
-          <Link href={`/submissions/${submissionId}/timeline`} className="text-link">
+          <Link href={withPrefix(`/submissions/${submissionId}/timeline`)} className="text-link">
             타임라인 전체 보기
           </Link>
         </div>

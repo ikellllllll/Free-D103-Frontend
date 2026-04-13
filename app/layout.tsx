@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans_KR, JetBrains_Mono } from "next/font/google";
 
+import { RouteScopeProvider } from "@/components/routing/RouteScopeProvider";
+
 import "./globals.css";
 import Providers from "./providers";
 
@@ -45,7 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className={`${sans.variable} ${mono.variable}`}>
         <Providers>
-          {children}
+          <RouteScopeProvider prefix="">{children}</RouteScopeProvider>
 
           <div className="mobile-warning">
             <div className="mobile-warning__panel">

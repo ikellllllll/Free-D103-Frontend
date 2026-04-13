@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Badge } from "@/components/common/Badge";
 import { Card } from "@/components/common/Card";
+import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { useAiChat } from "@/hooks/useAiChat";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { mockApi } from "@/lib/api/mockApi";
@@ -207,6 +208,7 @@ const extractOutline = (file: WorkspaceFile | null) => {
 
 export function IdeShell({ sessionId }: { sessionId: string }) {
   const router = useRouter();
+  const { withPrefix } = useRouteScope();
   const queryClient = useQueryClient();
   const addToast = useUiStore((state) => state.addToast);
   const setWorkspace = useIdeStore((state) => state.setWorkspace);
@@ -623,7 +625,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       const submission = await mockApi.submitSession(sessionId);
       refreshSession();
       addToast("제출이 생성되었습니다.", "success");
-      router.push(`/submissions/${submission.id}`);
+      router.push(withPrefix(`/submissions/${submission.id}`));
     } catch (error) {
       addToast(error instanceof Error ? error.message : "제출에 실패했습니다.", "error");
     } finally {
