@@ -471,7 +471,7 @@ const styles = `
       bottom: 68px;
       width: min(400px, calc(100vw - 16px));
       max-width: calc(100vw - 16px);
-      max-height: calc(100dvh - 80px);
+      max-height: calc(100dvh - 96px);
       border-radius: 20px;
     }
     .panel__header {
@@ -495,7 +495,7 @@ const styles = `
   @media (max-height: 680px) {
     .panel {
       bottom: 64px;
-      max-height: calc(100dvh - 72px);
+      max-height: calc(100dvh - 88px);
     }
     .messages {
       gap: 10px;
