@@ -84,8 +84,8 @@ const styles = `
   * { box-sizing: border-box; }
   .aig-root {
     position: fixed;
-    right: 24px;
-    bottom: 24px;
+    right: clamp(12px, 2vw, 24px);
+    bottom: clamp(12px, 2vh, 24px);
     z-index: 2147483000;
     font-family: "IBM Plex Sans KR", system-ui, sans-serif;
     color: #edf2ff;
@@ -117,16 +117,17 @@ const styles = `
     position: absolute;
     right: 0;
     bottom: 74px;
-    width: min(420px, calc(100vw - 32px));
-    max-height: min(82vh, 860px);
+    width: min(420px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
+    max-height: min(860px, calc(100dvh - 104px));
     border-radius: 24px;
     border: 1px solid rgba(132, 151, 199, 0.18);
     background:
       linear-gradient(180deg, rgba(12, 16, 24, 0.98), rgba(16, 23, 38, 0.98));
     box-shadow: 0 28px 70px rgba(0, 0, 0, 0.46);
     overflow: hidden;
-    display: grid;
-    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+    display: flex;
+    flex-direction: column;
   }
   .panel__header {
     display: flex;
@@ -242,8 +243,9 @@ const styles = `
   }
   .messages {
     margin: 14px 18px 0;
-    min-height: 220px;
-    max-height: 400px;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
     overflow-y: auto;
     padding: 4px 0 12px;
     display: grid;
@@ -368,7 +370,8 @@ const styles = `
   }
   .textarea {
     width: 100%;
-    min-height: 110px;
+    min-height: 104px;
+    max-height: min(220px, 28dvh);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 16px;
     background: rgba(5, 7, 12, 0.72);
@@ -443,6 +446,72 @@ const styles = `
     width: 18px;
     height: 18px;
     display: inline-block;
+  }
+  @media (max-height: 860px) {
+    .panel {
+      max-height: calc(100dvh - 92px);
+    }
+    .mode-switch,
+    .status-line,
+    .messages,
+    .composer {
+      margin-left: 16px;
+      margin-right: 16px;
+    }
+    .composer {
+      margin-bottom: 16px;
+      padding: 12px;
+    }
+    .textarea {
+      min-height: 92px;
+    }
+  }
+  @media (max-height: 740px) {
+    .panel {
+      bottom: 68px;
+      width: min(400px, calc(100vw - 16px));
+      max-width: calc(100vw - 16px);
+      max-height: calc(100dvh - 80px);
+      border-radius: 20px;
+    }
+    .panel__header {
+      padding: 14px 16px 10px;
+    }
+    .mode-switch,
+    .status-line,
+    .messages,
+    .composer {
+      margin-top: 10px;
+      margin-left: 14px;
+      margin-right: 14px;
+    }
+    .composer {
+      margin-bottom: 14px;
+    }
+    .textarea {
+      min-height: 80px;
+    }
+  }
+  @media (max-height: 680px) {
+    .panel {
+      bottom: 64px;
+      max-height: calc(100dvh - 72px);
+    }
+    .messages {
+      gap: 10px;
+      padding-bottom: 8px;
+    }
+    .message {
+      max-width: min(88%, 320px);
+    }
+    .composer__footer {
+      align-items: flex-end;
+      flex-direction: column;
+    }
+    .actions {
+      width: 100%;
+      justify-content: flex-end;
+    }
   }
   @keyframes typing {
     0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
