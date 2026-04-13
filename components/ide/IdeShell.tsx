@@ -553,7 +553,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const sidebarPanelLabel = activityItems.find((item) => item.id === sidebarView)?.label ?? "탐색기";
   const aiPanelMeta = aiMode === "chat" ? `대화 ${requestTotal}회` : "수정 준비";
   const outputPanelMeta = `${bottomTabs.find((tab) => tab.id === bottomPanelTab)?.label ?? "출력"} · ${bottomTabMeta[bottomPanelTab]}`;
-  const workbenchPathLabel = activeWorkbenchTab === "problem" ? "problem brief" : activeFile.path;
+  const workbenchPathLabel = activeWorkbenchTab === "problem" ? "problem brief" : activeFile?.path ?? "workspace";
   const workbenchChipLabel =
     activeWorkbenchTab === "problem" ? `요구사항 ${problemRequirementsCount}개` : dirtyCount ? `미저장 ${dirtyCount}개` : "저장됨";
 
