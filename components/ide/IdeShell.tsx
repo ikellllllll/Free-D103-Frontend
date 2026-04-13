@@ -826,6 +826,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           <label className="field">
             <span>검색</span>
             <input
+              id="ide-search-query"
+              name="searchQuery"
               className="input input--compact"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
@@ -872,6 +874,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           <label className="field">
             <span>확장 검색</span>
             <input
+              id="ide-extension-query"
+              name="extensionQuery"
               className="input input--compact"
               value={extensionQuery}
               onChange={(event) => setExtensionQuery(event.target.value)}
@@ -1353,6 +1357,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
                   <div className="chat-input-row">
                     <textarea
+                      id="ide-chat-input"
+                      name="chatPrompt"
                       className="input input--textarea"
                       value={chatInput}
                       onChange={(event) => setChatInput(event.target.value)}
@@ -1378,6 +1384,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   <label className="field">
                     <span>수정 지시</span>
                     <textarea
+                      id="ide-edit-instruction"
+                      name="editInstruction"
                       className="input input--textarea"
                       value={editInstruction}
                       onChange={(event) => setEditInstruction(event.target.value)}

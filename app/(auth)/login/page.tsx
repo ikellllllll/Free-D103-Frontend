@@ -55,14 +55,24 @@ export default function LoginPage() {
       <div className="stack-16">
         <label className="field">
           <span>이메일</span>
-          <input className="input" value={email} onChange={(event) => setEmail(event.target.value)} />
+          <input
+            id="login-email"
+            name="email"
+            className="input"
+            autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
         </label>
 
         <label className="field">
           <span>비밀번호</span>
           <input
+            id="login-password"
+            name="password"
             className="input"
             type="password"
+            autoComplete="current-password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
           />

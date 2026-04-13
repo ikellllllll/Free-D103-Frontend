@@ -411,6 +411,8 @@ export function WorkshopConsole() {
                 <label className="field">
                   <span>대상 페이지 경로</span>
                   <input
+                    id="workshop-target-path"
+                    name="targetPath"
                     className="input"
                     placeholder="/login"
                     value={form.targetPath}
@@ -426,6 +428,8 @@ export function WorkshopConsole() {
               <label className="field">
                 <span>수정 요청</span>
                 <textarea
+                  id="workshop-prompt"
+                  name="prompt"
                   className="input input--textarea"
                   placeholder="이 페이지를 업무툴 느낌으로 정리해줘. 한국어는 유지하고, 기능 흐름은 건드리지 마."
                   value={form.prompt}

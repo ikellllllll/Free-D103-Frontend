@@ -20,7 +20,10 @@ const mono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "AIG | AI-based Integrated Ground",
-  description: "AIG 프론트 과제 워크스페이스 프로토타입"
+  description: "AIG 프론트 과제 워크스페이스 프로토타입",
+  icons: {
+    icon: "/icon.svg"
+  }
 };
 
 const devtoolsEnabled = process.env.NEXT_PUBLIC_AIG_DEVTOOLS_ENABLED === "true";
