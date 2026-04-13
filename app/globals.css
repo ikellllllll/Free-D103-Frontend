@@ -1448,27 +1448,45 @@ body:has(.ide-route--workspace) .page-shell > * {
   flex: 0 0 auto;
   position: relative;
   background: transparent;
+  touch-action: none;
+  z-index: 3;
 }
 
 .pane-resizer--vertical {
-  width: 5px;
+  width: 8px;
   cursor: col-resize;
 }
 
 .pane-resizer--horizontal {
-  height: 5px;
+  height: 8px;
   cursor: row-resize;
 }
 
 .pane-resizer::after {
   content: "";
   position: absolute;
-  inset: 0;
-  background: transparent;
+  background: rgba(59, 124, 255, 0.12);
+  transition: background var(--transition-fast);
+}
+
+.pane-resizer--vertical::after {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+}
+
+.pane-resizer--horizontal::after {
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
 }
 
 .pane-resizer:hover::after {
-  background: rgba(59, 124, 255, 0.25);
+  background: rgba(59, 124, 255, 0.42);
 }
 
 .ide-shell__main {

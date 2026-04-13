@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -260,10 +261,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     enabled: !!session
   });
 
-  const maxSidebarWidth = viewportSize.width > 0 && viewportSize.width <= 1360 ? 248 : 280;
-  const maxAiPanelWidth = viewportSize.width > 0 && viewportSize.width <= 1360 ? 320 : 360;
-  const maxBottomPanelHeight =
-    viewportSize.height > 0 ? (viewportSize.height <= 740 ? 168 : viewportSize.height <= 860 ? 196 : 220) : 220;
+  const maxSidebarWidth = viewportSize.width > 0 ? clamp(Math.round(viewportSize.width * 0.26), 248, 420) : 280;
+  const maxAiPanelWidth = viewportSize.width > 0 ? clamp(Math.round(viewportSize.width * 0.28), 320, 520) : 360;
+  const maxBottomPanelHeight = viewportSize.height > 0 ? clamp(Math.round(viewportSize.height * 0.3), 168, 360) : 220;
   const effectiveSidebarWidth = Math.min(sidebarWidth, maxSidebarWidth);
   const effectiveAiPanelWidth = Math.min(aiPanelWidth, maxAiPanelWidth);
   const effectiveBottomPanelHeight = Math.min(bottomPanelHeight, maxBottomPanelHeight);
@@ -457,7 +457,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   ]);
 
   useEffect(() => {
-    const handleMouseMove = (event: MouseEvent) => {
+    const handlePointerMove = (event: PointerEvent) => {
       const dragState = dragStateRef.current;
 
       if (!dragState) {
@@ -465,35 +465,37 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       }
 
       if (dragState.mode === "sidebar") {
-        const nextWidth = clamp(dragState.startWidth + (event.clientX - dragState.startX), 220, 420);
+        const nextWidth = clamp(dragState.startWidth + (event.clientX - dragState.startX), 220, maxSidebarWidth);
         setSidebarWidth(nextWidth);
         return;
       }
 
       if (dragState.mode === "ai") {
-        const nextWidth = clamp(dragState.startWidth - (event.clientX - dragState.startX), 280, 520);
+        const nextWidth = clamp(dragState.startWidth - (event.clientX - dragState.startX), 280, maxAiPanelWidth);
         setAiPanelWidth(nextWidth);
         return;
       }
 
-      const nextHeight = clamp(dragState.startHeight - (event.clientY - dragState.startY), 140, 360);
+      const nextHeight = clamp(dragState.startHeight - (event.clientY - dragState.startY), 140, maxBottomPanelHeight);
       setBottomPanelHeight(nextHeight);
     };
 
-    const handleMouseUp = () => {
+    const handlePointerUp = () => {
       dragStateRef.current = null;
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
     };
 
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
 
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
     };
-  }, [setAiPanelWidth, setBottomPanelHeight, setSidebarWidth]);
+  }, [maxAiPanelWidth, maxBottomPanelHeight, maxSidebarWidth, setAiPanelWidth, setBottomPanelHeight, setSidebarWidth]);
 
   const activeFile = useMemo(
     () => files.find((file) => file.path === activePath) ?? files[0] ?? null,
@@ -651,8 +653,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     syncMonacoAuxInputs();
   };
 
-  const beginResize = (mode: DragMode) => (event: React.MouseEvent<HTMLDivElement>) => {
+  const beginResize = (mode: DragMode) => (event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();
+    event.stopPropagation();
 
     dragStateRef.current = {
       mode,
