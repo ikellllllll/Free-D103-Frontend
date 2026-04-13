@@ -159,7 +159,7 @@ export const defaultUser: AuthUser = {
 
 export const starterFiles: WorkspaceFile[] = [
   {
-    path: "src/main/java/TodoController.java",
+    path: "src/TodoController.java",
     language: "java",
     content: `@RestController
 @RequestMapping("/todos")
@@ -172,7 +172,7 @@ public class TodoController {
 }`
   },
   {
-    path: "src/main/java/TodoService.java",
+    path: "src/TodoService.java",
     language: "java",
     content: `@Service
 public class TodoService {
@@ -185,13 +185,13 @@ public class TodoService {
 }`
   },
   {
-    path: "src/main/java/TodoRepository.java",
+    path: "src/TodoRepository.java",
     language: "java",
     content: `public interface TodoRepository extends JpaRepository<Todo, Long> {
 }`
   },
   {
-    path: "src/main/java/Todo.java",
+    path: "src/Todo.java",
     language: "java",
     content: `@Entity
 public class Todo {
@@ -203,13 +203,22 @@ public class Todo {
 }`
   },
   {
-    path: "src/test/java/TodoServiceTest.java",
+    path: "src/TodoServiceTest.java",
     language: "java",
     content: `class TodoServiceTest {
   @Test
   void returns404WhenTodoDoesNotExist() {
   }
 }`
+  },
+  {
+    path: "agent/HARNESS.md",
+    language: "markdown",
+    content: `# Harness Notes
+
+- 이 폴더는 하네스/에이전트 관련 보조 파일을 둡니다.
+- \`src\` 코드는 과제 풀이 로직, \`agent\`는 실행 환경 메모를 분리해서 봅니다.
+- 현재 워크스페이스는 mock 구조 확인용입니다.`
   }
 ];
 
