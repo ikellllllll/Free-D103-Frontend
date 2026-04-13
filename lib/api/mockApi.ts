@@ -5,6 +5,7 @@ import {
   createFeedbackReport,
   createInitialSession,
   createRunResult,
+  createStarterFiles,
   createSubmission,
   createTestResults,
   defaultUser,
@@ -52,6 +53,35 @@ const createSeedDb = (): MockDb => ({
 const formatClock = (value: Date) =>
   value.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
 
+const normalizeWorkspaceFiles = (files: SolveSession["files"]) => {
+  const harnessFile = createStarterFiles().find((file) => file.path === "agent/HARNESS.md");
+  const seen = new Set<string>();
+  const normalized = files
+    .map((file) => {
+      const nextPath = file.path
+        .replace(/^src\/main\/java\//, "src/")
+        .replace(/^src\/test\/java\//, "src/");
+
+      return {
+        ...file,
+        path: nextPath
+      };
+    })
+    .filter((file) => {
+      if (seen.has(file.path)) {
+        return false;
+      }
+      seen.add(file.path);
+      return true;
+    });
+
+  if (harnessFile && !seen.has(harnessFile.path)) {
+    normalized.push(clone(harnessFile));
+  }
+
+  return normalized;
+};
+
 const appendTrace = (session: SolveSession, type: TraceEvent["type"], summary: string, detail?: string) => {
   session.traces = [
     ...session.traces,
@@ -69,7 +99,11 @@ const refreshDb = (db: MockDb) => {
   const now = Date.now();
 
   db.sessions = db.sessions.map((session) =>
-    session.status === "CREATING" && session.readyAt <= now ? { ...session, status: "IN_PROGRESS" } : session
+    ({
+      ...session,
+      status: session.status === "CREATING" && session.readyAt <= now ? "IN_PROGRESS" : session.status,
+      files: normalizeWorkspaceFiles(session.files)
+    })
   );
 
   db.submissions = db.submissions.map((submission) =>
