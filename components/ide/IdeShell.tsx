@@ -315,6 +315,35 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   }, [messages, streaming]);
 
   useEffect(() => {
+    const clampWorkbenchLayout = () => {
+      const viewportHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
+
+      const nextBottomMax = viewportHeight <= 740 ? 168 : viewportHeight <= 860 ? 196 : 220;
+      if (bottomPanelHeight > nextBottomMax) {
+        setBottomPanelHeight(nextBottomMax);
+      }
+
+      const nextAiMax = viewportWidth <= 1360 ? 320 : 360;
+      if (aiPanelWidth > nextAiMax) {
+        setAiPanelWidth(nextAiMax);
+      }
+
+      const nextSidebarMax = viewportWidth <= 1360 ? 248 : 280;
+      if (sidebarWidth > nextSidebarMax) {
+        setSidebarWidth(nextSidebarMax);
+      }
+    };
+
+    clampWorkbenchLayout();
+    window.addEventListener("resize", clampWorkbenchLayout);
+
+    return () => {
+      window.removeEventListener("resize", clampWorkbenchLayout);
+    };
+  }, [aiPanelWidth, bottomPanelHeight, setAiPanelWidth, setBottomPanelHeight, setSidebarWidth, sidebarWidth]);
+
+  useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
       const dragState = dragStateRef.current;
 

@@ -2251,6 +2251,168 @@ html[data-theme="light"] .toast { background: var(--panel-strong); }
 .page-shell > *:nth-child(4) { animation-delay: 120ms; }
 
 /* ─── Responsive ─────────────────────────────────────────────── */
+@media (max-height: 860px) {
+  .page-shell {
+    padding: 20px 24px 36px;
+  }
+
+  .page-shell--dev {
+    padding-top: 14px;
+    gap: 14px;
+  }
+
+  .auth-page {
+    place-items: start center;
+    padding: 18px 20px 20px;
+  }
+
+  .auth-layout {
+    min-height: min(680px, calc(100dvh - 36px));
+  }
+
+  .auth-hero {
+    gap: 20px;
+    padding: 34px 32px;
+  }
+
+  .auth-form-panel {
+    gap: 20px;
+    padding: 32px 28px 28px;
+  }
+
+  .auth-form-panel .stack-24 {
+    gap: 18px;
+  }
+
+  .auth-spec-list {
+    gap: 6px;
+  }
+
+  .auth-spec {
+    padding: 10px 12px;
+  }
+
+  .auth-page--dev {
+    padding: 52px 20px 20px;
+  }
+
+  .auth-page__stack {
+    gap: 14px;
+  }
+
+  .auth-layout--dev {
+    min-height: min(720px, calc(100dvh - 92px));
+  }
+
+  .dev-blend-bar {
+    gap: 12px;
+    padding: 14px 16px;
+  }
+
+  .dev-blend-bar__lead strong {
+    font-size: 1rem;
+  }
+
+  .ide-hero--workspace {
+    padding: 14px 16px;
+  }
+
+  .ide-hero__description {
+    margin-top: 6px;
+  }
+
+  .ide-shell {
+    min-height: min(760px, calc(100dvh - 146px));
+  }
+
+  .editor-host {
+    min-height: min(360px, 30dvh);
+  }
+}
+
+@media (max-height: 740px) {
+  .page-shell {
+    padding: 16px 18px 28px;
+  }
+
+  .page-shell--dev {
+    padding-top: 10px;
+    gap: 12px;
+  }
+
+  .auth-page {
+    padding: 14px 16px 16px;
+  }
+
+  .auth-page__tools {
+    top: 12px;
+    right: 14px;
+  }
+
+  .auth-layout {
+    min-height: min(620px, calc(100dvh - 28px));
+  }
+
+  .auth-hero {
+    gap: 16px;
+    padding: 28px 24px;
+  }
+
+  .auth-hero__body h1 {
+    margin-bottom: 12px;
+    font-size: clamp(1.5rem, 2.6vw, 2.2rem);
+  }
+
+  .auth-hero__body p {
+    line-height: 1.55;
+  }
+
+  .auth-hero__foot {
+    display: none;
+  }
+
+  .auth-form-panel {
+    gap: 16px;
+    padding: 24px 22px 20px;
+  }
+
+  .auth-form-panel .stack-24 {
+    gap: 16px;
+  }
+
+  .auth-page--dev {
+    padding: 40px 16px 16px;
+  }
+
+  .auth-layout--dev {
+    min-height: min(620px, calc(100dvh - 72px));
+    border-radius: 20px;
+  }
+
+  .dev-blend-bar {
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 16px;
+  }
+
+  .dev-blend-bar__label {
+    font-size: 0.7rem;
+  }
+
+  .ide-hero--workspace {
+    gap: 12px;
+    padding: 12px 14px;
+  }
+
+  .ide-shell {
+    min-height: min(620px, calc(100dvh - 122px));
+  }
+
+  .editor-host {
+    min-height: min(260px, 24dvh);
+  }
+}
+
 @media (max-width: 1180px) {
   .auth-layout,
   .detail-layout,
