@@ -91,6 +91,45 @@ interface TreeNode {
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const getFileName = (path: string) => path.split("/").pop() ?? path;
 const getFolderPath = (path: string) => path.split("/").slice(0, -1).join("/");
+const getMaxSidebarWidth = (viewportWidth: number) => {
+  if (viewportWidth <= 0) {
+    return 280;
+  }
+
+  if (viewportWidth <= 1180) {
+    return clamp(Math.round(viewportWidth * 0.22), 200, 228);
+  }
+
+  if (viewportWidth <= 1360) {
+    return clamp(Math.round(viewportWidth * 0.23), 220, 248);
+  }
+
+  return clamp(Math.round(viewportWidth * 0.26), 248, 420);
+};
+
+const getMaxAiPanelWidth = (viewportWidth: number) => {
+  if (viewportWidth <= 0) {
+    return 360;
+  }
+
+  if (viewportWidth <= 1180) {
+    return clamp(Math.round(viewportWidth * 0.25), 240, 280);
+  }
+
+  if (viewportWidth <= 1360) {
+    return clamp(Math.round(viewportWidth * 0.28), 280, 320);
+  }
+
+  return clamp(Math.round(viewportWidth * 0.28), 320, 520);
+};
+
+const getMaxBottomPanelHeight = (viewportHeight: number) => {
+  if (viewportHeight <= 0) {
+    return 220;
+  }
+
+  return clamp(Math.round(viewportHeight * 0.3), 168, 360);
+};
 
 const getFileToken = (file: Pick<WorkspaceFile, "path" | "language">) => {
   const extension = file.path.split(".").pop()?.toLowerCase();
@@ -261,9 +300,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     enabled: !!session
   });
 
-  const maxSidebarWidth = viewportSize.width > 0 ? clamp(Math.round(viewportSize.width * 0.26), 248, 420) : 280;
-  const maxAiPanelWidth = viewportSize.width > 0 ? clamp(Math.round(viewportSize.width * 0.28), 320, 520) : 360;
-  const maxBottomPanelHeight = viewportSize.height > 0 ? clamp(Math.round(viewportSize.height * 0.3), 168, 360) : 220;
+  const maxSidebarWidth = getMaxSidebarWidth(viewportSize.width);
+  const maxAiPanelWidth = getMaxAiPanelWidth(viewportSize.width);
+  const maxBottomPanelHeight = getMaxBottomPanelHeight(viewportSize.height);
   const effectiveSidebarWidth = Math.min(sidebarWidth, maxSidebarWidth);
   const effectiveAiPanelWidth = Math.min(aiPanelWidth, maxAiPanelWidth);
   const effectiveBottomPanelHeight = Math.min(bottomPanelHeight, maxBottomPanelHeight);
@@ -416,17 +455,17 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       const viewportHeight = window.innerHeight;
       const viewportWidth = window.innerWidth;
 
-      const nextBottomMax = viewportHeight <= 740 ? 168 : viewportHeight <= 860 ? 196 : 220;
+      const nextBottomMax = getMaxBottomPanelHeight(viewportHeight);
       if (bottomPanelHeight > nextBottomMax) {
         setBottomPanelHeight(nextBottomMax);
       }
 
-      const nextAiMax = viewportWidth <= 1360 ? 320 : 360;
+      const nextAiMax = getMaxAiPanelWidth(viewportWidth);
       if (aiPanelWidth > nextAiMax) {
         setAiPanelWidth(nextAiMax);
       }
 
-      const nextSidebarMax = viewportWidth <= 1360 ? 248 : 280;
+      const nextSidebarMax = getMaxSidebarWidth(viewportWidth);
       if (sidebarWidth > nextSidebarMax) {
         setSidebarWidth(nextSidebarMax);
       }
