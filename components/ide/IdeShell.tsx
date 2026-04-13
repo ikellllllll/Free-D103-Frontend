@@ -311,6 +311,21 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     });
   }, []);
 
+  const syncMonacoAuxInputs = useCallback(() => {
+    const host = editorHostRef.current;
+
+    if (!host) {
+      return;
+    }
+
+    const imeTextarea = host.querySelector<HTMLTextAreaElement>("textarea.ime-text-area");
+
+    if (imeTextarea) {
+      imeTextarea.id = "ide-ime-textarea";
+      imeTextarea.setAttribute("name", "ide-ime-textarea");
+    }
+  }, []);
+
   const { messages, streaming, requestCount, loadMessages, send } = useAiChat(sessionId);
   useAutoSave(sessionId);
 
@@ -374,6 +389,27 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       observer.disconnect();
     };
   }, [requestEditorLayout]);
+
+  useEffect(() => {
+    if (!editorHostRef.current || typeof MutationObserver === "undefined") {
+      return;
+    }
+
+    syncMonacoAuxInputs();
+
+    const observer = new MutationObserver(() => {
+      syncMonacoAuxInputs();
+    });
+
+    observer.observe(editorHostRef.current, {
+      childList: true,
+      subtree: true
+    });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [syncMonacoAuxInputs]);
 
   useEffect(() => {
     const clampWorkbenchLayout = () => {
@@ -595,6 +631,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     });
 
     requestEditorLayout();
+    syncMonacoAuxInputs();
   };
 
   const beginResize = (mode: DragMode) => (event: React.MouseEvent<HTMLDivElement>) => {
