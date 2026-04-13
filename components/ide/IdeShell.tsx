@@ -36,6 +36,8 @@ const bottomTabs: Array<{ id: BottomPanelTab; label: string }> = [
   { id: "trace", label: "Trace" }
 ];
 
+const workbenchMenuItems = ["File", "Edit", "Selection", "View", "Run", "Help"];
+
 const extensionItems = [
   {
     name: "AIG Assistant",
@@ -242,6 +244,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const [extensionQuery, setExtensionQuery] = useState("");
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
   const [activeWorkbenchTab, setActiveWorkbenchTab] = useState<"code" | "problem">("code");
+  const [openTabPaths, setOpenTabPaths] = useState<string[]>([]);
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [explorerSections, setExplorerSections] = useState<Record<ExplorerSectionKey, boolean>>({
     project: true
@@ -329,6 +332,27 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       setWorkspace(workspace.files, workspace.files[1]?.path ?? workspace.files[0]?.path);
     }
   }, [setWorkspace, workspace]);
+
+  useEffect(() => {
+    if (!files.length) {
+      setOpenTabPaths([]);
+      return;
+    }
+
+    setOpenTabPaths((state) => {
+      const next = state.filter((path) => files.some((file) => file.path === path));
+
+      if (!next.length) {
+        next.push(activePath ?? files[0].path);
+      }
+
+      if (activePath && !next.includes(activePath)) {
+        next.push(activePath);
+      }
+
+      return next;
+    });
+  }, [activePath, files]);
 
   useEffect(() => {
     if (session) {
@@ -478,6 +502,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const problem = useMemo(() => getProblemById(session?.problemId ?? "todo-api"), [session?.problemId]);
   const traces = useMemo(() => session?.traces ?? [], [session?.traces]);
   const fileTree = useMemo(() => buildFileTree(files), [files]);
+  const openFiles = useMemo(
+    () =>
+      openTabPaths
+        .map((path) => files.find((file) => file.path === path))
+        .filter((file): file is WorkspaceFile => Boolean(file)),
+    [files, openTabPaths]
+  );
 
   const searchMatches = useMemo(() => {
     const keyword = searchQuery.trim().toLowerCase();
@@ -544,18 +575,19 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     trace: `${traces.length}`
   };
   const activityMeta: Record<SidebarView | "ai" | "output", string | null> = {
-    explorer: dirtyCount ? `${dirtyCount}` : `${files.length}`,
+    explorer: dirtyCount ? `${dirtyCount}` : openFiles.length ? `${openFiles.length}` : `${files.length}`,
     search: searchQuery.trim() ? `${searchMatches.length}` : null,
     extensions: `${extensionItems.length}`,
     ai: requestTotal ? `${requestTotal}` : null,
     output: testResult ? `${testResult.failed}` : traces.length ? `${traces.length}` : null
   };
-  const sidebarPanelLabel = activityItems.find((item) => item.id === sidebarView)?.label ?? "탐색기";
-  const aiPanelMeta = aiMode === "chat" ? `대화 ${requestTotal}회` : "수정 준비";
-  const outputPanelMeta = `${bottomTabs.find((tab) => tab.id === bottomPanelTab)?.label ?? "출력"} · ${bottomTabMeta[bottomPanelTab]}`;
-  const workbenchPathLabel = activeWorkbenchTab === "problem" ? "problem brief" : activeFile?.path ?? "workspace";
-  const workbenchChipLabel =
-    activeWorkbenchTab === "problem" ? `요구사항 ${problemRequirementsCount}개` : dirtyCount ? `미저장 ${dirtyCount}개` : "저장됨";
+  const lastSavedLabel = lastSavedAt
+    ? `저장 ${new Date(lastSavedAt).toLocaleTimeString("ko-KR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      })}`
+    : "자동 저장 대기";
 
   const handleMount = (editor: any) => {
     editorRef.current = editor;
@@ -633,6 +665,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
   const focusLine = (path: string, lineNumber?: number) => {
     setActiveWorkbenchTab("code");
+    setOpenTabPaths((state) => (state.includes(path) ? state : [...state, path]));
     setActivePath(path);
 
     window.requestAnimationFrame(() => {
@@ -646,7 +679,17 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     });
   };
 
+  const handleOpenCodeWorkbench = () => {
+    setActiveWorkbenchTab("code");
+
+    if (activeFile) {
+      setOpenTabPaths((state) => (state.length ? state : [activeFile.path]));
+    }
+  };
+
   const handleActivityClick = (view: SidebarView) => {
+    handleOpenCodeWorkbench();
+
     if (sidebarView === view && sidebarOpen) {
       setSidebarOpen(false);
       return;
@@ -656,14 +699,17 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   };
 
   const handleToggleSidebarPanel = () => {
+    handleOpenCodeWorkbench();
     setSidebarOpen(!sidebarOpen);
   };
 
   const handleToggleBottomPanel = () => {
+    handleOpenCodeWorkbench();
     setBottomPanelOpen(!bottomPanelOpen);
   };
 
   const handleToggleAiPanel = () => {
+    handleOpenCodeWorkbench();
     toggleAiOpen();
   };
 
@@ -687,6 +733,26 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
   const handleOpenProblemTab = () => {
     setActiveWorkbenchTab("problem");
+  };
+
+  const handleCloseFileTab = (path: string) => {
+    setOpenTabPaths((state) => {
+      const currentIndex = state.indexOf(path);
+      const next = state.filter((item) => item !== path);
+
+      if (activePath === path) {
+        const fallback = next[currentIndex] ?? next[currentIndex - 1] ?? next[0] ?? null;
+
+        if (fallback) {
+          setActivePath(fallback);
+          setActiveWorkbenchTab("code");
+        } else {
+          setActiveWorkbenchTab("problem");
+        }
+      }
+
+      return next;
+    });
   };
 
   const handleRequestEdit = async () => {
@@ -936,16 +1002,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             </div>
           ) : null}
         </div>
-
-        <div className="sidebar-callout">
-          <strong>현재 컨텍스트</strong>
-          <span>{activeFile?.path ?? "파일 없음"}</span>
-          <small>{selectionSummary}</small>
-          <small>{dirtyCount ? `미저장 변경 ${dirtyCount}건` : "모든 변경이 저장되었습니다."}</small>
-          <button type="button" className="button button--ghost button--tiny" onClick={handleOpenProblemTab}>
-            문제 탭 열기
-          </button>
-        </div>
       </div>
     );
   };
@@ -1019,22 +1075,20 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     );
   };
 
-  const renderProblemPane = () => {
+  const renderProblemWorkspace = () => {
     if (!problem) {
-      return <div className="problem-pane problem-pane--empty">문제 정보를 불러오지 못했습니다.</div>;
+      return <div className="problem-workspace problem-workspace--empty">문제 정보를 불러오지 못했습니다.</div>;
     }
 
     return (
-      <div className="problem-pane">
-        <div className="problem-pane__scroll">
-          <div className="problem-pane__hero">
-            <div className="problem-pane__hero-copy">
-              <span className="eyebrow">문제 브리프</span>
-              <h2>{problem.title}</h2>
-              <p className="muted-copy">{problem.summary}</p>
-            </div>
+      <div className="problem-workspace">
+        <aside className="problem-workspace__rail">
+          <div className="problem-card problem-card--primary">
+            <span className="eyebrow">문제 브리프</span>
+            <h2>{problem.title}</h2>
+            <p className="muted-copy">{problem.summary}</p>
 
-            <div className="problem-pane__hero-meta">
+            <div className="problem-card__pills">
               <span className="problem-pill">Lv.{problem.level}</span>
               <span className="problem-pill">{problem.category}</span>
               <span className="problem-pill">{problem.estimate}</span>
@@ -1042,60 +1096,174 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             </div>
           </div>
 
-          <div className="problem-pane__grid">
-            <section className="problem-pane__section problem-pane__section--wide">
-              <strong>핵심 요구사항</strong>
-              <ul className="problem-list">
-                {problem.requirements.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </section>
-
-            <section className="problem-pane__section">
-              <strong>공개 테스트</strong>
-              <div className="problem-cases">
-                {problem.publicCases.map((testCase) => (
-                  <div key={testCase.id} className="problem-case">
-                    <div className="problem-case__head">
-                      <span>{testCase.name}</span>
-                      <Badge tone="teal">{testCase.result}</Badge>
-                    </div>
-                    <small>{testCase.detail}</small>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="problem-pane__section">
-              <strong>평가 기준</strong>
-              <ul className="problem-list">
-                {problem.criteria.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </section>
-
-            <section className="problem-pane__section problem-pane__section--wide">
-              <strong>API 엔드포인트</strong>
-              <div className="problem-endpoints">
-                {problem.endpoints.map((endpoint) => (
-                  <code key={endpoint} className="problem-endpoint">
-                    {endpoint}
-                  </code>
-                ))}
-              </div>
-            </section>
-
-            <section className="problem-pane__section problem-pane__section--wide">
-              <strong>AI 활용 팁</strong>
-              <p className="muted-copy">{problem.aiGuide}</p>
-            </section>
+          <div className="problem-card">
+            <strong>문제 체크포인트</strong>
+            <ul className="problem-list">
+              <li>요구사항 {problemRequirementsCount}개</li>
+              <li>공개 테스트 {problemCasesCount}개</li>
+              <li>엔드포인트 {problem.endpoints.length}개</li>
+              <li>현재 세션 AI 요청 {requestTotal}회</li>
+            </ul>
           </div>
+        </aside>
+
+        <div className="problem-workspace__main">
+          <section className="problem-card problem-card--feature">
+            <strong>핵심 요구사항</strong>
+            <ul className="problem-list">
+              {problem.requirements.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="problem-card problem-card--feature">
+            <strong>API 엔드포인트</strong>
+            <div className="problem-endpoints">
+              {problem.endpoints.map((endpoint) => (
+                <code key={endpoint} className="problem-endpoint">
+                  {endpoint}
+                </code>
+              ))}
+            </div>
+          </section>
         </div>
+
+        <aside className="problem-workspace__aside">
+          <section className="problem-card">
+            <strong>공개 테스트</strong>
+            <div className="problem-cases">
+              {problem.publicCases.map((testCase) => (
+                <div key={testCase.id} className="problem-case">
+                  <div className="problem-case__head">
+                    <span>{testCase.name}</span>
+                    <Badge tone="teal">{testCase.result}</Badge>
+                  </div>
+                  <small>{testCase.detail}</small>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="problem-card">
+            <strong>평가 기준</strong>
+            <ul className="problem-list">
+              {problem.criteria.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="problem-card">
+            <strong>AI 활용 팁</strong>
+            <p className="muted-copy">{problem.aiGuide}</p>
+          </section>
+        </aside>
       </div>
     );
   };
+
+  const renderMenubar = (problemMode = false) => (
+    <div className="ide-menubar">
+      <div className="ide-menubar__menus">
+        {workbenchMenuItems.map((item) => (
+          <button key={item} type="button" className="ide-menubar__menu">
+            {item}
+          </button>
+        ))}
+      </div>
+
+      <div className="ide-menubar__workspace">
+        <span className="ide-menubar__workspace-label">{problem?.title ?? "문제 풀이"}</span>
+        <span className="ide-menubar__workspace-meta">{lastSavedLabel}</span>
+      </div>
+
+      <div className="ide-menubar__actions">
+        {!problemMode ? (
+          <>
+            <button
+              type="button"
+              className="ide-arrow-button"
+              aria-label={sidebarOpen ? "탐색기 접기" : "탐색기 열기"}
+              onClick={handleToggleSidebarPanel}
+            >
+              {sidebarOpen ? "<" : ">"}
+            </button>
+            <button
+              type="button"
+              className="ide-arrow-button"
+              aria-label={bottomPanelOpen ? "하단 패널 접기" : "하단 패널 열기"}
+              onClick={handleToggleBottomPanel}
+            >
+              {bottomPanelOpen ? "v" : "^"}
+            </button>
+            <button
+              type="button"
+              className="ide-arrow-button"
+              aria-label={aiOpen ? "AI 패널 접기" : "AI 패널 열기"}
+              onClick={handleToggleAiPanel}
+            >
+              {aiOpen ? ">" : "<"}
+            </button>
+          </>
+        ) : null}
+
+        <button type="button" className="ide-command-button" onClick={handleRun} disabled={runLoading}>
+          {runLoading ? "실행 중..." : "실행"}
+        </button>
+        <button type="button" className="ide-command-button" onClick={handleTest} disabled={testLoading}>
+          {testLoading ? "테스트 중..." : "테스트"}
+        </button>
+        <button
+          type="button"
+          className="ide-command-button ide-command-button--primary"
+          onClick={handleSubmit}
+          disabled={submitLoading}
+        >
+          {submitLoading ? "제출 중..." : "제출"}
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderEditorTabs = () => (
+    <div className="editor-tabs">
+      <button
+        type="button"
+        className={activeWorkbenchTab === "problem" ? "editor-tabs__item editor-tabs__item--active" : "editor-tabs__item"}
+        onClick={handleOpenProblemTab}
+      >
+        <span className="file-icon file-icon--tab">PR</span>
+        <span>문제</span>
+        <small className="editor-tabs__meta">{problem?.order}</small>
+      </button>
+
+      {openFiles.map((file) => (
+        <div
+          key={file.path}
+          className={
+            activeWorkbenchTab === "code" && file.path === activePath
+              ? "editor-tabs__item editor-tabs__item--active"
+              : "editor-tabs__item"
+          }
+        >
+          <button type="button" className="editor-tabs__select" onClick={() => focusLine(file.path)}>
+            <span className="file-icon file-icon--tab">{getFileToken(file)}</span>
+            <span>{getFileName(file.path)}</span>
+            {unsavedPaths.includes(file.path) ? <span className="editor-tabs__dot" /> : null}
+          </button>
+          <button
+            type="button"
+            className="editor-tabs__close"
+            aria-label={`${getFileName(file.path)} 닫기`}
+            onClick={() => handleCloseFileTab(file.path)}
+          >
+            ×
+          </button>
+        </div>
+      ))}
+    </div>
+  );
 
   if (isLoading || !session || !activeFile) {
     return (
@@ -1109,48 +1277,26 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <div className="stack-16 ide-route">
-      <Card className="ide-hero ide-hero--workspace">
-        <div>
-          <span className="eyebrow">AIG IDE</span>
-          <div className="inline-heading">
-            <h1>{problem?.title ?? "Todo API 구현"}</h1>
-            <Badge tone="accent">AI 요청 {requestCount || session.aiRequestCount}회</Badge>
-            <Badge tone="teal">
-              {lastSavedAt
-                ? `저장 ${new Date(lastSavedAt).toLocaleTimeString("ko-KR", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hour12: false
-                  })}`
-                : "자동 저장 대기"}
-            </Badge>
-          </div>
-          <p className="muted-copy ide-hero__description">{problem?.summary}</p>
-        </div>
-
-        <div className="hero-actions">
-          <button className="button" onClick={handleRun} disabled={runLoading}>
-            {runLoading ? "실행 중..." : "실행"}
-          </button>
-          <button className="button" onClick={handleTest} disabled={testLoading}>
-            {testLoading ? "테스트 중..." : "테스트"}
-          </button>
-          <button className="button button--primary" onClick={handleSubmit} disabled={submitLoading}>
-            {submitLoading ? "제출 중..." : "제출"}
-          </button>
-        </div>
-      </Card>
-
+    <div className="ide-route ide-route--workspace">
       <section className="ide-shell ide-shell--workbench">
         <aside className="activity-bar">
           <div className="activity-bar__group">
+            <button
+              type="button"
+              className={activeWorkbenchTab === "problem" ? "activity-bar__item activity-bar__item--active" : "activity-bar__item"}
+              title="문제"
+              onClick={handleOpenProblemTab}
+            >
+              <span className="activity-bar__label">PR</span>
+              <span className="activity-bar__badge">{problemRequirementsCount}</span>
+            </button>
+
             {activityItems.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 className={
-                  sidebarOpen && sidebarView === item.id
+                  activeWorkbenchTab === "code" && sidebarOpen && sidebarView === item.id
                     ? "activity-bar__item activity-bar__item--active"
                     : "activity-bar__item"
                 }
@@ -1164,204 +1310,129 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           </div>
         </aside>
 
-        {sidebarOpen ? (
+        {activeWorkbenchTab === "problem" ? (
+          <div className="ide-shell__problem">
+            {renderMenubar(true)}
+            {renderEditorTabs()}
+            <div className="problem-stage">{renderProblemWorkspace()}</div>
+            <div className="status-bar">
+              <div className="status-bar__group">
+                <span>problem</span>
+                <span>Lv.{problem?.level ?? 1}</span>
+                <span>{problem?.category ?? "문제"}</span>
+                <span>공개케이스 {problemCasesCount}개</span>
+              </div>
+              <div className="status-bar__group">
+                <span>{problem?.estimate ?? "예상 시간 없음"}</span>
+                <span>AI 요청 {requestTotal}회</span>
+                <span>{dirtyCount ? `미저장 ${dirtyCount}개` : "저장됨"}</span>
+              </div>
+            </div>
+          </div>
+        ) : (
           <>
-            <aside className="ide-shell__sidebar" style={{ width: effectiveSidebarWidth }}>
-              <div className="sidebar-header">
-                <div>
-                  <span className="panel-title panel-title--compact">{sidebarView}</span>
-                  <strong>{activityItems.find((item) => item.id === sidebarView)?.label ?? "탐색기"}</strong>
-                </div>
-                <button type="button" className="icon-button" onClick={() => setSidebarOpen(false)}>
-                  숨기기
-                </button>
-              </div>
-
-              {renderSidebarBody()}
-            </aside>
-
-            <div
-              className="pane-resizer pane-resizer--vertical"
-              onMouseDown={beginResize("sidebar")}
-              aria-hidden="true"
-            />
-          </>
-        ) : null}
-
-        <div className="ide-shell__main">
-          <div className="ide-toolbar">
-            <div className="ide-toolbar__group">
-              <span className="ide-toolbar__title">workbench</span>
-              <span className="ide-toolbar__path">{workbenchPathLabel}</span>
-              <span className="ide-toolbar__chip">{workbenchChipLabel}</span>
-            </div>
-
-            <div className="ide-toolbar__group ide-toolbar__group--actions">
-              <span className="ide-toolbar__title">panels</span>
-
-              <button
-                type="button"
-                className={sidebarOpen ? "toolbar-button toolbar-button--active" : "toolbar-button"}
-                aria-pressed={sidebarOpen}
-                onClick={handleToggleSidebarPanel}
-              >
-                <span className="toolbar-button__stack">
-                  <span className="toolbar-button__label">왼쪽 패널</span>
-                  <span className="toolbar-button__meta">{sidebarPanelLabel}</span>
-                </span>
-              </button>
-
-              <button
-                type="button"
-                className={bottomPanelOpen ? "toolbar-button toolbar-button--active" : "toolbar-button"}
-                aria-pressed={bottomPanelOpen}
-                onClick={handleToggleBottomPanel}
-              >
-                <span className="toolbar-button__stack">
-                  <span className="toolbar-button__label">하단 패널</span>
-                  <span className="toolbar-button__meta">{outputPanelMeta}</span>
-                </span>
-              </button>
-
-              <button
-                type="button"
-                className={aiOpen ? "toolbar-button toolbar-button--active" : "toolbar-button"}
-                aria-pressed={aiOpen}
-                onClick={handleToggleAiPanel}
-              >
-                <span className="toolbar-button__stack">
-                  <span className="toolbar-button__label">AI 보조</span>
-                  <span className="toolbar-button__meta">{aiPanelMeta}</span>
-                </span>
-              </button>
-            </div>
-          </div>
-
-          <div className="editor-tabs">
-            <button
-              type="button"
-              className={
-                activeWorkbenchTab === "problem" ? "editor-tabs__item editor-tabs__item--active" : "editor-tabs__item"
-              }
-              onClick={handleOpenProblemTab}
-            >
-              <span className="file-icon file-icon--tab">PR</span>
-              <span>문제</span>
-              <small className="editor-tabs__meta">{problem?.order}</small>
-            </button>
-
-            {files.map((file) => (
-              <button
-                key={file.path}
-                type="button"
-                className={
-                  activeWorkbenchTab === "code" && file.path === activePath
-                    ? "editor-tabs__item editor-tabs__item--active"
-                    : "editor-tabs__item"
-                }
-                onClick={() => focusLine(file.path)}
-              >
-                <span className="file-icon file-icon--tab">{getFileToken(file)}</span>
-                <span>{getFileName(file.path)}</span>
-                {unsavedPaths.includes(file.path) ? <span className="editor-tabs__dot" /> : null}
-              </button>
-            ))}
-          </div>
-
-          <div className="editor-breadcrumbs">
-            {breadcrumbParts.map((part, index) => (
-              <span key={`${part}-${index}`} className="editor-breadcrumbs__item">
-                {part}
-              </span>
-            ))}
-          </div>
-
-          <div className="editor-stage">
-            {activeWorkbenchTab === "problem" ? (
-              renderProblemPane()
-            ) : (
-              <div ref={editorHostRef} className="editor-host">
-                <MonacoEditor
-                  path={activeFile.path}
-                  theme={theme === "dark" ? "vs-dark" : "vs"}
-                  height="100%"
-                  language={activeFile.language}
-                  value={activeFile.content}
-                  onMount={handleMount}
-                  onChange={(value) => updateFileContent(activeFile.path, value ?? "")}
-                  options={{
-                    minimap: { enabled: true, scale: 0.9, showSlider: "mouseover" },
-                    fontSize: 13,
-                    scrollBeyondLastLine: false,
-                    fontFamily: "var(--font-mono)",
-                    lineHeight: 22,
-                    automaticLayout: true,
-                    smoothScrolling: true,
-                    padding: { top: 14 },
-                    stickyScroll: { enabled: false },
-                    overviewRulerBorder: false
-                  }}
-                />
-              </div>
-            )}
-
-            {bottomPanelOpen ? (
+            {sidebarOpen ? (
               <>
-                <div
-                  className="pane-resizer pane-resizer--horizontal"
-                  onMouseDown={beginResize("bottom")}
-                  aria-hidden="true"
-                />
-                <section className="bottom-panel" style={{ height: effectiveBottomPanelHeight }}>
-                  <div className="bottom-panel__tabs">
-                    <div className="bottom-panel__tab-list">
-                      {bottomTabs.map((tab) => (
-                        <button
-                          key={tab.id}
-                          type="button"
-                          className={
-                            bottomPanelTab === tab.id
-                              ? "bottom-panel__tab bottom-panel__tab--active"
-                              : "bottom-panel__tab"
-                          }
-                          onClick={() => setBottomPanelTab(tab.id)}
-                        >
-                          {tab.label}
-                          <small>{bottomTabMeta[tab.id]}</small>
-                        </button>
-                      ))}
+                <aside className="ide-shell__sidebar" style={{ width: effectiveSidebarWidth }}>
+                  <div className="sidebar-header">
+                    <div>
+                      <span className="panel-title panel-title--compact">{sidebarView}</span>
+                      <strong>{activityItems.find((item) => item.id === sidebarView)?.label ?? "탐색기"}</strong>
                     </div>
-
-                    <button type="button" className="icon-button" onClick={() => setBottomPanelOpen(false)}>
-                      숨기기
+                    <button
+                      type="button"
+                      className="panel-arrow-button"
+                      aria-label="탐색기 접기"
+                      onClick={() => setSidebarOpen(false)}
+                    >
+                      {"<"}
                     </button>
                   </div>
 
-                  {renderBottomPanel()}
-                </section>
+                  {renderSidebarBody()}
+                </aside>
+
+                <div
+                  className="pane-resizer pane-resizer--vertical"
+                  onMouseDown={beginResize("sidebar")}
+                  aria-hidden="true"
+                />
               </>
             ) : null}
-          </div>
 
-          <div className="status-bar">
-            {activeWorkbenchTab === "problem" ? (
-              <>
-                <div className="status-bar__group">
-                  <span>problem</span>
-                  <span>Lv.{problem?.level ?? 1}</span>
-                  <span>{problem?.category ?? "문제"}</span>
-                  <span>공개케이스 {problemCasesCount}개</span>
+            <div className="ide-shell__main">
+              {renderMenubar()}
+              {renderEditorTabs()}
+
+              <div className="editor-stage">
+                <div ref={editorHostRef} className="editor-host">
+                  <MonacoEditor
+                    path={activeFile.path}
+                    theme={theme === "dark" ? "vs-dark" : "vs"}
+                    height="100%"
+                    language={activeFile.language}
+                    value={activeFile.content}
+                    onMount={handleMount}
+                    onChange={(value) => updateFileContent(activeFile.path, value ?? "")}
+                    options={{
+                      minimap: { enabled: true, scale: 0.9, showSlider: "mouseover" },
+                      fontSize: 13,
+                      scrollBeyondLastLine: false,
+                      fontFamily: "var(--font-mono)",
+                      lineHeight: 22,
+                      automaticLayout: true,
+                      smoothScrolling: true,
+                      padding: { top: 14 },
+                      stickyScroll: { enabled: false },
+                      overviewRulerBorder: false
+                    }}
+                  />
                 </div>
 
-                <div className="status-bar__group">
-                  <span>{dirtyCount ? `미저장 ${dirtyCount}개` : "저장됨"}</span>
-                  <span>{problem?.estimate ?? "예상 시간 없음"}</span>
-                  <span>{aiMode === "chat" ? "AIG Chat" : "AIG Edit"}</span>
-                  <span>{bottomPanelTab.toUpperCase()}</span>
-                </div>
-              </>
-            ) : (
-              <>
+                {bottomPanelOpen ? (
+                  <>
+                    <div
+                      className="pane-resizer pane-resizer--horizontal"
+                      onMouseDown={beginResize("bottom")}
+                      aria-hidden="true"
+                    />
+                    <section className="bottom-panel" style={{ height: effectiveBottomPanelHeight }}>
+                      <div className="bottom-panel__tabs">
+                        <div className="bottom-panel__tab-list">
+                          {bottomTabs.map((tab) => (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              className={
+                                bottomPanelTab === tab.id
+                                  ? "bottom-panel__tab bottom-panel__tab--active"
+                                  : "bottom-panel__tab"
+                              }
+                              onClick={() => setBottomPanelTab(tab.id)}
+                            >
+                              {tab.label}
+                              <small>{bottomTabMeta[tab.id]}</small>
+                            </button>
+                          ))}
+                        </div>
+
+                        <button
+                          type="button"
+                          className="panel-arrow-button"
+                          aria-label="하단 패널 접기"
+                          onClick={() => setBottomPanelOpen(false)}
+                        >
+                          v
+                        </button>
+                      </div>
+
+                      {renderBottomPanel()}
+                    </section>
+                  </>
+                ) : null}
+              </div>
+
+              <div className="status-bar">
                 <div className="status-bar__group">
                   <span>main</span>
                   <span>{activeFile.language.toUpperCase()}</span>
@@ -1376,144 +1447,152 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   <span>{aiMode === "chat" ? "AIG Chat" : "AIG Edit"}</span>
                   <span>{bottomPanelTab.toUpperCase()}</span>
                 </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        {aiOpen ? (
-          <>
-            <div
-              className="pane-resizer pane-resizer--vertical"
-              onMouseDown={beginResize("ai")}
-              aria-hidden="true"
-            />
-
-            <aside className="ide-shell__ai" style={{ width: effectiveAiPanelWidth }}>
-              <div className="sidebar-header">
-                <div>
-                  <span className="panel-title panel-title--compact">aig assistant</span>
-                  <strong>AI 보조 패널</strong>
-                </div>
-                <button type="button" className="icon-button" onClick={handleToggleAiPanel}>
-                  숨기기
-                </button>
               </div>
+            </div>
 
-              <div className="ai-tabs">
-                <button
-                  type="button"
-                  className={aiMode === "chat" ? "chip chip--active" : "chip"}
-                  onClick={() => { setAiMode("chat"); setSuggestion(null); }}
-                >
-                  채팅
-                </button>
-                <button
-                  type="button"
-                  className={aiMode === "edit" ? "chip chip--active" : "chip"}
-                  onClick={() => setAiMode("edit")}
-                >
-                  수정
-                </button>
-              </div>
+            {aiOpen ? (
+              <>
+                <div
+                  className="pane-resizer pane-resizer--vertical"
+                  onMouseDown={beginResize("ai")}
+                  aria-hidden="true"
+                />
 
-              {aiMode === "chat" ? (
-                <div className="ai-panel ai-panel--chat">
-                  <div className="ai-context-strip">
-                    <span className="ai-context-chip">{getFileName(activeFile.path)}</span>
-                    <span className="ai-context-chip">{selectedRange ? selectionSummary : "선택 없음"}</span>
-                    <span className="ai-context-chip">요청 {requestTotal}회</span>
-                  </div>
-
-                  <div className="chat-presets">
-                    {promptPresets.map((prompt) => (
-                      <button
-                        key={prompt}
-                        type="button"
-                        className="chat-preset"
-                        onClick={() => fillPresetPrompt(prompt)}
-                      >
-                        {prompt}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div ref={chatScrollRef} className="chat-stack chat-stack--panel">
-                    {messages.map((message) => (
-                      <div
-                        key={message.id}
-                        className={message.role === "user" ? "chat-bubble chat-bubble--user" : "chat-bubble"}
-                      >
-                        {message.content}
-                      </div>
-                    ))}
-                    {streaming ? <div className="chat-status">AI 응답 생성 중...</div> : null}
-                  </div>
-
-                  <div className="chat-input-row">
-                    <textarea
-                      id="ide-chat-input"
-                      name="chatPrompt"
-                      className="input input--textarea"
-                      value={chatInput}
-                      onChange={(event) => setChatInput(event.target.value)}
-                      placeholder="현재 문제나 코드에 대해 질문하세요"
-                    />
-                    <button className="button button--primary" onClick={handleSend}>
-                      전송
+                <aside className="ide-shell__ai" style={{ width: effectiveAiPanelWidth }}>
+                  <div className="sidebar-header">
+                    <div>
+                      <span className="panel-title panel-title--compact">aig assistant</span>
+                      <strong>AI 보조 패널</strong>
+                    </div>
+                    <button
+                      type="button"
+                      className="panel-arrow-button"
+                      aria-label="AI 패널 접기"
+                      onClick={handleToggleAiPanel}
+                    >
+                      {">"}
                     </button>
                   </div>
-                </div>
-              ) : (
-                <div className="ai-panel ai-panel--edit">
-                  <Card className="mini-panel mini-panel--flat">
-                    <strong>선택 코드</strong>
-                    <pre>{selectedCode || "에디터에서 코드를 선택하면 AI 수정 모드가 활성화됩니다."}</pre>
-                  </Card>
 
-                  <div className="ai-context-strip">
-                    <span className="ai-context-chip">{getFolderPath(activeFile.path) || "workspace"}</span>
-                    <span className="ai-context-chip">{selectionLabel}</span>
+                  <div className="ai-tabs">
+                    <button
+                      type="button"
+                      className={aiMode === "chat" ? "chip chip--active" : "chip"}
+                      onClick={() => {
+                        setAiMode("chat");
+                        setSuggestion(null);
+                      }}
+                    >
+                      채팅
+                    </button>
+                    <button
+                      type="button"
+                      className={aiMode === "edit" ? "chip chip--active" : "chip"}
+                      onClick={() => setAiMode("edit")}
+                    >
+                      수정
+                    </button>
                   </div>
 
-                  <label className="field">
-                    <span>수정 지시</span>
-                    <textarea
-                      id="ide-edit-instruction"
-                      name="editInstruction"
-                      className="input input--textarea"
-                      value={editInstruction}
-                      onChange={(event) => setEditInstruction(event.target.value)}
-                    />
-                  </label>
-
-                  <button className="button" onClick={handleRequestEdit} disabled={editLoading}>
-                    {editLoading ? "생성 중..." : "AI 수정 제안 받기"}
-                  </button>
-
-                  {suggestion ? (
-                    <Card className="mini-panel mini-panel--flat">
-                      <strong>AI 제안</strong>
-                      <div className="diff-block">
-                        <span className="diff-block__remove">- {suggestion.original}</span>
-                        <span className="diff-block__add">+ {suggestion.replacement}</span>
+                  {aiMode === "chat" ? (
+                    <div className="ai-panel ai-panel--chat">
+                      <div className="ai-context-strip">
+                        <span className="ai-context-chip">{getFileName(activeFile.path)}</span>
+                        <span className="ai-context-chip">{selectedRange ? selectionSummary : "선택 없음"}</span>
+                        <span className="ai-context-chip">요청 {requestTotal}회</span>
                       </div>
-                      <p className="muted-copy">{suggestion.summary}</p>
-                      <div className="hero-actions">
-                        <button className="button" onClick={() => setSuggestion(null)}>
-                          닫기
-                        </button>
-                        <button className="button button--primary" onClick={handleApplyEdit}>
-                          반영
+
+                      <div className="chat-presets">
+                        {promptPresets.map((prompt) => (
+                          <button
+                            key={prompt}
+                            type="button"
+                            className="chat-preset"
+                            onClick={() => fillPresetPrompt(prompt)}
+                          >
+                            {prompt}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div ref={chatScrollRef} className="chat-stack chat-stack--panel">
+                        {messages.map((message) => (
+                          <div
+                            key={message.id}
+                            className={message.role === "user" ? "chat-bubble chat-bubble--user" : "chat-bubble"}
+                          >
+                            {message.content}
+                          </div>
+                        ))}
+                        {streaming ? <div className="chat-status">AI 응답 생성 중...</div> : null}
+                      </div>
+
+                      <div className="chat-input-row">
+                        <textarea
+                          id="ide-chat-input"
+                          name="chatPrompt"
+                          className="input input--textarea"
+                          value={chatInput}
+                          onChange={(event) => setChatInput(event.target.value)}
+                          placeholder="현재 문제나 코드에 대해 질문하세요"
+                        />
+                        <button className="button button--primary" onClick={handleSend}>
+                          전송
                         </button>
                       </div>
-                    </Card>
-                  ) : null}
-                </div>
-              )}
-            </aside>
+                    </div>
+                  ) : (
+                    <div className="ai-panel ai-panel--edit">
+                      <Card className="mini-panel mini-panel--flat">
+                        <strong>선택 코드</strong>
+                        <pre>{selectedCode || "에디터에서 코드를 선택하면 AI 수정 모드가 활성화됩니다."}</pre>
+                      </Card>
+
+                      <div className="ai-context-strip">
+                        <span className="ai-context-chip">{getFolderPath(activeFile.path) || "workspace"}</span>
+                        <span className="ai-context-chip">{selectionLabel}</span>
+                      </div>
+
+                      <label className="field">
+                        <span>수정 지시</span>
+                        <textarea
+                          id="ide-edit-instruction"
+                          name="editInstruction"
+                          className="input input--textarea"
+                          value={editInstruction}
+                          onChange={(event) => setEditInstruction(event.target.value)}
+                        />
+                      </label>
+
+                      <button className="button" onClick={handleRequestEdit} disabled={editLoading}>
+                        {editLoading ? "생성 중..." : "AI 수정 제안 받기"}
+                      </button>
+
+                      {suggestion ? (
+                        <Card className="mini-panel mini-panel--flat">
+                          <strong>AI 제안</strong>
+                          <div className="diff-block">
+                            <span className="diff-block__remove">- {suggestion.original}</span>
+                            <span className="diff-block__add">+ {suggestion.replacement}</span>
+                          </div>
+                          <p className="muted-copy">{suggestion.summary}</p>
+                          <div className="hero-actions">
+                            <button className="button" onClick={() => setSuggestion(null)}>
+                              닫기
+                            </button>
+                            <button className="button button--primary" onClick={handleApplyEdit}>
+                              반영
+                            </button>
+                          </div>
+                        </Card>
+                      ) : null}
+                    </div>
+                  )}
+                </aside>
+              </>
+            ) : null}
           </>
-        ) : null}
+        )}
       </section>
     </div>
   );
