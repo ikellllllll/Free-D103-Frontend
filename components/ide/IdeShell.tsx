@@ -25,7 +25,7 @@ const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
 });
 
 const activityItems: Array<{ id: SidebarView; short: string; label: string; description: string }> = [
-  { id: "explorer", short: "EX", label: "탐색기", description: "파일 트리와 아웃라인" },
+  { id: "explorer", short: "EX", label: "탐색기", description: "파일 트리" },
   { id: "search", short: "SR", label: "검색", description: "파일명과 코드 검색" },
   { id: "extensions", short: "XT", label: "확장", description: "설치된 워크벤치 도구" }
 ];
@@ -65,7 +65,7 @@ const promptPresets = [
   "선택 코드만 최소 수정으로 안전하게 바꿔줘"
 ];
 
-type ExplorerSectionKey = "openEditors" | "project" | "outline";
+type ExplorerSectionKey = "project";
 type DragMode = "sidebar" | "ai" | "bottom";
 
 interface DragState {
@@ -183,29 +183,6 @@ const buildFileTree = (files: WorkspaceFile[]) => {
   return sortNodes(root.children);
 };
 
-const extractOutline = (file: WorkspaceFile | null) => {
-  if (!file) {
-    return [];
-  }
-
-  return file.content
-    .split("\n")
-    .map((line, index) => ({ line: line.trim(), lineNumber: index + 1 }))
-    .filter(
-      ({ line }) =>
-        Boolean(line) &&
-        (line.startsWith("@") ||
-          /\b(class|interface|enum|record)\b/.test(line) ||
-          /\b(public|private|protected)\b.*\(.*\)/.test(line))
-    )
-    .slice(0, 10)
-    .map(({ line, lineNumber }) => ({
-      id: `${file.path}-${lineNumber}`,
-      label: line.replace(/\s*\{$/, ""),
-      lineNumber
-    }));
-};
-
 export function IdeShell({ sessionId }: { sessionId: string }) {
   const router = useRouter();
   const { withPrefix } = useRouteScope();
@@ -264,11 +241,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [extensionQuery, setExtensionQuery] = useState("");
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
+  const [activeWorkbenchTab, setActiveWorkbenchTab] = useState<"code" | "problem">("code");
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [explorerSections, setExplorerSections] = useState<Record<ExplorerSectionKey, boolean>>({
-    openEditors: true,
-    project: true,
-    outline: true
+    project: true
   });
 
   const { data: session, isLoading } = useQuery({
@@ -388,7 +364,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     return () => {
       observer.disconnect();
     };
-  }, [requestEditorLayout]);
+  }, [activeWorkbenchTab, requestEditorLayout]);
 
   useEffect(() => {
     if (!editorHostRef.current || typeof MutationObserver === "undefined") {
@@ -409,7 +385,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     return () => {
       observer.disconnect();
     };
-  }, [syncMonacoAuxInputs]);
+  }, [activeWorkbenchTab, syncMonacoAuxInputs]);
 
   useEffect(() => {
     const clampWorkbenchLayout = () => {
@@ -444,6 +420,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     requestEditorLayout();
   }, [
     activePath,
+    activeWorkbenchTab,
     aiOpen,
     bottomPanelOpen,
     effectiveAiPanelWidth,
@@ -501,7 +478,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const problem = useMemo(() => getProblemById(session?.problemId ?? "todo-api"), [session?.problemId]);
   const traces = useMemo(() => session?.traces ?? [], [session?.traces]);
   const fileTree = useMemo(() => buildFileTree(files), [files]);
-  const outlineItems = useMemo(() => extractOutline(activeFile), [activeFile]);
 
   const searchMatches = useMemo(() => {
     const keyword = searchQuery.trim().toLowerCase();
@@ -558,7 +534,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const lineCount = activeFile?.content.split("\n").length ?? 0;
   const requestTotal = requestCount || session?.aiRequestCount || 0;
   const dirtyCount = unsavedPaths.length;
-  const breadcrumbParts = activeFile?.path.split("/") ?? [];
+  const problemRequirementsCount = problem?.requirements.length ?? 0;
+  const problemCasesCount = problem?.publicCases.length ?? 0;
+  const breadcrumbParts =
+    activeWorkbenchTab === "problem" ? ["problem", problem?.title ?? "brief"] : activeFile?.path.split("/") ?? [];
   const bottomTabMeta: Record<BottomPanelTab, string> = {
     output: runResult ? `code ${runResult.exitCode}` : "ready",
     tests: testResult ? `${testResult.passed}/${testResult.total}` : "idle",
@@ -574,6 +553,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const sidebarPanelLabel = activityItems.find((item) => item.id === sidebarView)?.label ?? "탐색기";
   const aiPanelMeta = aiMode === "chat" ? `대화 ${requestTotal}회` : "수정 준비";
   const outputPanelMeta = `${bottomTabs.find((tab) => tab.id === bottomPanelTab)?.label ?? "출력"} · ${bottomTabMeta[bottomPanelTab]}`;
+  const workbenchPathLabel = activeWorkbenchTab === "problem" ? "problem brief" : activeFile.path;
+  const workbenchChipLabel =
+    activeWorkbenchTab === "problem" ? `요구사항 ${problemRequirementsCount}개` : dirtyCount ? `미저장 ${dirtyCount}개` : "저장됨";
 
   const handleMount = (editor: any) => {
     editorRef.current = editor;
@@ -650,6 +632,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   };
 
   const focusLine = (path: string, lineNumber?: number) => {
+    setActiveWorkbenchTab("code");
     setActivePath(path);
 
     window.requestAnimationFrame(() => {
@@ -700,6 +683,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     setAiMode("chat");
     setSuggestion(null);
     setChatInput(value);
+  };
+
+  const handleOpenProblemTab = () => {
+    setActiveWorkbenchTab("problem");
   };
 
   const handleRequestEdit = async () => {
@@ -938,31 +925,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     return (
       <div className="sidebar-section">
         <div className="section-block">
-          {renderSectionToggle("openEditors", "OPEN EDITORS", `${files.length}`)}
-          {explorerSections.openEditors ? (
-            <div className="stack-8">
-              {files.map((file) => (
-                <button
-                  key={`${file.path}-open`}
-                  type="button"
-                  className={file.path === activePath ? "file-row file-row--active" : "file-row"}
-                  onClick={() => focusLine(file.path)}
-                >
-                  <span className="file-row__main">
-                    <span className="file-icon">{getFileToken(file)}</span>
-                    <span className="file-row__copy">
-                      <span className="file-row__name">{getFileName(file.path)}</span>
-                      <small className="file-row__meta">{getFolderPath(file.path) || "workspace"}</small>
-                    </span>
-                  </span>
-                  {unsavedPaths.includes(file.path) ? <span className="file-row__dot" /> : null}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="section-block">
           {renderSectionToggle("project", "EXPLORER", problem?.title ?? session?.workspaceId)}
           {explorerSections.project ? (
             <div className="tree-root">
@@ -975,34 +937,14 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           ) : null}
         </div>
 
-        <div className="section-block">
-          {renderSectionToggle("outline", "OUTLINE", getFileName(activeFile?.path ?? ""))}
-          {explorerSections.outline ? (
-            outlineItems.length ? (
-              <div className="outline-list">
-                {outlineItems.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className="outline-row"
-                    onClick={() => focusLine(activeFile?.path ?? "", item.lineNumber)}
-                  >
-                    <strong>{item.label}</strong>
-                    <small>{item.lineNumber}행</small>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="empty-inline">표시할 심볼이 없습니다.</div>
-            )
-          ) : null}
-        </div>
-
         <div className="sidebar-callout">
           <strong>현재 컨텍스트</strong>
           <span>{activeFile?.path ?? "파일 없음"}</span>
           <small>{selectionSummary}</small>
           <small>{dirtyCount ? `미저장 변경 ${dirtyCount}건` : "모든 변경이 저장되었습니다."}</small>
+          <button type="button" className="button button--ghost button--tiny" onClick={handleOpenProblemTab}>
+            문제 탭 열기
+          </button>
         </div>
       </div>
     );
@@ -1072,6 +1014,84 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         <div className="bottom-summary">
           <strong>{runResult ? `exit code ${runResult.exitCode}` : "실행 대기"}</strong>
           <span>{runResult ? `${runResult.durationMs}ms` : "실행 버튼으로 결과를 확인하세요."}</span>
+        </div>
+      </div>
+    );
+  };
+
+  const renderProblemPane = () => {
+    if (!problem) {
+      return <div className="problem-pane problem-pane--empty">문제 정보를 불러오지 못했습니다.</div>;
+    }
+
+    return (
+      <div className="problem-pane">
+        <div className="problem-pane__scroll">
+          <div className="problem-pane__hero">
+            <div className="problem-pane__hero-copy">
+              <span className="eyebrow">문제 브리프</span>
+              <h2>{problem.title}</h2>
+              <p className="muted-copy">{problem.summary}</p>
+            </div>
+
+            <div className="problem-pane__hero-meta">
+              <span className="problem-pill">Lv.{problem.level}</span>
+              <span className="problem-pill">{problem.category}</span>
+              <span className="problem-pill">{problem.estimate}</span>
+              <span className="problem-pill">{problem.status}</span>
+            </div>
+          </div>
+
+          <div className="problem-pane__grid">
+            <section className="problem-pane__section problem-pane__section--wide">
+              <strong>핵심 요구사항</strong>
+              <ul className="problem-list">
+                {problem.requirements.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </section>
+
+            <section className="problem-pane__section">
+              <strong>공개 테스트</strong>
+              <div className="problem-cases">
+                {problem.publicCases.map((testCase) => (
+                  <div key={testCase.id} className="problem-case">
+                    <div className="problem-case__head">
+                      <span>{testCase.name}</span>
+                      <Badge tone="teal">{testCase.result}</Badge>
+                    </div>
+                    <small>{testCase.detail}</small>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="problem-pane__section">
+              <strong>평가 기준</strong>
+              <ul className="problem-list">
+                {problem.criteria.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </section>
+
+            <section className="problem-pane__section problem-pane__section--wide">
+              <strong>API 엔드포인트</strong>
+              <div className="problem-endpoints">
+                {problem.endpoints.map((endpoint) => (
+                  <code key={endpoint} className="problem-endpoint">
+                    {endpoint}
+                  </code>
+                ))}
+              </div>
+            </section>
+
+            <section className="problem-pane__section problem-pane__section--wide">
+              <strong>AI 활용 팁</strong>
+              <p className="muted-copy">{problem.aiGuide}</p>
+            </section>
+          </div>
         </div>
       </div>
     );
@@ -1172,8 +1192,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           <div className="ide-toolbar">
             <div className="ide-toolbar__group">
               <span className="ide-toolbar__title">workbench</span>
-              <span className="ide-toolbar__path">{activeFile.path}</span>
-              <span className="ide-toolbar__chip">{dirtyCount ? `미저장 ${dirtyCount}개` : "저장됨"}</span>
+              <span className="ide-toolbar__path">{workbenchPathLabel}</span>
+              <span className="ide-toolbar__chip">{workbenchChipLabel}</span>
             </div>
 
             <div className="ide-toolbar__group ide-toolbar__group--actions">
@@ -1218,12 +1238,26 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           </div>
 
           <div className="editor-tabs">
+            <button
+              type="button"
+              className={
+                activeWorkbenchTab === "problem" ? "editor-tabs__item editor-tabs__item--active" : "editor-tabs__item"
+              }
+              onClick={handleOpenProblemTab}
+            >
+              <span className="file-icon file-icon--tab">PR</span>
+              <span>문제</span>
+              <small className="editor-tabs__meta">{problem?.order}</small>
+            </button>
+
             {files.map((file) => (
               <button
                 key={file.path}
                 type="button"
                 className={
-                  file.path === activePath ? "editor-tabs__item editor-tabs__item--active" : "editor-tabs__item"
+                  activeWorkbenchTab === "code" && file.path === activePath
+                    ? "editor-tabs__item editor-tabs__item--active"
+                    : "editor-tabs__item"
                 }
                 onClick={() => focusLine(file.path)}
               >
@@ -1243,29 +1277,33 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           </div>
 
           <div className="editor-stage">
-            <div ref={editorHostRef} className="editor-host">
-              <MonacoEditor
-                path={activeFile.path}
-                theme={theme === "dark" ? "vs-dark" : "vs"}
-                height="100%"
-                language={activeFile.language}
-                value={activeFile.content}
-                onMount={handleMount}
-                onChange={(value) => updateFileContent(activeFile.path, value ?? "")}
-                options={{
-                  minimap: { enabled: true, scale: 0.9, showSlider: "mouseover" },
-                  fontSize: 13,
-                  scrollBeyondLastLine: false,
-                  fontFamily: "var(--font-mono)",
-                  lineHeight: 22,
-                  automaticLayout: true,
-                  smoothScrolling: true,
-                  padding: { top: 14 },
-                  stickyScroll: { enabled: false },
-                  overviewRulerBorder: false
-                }}
-              />
-            </div>
+            {activeWorkbenchTab === "problem" ? (
+              renderProblemPane()
+            ) : (
+              <div ref={editorHostRef} className="editor-host">
+                <MonacoEditor
+                  path={activeFile.path}
+                  theme={theme === "dark" ? "vs-dark" : "vs"}
+                  height="100%"
+                  language={activeFile.language}
+                  value={activeFile.content}
+                  onMount={handleMount}
+                  onChange={(value) => updateFileContent(activeFile.path, value ?? "")}
+                  options={{
+                    minimap: { enabled: true, scale: 0.9, showSlider: "mouseover" },
+                    fontSize: 13,
+                    scrollBeyondLastLine: false,
+                    fontFamily: "var(--font-mono)",
+                    lineHeight: 22,
+                    automaticLayout: true,
+                    smoothScrolling: true,
+                    padding: { top: 14 },
+                    stickyScroll: { enabled: false },
+                    overviewRulerBorder: false
+                  }}
+                />
+              </div>
+            )}
 
             {bottomPanelOpen ? (
               <>
@@ -1306,20 +1344,40 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           </div>
 
           <div className="status-bar">
-            <div className="status-bar__group">
-              <span>main</span>
-              <span>{activeFile.language.toUpperCase()}</span>
-              <span>UTF-8</span>
-              <span>LF</span>
-              <span>{lineCount} lines</span>
-            </div>
+            {activeWorkbenchTab === "problem" ? (
+              <>
+                <div className="status-bar__group">
+                  <span>problem</span>
+                  <span>Lv.{problem?.level ?? 1}</span>
+                  <span>{problem?.category ?? "문제"}</span>
+                  <span>공개케이스 {problemCasesCount}개</span>
+                </div>
 
-            <div className="status-bar__group">
-              <span>{dirtyCount ? `미저장 ${dirtyCount}개` : "저장됨"}</span>
-              <span>{selectionLabel}</span>
-              <span>{aiMode === "chat" ? "AIG Chat" : "AIG Edit"}</span>
-              <span>{bottomPanelTab.toUpperCase()}</span>
-            </div>
+                <div className="status-bar__group">
+                  <span>{dirtyCount ? `미저장 ${dirtyCount}개` : "저장됨"}</span>
+                  <span>{problem?.estimate ?? "예상 시간 없음"}</span>
+                  <span>{aiMode === "chat" ? "AIG Chat" : "AIG Edit"}</span>
+                  <span>{bottomPanelTab.toUpperCase()}</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="status-bar__group">
+                  <span>main</span>
+                  <span>{activeFile.language.toUpperCase()}</span>
+                  <span>UTF-8</span>
+                  <span>LF</span>
+                  <span>{lineCount} lines</span>
+                </div>
+
+                <div className="status-bar__group">
+                  <span>{dirtyCount ? `미저장 ${dirtyCount}개` : "저장됨"}</span>
+                  <span>{selectionLabel}</span>
+                  <span>{aiMode === "chat" ? "AIG Chat" : "AIG Edit"}</span>
+                  <span>{bottomPanelTab.toUpperCase()}</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
