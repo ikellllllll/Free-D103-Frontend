@@ -742,7 +742,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           setActivePath(fallback);
           setActiveWorkbenchTab("code");
         } else {
-          setActiveWorkbenchTab("problem");
+          setActiveWorkbenchTab("code");
         }
       }
 
