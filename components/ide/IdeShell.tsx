@@ -36,8 +36,6 @@ const bottomTabs: Array<{ id: BottomPanelTab; label: string }> = [
   { id: "trace", label: "Trace" }
 ];
 
-const workbenchMenuItems = ["File", "Edit", "Selection", "View", "Run", "Help"];
-
 const extensionItems = [
   {
     name: "AIG Assistant",
@@ -588,6 +586,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         hour12: false
       })}`
     : "자동 저장 대기";
+  const showEmptyEditor = activeWorkbenchTab === "code" && openFiles.length === 0;
 
   const handleMount = (editor: any) => {
     editorRef.current = editor;
@@ -681,10 +680,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
   const handleOpenCodeWorkbench = () => {
     setActiveWorkbenchTab("code");
-
-    if (activeFile) {
-      setOpenTabPaths((state) => (state.length ? state : [activeFile.path]));
-    }
   };
 
   const handleActivityClick = (view: SidebarView) => {
@@ -1093,6 +1088,24 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               <span className="problem-pill">{problem.category}</span>
               <span className="problem-pill">{problem.estimate}</span>
               <span className="problem-pill">{problem.status}</span>
+              <span className="problem-pill">{lastSavedLabel}</span>
+            </div>
+
+            <div className="problem-card__actions">
+              <button type="button" className="ide-command-button" onClick={handleRun} disabled={runLoading}>
+                {runLoading ? "실행 중..." : "실행"}
+              </button>
+              <button type="button" className="ide-command-button" onClick={handleTest} disabled={testLoading}>
+                {testLoading ? "테스트 중..." : "테스트"}
+              </button>
+              <button
+                type="button"
+                className="ide-command-button ide-command-button--primary"
+                onClick={handleSubmit}
+                disabled={submitLoading}
+              >
+                {submitLoading ? "제출 중..." : "제출"}
+              </button>
             </div>
           </div>
 
@@ -1163,51 +1176,38 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     );
   };
 
-  const renderMenubar = (problemMode = false) => (
-    <div className="ide-menubar">
-      <div className="ide-menubar__menus">
-        {workbenchMenuItems.map((item) => (
-          <button key={item} type="button" className="ide-menubar__menu">
-            {item}
-          </button>
+  const renderEditorTabs = () => (
+    <div className="editor-tabbar">
+      <div className="editor-tabs">
+        {openFiles.map((file) => (
+          <div
+            key={file.path}
+            className={
+              activeWorkbenchTab === "code" && file.path === activePath
+                ? "editor-tabs__item editor-tabs__item--active"
+                : "editor-tabs__item"
+            }
+          >
+            <button type="button" className="editor-tabs__select" onClick={() => focusLine(file.path)}>
+              <span className="file-icon file-icon--tab">{getFileToken(file)}</span>
+              <span>{getFileName(file.path)}</span>
+              {unsavedPaths.includes(file.path) ? <span className="editor-tabs__dot" /> : null}
+            </button>
+            <button
+              type="button"
+              className="editor-tabs__close"
+              aria-label={`${getFileName(file.path)} 닫기`}
+              onClick={() => handleCloseFileTab(file.path)}
+            >
+              ×
+            </button>
+          </div>
         ))}
       </div>
 
-      <div className="ide-menubar__workspace">
-        <span className="ide-menubar__workspace-label">{problem?.title ?? "문제 풀이"}</span>
-        <span className="ide-menubar__workspace-meta">{lastSavedLabel}</span>
-      </div>
-
-      <div className="ide-menubar__actions">
-        {!problemMode ? (
-          <>
-            <button
-              type="button"
-              className="ide-arrow-button"
-              aria-label={sidebarOpen ? "탐색기 접기" : "탐색기 열기"}
-              onClick={handleToggleSidebarPanel}
-            >
-              {sidebarOpen ? "<" : ">"}
-            </button>
-            <button
-              type="button"
-              className="ide-arrow-button"
-              aria-label={bottomPanelOpen ? "하단 패널 접기" : "하단 패널 열기"}
-              onClick={handleToggleBottomPanel}
-            >
-              {bottomPanelOpen ? "v" : "^"}
-            </button>
-            <button
-              type="button"
-              className="ide-arrow-button"
-              aria-label={aiOpen ? "AI 패널 접기" : "AI 패널 열기"}
-              onClick={handleToggleAiPanel}
-            >
-              {aiOpen ? ">" : "<"}
-            </button>
-          </>
-        ) : null}
-
+      <div className="editor-tabbar__actions">
+        <span className="editor-tabbar__meta">{problem?.title ?? "문제 풀이"}</span>
+        <span className="editor-tabbar__meta">{lastSavedLabel}</span>
         <button type="button" className="ide-command-button" onClick={handleRun} disabled={runLoading}>
           {runLoading ? "실행 중..." : "실행"}
         </button>
@@ -1223,45 +1223,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           {submitLoading ? "제출 중..." : "제출"}
         </button>
       </div>
-    </div>
-  );
-
-  const renderEditorTabs = () => (
-    <div className="editor-tabs">
-      <button
-        type="button"
-        className={activeWorkbenchTab === "problem" ? "editor-tabs__item editor-tabs__item--active" : "editor-tabs__item"}
-        onClick={handleOpenProblemTab}
-      >
-        <span className="file-icon file-icon--tab">PR</span>
-        <span>문제</span>
-        <small className="editor-tabs__meta">{problem?.order}</small>
-      </button>
-
-      {openFiles.map((file) => (
-        <div
-          key={file.path}
-          className={
-            activeWorkbenchTab === "code" && file.path === activePath
-              ? "editor-tabs__item editor-tabs__item--active"
-              : "editor-tabs__item"
-          }
-        >
-          <button type="button" className="editor-tabs__select" onClick={() => focusLine(file.path)}>
-            <span className="file-icon file-icon--tab">{getFileToken(file)}</span>
-            <span>{getFileName(file.path)}</span>
-            {unsavedPaths.includes(file.path) ? <span className="editor-tabs__dot" /> : null}
-          </button>
-          <button
-            type="button"
-            className="editor-tabs__close"
-            aria-label={`${getFileName(file.path)} 닫기`}
-            onClick={() => handleCloseFileTab(file.path)}
-          >
-            ×
-          </button>
-        </div>
-      ))}
     </div>
   );
 
@@ -1307,13 +1268,31 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                 {activityMeta[item.id] ? <span className="activity-bar__badge">{activityMeta[item.id]}</span> : null}
               </button>
             ))}
+
+            <button
+              type="button"
+              className={activeWorkbenchTab === "code" && bottomPanelOpen ? "activity-bar__item activity-bar__item--active" : "activity-bar__item"}
+              title="콘솔"
+              onClick={handleToggleBottomPanel}
+            >
+              <span className="activity-bar__label">{">_"}</span>
+              {activityMeta.output ? <span className="activity-bar__badge">{activityMeta.output}</span> : null}
+            </button>
+
+            <button
+              type="button"
+              className={activeWorkbenchTab === "code" && aiOpen ? "activity-bar__item activity-bar__item--active" : "activity-bar__item"}
+              title="AI 보조 패널"
+              onClick={handleToggleAiPanel}
+            >
+              <span className="activity-bar__label">AI</span>
+              {activityMeta.ai ? <span className="activity-bar__badge">{activityMeta.ai}</span> : null}
+            </button>
           </div>
         </aside>
 
         {activeWorkbenchTab === "problem" ? (
           <div className="ide-shell__problem">
-            {renderMenubar(true)}
-            {renderEditorTabs()}
             <div className="problem-stage">{renderProblemWorkspace()}</div>
             <div className="status-bar">
               <div className="status-bar__group">
@@ -1339,14 +1318,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                       <span className="panel-title panel-title--compact">{sidebarView}</span>
                       <strong>{activityItems.find((item) => item.id === sidebarView)?.label ?? "탐색기"}</strong>
                     </div>
-                    <button
-                      type="button"
-                      className="panel-arrow-button"
-                      aria-label="탐색기 접기"
-                      onClick={() => setSidebarOpen(false)}
-                    >
-                      {"<"}
-                    </button>
                   </div>
 
                   {renderSidebarBody()}
@@ -1361,33 +1332,39 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             ) : null}
 
             <div className="ide-shell__main">
-              {renderMenubar()}
               {renderEditorTabs()}
 
               <div className="editor-stage">
-                <div ref={editorHostRef} className="editor-host">
-                  <MonacoEditor
-                    path={activeFile.path}
-                    theme={theme === "dark" ? "vs-dark" : "vs"}
-                    height="100%"
-                    language={activeFile.language}
-                    value={activeFile.content}
-                    onMount={handleMount}
-                    onChange={(value) => updateFileContent(activeFile.path, value ?? "")}
-                    options={{
-                      minimap: { enabled: true, scale: 0.9, showSlider: "mouseover" },
-                      fontSize: 13,
-                      scrollBeyondLastLine: false,
-                      fontFamily: "var(--font-mono)",
-                      lineHeight: 22,
-                      automaticLayout: true,
-                      smoothScrolling: true,
-                      padding: { top: 14 },
-                      stickyScroll: { enabled: false },
-                      overviewRulerBorder: false
-                    }}
-                  />
-                </div>
+                {showEmptyEditor ? (
+                  <div className="editor-empty-state">
+                    <strong>열린 탭이 없습니다.</strong>
+                    <span>왼쪽 탐색기에서 파일을 열거나, 문제 아이콘으로 문제 화면을 확인하세요.</span>
+                  </div>
+                ) : (
+                  <div ref={editorHostRef} className="editor-host">
+                    <MonacoEditor
+                      path={activeFile.path}
+                      theme={theme === "dark" ? "vs-dark" : "vs"}
+                      height="100%"
+                      language={activeFile.language}
+                      value={activeFile.content}
+                      onMount={handleMount}
+                      onChange={(value) => updateFileContent(activeFile.path, value ?? "")}
+                      options={{
+                        minimap: { enabled: true, scale: 0.9, showSlider: "mouseover" },
+                        fontSize: 13,
+                        scrollBeyondLastLine: false,
+                        fontFamily: "var(--font-mono)",
+                        lineHeight: 22,
+                        automaticLayout: true,
+                        smoothScrolling: true,
+                        padding: { top: 14 },
+                        stickyScroll: { enabled: false },
+                        overviewRulerBorder: false
+                      }}
+                    />
+                  </div>
+                )}
 
                 {bottomPanelOpen ? (
                   <>
@@ -1415,15 +1392,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                             </button>
                           ))}
                         </div>
-
-                        <button
-                          type="button"
-                          className="panel-arrow-button"
-                          aria-label="하단 패널 접기"
-                          onClick={() => setBottomPanelOpen(false)}
-                        >
-                          v
-                        </button>
                       </div>
 
                       {renderBottomPanel()}
@@ -1464,14 +1432,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                       <span className="panel-title panel-title--compact">aig assistant</span>
                       <strong>AI 보조 패널</strong>
                     </div>
-                    <button
-                      type="button"
-                      className="panel-arrow-button"
-                      aria-label="AI 패널 접기"
-                      onClick={handleToggleAiPanel}
-                    >
-                      {">"}
-                    </button>
                   </div>
 
                   <div className="ai-tabs">
