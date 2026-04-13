@@ -319,6 +319,19 @@ const styles = `
     line-height: 1.65;
     word-break: break-word;
   }
+  .message__body--pending {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    white-space: normal;
+    line-height: 1.5;
+  }
+  .message__body--pending .typing {
+    flex: 0 0 auto;
+  }
+  .message__body--pending-text {
+    min-width: 0;
+  }
   .message__sub {
     color: #8b97b5;
     font-size: 0.75rem;
@@ -668,10 +681,7 @@ const renderMessages = () => {
                   <span class="message__name">AIG</span>
                   <span class="message__time">${escapeHtml(formatTime(serverState.heartbeatAt) ?? formatTime(serverState.startedAt) ?? "")}</span>
                 </div>
-                <div class="message__body">
-                  ${typingDots}
-                  <span style="margin-left:10px">${escapeHtml(getPendingBubbleTitle())}</span>
-                </div>
+                <div class="message__body message__body--pending">${typingDots}<span class="message__body--pending-text">${escapeHtml(getPendingBubbleTitle())}</span></div>
               </article>
             </div>
           `
