@@ -56,6 +56,7 @@ declare global {
 }
 
 const POLL_INTERVAL_MS = 3500;
+const AUTO_SCROLL_THRESHOLD_PX = 48;
 
 const emptyState: AiEditState = {
   configured: false,
@@ -741,6 +742,15 @@ const render = () => {
   const statusMeta = getStatusMeta();
 
   const previousActive = shadowRoot.activeElement as HTMLElement | null;
+  const previousMessagesPanel = shadowRoot.querySelector<HTMLElement>(".messages");
+  const previousScrollState = previousMessagesPanel
+    ? {
+        scrollTop: previousMessagesPanel.scrollTop,
+        shouldStickToBottom:
+          previousMessagesPanel.scrollHeight - previousMessagesPanel.clientHeight - previousMessagesPanel.scrollTop <=
+          AUTO_SCROLL_THRESHOLD_PX
+      }
+    : null;
   const shouldRestoreTextareaFocus = previousActive?.classList.contains("textarea") ?? false;
   const previousSelection =
     shouldRestoreTextareaFocus && previousActive instanceof HTMLTextAreaElement
@@ -828,7 +838,12 @@ const render = () => {
   }
 
   if (messagesPanel) {
-    messagesPanel.scrollTop = messagesPanel.scrollHeight;
+    if (!previousScrollState || previousScrollState.shouldStickToBottom) {
+      messagesPanel.scrollTop = messagesPanel.scrollHeight;
+    } else {
+      const maxScrollTop = Math.max(0, messagesPanel.scrollHeight - messagesPanel.clientHeight);
+      messagesPanel.scrollTop = Math.min(previousScrollState.scrollTop, maxScrollTop);
+    }
   }
 
   shadowRoot.querySelector<HTMLElement>("[data-action='toggle']")?.addEventListener("click", () => {
