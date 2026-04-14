@@ -222,6 +222,59 @@ public class Todo {
   }
 ];
 
+const buildWorktreeContent = (file: WorkspaceFile) => {
+  if (file.path === "src/TodoService.java") {
+    return `@Service
+public class TodoService {
+  @Autowired
+  private TodoRepository repo;
+
+  public Todo findById(Long id) {
+    return repo.findById(id)
+      .orElseThrow(() -> new IllegalArgumentException("Todo not found: " + id));
+  }
+}`;
+  }
+
+  if (file.path === "src/TodoController.java") {
+    return `@RestController
+@RequestMapping("/todos")
+public class TodoController {
+  private final TodoService todoService;
+
+  public TodoController(TodoService todoService) {
+    this.todoService = todoService;
+  }
+
+  @GetMapping("/{id}")
+  public ResponseEntity<Todo> getTodo(@PathVariable Long id) {
+    return ResponseEntity.ok(todoService.findById(id));
+  }
+}`;
+  }
+
+  if (file.path === "src/TodoServiceTest.java") {
+    return `class TodoServiceTest {
+  @Test
+  void returns404WhenTodoDoesNotExist() {
+    assertThatThrownBy(() -> service.findById(999L))
+      .isInstanceOf(IllegalArgumentException.class);
+  }
+}`;
+  }
+
+  return file.content;
+};
+
+export const createWorktreeFiles = (files: WorkspaceFile[]) =>
+  files
+    .filter((file) => file.path.startsWith("src/"))
+    .map((file) => ({
+      path: file.path.replace(/^src\//, ".worktree/"),
+      language: file.language,
+      content: buildWorktreeContent(file)
+    }));
+
 export const starterMessagesSeed = [
   { role: "user" as const, content: "7번째 줄에서 왜 NPE가 나는지 설명해줘" },
   {
@@ -290,7 +343,11 @@ export const mypageStats = [
 
 export const getProblemById = (id: string) => problems.find((problem) => problem.id === id);
 
-export const createStarterFiles = (): WorkspaceFile[] => starterFiles.map((file) => ({ ...file }));
+export const createStarterFiles = (): WorkspaceFile[] => {
+  const sourceFiles = starterFiles.map((file) => ({ ...file }));
+  const worktreeFiles = createWorktreeFiles(sourceFiles);
+  return [...sourceFiles, ...worktreeFiles];
+};
 
 export const createStarterMessages = (): AiMessage[] =>
   starterMessagesSeed.map((message, index) => ({

@@ -191,64 +191,13 @@ const getFileToken = (file: Pick<WorkspaceFile, "path" | "language">) => {
   return file.language.slice(0, 2).toUpperCase();
 };
 
-const buildMockWorktreeContent = (file: WorkspaceFile) => {
-  if (file.path === "src/TodoService.java") {
-    return `@Service
-public class TodoService {
-  @Autowired
-  private TodoRepository repo;
-
-  public Todo findById(Long id) {
-    return repo.findById(id)
-      .orElseThrow(() -> new IllegalArgumentException("Todo not found: " + id));
-  }
-}`;
-  }
-
-  if (file.path === "src/TodoController.java") {
-    return `@RestController
-@RequestMapping("/todos")
-public class TodoController {
-  private final TodoService todoService;
-
-  public TodoController(TodoService todoService) {
-    this.todoService = todoService;
-  }
-
-  @GetMapping("/{id}")
-  public ResponseEntity<Todo> getTodo(@PathVariable Long id) {
-    return ResponseEntity.ok(todoService.findById(id));
-  }
-}`;
-  }
-
-  if (file.path === "src/TodoServiceTest.java") {
-    return `class TodoServiceTest {
-  @Test
-  void returns404WhenTodoDoesNotExist() {
-    assertThatThrownBy(() -> service.findById(999L))
-      .isInstanceOf(IllegalArgumentException.class);
-  }
-}`;
-  }
-
-  return file.content;
-};
-
 const buildExplorerFiles = (files: WorkspaceFile[]): ExplorerFile[] => {
-  const sourceFiles = files.map((file) => ({ ...file }));
+  const sourceFiles = files.map((file) => ({
+    ...file,
+    isVirtual: file.path.startsWith(".worktree/"),
+    badge: file.path.startsWith(".worktree/") ? "ai" : undefined
+  }));
   const existingPaths = new Set(sourceFiles.map((file) => file.path));
-
-  const worktreeFiles = sourceFiles
-    .filter((file) => file.path.startsWith("src/"))
-    .map((file) => ({
-      ...file,
-      path: file.path.replace(/^src\//, ".worktree/"),
-      content: buildMockWorktreeContent(file),
-      isVirtual: true,
-      badge: "ai"
-    }))
-    .filter((file) => !existingPaths.has(file.path));
 
   const agentSupportFiles: ExplorerFile[] = [
     {
@@ -274,7 +223,7 @@ const buildExplorerFiles = (files: WorkspaceFile[]): ExplorerFile[] => {
     }
   ].filter((file) => !existingPaths.has(file.path));
 
-  return [...sourceFiles, ...agentSupportFiles, ...worktreeFiles];
+  return [...sourceFiles, ...agentSupportFiles];
 };
 
 const buildFileTree = (files: ExplorerFile[]) => {
@@ -1029,7 +978,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
     setEditLoading(true);
     try {
-      const nextSuggestion = await mockApi.requestAiEdit(sessionId, selectedCode, editInstruction);
+      const nextSuggestion = await mockApi.requestAiEdit(
+        sessionId,
+        activeFile.path,
+        activeFile.content,
+        selectedCode,
+        editInstruction
+      );
       setSuggestion(nextSuggestion);
       addToast("AI 수정 제안을 불러왔습니다.", "success");
     } catch (error) {

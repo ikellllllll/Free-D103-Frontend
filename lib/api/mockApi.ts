@@ -6,6 +6,7 @@ import {
   createInitialSession,
   createRunResult,
   createStarterFiles,
+  createWorktreeFiles,
   createSubmission,
   createTestResults,
   defaultUser,
@@ -53,8 +54,25 @@ const createSeedDb = (): MockDb => ({
 const formatClock = (value: Date) =>
   value.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
 
+const worktreePathFor = (path: string) => path.replace(/^src\//, ".worktree/");
+
+const replaceSelectionInContent = (content: string, selectedCode: string, replacement: string) => {
+  if (!selectedCode) {
+    return content;
+  }
+
+  const firstMatchIndex = content.indexOf(selectedCode);
+
+  if (firstMatchIndex < 0) {
+    return content;
+  }
+
+  return `${content.slice(0, firstMatchIndex)}${replacement}${content.slice(firstMatchIndex + selectedCode.length)}`;
+};
+
 const normalizeWorkspaceFiles = (files: SolveSession["files"]) => {
-  const harnessFile = createStarterFiles().find((file) => file.path === "agent/HARNESS.md");
+  const starterFiles = createStarterFiles();
+  const harnessFile = starterFiles.find((file) => file.path === "agent/HARNESS.md");
   const seen = new Set<string>();
   const normalized = files
     .map((file) => {
@@ -74,6 +92,14 @@ const normalizeWorkspaceFiles = (files: SolveSession["files"]) => {
       seen.add(file.path);
       return true;
     });
+
+  const sourceFiles = normalized.filter((file) => file.path.startsWith("src/"));
+  const worktreeFiles = createWorktreeFiles(sourceFiles).filter((file) => !seen.has(file.path));
+
+  worktreeFiles.forEach((file) => {
+    seen.add(file.path);
+    normalized.push(file);
+  });
 
   if (harnessFile && !seen.has(harnessFile.path)) {
     normalized.push(clone(harnessFile));
@@ -335,30 +361,45 @@ export const mockApi = {
     return { assistantMessage: clone(assistantMessage), requestCount: session.aiRequestCount };
   },
 
-  async requestAiEdit(sessionId: string, selectedCode: string, instruction: string): Promise<AiEditSuggestion> {
+  async requestAiEdit(sessionId: string, path: string, sourceContent: string, selectedCode: string, instruction: string): Promise<AiEditSuggestion> {
     await delay(260);
     const db = readDb();
     const session = getSessionOrThrow(db, sessionId);
     session.aiRequestCount += 1;
     appendTrace(session, "AI 요청", `Edit: ${instruction}`, "선택 영역 기반 수정 제안");
-    writeDb(db);
 
-    if (selectedCode.includes(".get()")) {
-      return createAiEditSuggestion(selectedCode);
-    }
-
-    return {
+    const suggestion =
+      selectedCode.includes(".get()")
+        ? createAiEditSuggestion(selectedCode)
+        : {
       original: selectedCode,
       replacement: `${selectedCode}\n// TODO: AI 제안이 여기에 들어갑니다.`,
       summary: "선택한 코드를 기준으로 보수적인 TODO 수정안을 제안합니다."
-    };
+          };
+    const targetPath = worktreePathFor(path);
+    const nextWorktreeContent = replaceSelectionInContent(sourceContent, suggestion.original, suggestion.replacement);
+
+    session.files = session.files.map((file) =>
+      file.path === targetPath
+        ? {
+            ...file,
+            content: nextWorktreeContent
+          }
+        : file
+    );
+
+    writeDb(db);
+    return suggestion;
   },
 
   async applyAiEdit(sessionId: string, path: string, nextContent: string, summary: string) {
     await delay(150);
     const db = readDb();
     const session = getSessionOrThrow(db, sessionId);
-    session.files = session.files.map((file) => (file.path === path ? { ...file, content: nextContent } : file));
+    const worktreePath = worktreePathFor(path);
+    session.files = session.files.map((file) =>
+      file.path === path || file.path === worktreePath ? { ...file, content: nextContent } : file
+    );
     session.lastSavedAt = new Date().toISOString();
     appendTrace(session, "코드 수정", `${path.split("/").pop()} 반영`, summary);
     writeDb(db);
