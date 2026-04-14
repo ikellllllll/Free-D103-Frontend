@@ -30,8 +30,8 @@ export default function MyPage() {
     <div className="stack-24">
       <Card className="profile-card">
         <div className="profile-card__main">
-          <span className="profile-avatar">{data?.user.name.slice(0, 1) ?? "H"}</span>
-          <div>
+          <span className="profile-avatar profile-avatar--lg">{data?.user.name.slice(0, 1) ?? "H"}</span>
+          <div className="profile-card__info">
             <span className="eyebrow">마이페이지</span>
             <h1>{data?.user.name ?? "홍길동"}</h1>
             <p className="muted-copy">{data?.user.email ?? "user@email.com"} · AIG 실습 계정</p>
