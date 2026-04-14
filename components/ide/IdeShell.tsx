@@ -25,6 +25,11 @@ const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   loading: () => <div className="editor-loading">에디터를 불러오는 중...</div>
 });
 
+const MonacoDiffEditor = dynamic(() => import("@monaco-editor/react").then((mod) => mod.DiffEditor), {
+  ssr: false,
+  loading: () => <div className="editor-loading">Diff 에디터를 불러오는 중...</div>
+});
+
 const activityItems: Array<{ id: SidebarView; short: string; label: string; description: string }> = [
   { id: "explorer", short: "EX", label: "탐색기", description: "파일 트리" },
   { id: "search", short: "SR", label: "검색", description: "파일명과 코드 검색" },
@@ -89,9 +94,33 @@ interface ExplorerFile extends WorkspaceFile {
   badge?: string;
 }
 
+interface FileWorkspaceTab {
+  id: string;
+  kind: "file";
+  path: string;
+  title: string;
+  file: WorkspaceFile;
+}
+
+interface DiffWorkspaceTab {
+  id: string;
+  kind: "diff";
+  path: string;
+  title: string;
+  sourcePath: string;
+  sourceFile: WorkspaceFile;
+  targetFile: ExplorerFile;
+}
+
+type WorkspaceTab = FileWorkspaceTab | DiffWorkspaceTab;
+
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const getFileName = (path: string) => path.split("/").pop() ?? path;
 const getFolderPath = (path: string) => path.split("/").slice(0, -1).join("/");
+const DIFF_TAB_PREFIX = "diff:";
+const isDiffTabId = (value: string) => value.startsWith(DIFF_TAB_PREFIX);
+const createDiffTabId = (path: string) => `${DIFF_TAB_PREFIX}${path}`;
+const getWorktreeSourcePath = (path: string) => path.replace(/^\.worktree\//, "src/");
 const getMaxSidebarWidth = (viewportWidth: number) => {
   if (viewportWidth <= 0) {
     return 280;
@@ -162,6 +191,50 @@ const getFileToken = (file: Pick<WorkspaceFile, "path" | "language">) => {
   return file.language.slice(0, 2).toUpperCase();
 };
 
+const buildMockWorktreeContent = (file: WorkspaceFile) => {
+  if (file.path === "src/TodoService.java") {
+    return `@Service
+public class TodoService {
+  @Autowired
+  private TodoRepository repo;
+
+  public Todo findById(Long id) {
+    return repo.findById(id)
+      .orElseThrow(() -> new IllegalArgumentException("Todo not found: " + id));
+  }
+}`;
+  }
+
+  if (file.path === "src/TodoController.java") {
+    return `@RestController
+@RequestMapping("/todos")
+public class TodoController {
+  private final TodoService todoService;
+
+  public TodoController(TodoService todoService) {
+    this.todoService = todoService;
+  }
+
+  @GetMapping("/{id}")
+  public ResponseEntity<Todo> getTodo(@PathVariable Long id) {
+    return ResponseEntity.ok(todoService.findById(id));
+  }
+}`;
+  }
+
+  if (file.path === "src/TodoServiceTest.java") {
+    return `class TodoServiceTest {
+  @Test
+  void returns404WhenTodoDoesNotExist() {
+    assertThatThrownBy(() -> service.findById(999L))
+      .isInstanceOf(IllegalArgumentException.class);
+  }
+}`;
+  }
+
+  return file.content;
+};
+
 const buildExplorerFiles = (files: WorkspaceFile[]): ExplorerFile[] => {
   const sourceFiles = files.map((file) => ({ ...file }));
   const existingPaths = new Set(sourceFiles.map((file) => file.path));
@@ -171,8 +244,9 @@ const buildExplorerFiles = (files: WorkspaceFile[]): ExplorerFile[] => {
     .map((file) => ({
       ...file,
       path: file.path.replace(/^src\//, ".worktree/"),
+      content: buildMockWorktreeContent(file),
       isVirtual: true,
-      badge: "temp"
+      badge: "ai"
     }))
     .filter((file) => !existingPaths.has(file.path));
 
@@ -326,6 +400,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const theme = useThemeStore((state) => state.theme);
 
   const editorRef = useRef<any>(null);
+  const diffEditorRef = useRef<any>(null);
   const editorHostRef = useRef<HTMLDivElement | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
@@ -340,6 +415,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const [agentSnapshotVersion, setAgentSnapshotVersion] = useState(INITIAL_AGENT_SNAPSHOT_VERSION);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
   const [activeWorkbenchTab, setActiveWorkbenchTab] = useState<"code" | "problem">("code");
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [openTabPaths, setOpenTabPaths] = useState<string[]>([]);
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [explorerSections, setExplorerSections] = useState<Record<ExplorerSectionKey, boolean>>({
@@ -366,7 +442,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const requestEditorLayout = useCallback(() => {
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
-        const editor = editorRef.current;
+        const editor = activeTabId && isDiffTabId(activeTabId) ? diffEditorRef.current : editorRef.current;
         const host = editorHostRef.current;
 
         if (!editor || !host || typeof editor.layout !== "function") {
@@ -427,27 +503,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       setWorkspace(workspace.files, workspace.files[1]?.path ?? workspace.files[0]?.path);
     }
   }, [setWorkspace, workspace]);
-
-  useEffect(() => {
-    if (!files.length) {
-      setOpenTabPaths([]);
-      return;
-    }
-
-    setOpenTabPaths((state) => {
-      const next = state.filter((path) => files.some((file) => file.path === path));
-
-      if (!next.length) {
-        next.push(activePath ?? files[0].path);
-      }
-
-      if (activePath && !next.includes(activePath)) {
-        next.push(activePath);
-      }
-
-      return next;
-    });
-  }, [activePath, files]);
 
   useEffect(() => {
     if (session) {
@@ -592,21 +647,122 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     };
   }, [maxAiPanelWidth, maxBottomPanelHeight, maxSidebarWidth, setAiPanelWidth, setBottomPanelHeight, setSidebarWidth]);
 
-  const activeFile = useMemo(
-    () => files.find((file) => file.path === activePath) ?? files[0] ?? null,
-    [activePath, files]
-  );
   const problem = useMemo(() => getProblemById(session?.problemId ?? "todo-api"), [session?.problemId]);
   const traces = useMemo(() => session?.traces ?? [], [session?.traces]);
   const explorerFiles = useMemo(() => buildExplorerFiles(files), [files]);
   const fileTree = useMemo(() => buildFileTree(explorerFiles), [explorerFiles]);
-  const openFiles = useMemo(
+  const openTabs = useMemo(
     () =>
       openTabPaths
-        .map((path) => files.find((file) => file.path === path))
-        .filter((file): file is WorkspaceFile => Boolean(file)),
-    [files, openTabPaths]
+        .map((path): WorkspaceTab | null => {
+          if (isDiffTabId(path)) {
+            const targetPath = path.slice(DIFF_TAB_PREFIX.length);
+            const targetFile = explorerFiles.find((file) => file.path === targetPath && file.isVirtual);
+            const sourcePath = getWorktreeSourcePath(targetPath);
+            const sourceFile = files.find((file) => file.path === sourcePath);
+
+            if (!targetFile || !sourceFile) {
+              return null;
+            }
+
+            return {
+              id: path,
+              kind: "diff",
+              path,
+              title: `${getFileName(sourcePath)} diff`,
+              sourcePath,
+              sourceFile,
+              targetFile
+            };
+          }
+
+          const file = files.find((item) => item.path === path);
+
+          if (!file) {
+            return null;
+          }
+
+          return {
+            id: path,
+            kind: "file",
+            path,
+            title: getFileName(path),
+            file
+          };
+        })
+        .filter((tab): tab is WorkspaceTab => Boolean(tab)),
+    [explorerFiles, files, openTabPaths]
   );
+  const activeTab = useMemo(
+    () => openTabs.find((tab) => tab.id === activeTabId) ?? openTabs[0] ?? null,
+    [activeTabId, openTabs]
+  );
+  const activeFile = useMemo(() => {
+    if (activeTab?.kind === "diff") {
+      return activeTab.sourceFile;
+    }
+
+    if (activeTab?.kind === "file") {
+      return activeTab.file;
+    }
+
+    return files.find((file) => file.path === activePath) ?? files[0] ?? null;
+  }, [activePath, activeTab, files]);
+
+  useEffect(() => {
+    if (!files.length) {
+      setOpenTabPaths([]);
+      setActiveTabId(null);
+      return;
+    }
+
+    setOpenTabPaths((state) =>
+      state.filter((path) => {
+        if (isDiffTabId(path)) {
+          const targetPath = path.slice(DIFF_TAB_PREFIX.length);
+          return explorerFiles.some((file) => file.path === targetPath && file.isVirtual);
+        }
+
+        return files.some((file) => file.path === path);
+      })
+    );
+
+    if (!activeTabId) {
+      const fallbackPath = activePath ?? files[0].path;
+      setActiveTabId(fallbackPath);
+    }
+  }, [activePath, activeTabId, explorerFiles, files]);
+
+  useEffect(() => {
+    if (!openTabs.length) {
+      if (activeTabId) {
+        setActiveTabId(null);
+      }
+      return;
+    }
+
+    if (!activeTabId || !openTabs.some((tab) => tab.id === activeTabId)) {
+      setActiveTabId(openTabs[0].id);
+    }
+  }, [activeTabId, openTabs]);
+
+  useEffect(() => {
+    if (!activeTab) {
+      return;
+    }
+
+    const nextPath = activeTab.kind === "diff" ? activeTab.sourcePath : activeTab.path;
+
+    if (nextPath !== activePath) {
+      setActivePath(nextPath);
+    }
+
+    if (activeTab.kind === "diff") {
+      setSelection("", null);
+      setSuggestion(null);
+      setAiMode("chat");
+    }
+  }, [activePath, activeTab, setActivePath, setAiMode, setSelection, setSuggestion]);
 
   const searchMatches = useMemo(() => {
     const keyword = searchQuery.trim().toLowerCase();
@@ -675,7 +831,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     trace: `${traces.length}`
   };
   const activityMeta: Record<SidebarView | "ai" | "output", string | null> = {
-    explorer: dirtyCount ? `${dirtyCount}` : openFiles.length ? `${openFiles.length}` : `${files.length}`,
+    explorer: dirtyCount ? `${dirtyCount}` : openTabs.length ? `${openTabs.length}` : `${files.length}`,
     search: searchQuery.trim() ? `${searchMatches.length}` : null,
     extensions: `${extensionItems.length}`,
     ai: aiQuotaLabel,
@@ -688,7 +844,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         hour12: false
       })}`
     : "자동 저장 대기";
-  const showEmptyEditor = activeWorkbenchTab === "code" && openFiles.length === 0;
+  const showEmptyEditor = activeWorkbenchTab === "code" && openTabs.length === 0;
   const showBottomPanel = bottomPanelOpen;
 
   const handleMount = (editor: any) => {
@@ -750,6 +906,11 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     syncMonacoAuxInputs();
   };
 
+  const handleDiffMount = (editor: any) => {
+    diffEditorRef.current = editor;
+    requestEditorLayout();
+  };
+
   const beginResize = (mode: DragMode) => (event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
@@ -769,6 +930,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const focusLine = (path: string, lineNumber?: number) => {
     setActiveWorkbenchTab("code");
     setOpenTabPaths((state) => (state.includes(path) ? state : [...state, path]));
+    setActiveTabId(path);
     setActivePath(path);
 
     window.requestAnimationFrame(() => {
@@ -780,6 +942,17 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       editorRef.current.revealLineInCenter(lineNumber);
       editorRef.current.setPosition({ lineNumber, column: 1 });
     });
+  };
+
+  const openDiffTab = (targetPath: string) => {
+    const diffTabId = createDiffTabId(targetPath);
+
+    setActiveWorkbenchTab("code");
+    setOpenTabPaths((state) => (state.includes(diffTabId) ? state : [...state, diffTabId]));
+    setActiveTabId(diffTabId);
+    setSelection("", null);
+    setSuggestion(null);
+    setAiMode("chat");
   };
 
   const handleOpenCodeWorkbench = () => {
@@ -827,19 +1000,20 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     setActiveWorkbenchTab("problem");
   };
 
-  const handleCloseFileTab = (path: string) => {
+  const handleCloseFileTab = (tabId: string) => {
     setOpenTabPaths((state) => {
-      const currentIndex = state.indexOf(path);
-      const next = state.filter((item) => item !== path);
+      const currentIndex = state.indexOf(tabId);
+      const next = state.filter((item) => item !== tabId);
 
-      if (activePath === path) {
+      if (activeTabId === tabId) {
         const fallback = next[currentIndex] ?? next[currentIndex - 1] ?? next[0] ?? null;
 
-        if (fallback) {
-          setActivePath(fallback);
-          setActiveWorkbenchTab("code");
-        } else {
-          setActiveWorkbenchTab("code");
+        setActiveTabId(fallback);
+        setActiveWorkbenchTab("code");
+
+        if (!fallback) {
+          setSelection("", null);
+          setSuggestion(null);
         }
       }
 
@@ -988,13 +1162,19 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
       if (file.isVirtual) {
         return [
-          <div key={node.key} className="tree-row tree-row--virtual" style={{ paddingLeft: `${18 + depth * 14}px` }}>
+          <button
+            key={node.key}
+            type="button"
+            className={activeTabId === createDiffTabId(file.path) ? "tree-row tree-row--virtual tree-row--active" : "tree-row tree-row--virtual"}
+            style={{ paddingLeft: `${18 + depth * 14}px` }}
+            onClick={() => openDiffTab(file.path)}
+          >
             <span className="tree-row__main">
               <span className="file-icon">{getFileToken(file)}</span>
               <span className="tree-row__label">{node.name}</span>
             </span>
             {file.badge ? <span className="tree-row__badge">{file.badge}</span> : null}
-          </div>
+          </button>
         ];
       }
 
@@ -1295,25 +1475,36 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const renderEditorTabs = () => (
     <div className="editor-tabbar">
       <div className="editor-tabs">
-        {openFiles.map((file) => (
+        {openTabs.map((tab) => (
           <div
-            key={file.path}
+            key={tab.id}
             className={
-              activeWorkbenchTab === "code" && file.path === activePath
+              activeWorkbenchTab === "code" && tab.id === activeTab?.id
                 ? "editor-tabs__item editor-tabs__item--active"
                 : "editor-tabs__item"
             }
           >
-            <button type="button" className="editor-tabs__select" onClick={() => focusLine(file.path)}>
-              <span className="file-icon file-icon--tab">{getFileToken(file)}</span>
-              <span>{getFileName(file.path)}</span>
-              {unsavedPaths.includes(file.path) ? <span className="editor-tabs__dot" /> : null}
+            <button
+              type="button"
+              className="editor-tabs__select"
+              onClick={() => {
+                if (tab.kind === "diff") {
+                  openDiffTab(tab.targetFile.path);
+                  return;
+                }
+
+                focusLine(tab.path);
+              }}
+            >
+              <span className="file-icon file-icon--tab">{tab.kind === "diff" ? "DI" : getFileToken(tab.file)}</span>
+              <span>{tab.title}</span>
+              {tab.kind === "file" && unsavedPaths.includes(tab.path) ? <span className="editor-tabs__dot" /> : null}
             </button>
             <button
               type="button"
               className="editor-tabs__close"
-              aria-label={`${getFileName(file.path)} 닫기`}
-              onClick={() => handleCloseFileTab(file.path)}
+              aria-label={`${tab.title} 닫기`}
+              onClick={() => handleCloseFileTab(tab.id)}
             >
               ×
             </button>
@@ -1458,27 +1649,52 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   </div>
                 ) : (
                   <div ref={editorHostRef} className="editor-host">
-                    <MonacoEditor
-                      path={activeFile.path}
-                      theme={theme === "dark" ? "vs-dark" : "vs"}
-                      height="100%"
-                      language={activeFile.language}
-                      value={activeFile.content}
-                      onMount={handleMount}
-                      onChange={(value) => updateFileContent(activeFile.path, value ?? "")}
-                      options={{
-                        minimap: { enabled: true, scale: 0.9, showSlider: "mouseover" },
-                        fontSize: 13,
-                        scrollBeyondLastLine: false,
-                        fontFamily: "var(--font-mono)",
-                        lineHeight: 22,
-                        automaticLayout: true,
-                        smoothScrolling: true,
-                        padding: { top: 14 },
-                        stickyScroll: { enabled: false },
-                        overviewRulerBorder: false
-                      }}
-                    />
+                    {activeTab?.kind === "diff" ? (
+                      <MonacoDiffEditor
+                        theme={theme === "dark" ? "vs-dark" : "vs"}
+                        height="100%"
+                        original={activeTab.sourceFile.content}
+                        modified={activeTab.targetFile.content}
+                        language={activeTab.sourceFile.language}
+                        onMount={handleDiffMount}
+                        options={{
+                          readOnly: true,
+                          renderSideBySide: viewportSize.width > 1480,
+                          originalEditable: false,
+                          fontSize: 13,
+                          scrollBeyondLastLine: false,
+                          fontFamily: "var(--font-mono)",
+                          lineHeight: 22,
+                          automaticLayout: true,
+                          smoothScrolling: true,
+                          stickyScroll: { enabled: false },
+                          overviewRulerBorder: false,
+                          minimap: { enabled: false }
+                        }}
+                      />
+                    ) : (
+                      <MonacoEditor
+                        path={activeFile.path}
+                        theme={theme === "dark" ? "vs-dark" : "vs"}
+                        height="100%"
+                        language={activeFile.language}
+                        value={activeFile.content}
+                        onMount={handleMount}
+                        onChange={(value) => updateFileContent(activeFile.path, value ?? "")}
+                        options={{
+                          minimap: { enabled: true, scale: 0.9, showSlider: "mouseover" },
+                          fontSize: 13,
+                          scrollBeyondLastLine: false,
+                          fontFamily: "var(--font-mono)",
+                          lineHeight: 22,
+                          automaticLayout: true,
+                          smoothScrolling: true,
+                          padding: { top: 14 },
+                          stickyScroll: { enabled: false },
+                          overviewRulerBorder: false
+                        }}
+                      />
+                    )}
                   </div>
                 )}
 
@@ -1529,7 +1745,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   <span>{dirtyCount ? `미저장 ${dirtyCount}개` : "저장됨"}</span>
                   <span>{selectionLabel}</span>
                   <span>{aiMode === "chat" ? "AIG Chat" : "AIG Edit"}</span>
-                  <span>{bottomPanelTab.toUpperCase()}</span>
+                  <span>{activeTab?.kind === "diff" ? "DIFF" : bottomPanelTab.toUpperCase()}</span>
                 </div>
               </div>
             </div>
