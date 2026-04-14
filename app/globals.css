@@ -124,12 +124,14 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var
 /* ─── Layout shells ──────────────────────────────────────────── */
 .app-shell {
   display: flex;
-  min-height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .page-shell {
   flex: 1;
   min-width: 0;
+  height: 100dvh;
   padding: 28px 32px 56px;
   overflow-y: auto;
 }
@@ -137,9 +139,7 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var
 /* ─── App Sidebar ────────────────────────────────────────────── */
 .app-sidebar {
   width: var(--sidebar-w);
-  min-height: 100vh;
-  position: sticky;
-  top: 0;
+  height: 100dvh;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -246,6 +246,13 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var
 }
 
 .sidebar-avatar:hover { border-color: var(--accent); }
+
+/* ─── Brand logo ─────────────────────────────────────────────── */
+.brand-logo__light { display: none; }
+.brand-logo__dark  { display: block; }
+
+[data-theme="light"] .brand-logo__light { display: block; }
+[data-theme="light"] .brand-logo__dark  { display: none; }
 
 /* ─── Auth page ──────────────────────────────────────────────── */
 .auth-page {
@@ -2578,21 +2585,21 @@ html[data-theme="light"] .toast { background: var(--panel-strong); }
   }
 
   .auth-hero {
-    gap: 20px;
-    padding: 34px 32px;
+    gap: 16px;
+    padding: 28px;
     min-height: 0;
-    overflow: auto;
+    overflow: hidden;
   }
 
   .auth-form-panel {
-    gap: 20px;
-    padding: 32px 28px 28px;
+    gap: 16px;
+    padding: 26px 28px 22px;
     min-height: 0;
-    overflow: auto;
+    overflow: hidden;
   }
 
   .auth-form-panel .stack-24 {
-    gap: 18px;
+    gap: 14px;
   }
 
   .auth-spec-list {
@@ -2669,10 +2676,10 @@ html[data-theme="light"] .toast { background: var(--panel-strong); }
   }
 
   .auth-hero {
-    gap: 16px;
-    padding: 28px 24px;
+    gap: 14px;
+    padding: 24px;
     min-height: 0;
-    overflow: auto;
+    overflow: hidden;
   }
 
   .auth-hero__body h1 {
@@ -2689,14 +2696,14 @@ html[data-theme="light"] .toast { background: var(--panel-strong); }
   }
 
   .auth-form-panel {
-    gap: 16px;
-    padding: 24px 22px 20px;
+    gap: 14px;
+    padding: 22px 22px 18px;
     min-height: 0;
-    overflow: auto;
+    overflow: hidden;
   }
 
   .auth-form-panel .stack-24 {
-    gap: 16px;
+    gap: 14px;
   }
 
   .auth-page--dev {
