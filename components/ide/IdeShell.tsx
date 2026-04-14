@@ -80,8 +80,13 @@ interface TreeNode {
   name: string;
   path: string | null;
   kind: "folder" | "file";
-  file?: WorkspaceFile;
+  file?: ExplorerFile;
   children: TreeNode[];
+}
+
+interface ExplorerFile extends WorkspaceFile {
+  isVirtual?: boolean;
+  badge?: string;
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -157,7 +162,48 @@ const getFileToken = (file: Pick<WorkspaceFile, "path" | "language">) => {
   return file.language.slice(0, 2).toUpperCase();
 };
 
-const buildFileTree = (files: WorkspaceFile[]) => {
+const buildExplorerFiles = (files: WorkspaceFile[]): ExplorerFile[] => {
+  const sourceFiles = files.map((file) => ({ ...file }));
+  const existingPaths = new Set(sourceFiles.map((file) => file.path));
+
+  const worktreeFiles = sourceFiles
+    .filter((file) => file.path.startsWith("src/"))
+    .map((file) => ({
+      ...file,
+      path: file.path.replace(/^src\//, ".worktree/"),
+      isVirtual: true,
+      badge: "temp"
+    }))
+    .filter((file) => !existingPaths.has(file.path));
+
+  const agentSupportFiles: ExplorerFile[] = [
+    {
+      path: "agent/skills/README.md",
+      language: "markdown",
+      content: "# Agent Skills\n\n가상 탐색기 구조용 보조 파일입니다.",
+      isVirtual: true,
+      badge: "meta"
+    },
+    {
+      path: "agent/.sandbox/README.md",
+      language: "markdown",
+      content: "# Agent Sandbox\n\n임시 실행 흔적을 두는 가상 디렉터리입니다.",
+      isVirtual: true,
+      badge: "temp"
+    },
+    {
+      path: "agent/instuction.md",
+      language: "markdown",
+      content: "# Agent Instuction\n\n에이전트 보조 지시를 두는 가상 파일입니다.",
+      isVirtual: true,
+      badge: "meta"
+    }
+  ].filter((file) => !existingPaths.has(file.path));
+
+  return [...sourceFiles, ...agentSupportFiles, ...worktreeFiles];
+};
+
+const buildFileTree = (files: ExplorerFile[]) => {
   const root: TreeNode = {
     key: "root",
     name: "root",
@@ -207,6 +253,19 @@ const buildFileTree = (files: WorkspaceFile[]) => {
   const sortNodes = (nodes: TreeNode[]): TreeNode[] =>
     [...nodes]
       .sort((left, right) => {
+        const rootFolderOrder: Record<string, number> = {
+          src: 0,
+          agent: 1,
+          ".worktree": 2
+        };
+
+        const leftRank = left.kind === "folder" && left.path && !left.path.includes("/") ? rootFolderOrder[left.name] ?? 99 : 99;
+        const rightRank = right.kind === "folder" && right.path && !right.path.includes("/") ? rootFolderOrder[right.name] ?? 99 : 99;
+
+        if (leftRank !== rightRank) {
+          return leftRank - rightRank;
+        }
+
         if (left.kind !== right.kind) {
           return left.kind === "folder" ? -1 : 1;
         }
@@ -539,7 +598,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   );
   const problem = useMemo(() => getProblemById(session?.problemId ?? "todo-api"), [session?.problemId]);
   const traces = useMemo(() => session?.traces ?? [], [session?.traces]);
-  const fileTree = useMemo(() => buildFileTree(files), [files]);
+  const explorerFiles = useMemo(() => buildExplorerFiles(files), [files]);
+  const fileTree = useMemo(() => buildFileTree(explorerFiles), [explorerFiles]);
   const openFiles = useMemo(
     () =>
       openTabPaths
@@ -924,6 +984,18 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
       if (!file) {
         return [];
+      }
+
+      if (file.isVirtual) {
+        return [
+          <div key={node.key} className="tree-row tree-row--virtual" style={{ paddingLeft: `${18 + depth * 14}px` }}>
+            <span className="tree-row__main">
+              <span className="file-icon">{getFileToken(file)}</span>
+              <span className="tree-row__label">{node.name}</span>
+            </span>
+            {file.badge ? <span className="tree-row__badge">{file.badge}</span> : null}
+          </div>
+        ];
       }
 
       return [

@@ -1526,6 +1526,26 @@ body:has(.ide-route--workspace) .page-shell > * {
   color: var(--text);
 }
 
+.tree-row--virtual {
+  cursor: default;
+  opacity: 0.92;
+}
+
+.tree-row__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--ide-border);
+  background: var(--ide-pill-bg);
+  color: var(--muted-2);
+  font-size: 0.66rem;
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+}
+
 .sidebar-callout,
 .extension-card {
   display: grid;
