@@ -8,6 +8,8 @@ import { Card } from "@/components/common/Card";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
 
+type StepState = "done" | "current" | "pending";
+
 export function SubmissionProgress({ submissionId }: { submissionId: string }) {
   const { withPrefix } = useRouteScope();
   const { data: submission, isLoading } = useQuery({
@@ -29,17 +31,17 @@ export function SubmissionProgress({ submissionId }: { submissionId: string }) {
       {
         label: "코드 채점 중",
         description: "테스트 케이스를 실행하고 제출물을 검증하고 있습니다.",
-        state: completed || reportCompleted ? "done" : "current"
+        state: (completed || reportCompleted ? "done" : "current") as StepState
       },
       {
         label: "코드 리뷰 분석 중",
         description: "설계 일관성, 예외 처리, 구현 완성도를 점검하고 있습니다.",
-        state: reportCompleted ? "done" : completed ? "current" : "pending"
+        state: (reportCompleted ? "done" : completed ? "current" : "pending") as StepState
       },
       {
         label: "AI 활용 분석 중",
         description: "Trace를 바탕으로 프롬프트 명확성과 자기 주도성을 종합하고 있습니다.",
-        state: reportCompleted ? "done" : completed ? "current" : "pending"
+        state: (reportCompleted ? "done" : completed ? "current" : "pending") as StepState
       }
     ];
   }, [report?.status, submission?.status]);
@@ -55,44 +57,83 @@ export function SubmissionProgress({ submissionId }: { submissionId: string }) {
     );
   }
 
-  return (
-    <div className="narrow-shell">
-      <Card className="glow-card">
-        <span className="eyebrow">제출 진행</span>
-        <h1>제출물을 분석하고 있습니다</h1>
-        <p className="muted-copy">
-          제출 ID #{submission.id} 기준으로 테스트 채점, 코드 리뷰, AI 활용 분석 단계를 순차적으로 처리하고 있습니다.
-        </p>
+  const overallDone = report?.status === "COMPLETED";
+  const doneCount = steps.filter((s) => s.state === "done").length;
 
-        <div className="step-list">
-          {steps.map((step) => (
-            <div key={step.label} className={`step-card step-card--${step.state}`}>
-              <strong>{step.label}</strong>
-              <p>{step.description}</p>
+  return (
+    <div className="narrow-shell submission-shell">
+      <Card className="glow-card submission-card">
+        <div className="submission-card__head">
+          <span className="eyebrow">제출 진행</span>
+          <h1>제출물을 분석하고 있습니다</h1>
+          <p className="muted-copy submission-card__desc">
+            제출 ID #{submission.id} 기준으로 테스트 채점, 코드 리뷰, AI 활용 분석 단계를
+            순차적으로 처리하고 있습니다.
+          </p>
+        </div>
+
+        <div className="submission-progress-bar">
+          <div className="submission-progress-bar__head">
+            <strong>{overallDone ? "분석 완료" : "분석 진행 중"}</strong>
+            <span className="submission-progress-bar__pct">{doneCount} / {steps.length} 단계</span>
+          </div>
+          <div className="progress-bar progress-bar--lg">
+            <span style={{ width: `${Math.round((doneCount / steps.length) * 100)}%` }} />
+          </div>
+        </div>
+
+        <div className="submission-steps">
+          {steps.map((step, i) => (
+            <div key={step.label} className={`submission-step submission-step--${step.state}`}>
+              <div className="submission-step__track">
+                <div className="submission-step__icon" aria-hidden>
+                  {step.state === "done" ? (
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  ) : (
+                    <span>{i + 1}</span>
+                  )}
+                </div>
+                {i < steps.length - 1 && <div className="submission-step__line" />}
+              </div>
+              <div className="submission-step__body">
+                <strong>{step.label}</strong>
+                <p>{step.description}</p>
+              </div>
             </div>
           ))}
         </div>
 
-        <div className="submit-summary">
-          <div>
-            <span>제출 상태</span>
-            <strong>{submission.status === "COMPLETED" ? "분석 완료" : "처리 중"}</strong>
+        <div className="submission-meta">
+          <div className="submission-meta__item">
+            <span className="submission-meta__label">제출 상태</span>
+            <strong className="submission-meta__value">
+              {submission.status === "COMPLETED" ? "분석 완료" : "처리 중"}
+            </strong>
           </div>
-          <div>
-            <span>제출 시간</span>
-            <strong>{new Date(submission.submittedAt).toLocaleTimeString("ko-KR")}</strong>
+          <div className="submission-meta__item">
+            <span className="submission-meta__label">제출 시간</span>
+            <strong className="submission-meta__value">
+              {new Date(submission.submittedAt).toLocaleTimeString("ko-KR")}
+            </strong>
           </div>
-          <div>
-            <span>리포트 상태</span>
-            <strong>{report?.status === "COMPLETED" ? "완료" : "생성 중"}</strong>
+          <div className="submission-meta__item">
+            <span className="submission-meta__label">리포트 상태</span>
+            <strong className="submission-meta__value">
+              {report?.status === "COMPLETED" ? "완료" : "생성 중"}
+            </strong>
           </div>
         </div>
 
-        <div className="hero-actions">
+        <div className="submission-card__actions">
           <Link href={withPrefix("/problems")} className="button">
             과제 목록
           </Link>
-          <Link href={withPrefix(`/submissions/${submissionId}/report`)} className="button button--primary">
+          <Link
+            href={withPrefix(`/submissions/${submissionId}/report`)}
+            className="button button--primary"
+          >
             리포트 보기
           </Link>
         </div>
