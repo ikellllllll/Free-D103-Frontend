@@ -1,0 +1,15 @@
+﻿<svg width="1080" height="1080" viewBox="0 0 1080 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1080" height="1080" rx="36" fill="#F7F3EE"/>
+  <rect x="350" y="150" width="380" height="380" rx="88" fill="#241B16"/>
+  <g transform="translate(0 -10) rotate(-7 540 340)">
+    <path d="M449 431L526 277L621 421H449Z" stroke="#C96E4B" stroke-width="18" stroke-linejoin="round"/>
+    <circle cx="526" cy="277" r="25" fill="#241B16" stroke="#C96E4B" stroke-width="14"/>
+    <circle cx="449" cy="431" r="25" fill="#241B16" stroke="#C96E4B" stroke-width="14"/>
+    <circle cx="621" cy="421" r="25" fill="#241B16" stroke="#C96E4B" stroke-width="14"/>
+  </g>
+  <text x="540" y="705" text-anchor="middle" fill="#241B16" font-size="172" font-weight="800" font-family="'Segoe UI', Arial, sans-serif">AIG</text>
+  <text x="540" y="818" text-anchor="middle" fill="#C96E4B" font-size="118" font-weight="500" font-family="'Segoe UI', Arial, sans-serif">round</text>
+  <rect x="262" y="862" width="556" height="6" rx="3" fill="#C96E4B"/>
+  <text x="540" y="928" text-anchor="middle" fill="#3E2F27" font-size="38" font-weight="500" font-family="'Segoe UI', Arial, sans-serif" letter-spacing="6">AI-BASED INTEGRATED GROUND</text>
+</svg>
+

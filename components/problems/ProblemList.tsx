@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { Badge } from "@/components/common/Badge";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Card } from "@/components/common/Card";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
@@ -46,7 +47,7 @@ export function ProblemList() {
       {/* ── Page header ── */}
       <div className="section-head">
         <div>
-          <span className="eyebrow">AIG</span>
+          <BrandLogo variant="primary-word" height={40} />
           <h1 style={{ margin: "8px 0 4px", fontSize: "1.25rem", fontWeight: 700 }}>과제 목록</h1>
           <p className="muted-copy">AI와 함께 실무 API 과제를 풀고 활용 피드백을 받으세요.</p>
         </div>

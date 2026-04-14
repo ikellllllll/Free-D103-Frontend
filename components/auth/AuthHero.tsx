@@ -1,3 +1,5 @@
+import { BrandLogo } from "@/components/brand/BrandLogo";
+
 interface AuthHeroProps {
   title: string;
   description: string;
@@ -25,7 +27,7 @@ export function AuthHero({ title, description }: AuthHeroProps) {
   return (
     <aside className="auth-hero">
       <div className="auth-hero__top">
-        <span className="auth-hero__eyebrow">AIG</span>
+        <BrandLogo variant="primary-word" height={44} />
         <p>AI 기반 코딩 과제 워크스페이스</p>
       </div>
 
