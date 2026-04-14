@@ -62,11 +62,7 @@ const extensionItems = [
   }
 ];
 
-const promptPresets = [
-  "현재 파일 기준으로 문제 원인부터 짚어줘",
-  "공개 테스트를 우선 통과하는 순서로 정리해줘",
-  "선택 코드만 최소 수정으로 안전하게 바꿔줘"
-];
+const INITIAL_AGENT_SNAPSHOT_VERSION = 1;
 
 type ExplorerSectionKey = "project";
 type DragMode = "sidebar" | "ai" | "bottom";
@@ -282,6 +278,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const [testLoading, setTestLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [extensionQuery, setExtensionQuery] = useState("");
+  const [agentSnapshotVersion, setAgentSnapshotVersion] = useState(INITIAL_AGENT_SNAPSHOT_VERSION);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
   const [activeWorkbenchTab, setActiveWorkbenchTab] = useState<"code" | "problem">("code");
   const [openTabPaths, setOpenTabPaths] = useState<string[]>([]);
@@ -606,6 +603,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const lineCount = activeFile?.content.split("\n").length ?? 0;
   const requestTotal = requestCount || session?.aiRequestCount || 0;
   const aiQuotaLabel = `${Math.min(requestTotal, AI_REQUEST_QUOTA)}/${AI_REQUEST_QUOTA}`;
+  const agentSnapshotLabel = `v0.${agentSnapshotVersion}`;
   const dirtyCount = unsavedPaths.length;
   const problemRequirementsCount = problem?.requirements.length ?? 0;
   const problemCasesCount = problem?.publicCases.length ?? 0;
@@ -765,13 +763,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     }));
   };
 
-  const fillPresetPrompt = (value: string) => {
-    setAiOpen(true);
-    setAiMode("chat");
-    setSuggestion(null);
-    setChatInput(value);
-  };
-
   const handleOpenProblemTab = () => {
     setActiveWorkbenchTab("problem");
   };
@@ -884,6 +875,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     } finally {
       setSubmitLoading(false);
     }
+  };
+
+  const handleAgentBuild = () => {
+    const nextVersion = agentSnapshotVersion + 1;
+
+    setAgentSnapshotVersion(nextVersion);
+    addToast(`Agent Build를 준비했습니다. 스냅샷 v0.${nextVersion}`, "success");
   };
 
   const handleSend = async () => {
@@ -1476,8 +1474,19 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   <div className="sidebar-header">
                     <div>
                       <span className="panel-title panel-title--compact">aig assistant</span>
-                      <strong>AI 보조 패널</strong>
+                      <div className="assistant-header__title">
+                        <strong>AI 보조 패널</strong>
+                        <span className="ai-context-chip assistant-version-chip">{agentSnapshotLabel}</span>
+                      </div>
                     </div>
+
+                    <button
+                      type="button"
+                      className="button button--primary button--tiny assistant-build-button"
+                      onClick={handleAgentBuild}
+                    >
+                      Agent Build
+                    </button>
                   </div>
 
                   {aiMode === "chat" ? (
@@ -1492,14 +1501,14 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                               setSuggestion(null);
                             }}
                           >
-                            채팅
+                            chat mode
                           </button>
                           <button
                             type="button"
                             className="chip"
                             onClick={() => setAiMode("edit")}
                           >
-                            수정
+                            agent mode
                           </button>
                         </div>
 
@@ -1508,19 +1517,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                           <span className="ai-context-chip">{selectedRange ? selectionSummary : "선택 없음"}</span>
                           <span className="ai-context-chip">AI quota {aiQuotaLabel}</span>
                         </div>
-                      </div>
-
-                      <div className="chat-presets">
-                        {promptPresets.map((prompt) => (
-                          <button
-                            key={prompt}
-                            type="button"
-                            className="chat-preset"
-                            onClick={() => fillPresetPrompt(prompt)}
-                          >
-                            {prompt}
-                          </button>
-                        ))}
                       </div>
 
                       <div ref={chatScrollRef} className="chat-stack chat-stack--panel">
@@ -1561,14 +1557,14 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                               setSuggestion(null);
                             }}
                           >
-                            채팅
+                            chat mode
                           </button>
                           <button
                             type="button"
                             className="chip chip--active"
                             onClick={() => setAiMode("edit")}
                           >
-                            수정
+                            agent mode
                           </button>
                         </div>
 

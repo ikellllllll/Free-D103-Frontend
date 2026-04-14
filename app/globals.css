@@ -2018,6 +2018,23 @@ body:has(.ide-route--workspace) .page-shell > * {
 
 .chat-stack--panel { min-height: 0; align-content: start; }
 
+.assistant-header__title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.assistant-version-chip {
+  min-height: 24px;
+  padding: 0 8px;
+  font-size: 0.72rem;
+}
+
+.assistant-build-button {
+  align-self: center;
+}
+
 .ai-panel__head {
   display: grid;
   gap: 10px;
