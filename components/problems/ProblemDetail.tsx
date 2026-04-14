@@ -83,86 +83,58 @@ function ProblemDetailContent({
     <div className="detail-layout">
       <div className="stack-24">
         <Card>
-          <div className="section-head">
-            <div>
-              <Link href={withPrefix("/problems")} className="back-link">
-                ← 과제 목록
-              </Link>
-              <div className="inline-heading">
-                <h1>{problem.title}</h1>
-                <Badge tone={levelTone[problem.level]}>Lv {problem.level}</Badge>
-              </div>
-              <p className="muted-copy">{problem.summary}</p>
-            </div>
-
-            <button className="button button--primary" onClick={onStart}>
-              풀이 시작
-            </button>
+          <Link href={withPrefix("/problems")} className="back-link problem-back-link">
+            ← 과제 목록
+          </Link>
+          <div className="inline-heading">
+            <h1>{problem.title}</h1>
+            <Badge tone={levelTone[problem.level]}>Lv {problem.level}</Badge>
           </div>
+          <p className="muted-copy problem-summary">{problem.summary}</p>
+          <button className="button button--primary problem-start-btn" onClick={onStart}>
+            풀이 시작
+          </button>
         </Card>
 
-        <div className="grid-2">
-          <Card>
-            <span className="eyebrow">과제 개요</span>
-            <h2>문제 설명</h2>
-            <div className="markdown-block">
-              <Markdown>{problem.description}</Markdown>
-            </div>
-            <ul className="bullet-list">
-              {problem.requirements.map((requirement) => (
-                <li key={requirement}>{requirement}</li>
-              ))}
-            </ul>
-
-            <div className="mini-panel">
-              <strong>요구 엔드포인트</strong>
-              <pre>{problem.endpoints.join("\n")}</pre>
-            </div>
-          </Card>
-
-          <Card>
-            <span className="eyebrow">평가</span>
-            <h2>공개 테스트와 평가 기준</h2>
-
-            <div className="stack-16">
-              {problem.publicCases.map((testCase) => (
-                <div key={testCase.id} className="case-card">
-                  <strong>{testCase.name}</strong>
-                  <span>{testCase.detail}</span>
-                  <span className="case-card__result">{testCase.result}</span>
-                </div>
-              ))}
-            </div>
-
-            <ul className="bullet-list bullet-list--compact">
-              {problem.criteria.map((criterion) => (
-                <li key={criterion}>{criterion}</li>
-              ))}
-            </ul>
-          </Card>
-        </div>
+        <Card>
+          <span className="eyebrow">과제 개요</span>
+          <h2 className="problem-section-title">문제 설명</h2>
+          <div className="markdown-block">
+            <Markdown>{problem.description}</Markdown>
+          </div>
+          <ul className="bullet-list">
+            {problem.requirements.map((requirement) => (
+              <li key={requirement}>{requirement}</li>
+            ))}
+          </ul>
+          <div className="mini-panel">
+            <strong>요구 엔드포인트</strong>
+            <pre>{problem.endpoints.join("\n")}</pre>
+          </div>
+        </Card>
       </div>
 
-      <Card className="side-note">
-        <span className="eyebrow">AI 활용 힌트</span>
-        <h3>이 과제에서 AI를 쓰는 방법</h3>
-        <p>{problem.aiGuide}</p>
-
-        <div className="side-note__meta">
-          <div>
-            <span>카테고리</span>
-            <strong>{problem.category}</strong>
+      <aside>
+        <Card className="problem-meta-card side-note">
+          <div className="problem-meta">
+            <div className="problem-meta__item">
+              <span className="problem-meta__label">카테고리</span>
+              <strong className="problem-meta__value">{problem.category}</strong>
+            </div>
+            <div className="problem-meta__item">
+              <span className="problem-meta__label">제한시간</span>
+              <strong className="problem-meta__value">{problem.estimate}</strong>
+            </div>
+            <div className="problem-meta__item">
+              <span className="problem-meta__label">현재 통과율</span>
+              <strong className="problem-meta__value">{problem.passRate}%</strong>
+            </div>
           </div>
-          <div>
-            <span>예상 시간</span>
-            <strong>{problem.estimate}</strong>
-          </div>
-          <div>
-            <span>현재 통과율</span>
-            <strong>{problem.passRate}%</strong>
-          </div>
-        </div>
-      </Card>
+          <button className="button button--primary problem-meta-card__btn" onClick={onStart}>
+            풀이 시작
+          </button>
+        </Card>
+      </aside>
     </div>
   );
 }
