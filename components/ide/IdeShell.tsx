@@ -629,7 +629,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             };
           }
 
-          const file = files.find((item) => item.path === path);
+          const file = explorerFiles.find((item) => item.path === path);
 
           if (!file) {
             return null;
@@ -676,7 +676,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           return explorerFiles.some((file) => file.path === targetPath && file.isVirtual);
         }
 
-        return files.some((file) => file.path === path);
+        return files.some((file) => file.path === path) || explorerFiles.some((file) => file.path === path && file.isVirtual);
       })
     );
 
@@ -1120,13 +1120,17 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       }
 
       if (file.isVirtual) {
+        const isWorktree = file.path.startsWith(".worktree/");
+        const isActiveVirtual = isWorktree
+          ? activeTabId === createDiffTabId(file.path)
+          : activeTabId === file.path;
         return [
           <button
             key={node.key}
             type="button"
-            className={activeTabId === createDiffTabId(file.path) ? "tree-row tree-row--virtual tree-row--active" : "tree-row tree-row--virtual"}
+            className={isActiveVirtual ? "tree-row tree-row--virtual tree-row--active" : "tree-row tree-row--virtual"}
             style={{ paddingLeft: `${18 + depth * 14}px` }}
-            onClick={() => openDiffTab(file.path)}
+            onClick={() => isWorktree ? openDiffTab(file.path) : focusLine(file.path)}
           >
             <span className="tree-row__main">
               <span className="file-icon">{getFileToken(file)}</span>
