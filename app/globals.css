@@ -5557,7 +5557,45 @@ html[data-theme="light"] .design-dev .problem-table__head {
   }
 }
 
-/* ─── Model picker (문제 상세) ───────────────────────────────── */
+/* ─── Model select (문제 상세) ───────────────────────────────── */
+
+.model-select-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.model-select {
+  appearance: none;
+  width: 100%;
+  padding: 9px 36px 9px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background-color: var(--surface-2);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  color: var(--fg);
+  font-size: 0.88rem;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.model-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.model-select__warn {
+  font-size: 0.75rem;
+  color: #f97316;
+  margin: 0;
+}
+
+/* ─── Model picker (레거시, 미사용) ──────────────────────────── */
 
 .model-pick { display: flex; flex-direction: column; gap: 10px; }
 
