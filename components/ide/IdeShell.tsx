@@ -942,17 +942,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     void queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
   };
 
-  const handleLangSwitch = async (lang: "java" | "python") => {
-    if (!session || session.language === lang) return;
-    try {
-      await mockApi.switchLanguage(sessionId, lang);
-      void queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
-      void queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
-      addToast(`${lang === "java" ? "☕ Java" : "🐍 Python"}로 전환했습니다. 스타터 파일이 초기화되었습니다.`, "success");
-    } catch {
-      addToast("언어 전환에 실패했습니다.", "error");
-    }
-  };
 
   const toggleExplorerSection = (key: ExplorerSectionKey) => {
     setExplorerSections((state) => ({
@@ -1486,19 +1475,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         <span className="editor-tabbar__meta">{problem?.title ?? "문제 풀이"}</span>
         <span className="editor-tabbar__meta">{lastSavedLabel}</span>
 
-        <div className="ide-lang-toggle" role="group" aria-label="언어 선택">
-          {(["java", "python"] as const).map((lang) => (
-            <button
-              key={lang}
-              type="button"
-              className={`ide-lang-btn${session?.language === lang ? " ide-lang-btn--active" : ""}`}
-              onClick={() => handleLangSwitch(lang)}
-              title={`${lang === "java" ? "Java" : "Python"}으로 전환`}
-            >
-              {lang === "java" ? "☕ Java" : "🐍 Python"}
-            </button>
-          ))}
-        </div>
+        <span className="ide-lang-badge">
+          {session?.language === "python" ? "🐍 Python" : "☕ Java"}
+        </span>
 
         <span className="editor-tabbar__divider" />
 

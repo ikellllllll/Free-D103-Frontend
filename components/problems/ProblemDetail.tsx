@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import Markdown from "react-markdown";
@@ -10,6 +11,7 @@ import { Card } from "@/components/common/Card";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
 import type { ProblemDetail as ProblemDetailType } from "@/lib/types/problem";
+import type { ProblemLanguage } from "@/lib/types/session";
 import { useAuthStore } from "@/store/authStore";
 import { useUiStore } from "@/store/uiStore";
 
@@ -19,11 +21,17 @@ const levelTone = {
   3: "level3"
 } as const;
 
+const LANG_OPTIONS: { value: ProblemLanguage; label: string; icon: string; desc: string }[] = [
+  { value: "java", label: "Java", icon: "☕", desc: "Spring Boot · JPA" },
+  { value: "python", label: "Python", icon: "🐍", desc: "FastAPI · Pydantic" }
+];
+
 export function ProblemDetail({ problemId }: { problemId: string }) {
   const router = useRouter();
   const { withPrefix } = useRouteScope();
   const user = useAuthStore((state) => state.user);
   const addToast = useUiStore((state) => state.addToast);
+  const [language, setLanguage] = useState<ProblemLanguage>("java");
   const { data: problem, isLoading, isError } = useQuery({
     queryKey: ["problem", problemId],
     queryFn: () => mockApi.getProblemDetail(problemId)
@@ -37,7 +45,7 @@ export function ProblemDetail({ problemId }: { problemId: string }) {
     }
 
     try {
-      const session = await mockApi.createSession(problemId, user.id);
+      const session = await mockApi.createSession(problemId, user.id, language);
       addToast("풀이 세션이 생성되었습니다.", "success");
       router.push(withPrefix(`/sessions/${session.id}/start`));
     } catch (error) {
@@ -67,14 +75,25 @@ export function ProblemDetail({ problemId }: { problemId: string }) {
     );
   }
 
-  return <ProblemDetailContent problem={problem} onStart={handleStart} />;
+  return (
+    <ProblemDetailContent
+      problem={problem}
+      language={language}
+      onLanguageChange={setLanguage}
+      onStart={handleStart}
+    />
+  );
 }
 
 function ProblemDetailContent({
   problem,
+  language,
+  onLanguageChange,
   onStart
 }: {
   problem: ProblemDetailType;
+  language: ProblemLanguage;
+  onLanguageChange: (l: ProblemLanguage) => void;
   onStart: () => void;
 }) {
   const { withPrefix } = useRouteScope();
@@ -91,6 +110,26 @@ function ProblemDetailContent({
             <Badge tone={levelTone[problem.level]}>Lv {problem.level}</Badge>
           </div>
           <p className="muted-copy problem-summary">{problem.summary}</p>
+
+          {/* 언어 선택 */}
+          <div className="lang-pick">
+            <span className="lang-pick__label">풀이 언어</span>
+            <div className="lang-pick__options">
+              {LANG_OPTIONS.map(({ value, label, icon, desc }) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`lang-pick-card${language === value ? " lang-pick-card--active" : ""}`}
+                  onClick={() => onLanguageChange(value)}
+                >
+                  <span className="lang-pick-card__icon">{icon}</span>
+                  <span className="lang-pick-card__name">{label}</span>
+                  <span className="lang-pick-card__desc">{desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <button className="button button--primary problem-start-btn" onClick={onStart}>
             풀이 시작
           </button>
@@ -120,6 +159,12 @@ function ProblemDetailContent({
             <div className="problem-meta__item">
               <span className="problem-meta__label">카테고리</span>
               <strong className="problem-meta__value">{problem.category}</strong>
+            </div>
+            <div className="problem-meta__item">
+              <span className="problem-meta__label">풀이 언어</span>
+              <strong className="problem-meta__value">
+                {language === "java" ? "☕ Java" : "🐍 Python"}
+              </strong>
             </div>
             <div className="problem-meta__item">
               <span className="problem-meta__label">제한시간</span>
