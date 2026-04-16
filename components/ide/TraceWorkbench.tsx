@@ -9,21 +9,15 @@ import type { AgentRunTrace, AgentSpan } from "@/lib/types/trace";
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 const STATUS_DOT: Record<string, string> = {
-  COMPLETED: "trace-dot--ok",
-  FAILED:    "trace-dot--err",
-  RUNNING:   "trace-dot--run",
-  PENDING:   "trace-dot--idle",
-  CANCELLED: "trace-dot--idle"
+  COMPLETED: "trace-dot--ok", FAILED: "trace-dot--err",
+  RUNNING: "trace-dot--run", PENDING: "trace-dot--idle", CANCELLED: "trace-dot--idle"
 };
 const STATUS_LABEL: Record<string, string> = {
   COMPLETED: "완료", FAILED: "실패", RUNNING: "실행 중", PENDING: "대기", CANCELLED: "취소"
 };
-const STATUS_BADGE_CLASS: Record<string, string> = {
-  COMPLETED: "twb-badge twb-badge--ok",
-  FAILED:    "twb-badge twb-badge--err",
-  RUNNING:   "twb-badge twb-badge--run",
-  PENDING:   "twb-badge twb-badge--idle",
-  CANCELLED: "twb-badge twb-badge--idle"
+const STATUS_BADGE: Record<string, string> = {
+  COMPLETED: "twb-badge twb-badge--ok", FAILED: "twb-badge twb-badge--err",
+  RUNNING: "twb-badge twb-badge--run", PENDING: "twb-badge twb-badge--idle", CANCELLED: "twb-badge twb-badge--idle"
 };
 
 function fmtDuration(ms: number | null) {
@@ -32,20 +26,24 @@ function fmtDuration(ms: number | null) {
   if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
   return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`;
 }
-function fmtTokens(n: number) {
-  return n >= 1000 ? `${(n / 1000).toFixed(1)}K` : `${n}`;
-}
+function fmtTokens(n: number) { return n >= 1000 ? `${(n / 1000).toFixed(1)}K` : `${n}`; }
 function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("ko-KR", {
-    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
-  });
+  return new Date(iso).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
 }
-function fmtDateTime(iso: string) {
+function fmtDate(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleString("ko-KR", {
-    month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
-  });
+  return `${(d.getMonth() + 1).toString().padStart(2, "0")}.${d.getDate().toString().padStart(2, "0")} ${d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false })}`;
+}
+
+// ─── Tooltip ──────────────────────────────────────────────────────────────────
+
+function Tooltip({ text }: { text: string }) {
+  return (
+    <span className="twb-tooltip-wrap">
+      <span className="twb-tooltip-icon">?</span>
+      <span className="twb-tooltip-bubble">{text}</span>
+    </span>
+  );
 }
 
 // ─── SectionCard ──────────────────────────────────────────────────────────────
@@ -102,11 +100,7 @@ function JsonTable({ data }: { data: Record<string, unknown> | null }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   if (!data || Object.keys(data).length === 0) return null;
   const rows = flattenJson(data);
-  const toggle = (path: string) => setExpanded(prev => {
-    const next = new Set(prev);
-    next.has(path) ? next.delete(path) : next.add(path);
-    return next;
-  });
+  const toggle = (p: string) => setExpanded(prev => { const n = new Set(prev); n.has(p) ? n.delete(p) : n.add(p); return n; });
   return (
     <table className="twb-io-table">
       <thead><tr><th style={{ width: "38%" }}>Key</th><th>Value</th></tr></thead>
@@ -120,8 +114,7 @@ function JsonTable({ data }: { data: Record<string, unknown> | null }) {
               <td className={`twb-io-val--${row.type}`}>
                 {isLong && !isExp
                   ? <>{row.value.slice(0, 80)}… <button type="button" className="twb-expand-btn" onClick={() => toggle(row.path)}>펼치기</button></>
-                  : <>{row.value}{isLong && <button type="button" className="twb-expand-btn" onClick={() => toggle(row.path)}> 접기</button>}</>
-                }
+                  : <>{row.value}{isLong && <button type="button" className="twb-expand-btn" onClick={() => toggle(row.path)}> 접기</button>}</>}
               </td>
             </tr>
           );
@@ -133,49 +126,45 @@ function JsonTable({ data }: { data: Record<string, unknown> | null }) {
 
 // ─── LogTimeline ──────────────────────────────────────────────────────────────
 
-interface LogEntry {
-  offsetMs: number; kind: "llm" | "tool" | "patch" | "span";
-  label: string; detail: string; status?: string;
-}
+interface LogEntry { offsetMs: number; kind: "llm" | "tool" | "patch" | "span"; label: string; detail: string; status?: string; }
+
 function buildLogEntries(span: AgentSpan): LogEntry[] {
   const entries: LogEntry[] = [];
   entries.push({ offsetMs: 0, kind: "span", label: `[span] ${span.spanName} 시작`, detail: fmtTime(span.startedAt), status: "START" });
-  let llmOffset = 200;
+  let llmOff = 200;
   span.llmCalls.forEach(llm => {
-    entries.push({ offsetMs: llmOffset, kind: "llm", label: `[llm] ${llm.modelName}`, detail: `${fmtTokens(llm.inputTokens)} in → ${fmtTokens(llm.outputTokens)} out · ${fmtDuration(llm.latencyMs)} · ${llm.finishReason ?? "-"}`, status: llm.status });
-    llmOffset += (llm.latencyMs ?? 1000) + 100;
+    entries.push({ offsetMs: llmOff, kind: "llm", label: `[llm] ${llm.modelName}`, detail: `${fmtTokens(llm.inputTokens)} → ${fmtTokens(llm.outputTokens)} tok · ${fmtDuration(llm.latencyMs)}`, status: llm.status });
+    llmOff += (llm.latencyMs ?? 1000) + 100;
   });
-  let toolOffset = 100;
+  let toolOff = 100;
   span.toolCalls.forEach(tc => {
-    entries.push({ offsetMs: toolOffset, kind: "tool", label: `[tool] ${tc.toolName}`, detail: tc.argsJson ? Object.entries(tc.argsJson).map(([k, v]) => `${k}: ${v}`).join(" · ") : "인자 없음", status: tc.status });
-    toolOffset += (tc.durationMs ?? 200) + 50;
+    entries.push({ offsetMs: toolOff, kind: "tool", label: `[tool] ${tc.toolName}`, detail: tc.argsJson ? Object.entries(tc.argsJson).map(([k, v]) => `${k}: ${v}`).join(" · ") : "-", status: tc.status });
+    toolOff += (tc.durationMs ?? 200) + 50;
   });
   span.patches.forEach((p, i) => {
-    entries.push({ offsetMs: (span.durationMs ?? 5000) - 500 + i * 50, kind: "patch", label: `[patch] ${p.filePath.split("/").pop()}`, detail: `+${p.additions} -${p.deletions} · ${p.filePath}`, status: "APPLIED" });
+    entries.push({ offsetMs: (span.durationMs ?? 5000) - 300 + i * 50, kind: "patch", label: `[patch] ${p.filePath.split("/").pop()}`, detail: `+${p.additions} -${p.deletions} · ${p.filePath}`, status: "APPLIED" });
   });
-  if (span.endedAt) {
-    entries.push({ offsetMs: span.durationMs ?? 0, kind: "span", label: `[span] ${span.spanName} 종료`, detail: `${STATUS_LABEL[span.status]} · ${fmtDuration(span.durationMs)}`, status: span.status });
-  }
+  if (span.endedAt) entries.push({ offsetMs: span.durationMs ?? 0, kind: "span", label: `[span] ${span.spanName} 종료`, detail: `${STATUS_LABEL[span.status]} · ${fmtDuration(span.durationMs)}`, status: span.status });
   entries.sort((a, b) => a.offsetMs - b.offsetMs);
   return entries;
 }
 
-const LOG_KIND_ICON: Record<string, string> = { llm: "🤖", tool: "🔧", patch: "📄", span: "⏱" };
-const LOG_KIND_CLASS: Record<string, string> = { llm: "twb-log-row--llm", tool: "twb-log-row--tool", patch: "twb-log-row--patch", span: "twb-log-row--span" };
+const LOG_ICON: Record<string, string>  = { llm: "🤖", tool: "🔧", patch: "📄", span: "⏱" };
+const LOG_CLASS: Record<string, string> = { llm: "twb-log-row--llm", tool: "twb-log-row--tool", patch: "twb-log-row--patch", span: "twb-log-row--span" };
 
 function LogTimeline({ span }: { span: AgentSpan }) {
   const entries = buildLogEntries(span);
   return (
     <div className="twb-log-timeline">
       <div className="twb-log-header"><span>offset</span><span>event</span><span>detail</span></div>
-      {entries.map((entry, i) => (
-        <div key={i} className={`twb-log-row ${LOG_KIND_CLASS[entry.kind]}`}>
-          <span className="twb-log-offset">+{fmtDuration(entry.offsetMs)}</span>
-          <span className="twb-log-label"><span className="twb-log-icon">{LOG_KIND_ICON[entry.kind]}</span>{entry.label}</span>
-          <span className="twb-log-detail">{entry.detail}</span>
-          {entry.status && (
-            <span className={`twb-badge ${entry.status === "COMPLETED" || entry.status === "APPLIED" || entry.status === "START" ? "twb-badge--ok" : entry.status === "FAILED" ? "twb-badge--err" : "twb-badge--run"}`}>
-              {entry.status === "START" ? "▶" : entry.status === "APPLIED" ? "✓" : entry.status}
+      {entries.map((e, i) => (
+        <div key={i} className={`twb-log-row ${LOG_CLASS[e.kind]}`}>
+          <span className="twb-log-offset">+{fmtDuration(e.offsetMs)}</span>
+          <span className="twb-log-label"><span className="twb-log-icon">{LOG_ICON[e.kind]}</span>{e.label}</span>
+          <span className="twb-log-detail">{e.detail}</span>
+          {e.status && (
+            <span className={`twb-badge ${e.status === "COMPLETED" || e.status === "APPLIED" || e.status === "START" ? "twb-badge--ok" : e.status === "FAILED" ? "twb-badge--err" : "twb-badge--run"}`}>
+              {e.status === "START" ? "▶" : e.status === "APPLIED" ? "✓" : e.status}
             </span>
           )}
         </div>
@@ -184,10 +173,10 @@ function LogTimeline({ span }: { span: AgentSpan }) {
   );
 }
 
-// ─── SpanDetail ───────────────────────────────────────────────────────────────
+// ─── Col 3: Span Detail ───────────────────────────────────────────────────────
 
 function SpanDetail({ span }: { span: AgentSpan }) {
-  const [detailTab, setDetailTab] = useState<"preview" | "log">("preview");
+  const [tab, setTab] = useState<"preview" | "log">("preview");
   const totalIn  = span.llmCalls.reduce((a, c) => a + c.inputTokens, 0);
   const totalOut = span.llmCalls.reduce((a, c) => a + c.outputTokens, 0);
   const models   = [...new Set(span.llmCalls.map(c => c.modelName))];
@@ -197,7 +186,7 @@ function SpanDetail({ span }: { span: AgentSpan }) {
       <div className="twb-detail__head">
         <span className={`trace-dot ${STATUS_DOT[span.status] ?? "trace-dot--idle"}`} />
         <strong className="twb-detail__name">{span.spanName}</strong>
-        <span className={STATUS_BADGE_CLASS[span.status] ?? "twb-badge twb-badge--idle"}>{STATUS_LABEL[span.status]}</span>
+        <span className={STATUS_BADGE[span.status] ?? "twb-badge twb-badge--idle"}>{STATUS_LABEL[span.status]}</span>
         <span className="twb-detail__seq">#{span.sequenceNo}</span>
       </div>
 
@@ -212,13 +201,13 @@ function SpanDetail({ span }: { span: AgentSpan }) {
 
       <div className="twb-tabs">
         {(["preview", "log"] as const).map(t => (
-          <button key={t} type="button" className={detailTab === t ? "twb-tab twb-tab--active" : "twb-tab"} onClick={() => setDetailTab(t)}>
+          <button key={t} type="button" className={tab === t ? "twb-tab twb-tab--active" : "twb-tab"} onClick={() => setTab(t)}>
             {t === "preview" ? "Preview" : "Log View"}
           </button>
         ))}
       </div>
 
-      {detailTab === "preview" ? (
+      {tab === "preview" ? (
         <div className="twb-detail__body twb-detail__body--preview">
           <SectionCard icon="📥" title="Input" accent="blue" count={span.inputJson ? flattenJson(span.inputJson).length : 0} empty={!span.inputJson ? "Input 데이터 없음" : undefined}>
             <JsonTable data={span.inputJson} />
@@ -287,100 +276,150 @@ function SpanDetail({ span }: { span: AgentSpan }) {
   );
 }
 
-// ─── Span tree (left in detail view) ─────────────────────────────────────────
+// ─── Col 2: Span List ─────────────────────────────────────────────────────────
 
-function SpanTreeRow({ span, isSelected, onSelect }: {
-  span: AgentSpan; isSelected: boolean; onSelect: (s: AgentSpan) => void;
+function SpanList({ run, selectedSpanId, onSelect }: {
+  run: AgentRunTrace | null; selectedSpanId: string | null; onSelect: (s: AgentSpan) => void;
 }) {
-  const childCount = span.toolCalls.length + span.llmCalls.length + span.patches.length;
-  return (
-    <button type="button"
-      className={`twb-span-row${isSelected ? " twb-span-row--active" : ""}${span.status === "FAILED" ? " twb-span-row--fail" : ""}`}
-      onClick={() => onSelect(span)}
-    >
-      <span className={`trace-dot ${STATUS_DOT[span.status] ?? "trace-dot--idle"}`} />
-      <span className="twb-span-row__name">{span.spanName}</span>
-      <span className="twb-span-row__meta">
-        {childCount > 0 && <span className="twb-span-row__count">{childCount}</span>}
-        <span className="twb-span-row__dur">{fmtDuration(span.durationMs)}</span>
-      </span>
-    </button>
-  );
-}
-
-// ─── Trace list (home screen) ─────────────────────────────────────────────────
-
-function TraceListItem({ run, onSelect }: { run: AgentRunTrace; onSelect: () => void }) {
-  const totalTokens = run.totalInputTokens + run.totalOutputTokens;
-  const isFailed = run.status === "FAILED";
-  return (
-    <button type="button" className={`twb-list-item${isFailed ? " twb-list-item--fail" : ""}`} onClick={onSelect}>
-      <div className="twb-list-item__top">
-        <span className={`trace-dot ${STATUS_DOT[run.status]}`} />
-        <span className={STATUS_BADGE_CLASS[run.status]}>{STATUS_LABEL[run.status]}</span>
-        <span className="twb-list-item__time">{fmtDateTime(run.startedAt)}</span>
-        <span className="twb-list-item__dur">{fmtDuration(run.durationMs)}</span>
-      </div>
-
-      {run.summaryText && (
-        <p className="twb-list-item__summary">{run.summaryText}</p>
-      )}
-      {isFailed && run.errorMessage && (
-        <p className="twb-list-item__error">{run.errorMessage}</p>
-      )}
-
-      <div className="twb-list-item__meta">
-        <span>🤖 {fmtTokens(run.totalInputTokens)} → {fmtTokens(run.totalOutputTokens)} tok</span>
-        <span>총 {fmtTokens(totalTokens)} tok</span>
-        <span>{run.spans.length}개 span</span>
-        <span>{run.totalCostCredits} credits</span>
-      </div>
-    </button>
-  );
-}
-
-// ─── Trace detail (run selected) ─────────────────────────────────────────────
-
-function TraceDetail({ run, onBack }: { run: AgentRunTrace; onBack: () => void }) {
-  const [selectedSpan, setSelectedSpan] = useState<AgentSpan | null>(null);
-  const sortedSpans = [...run.spans].sort((a, b) => a.sequenceNo - b.sequenceNo);
-
-  return (
-    <div className="twb-body">
-      {/* left: span tree */}
-      <aside className="twb-tree">
-        {/* run summary header */}
-        <div className="twb-run-summary">
-          <button type="button" className="twb-back-btn" onClick={onBack}>← 목록</button>
-          <div className="twb-run-summary__info">
-            <span className={`trace-dot ${STATUS_DOT[run.status]}`} />
-            <span className={STATUS_BADGE_CLASS[run.status]}>{STATUS_LABEL[run.status]}</span>
-            <span className="twb-run-summary__dur">{fmtDuration(run.durationMs)}</span>
-          </div>
-          {run.summaryText && <p className="twb-run-summary__text">{run.summaryText}</p>}
-          {run.errorMessage && <p className="twb-run-summary__error">{run.errorMessage}</p>}
+  if (!run) {
+    return (
+      <div className="twb-col twb-col--spans">
+        <div className="twb-col-head">
+          <span className="twb-col-head__title">Spans</span>
+          <Tooltip text="선택된 Trace 안에서 에이전트가 실행한 단계 목록입니다. 각 Span은 분석 · 수정 · 검증 등 하나의 작업 단위를 나타냅니다." />
         </div>
-
-        <div className="twb-span-list-label">SPANS</div>
-        {sortedSpans.map(span => (
-          <SpanTreeRow key={span.spanId} span={span}
-            isSelected={selectedSpan?.spanId === span.spanId}
-            onSelect={setSelectedSpan}
-          />
-        ))}
-      </aside>
-
-      {/* right: span detail */}
-      <div className="twb-detail-pane">
-        {selectedSpan ? (
-          <SpanDetail span={selectedSpan} />
-        ) : (
-          <div className="twb-empty twb-empty--center">
-            <span>왼쪽에서 Span을 선택하면</span>
-            <span>입출력 정보와 실행 기록을 확인할 수 있습니다.</span>
-          </div>
-        )}
+        <div className="twb-col-divider" />
+        <div className="twb-empty twb-empty--center twb-empty--sm">
+          <span>왼쪽에서 Trace를</span>
+          <span>선택하세요</span>
+        </div>
       </div>
+    );
+  }
+
+  const sortedSpans = [...run.spans].sort((a, b) => a.sequenceNo - b.sequenceNo);
+  const totalTokens = run.totalInputTokens + run.totalOutputTokens;
+
+  return (
+    <div className="twb-col twb-col--spans">
+      <div className="twb-col-head">
+        <span className="twb-col-head__title">Spans</span>
+        <Tooltip text="선택된 Trace 안에서 에이전트가 실행한 단계 목록입니다. 각 Span은 분석 · 수정 · 검증 등 하나의 작업 단위를 나타냅니다." />
+      </div>
+      <div className="twb-col-divider" />
+
+      {/* run summary */}
+      <div className="twb-run-card">
+        <div className="twb-run-card__row">
+          <span className={`trace-dot ${STATUS_DOT[run.status]}`} />
+          <span className={STATUS_BADGE[run.status]}>{STATUS_LABEL[run.status]}</span>
+          <span className="twb-run-card__dur">{fmtDuration(run.durationMs)}</span>
+        </div>
+        <div className="twb-run-card__meta">
+          <span>{fmtTokens(totalTokens)} tok</span>
+          <span>·</span>
+          <span>{run.totalCostCredits} cr</span>
+          <span>·</span>
+          <span>{sortedSpans.length}개 span</span>
+        </div>
+        {run.summaryText && <p className="twb-run-card__summary">{run.summaryText}</p>}
+        {run.errorMessage && <p className="twb-run-card__error">{run.errorMessage}</p>}
+      </div>
+
+      <div className="twb-col-divider" />
+      <div className="twb-col-section-label">SPAN 목록</div>
+
+      {sortedSpans.map(span => {
+        const childCount = span.toolCalls.length + span.llmCalls.length + span.patches.length;
+        const isSelected = selectedSpanId === span.spanId;
+        return (
+          <button key={span.spanId} type="button"
+            className={`twb-span-row${isSelected ? " twb-span-row--active" : ""}${span.status === "FAILED" ? " twb-span-row--fail" : ""}`}
+            onClick={() => onSelect(span)}
+          >
+            <span className={`trace-dot ${STATUS_DOT[span.status] ?? "trace-dot--idle"}`} />
+            <span className="twb-span-row__name">{span.spanName}</span>
+            <span className="twb-span-row__meta">
+              {childCount > 0 && <span className="twb-span-row__count">{childCount}</span>}
+              <span className="twb-span-row__dur">{fmtDuration(span.durationMs)}</span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Col 1: Trace List ────────────────────────────────────────────────────────
+
+function TraceList({ runs, selectedId, isLoading, onSelect }: {
+  runs: AgentRunTrace[]; selectedId: string | null; isLoading: boolean; onSelect: (r: AgentRunTrace) => void;
+}) {
+  return (
+    <div className="twb-col twb-col--runs">
+      <div className="twb-col-head">
+        <span className="twb-col-head__title">Trace 목록</span>
+        <Tooltip text="에이전트 모드로 실행한 기록입니다. 각 Trace는 한 번의 에이전트 실행을 나타내며, 성공/실패 여부와 소요 시간을 확인할 수 있습니다." />
+      </div>
+      <div className="twb-col-divider" />
+
+      {isLoading ? (
+        <div className="twb-empty">불러오는 중...</div>
+      ) : runs.length === 0 ? (
+        <div className="twb-empty twb-empty--center twb-empty--sm">
+          <span>실행 기록 없음</span>
+        </div>
+      ) : (
+        runs.map(run => {
+          const isSelected = selectedId === run.agentTraceId;
+          const totalTokens = run.totalInputTokens + run.totalOutputTokens;
+          return (
+            <button key={run.agentTraceId} type="button"
+              className={`twb-run-row${isSelected ? " twb-run-row--active" : ""}${run.status === "FAILED" ? " twb-run-row--fail" : ""}`}
+              onClick={() => onSelect(run)}
+            >
+              <div className="twb-run-row__top">
+                <span className={`trace-dot ${STATUS_DOT[run.status]}`} />
+                <span className={STATUS_BADGE[run.status]}>{STATUS_LABEL[run.status]}</span>
+                <span className="twb-run-row__dur">{fmtDuration(run.durationMs)}</span>
+              </div>
+              <div className="twb-run-row__date">{fmtDate(run.startedAt)}</div>
+              {run.summaryText && (
+                <p className="twb-run-row__summary">{run.summaryText}</p>
+              )}
+              {run.status === "FAILED" && run.errorMessage && (
+                <p className="twb-run-row__error">{run.errorMessage}</p>
+              )}
+              <div className="twb-run-row__meta">
+                <span>{fmtTokens(totalTokens)} tok</span>
+                <span>{run.spans.length} spans</span>
+              </div>
+            </button>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+// ─── Col 3 placeholder ───────────────────────────────────────────────────────
+
+function DetailPane({ span }: { span: AgentSpan | null }) {
+  return (
+    <div className="twb-col twb-col--detail">
+      <div className="twb-col-head">
+        <span className="twb-col-head__title">Span 상세</span>
+        <Tooltip text="선택된 Span의 Input/Output 데이터, Tool 호출 내역, LLM 호출 정보, 파일 패치 내역을 확인할 수 있습니다. Log View에서 실행 타임라인을 볼 수 있습니다." />
+      </div>
+      <div className="twb-col-divider" />
+      {span ? (
+        <SpanDetail span={span} />
+      ) : (
+        <div className="twb-empty twb-empty--center twb-empty--sm">
+          <span>Span을 선택하면</span>
+          <span>상세 정보가 표시됩니다</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -388,59 +427,60 @@ function TraceDetail({ run, onBack }: { run: AgentRunTrace; onBack: () => void }
 // ─── TraceWorkbench ───────────────────────────────────────────────────────────
 
 export function TraceWorkbench({ sessionId, onClose }: { sessionId: string; onClose: () => void }) {
-  const [selectedRun, setSelectedRun] = useState<AgentRunTrace | null>(null);
+  const [selectedRun,  setSelectedRun]  = useState<AgentRunTrace | null>(null);
+  const [selectedSpan, setSelectedSpan] = useState<AgentSpan | null>(null);
 
   const { data: runs = [], isLoading } = useQuery({
     queryKey: ["agentTraces", sessionId],
-    queryFn: () => mockApi.getAgentTraces(sessionId),
+    queryFn:  () => mockApi.getAgentTraces(sessionId),
     refetchInterval: 10000
   });
+
+  const handleSelectRun = (run: AgentRunTrace) => {
+    setSelectedRun(run);
+    setSelectedSpan(null); // 새 Trace 선택 시 Span 초기화
+  };
 
   return (
     <div className="twb-shell">
       {/* title bar */}
       <div className="twb-titlebar">
         <span className="panel-title panel-title--compact">trace</span>
-        {selectedRun ? (
+        <strong>에이전트 Trace</strong>
+        {selectedRun && (
           <>
-            <strong>에이전트 Trace</strong>
             <span className="twb-titlebar__sep">›</span>
-            <span className="twb-titlebar__crumb">{STATUS_LABEL[selectedRun.status]} · {fmtDateTime(selectedRun.startedAt)}</span>
+            <span className="twb-titlebar__crumb">
+              {STATUS_LABEL[selectedRun.status]} · {fmtDate(selectedRun.startedAt)}
+            </span>
           </>
-        ) : (
+        )}
+        {selectedRun && selectedSpan && (
           <>
-            <strong>에이전트 Trace</strong>
-            <span className="twb-titlebar__meta">실행 기록 {runs.length}개</span>
+            <span className="twb-titlebar__sep">›</span>
+            <span className="twb-titlebar__crumb">{selectedSpan.spanName}</span>
           </>
         )}
         <button type="button" className="twb-close-btn" onClick={onClose} title="코드 화면으로 돌아가기">×</button>
       </div>
 
-      {/* body */}
-      {selectedRun ? (
-        <TraceDetail run={selectedRun} onBack={() => setSelectedRun(null)} />
-      ) : (
-        <div className="twb-list-view">
-          {isLoading ? (
-            <div className="twb-empty">불러오는 중...</div>
-          ) : runs.length === 0 ? (
-            <div className="twb-empty twb-empty--center">
-              <span>아직 실행된 Trace가 없습니다.</span>
-              <span>에이전트 모드로 과제를 실행하면 기록이 쌓입니다.</span>
-            </div>
-          ) : (
-            <>
-              <div className="twb-list-header">
-                <span>실행 기록</span>
-                <span className="twb-list-header__hint">클릭하면 Span 상세 보기</span>
-              </div>
-              {runs.map(run => (
-                <TraceListItem key={run.agentTraceId} run={run} onSelect={() => setSelectedRun(run)} />
-              ))}
-            </>
-          )}
-        </div>
-      )}
+      {/* 3-column body */}
+      <div className="twb-3col">
+        <TraceList
+          runs={runs}
+          selectedId={selectedRun?.agentTraceId ?? null}
+          isLoading={isLoading}
+          onSelect={handleSelectRun}
+        />
+        <div className="twb-col-resizer" />
+        <SpanList
+          run={selectedRun}
+          selectedSpanId={selectedSpan?.spanId ?? null}
+          onSelect={setSelectedSpan}
+        />
+        <div className="twb-col-resizer" />
+        <DetailPane span={selectedSpan} />
+      </div>
     </div>
   );
 }
