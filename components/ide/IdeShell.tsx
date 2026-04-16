@@ -9,6 +9,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/common/Badge";
 import { Card } from "@/components/common/Card";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
+import { TracePanel } from "@/components/ide/TracePanel";
 import { useAiChat } from "@/hooks/useAiChat";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { mockApi } from "@/lib/api/mockApi";
@@ -31,9 +32,10 @@ const MonacoDiffEditor = dynamic(() => import("@monaco-editor/react").then((mod)
 });
 
 const activityItems: Array<{ id: SidebarView; short: string; label: string; description: string }> = [
-  { id: "explorer", short: "EX", label: "탐색기", description: "파일 트리" },
-  { id: "search", short: "SR", label: "검색", description: "파일명과 코드 검색" },
-  { id: "extensions", short: "XT", label: "확장", description: "설치된 워크벤치 도구" }
+  { id: "explorer",   short: "EX", label: "탐색기",      description: "파일 트리" },
+  { id: "search",     short: "SR", label: "검색",        description: "파일명과 코드 검색" },
+  { id: "trace",      short: "TR", label: "Trace",       description: "에이전트 실행 기록" },
+  { id: "extensions", short: "XT", label: "확장",        description: "설치된 워크벤치 도구" }
 ];
 
 const bottomTabs: Array<{ id: BottomPanelTab; label: string }> = [
@@ -786,6 +788,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const activityMeta: Record<SidebarView | "ai" | "output", string | null> = {
     explorer: dirtyCount ? `${dirtyCount}` : openTabs.length ? `${openTabs.length}` : `${files.length}`,
     search: searchQuery.trim() ? `${searchMatches.length}` : null,
+    trace: null,
     extensions: `${extensionItems.length}`,
     ai: aiQuotaLabel,
     output: testResult ? `${testResult.failed}` : traces.length ? `${traces.length}` : null
@@ -1205,6 +1208,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           </div>
         </div>
       );
+    }
+
+    if (sidebarView === "trace") {
+      return <TracePanel sessionId={sessionId} />;
     }
 
     if (sidebarView === "extensions") {

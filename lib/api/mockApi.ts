@@ -678,5 +678,134 @@ export const mockApi = {
       history,
       user: db.users.find((user) => user.id === userId) ?? defaultUser
     };
+  },
+
+  async getAgentTraces(sessionId: string) {
+    await delay(150);
+    const now = new Date();
+    const minsAgo = (m: number) => new Date(now.getTime() - m * 60000).toISOString();
+
+    // 완료된 run
+    const run1 = {
+      agentTraceId: `trace-${sessionId}-1`,
+      status: "COMPLETED" as const,
+      startedAt: minsAgo(45),
+      endedAt: minsAgo(42),
+      durationMs: 182000,
+      outcome: "success",
+      totalInputTokens: 9840,
+      totalOutputTokens: 2610,
+      totalCostCredits: 124,
+      summaryText: "TodoService의 Optional.get() 패턴을 orElseThrow()로 교체하고 예외 응답 코드를 표준화했습니다.",
+      errorMessage: null,
+      spans: [
+        {
+          spanId: "span-1-1",
+          parentSpanId: null,
+          spanName: "plan",
+          sequenceNo: 1,
+          status: "COMPLETED" as const,
+          startedAt: minsAgo(45),
+          endedAt: minsAgo(44),
+          durationMs: 3200,
+          toolCalls: [
+            { toolCallId: "tc-1", toolName: "read_file", argsJson: { path: "src/TodoService.java" }, durationMs: 120, status: "COMPLETED" as const },
+            { toolCallId: "tc-2", toolName: "read_file", argsJson: { path: "src/TodoRepository.java" }, durationMs: 95, status: "COMPLETED" as const }
+          ],
+          llmCalls: [
+            { llmCallId: "llm-1", vendor: "CLAUDE" as const, modelName: "claude-sonnet-4-6", inputTokens: 3200, outputTokens: 480, latencyMs: 1840, finishReason: "end_turn", status: "COMPLETED" as const }
+          ],
+          patches: []
+        },
+        {
+          spanId: "span-1-2",
+          parentSpanId: null,
+          spanName: "code_edit",
+          sequenceNo: 2,
+          status: "COMPLETED" as const,
+          startedAt: minsAgo(44),
+          endedAt: minsAgo(43),
+          durationMs: 6700,
+          toolCalls: [
+            { toolCallId: "tc-3", toolName: "write_file", argsJson: { path: "src/TodoService.java" }, durationMs: 88, status: "COMPLETED" as const },
+            { toolCallId: "tc-4", toolName: "bash", argsJson: { cmd: "./gradlew compileJava" }, durationMs: 3200, status: "COMPLETED" as const }
+          ],
+          llmCalls: [
+            { llmCallId: "llm-2", vendor: "CLAUDE" as const, modelName: "claude-sonnet-4-6", inputTokens: 4800, outputTokens: 1640, latencyMs: 2100, finishReason: "end_turn", status: "COMPLETED" as const }
+          ],
+          patches: [
+            { patchId: "patch-1", filePath: "src/TodoService.java", additions: 14, deletions: 6 },
+            { patchId: "patch-2", filePath: "src/exception/TodoNotFoundException.java", additions: 18, deletions: 0 }
+          ]
+        },
+        {
+          spanId: "span-1-3",
+          parentSpanId: null,
+          spanName: "verify",
+          sequenceNo: 3,
+          status: "COMPLETED" as const,
+          startedAt: minsAgo(43),
+          endedAt: minsAgo(42),
+          durationMs: 4100,
+          toolCalls: [
+            { toolCallId: "tc-5", toolName: "bash", argsJson: { cmd: "./gradlew test" }, durationMs: 3800, status: "COMPLETED" as const }
+          ],
+          llmCalls: [],
+          patches: []
+        }
+      ]
+    };
+
+    // 실패한 run
+    const run2 = {
+      agentTraceId: `trace-${sessionId}-2`,
+      status: "FAILED" as const,
+      startedAt: minsAgo(60),
+      endedAt: minsAgo(58),
+      durationMs: 74000,
+      outcome: null,
+      totalInputTokens: 3120,
+      totalOutputTokens: 620,
+      totalCostCredits: 38,
+      summaryText: null,
+      errorMessage: "컴파일 오류: cannot find symbol — TodoNotFoundException",
+      spans: [
+        {
+          spanId: "span-2-1",
+          parentSpanId: null,
+          spanName: "plan",
+          sequenceNo: 1,
+          status: "COMPLETED" as const,
+          startedAt: minsAgo(60),
+          endedAt: minsAgo(59),
+          durationMs: 2800,
+          toolCalls: [
+            { toolCallId: "tc-6", toolName: "read_file", argsJson: { path: "src/TodoService.java" }, durationMs: 110, status: "COMPLETED" as const }
+          ],
+          llmCalls: [
+            { llmCallId: "llm-3", vendor: "CLAUDE" as const, modelName: "claude-sonnet-4-6", inputTokens: 3120, outputTokens: 620, latencyMs: 1600, finishReason: "end_turn", status: "COMPLETED" as const }
+          ],
+          patches: []
+        },
+        {
+          spanId: "span-2-2",
+          parentSpanId: null,
+          spanName: "code_edit",
+          sequenceNo: 2,
+          status: "FAILED" as const,
+          startedAt: minsAgo(59),
+          endedAt: minsAgo(58),
+          durationMs: 4200,
+          toolCalls: [
+            { toolCallId: "tc-7", toolName: "write_file", argsJson: { path: "src/TodoService.java" }, durationMs: 92, status: "COMPLETED" as const },
+            { toolCallId: "tc-8", toolName: "bash", argsJson: { cmd: "./gradlew compileJava" }, durationMs: 3800, status: "FAILED" as const }
+          ],
+          llmCalls: [],
+          patches: []
+        }
+      ]
+    };
+
+    return [run1, run2];
   }
 };

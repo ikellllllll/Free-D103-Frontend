@@ -12,7 +12,7 @@ export interface SelectionRange {
   endColumn: number;
 }
 
-export type SidebarView = "explorer" | "search" | "extensions";
+export type SidebarView = "explorer" | "search" | "extensions" | "trace";
 export type BottomPanelTab = "output" | "tests" | "trace";
 
 interface IdeState {
