@@ -12,14 +12,13 @@ import {
   defaultUser,
   derivePassCountFromFiles,
   getProblemById,
-  mypageStats,
   problems
 } from "@/lib/mock-data";
 import type { AiEditSuggestion, AiMessage, TraceEvent } from "@/lib/types/ai";
 import type { AuthUser, LoginInput, SignupInput } from "@/lib/types/auth";
 import type { ProblemDetail, ProblemSummary } from "@/lib/types/problem";
 import type { FeedbackReport } from "@/lib/types/report";
-import type { RunResult, SolveSession, Submission, TestRunResult } from "@/lib/types/session";
+import type { ProblemLanguage, RunResult, SolveSession, Submission, TestRunResult } from "@/lib/types/session";
 
 interface MockDb {
   users: AuthUser[];
@@ -269,7 +268,7 @@ export const mockApi = {
     return clone(problem);
   },
 
-  async createSession(problemId: string, userId: string) {
+  async createSession(problemId: string, userId: string, language: ProblemLanguage = "java") {
     await delay(320);
     const db = readDb();
     if (!getProblemById(problemId)) {
@@ -284,7 +283,7 @@ export const mockApi = {
       return clone(existing);
     }
 
-    const session = createInitialSession(uid("session"), userId, problemId);
+    const session = createInitialSession(uid("session"), userId, problemId, language);
     db.sessions.push(session);
     writeDb(db);
     return clone(session);
@@ -315,9 +314,10 @@ export const mockApi = {
     await delay(620);
     const db = readDb();
     const session = getSessionOrThrow(db, sessionId);
-    appendTrace(session, "실행", "애플리케이션 실행", "bootRun 기준 목업 실행");
+    const lang = session.language ?? "java";
+    appendTrace(session, "실행", "애플리케이션 실행", lang === "python" ? "uvicorn 기준 목업 실행" : "bootRun 기준 목업 실행");
     writeDb(db);
-    return createRunResult();
+    return createRunResult(lang);
   },
 
   async runTests(sessionId: string): Promise<TestRunResult> {
@@ -464,6 +464,84 @@ export const mockApi = {
   async getMyDashboard(userId: string) {
     await delay(220);
     const db = readDb();
+
+    // 동적 stats 계산
+    const userSessions = db.sessions.filter((s) => s.userId === userId);
+    const completedSessions = userSessions.filter((s) => s.status === "SUBMITTED");
+    const activeSessions = userSessions.filter((s) => s.status === "IN_PROGRESS");
+    const totalAiRequests = userSessions.reduce((sum, s) => sum + s.aiRequestCount, 0);
+
+    const lastCompletedProblem = completedSessions.length > 0
+      ? getProblemById(completedSessions[completedSessions.length - 1].problemId)
+      : null;
+
+    const stats = [
+      {
+        label: "완료한 과제",
+        value: String(completedSessions.length),
+        note: lastCompletedProblem ? lastCompletedProblem.title : "아직 없어요"
+      },
+      {
+        label: "진행 중 세션",
+        value: String(activeSessions.length),
+        note: activeSessions.length > 0 ? "이어서 풀어보세요" : "새 과제를 시작해보세요"
+      },
+      {
+        label: "누적 AI 요청",
+        value: String(totalAiRequests),
+        note: "전체 세션 기준"
+      }
+    ];
+
+    // 이어할 수 있는 세션 목록
+    const resumableSessions = activeSessions
+      .map((s) => {
+        const problem = getProblemById(s.problemId);
+        return problem
+          ? {
+              sessionId: s.id,
+              title: problem.title,
+              level: problem.level,
+              category: problem.category,
+              aiRequestCount: s.aiRequestCount,
+              lastSavedAt: s.lastSavedAt,
+              href: `/ide/${s.id}`
+            }
+          : null;
+      })
+      .filter(Boolean);
+
+    // 완료된 리포트에서 역량 점수 평균 계산
+    const completedReports = db.reports.filter((r) => r.status === "COMPLETED");
+    const avgScores = (() => {
+      if (completedReports.length === 0) return [];
+      const totals: Record<string, { sum: number; count: number; tone: "good" | "mid" | "warn" }> = {};
+      completedReports.forEach((r) => {
+        r.scores.forEach((s) => {
+          if (!totals[s.label]) totals[s.label] = { sum: 0, count: 0, tone: s.tone };
+          totals[s.label].sum += s.score;
+          totals[s.label].count += 1;
+          // tone은 최신 리포트 기준
+          totals[s.label].tone = s.tone;
+        });
+      });
+      return Object.entries(totals).map(([label, { sum, count, tone }]) => ({
+        label,
+        score: Math.round(sum / count),
+        tone
+      }));
+    })();
+
+    // 난이도별 완료 현황
+    const levelBreakdown = ([1, 2, 3] as const).map((level) => {
+      const levelProblems = problems.filter((p) => p.level === level);
+      const completedCount = levelProblems.filter((p) =>
+        completedSessions.some((s) => s.problemId === p.id)
+      ).length;
+      return { level, total: levelProblems.length, completed: completedCount };
+    });
+
+    // 제출 이력
     const history = db.submissions
       .map((submission) => {
         const session = db.sessions.find((item) => item.id === submission.sessionId);
@@ -488,7 +566,10 @@ export const mockApi = {
       .filter(Boolean);
 
     return {
-      stats: mypageStats,
+      stats,
+      resumableSessions,
+      avgScores,
+      levelBreakdown,
       history,
       user: db.users.find((user) => user.id === userId) ?? defaultUser
     };

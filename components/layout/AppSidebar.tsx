@@ -2,17 +2,17 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookOpen, Wrench, User, Sun, Moon, LogOut, Zap } from "lucide-react";
+import { BookOpen, Wrench, User, Sun, Moon, LogOut } from "lucide-react";
 
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
-import { ThemeToggle } from "@/components/system/ThemeToggle";
 import { mockApi } from "@/lib/api/mockApi";
 import { useAuthStore } from "@/store/authStore";
 import { useThemeStore } from "@/store/themeStore";
 import { useUiStore } from "@/store/uiStore";
 
 const navItems = [
-  { href: "/problems", icon: BookOpen, label: "과제" },
+  { href: "/problems", icon: BookOpen, label: "과제 목록" },
   { href: "/workshop", icon: Wrench, label: "워크숍" },
   { href: "/mypage", icon: User, label: "마이페이지" }
 ];
@@ -38,7 +38,8 @@ export function AppSidebar() {
     <aside className="app-sidebar">
       {/* Brand */}
       <Link href={withPrefix("/problems")} className="app-sidebar__brand" aria-label="AIG 홈">
-        <Zap size={16} />
+        <BrandLogo variant="app-icon" height={22} />
+        <BrandLogo variant="primary-word" height={16} className="app-sidebar__brand-label" />
       </Link>
 
       {/* Nav */}
@@ -54,6 +55,7 @@ export function AppSidebar() {
               aria-current={active ? "page" : undefined}
             >
               <Icon size={18} strokeWidth={active ? 2.2 : 1.8} />
+              <span className="sidebar-item__label">{label}</span>
               <span className="sidebar-item__tooltip">{label}</span>
             </Link>
           );
@@ -62,7 +64,6 @@ export function AppSidebar() {
 
       {/* Footer */}
       <div className="app-sidebar__foot">
-        {/* Theme toggle */}
         {hydrated && (
           <button
             type="button"
@@ -71,11 +72,11 @@ export function AppSidebar() {
             aria-label={theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}
           >
             {theme === "dark" ? <Sun size={16} strokeWidth={1.8} /> : <Moon size={16} strokeWidth={1.8} />}
+            <span className="sidebar-item__label">{theme === "dark" ? "라이트 모드" : "다크 모드"}</span>
             <span className="sidebar-item__tooltip">{theme === "dark" ? "라이트 모드" : "다크 모드"}</span>
           </button>
         )}
 
-        {/* Logout */}
         <button
           type="button"
           className="sidebar-item"
@@ -83,13 +84,17 @@ export function AppSidebar() {
           aria-label="로그아웃"
         >
           <LogOut size={16} strokeWidth={1.8} />
-          <span className="sidebar-item__tooltip">로그아웃 ({user?.name ?? ""})</span>
+          <span className="sidebar-item__label">로그아웃</span>
+          <span className="sidebar-item__tooltip">로그아웃</span>
         </button>
 
-        {/* Avatar */}
-        <span className="sidebar-avatar" title={user?.name ?? "사용자"}>
-          {user?.name?.slice(0, 1)?.toUpperCase() ?? "U"}
-        </span>
+        {/* User block */}
+        <div className="sidebar-user">
+          <span className="sidebar-avatar" title={user?.name ?? "사용자"}>
+            {user?.name?.slice(0, 1)?.toUpperCase() ?? "U"}
+          </span>
+          <span className="sidebar-user__name">{user?.name ?? "사용자"}</span>
+        </div>
       </div>
     </aside>
   );

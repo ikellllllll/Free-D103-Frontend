@@ -8,11 +8,14 @@ export interface WorkspaceFile {
   language: string;
 }
 
+export type ProblemLanguage = "java" | "python";
+
 export interface SolveSession {
   id: string;
   workspaceId: string;
   problemId: string;
   userId: string;
+  language: ProblemLanguage;
   status: SessionStatus;
   aiRequestCount: number;
   lastSavedAt: string;

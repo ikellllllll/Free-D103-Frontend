@@ -3,6 +3,7 @@ import type { AuthUser } from "@/lib/types/auth";
 import type { ProblemDetail } from "@/lib/types/problem";
 import type { FeedbackReport, ScoreItem } from "@/lib/types/report";
 import type {
+  ProblemLanguage,
   RunResult,
   SolveSession,
   Submission,
@@ -157,7 +158,7 @@ export const defaultUser: AuthUser = {
   createdAt: new Date().toISOString()
 };
 
-export const starterFiles: WorkspaceFile[] = [
+export const javaStarterFiles: WorkspaceFile[] = [
   {
     path: "src/TodoController.java",
     language: "java",
@@ -222,7 +223,118 @@ public class Todo {
   }
 ];
 
-const buildWorktreeContent = (file: WorkspaceFile) => {
+export const pythonStarterFiles: WorkspaceFile[] = [
+  {
+    path: "src/main.py",
+    language: "python",
+    content: `from fastapi import FastAPI, HTTPException
+from service import TodoService
+from models import Todo, TodoCreate
+
+app = FastAPI()
+service = TodoService()
+
+
+@app.post("/todos", status_code=201)
+def create_todo(body: TodoCreate):
+    return service.create(body.dict())
+
+
+@app.get("/todos")
+def list_todos():
+    return service.find_all()
+
+
+@app.get("/todos/{todo_id}")
+def get_todo(todo_id: int):
+    todo = service.find_by_id(todo_id)
+    return todo
+
+
+@app.patch("/todos/{todo_id}")
+def update_todo(todo_id: int, body: dict):
+    return service.update(todo_id, body)
+
+
+@app.delete("/todos/{todo_id}", status_code=204)
+def delete_todo(todo_id: int):
+    service.delete(todo_id)
+`
+  },
+  {
+    path: "src/service.py",
+    language: "python",
+    content: `class TodoService:
+    def __init__(self):
+        self._todos: dict = {}
+        self._next_id: int = 1
+
+    def create(self, data: dict) -> dict:
+        todo = {"id": self._next_id, "title": data["title"], "done": False}
+        self._todos[self._next_id] = todo
+        self._next_id += 1
+        return todo
+
+    def find_all(self) -> list:
+        return list(self._todos.values())
+
+    def find_by_id(self, todo_id: int) -> dict:
+        # TODO: 없는 ID 요청 처리가 필요합니다
+        return self._todos.get(todo_id)
+
+    def update(self, todo_id: int, data: dict) -> dict:
+        todo = self.find_by_id(todo_id)
+        todo.update(data)
+        return todo
+
+    def delete(self, todo_id: int) -> None:
+        self.find_by_id(todo_id)
+        del self._todos[todo_id]
+`
+  },
+  {
+    path: "src/models.py",
+    language: "python",
+    content: `from pydantic import BaseModel
+
+
+class TodoCreate(BaseModel):
+    title: str
+
+
+class Todo(BaseModel):
+    id: int
+    title: str
+    done: bool = False
+`
+  },
+  {
+    path: "src/test_main.py",
+    language: "python",
+    content: `from fastapi.testclient import TestClient
+from main import app
+
+client = TestClient(app)
+
+
+def test_get_nonexistent_todo():
+    response = client.get("/todos/999")
+    # TODO: 404를 반환해야 합니다
+    assert response.status_code == 404
+`
+  },
+  {
+    path: "agent/HARNESS.md",
+    language: "markdown",
+    content: `# Harness Notes
+
+- 이 폴더는 하네스/에이전트 관련 보조 파일을 둡니다.
+- \`src\` 코드는 과제 풀이 로직, \`agent\`는 실행 환경 메모를 분리해서 봅니다.
+- 현재 워크스페이스는 mock 구조 확인용입니다.`
+  }
+];
+
+const buildJavaWorktreeContent = (file: WorkspaceFile) => {
   if (file.path === "src/TodoService.java") {
     return `@Service
 public class TodoService {
@@ -266,14 +378,68 @@ public class TodoController {
   return file.content;
 };
 
-export const createWorktreeFiles = (files: WorkspaceFile[]) =>
-  files
+const buildPythonWorktreeContent = (file: WorkspaceFile) => {
+  if (file.path === "src/service.py") {
+    return `class TodoService:
+    def __init__(self):
+        self._todos: dict = {}
+        self._next_id: int = 1
+
+    def create(self, data: dict) -> dict:
+        todo = {"id": self._next_id, "title": data["title"], "done": False}
+        self._todos[self._next_id] = todo
+        self._next_id += 1
+        return todo
+
+    def find_all(self) -> list:
+        return list(self._todos.values())
+
+    def find_by_id(self, todo_id: int) -> dict:
+        todo = self._todos.get(todo_id)
+        if todo is None:
+            raise ValueError(f"Todo not found: {todo_id}")
+        return todo
+
+    def update(self, todo_id: int, data: dict) -> dict:
+        todo = self.find_by_id(todo_id)
+        todo.update(data)
+        return todo
+
+    def delete(self, todo_id: int) -> None:
+        self.find_by_id(todo_id)
+        del self._todos[todo_id]
+`;
+  }
+  if (file.path === "src/test_main.py") {
+    return `from fastapi.testclient import TestClient
+from main import app
+
+client = TestClient(app)
+
+
+def test_get_nonexistent_todo():
+    response = client.get("/todos/999")
+    assert response.status_code == 404
+
+
+def test_create_todo():
+    response = client.post("/todos", json={"title": "공부하기"})
+    assert response.status_code == 201
+`;
+  }
+  return file.content;
+};
+
+export const createWorktreeFiles = (files: WorkspaceFile[]) => {
+  const isPython = files.some((f) => f.language === "python");
+  return files
     .filter((file) => file.path.startsWith("src/"))
     .map((file) => ({
       path: file.path.replace(/^src\//, ".worktree/"),
       language: file.language,
-      content: buildWorktreeContent(file)
+      content: isPython ? buildPythonWorktreeContent(file) : buildJavaWorktreeContent(file)
     }));
+};
 
 export const starterMessagesSeed = [
   { role: "user" as const, content: "7번째 줄에서 왜 NPE가 나는지 설명해줘" },
@@ -343,8 +509,9 @@ export const mypageStats = [
 
 export const getProblemById = (id: string) => problems.find((problem) => problem.id === id);
 
-export const createStarterFiles = (): WorkspaceFile[] => {
-  const sourceFiles = starterFiles.map((file) => ({ ...file }));
+export const createStarterFiles = (language: ProblemLanguage = "java"): WorkspaceFile[] => {
+  const base = language === "python" ? pythonStarterFiles : javaStarterFiles;
+  const sourceFiles = base.map((file) => ({ ...file }));
   const worktreeFiles = createWorktreeFiles(sourceFiles);
   return [...sourceFiles, ...worktreeFiles];
 };
@@ -359,9 +526,11 @@ export const createStarterMessages = (): AiMessage[] =>
 
 export const createStarterTraces = (): TraceEvent[] => starterTracesSeed.map((trace) => ({ ...trace }));
 
-export const createRunResult = (): RunResult => ({
+export const createRunResult = (language: ProblemLanguage = "java"): RunResult => ({
   status: "COMPLETED",
-  stdout: "$ ./gradlew bootRun\nStarted on port 8080\nBUILD SUCCESS (3.4s)",
+  stdout: language === "python"
+    ? "$ uvicorn main:app --reload\nINFO:     Uvicorn running on http://127.0.0.1:8000\nINFO:     Application startup complete."
+    : "$ ./gradlew bootRun\nStarted on port 8080\nBUILD SUCCESS (3.4s)",
   stderr: "",
   exitCode: 0,
   durationMs: 3400
@@ -423,17 +592,18 @@ export const derivePassCountFromFiles = (files: WorkspaceFile[]) => {
   return 1;
 };
 
-export const createInitialSession = (sessionId: string, userId: string, problemId: string): SolveSession => ({
+export const createInitialSession = (sessionId: string, userId: string, problemId: string, language: ProblemLanguage = "java"): SolveSession => ({
   id: sessionId,
   workspaceId: `ws-${sessionId}`,
   problemId,
   userId,
+  language,
   status: "CREATING",
   aiRequestCount: 2,
   lastSavedAt: new Date().toISOString(),
   createdAt: new Date().toISOString(),
   readyAt: Date.now() + 2200,
-  files: createStarterFiles(),
+  files: createStarterFiles(language),
   messages: createStarterMessages(),
   traces: createStarterTraces()
 });

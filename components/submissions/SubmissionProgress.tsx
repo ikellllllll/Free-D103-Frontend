@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 
 import { Card } from "@/components/common/Card";
@@ -11,8 +12,9 @@ import { mockApi } from "@/lib/api/mockApi";
 type StepState = "done" | "current" | "pending";
 
 export function SubmissionProgress({ submissionId }: { submissionId: string }) {
+  const router = useRouter();
   const { withPrefix } = useRouteScope();
-  const { data: submission, isLoading } = useQuery({
+  const { data: submission, isLoading, isError } = useQuery({
     queryKey: ["submission", submissionId],
     queryFn: () => mockApi.getSubmission(submissionId),
     refetchInterval: (query) => (query.state.data?.status === "COMPLETED" ? false : 1200)
@@ -46,7 +48,17 @@ export function SubmissionProgress({ submissionId }: { submissionId: string }) {
     ];
   }, [report?.status, submission?.status]);
 
-  if (isLoading || !submission) {
+  const overallDone = report?.status === "COMPLETED";
+
+  useEffect(() => {
+    if (!overallDone) return;
+    const timer = window.setTimeout(() => {
+      router.replace(withPrefix(`/submissions/${submissionId}/report`));
+    }, 1800);
+    return () => window.clearTimeout(timer);
+  }, [overallDone, router, submissionId, withPrefix]);
+
+  if (isLoading) {
     return (
       <div className="center-shell">
         <div className="loader-card">
@@ -57,7 +69,19 @@ export function SubmissionProgress({ submissionId }: { submissionId: string }) {
     );
   }
 
-  const overallDone = report?.status === "COMPLETED";
+  if (isError || !submission) {
+    return (
+      <div className="center-shell">
+        <div className="loader-card">
+          <span className="eyebrow">오류</span>
+          <strong>제출 정보를 불러올 수 없습니다.</strong>
+          <Link href={withPrefix("/problems")} className="button" style={{ marginTop: 8 }}>
+            과제 목록으로
+          </Link>
+        </div>
+      </div>
+    );
+  }
   const doneCount = steps.filter((s) => s.state === "done").length;
 
   return (
@@ -125,6 +149,12 @@ export function SubmissionProgress({ submissionId }: { submissionId: string }) {
             </strong>
           </div>
         </div>
+
+        {overallDone && (
+          <p className="muted-copy" style={{ fontSize: "0.82rem", textAlign: "center" }}>
+            분석이 완료되었습니다. 잠시 후 리포트 페이지로 이동합니다…
+          </p>
+        )}
 
         <div className="submission-card__actions">
           <Link href={withPrefix("/problems")} className="button">

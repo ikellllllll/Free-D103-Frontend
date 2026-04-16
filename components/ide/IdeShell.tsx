@@ -168,6 +168,10 @@ const getFileToken = (file: Pick<WorkspaceFile, "path" | "language">) => {
     return "JV";
   }
 
+  if (extension === "py") {
+    return "PY";
+  }
+
   if (extension === "md") {
     return "MD";
   }
@@ -1056,7 +1060,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     setSubmitLoading(true);
     try {
       const submission = await mockApi.submitSession(sessionId);
-      refreshSession();
       addToast("제출이 생성되었습니다.", "success");
       router.push(withPrefix(`/submissions/${submission.id}`));
     } catch (error) {

@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { BrandLogo } from "@/components/brand/BrandLogo";
+
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { ThemeToggle } from "@/components/system/ThemeToggle";
 import { mockApi } from "@/lib/api/mockApi";
@@ -33,7 +35,7 @@ export function AppHeader() {
     <header className="app-header">
       <div className="app-header__inner">
         <Link href={withPrefix("/problems")} className="brand">
-          <span className="brand__mark">AIG</span>
+          <BrandLogo variant="primary-word" height={26} />
           <span className="brand__meta">
             <strong>AI Interview Guide</strong>
             <span>과제 풀이, AI 활용 흐름, 피드백 리포트를 한 곳에서 다룹니다.</span>
