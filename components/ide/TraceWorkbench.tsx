@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { mockApi } from "@/lib/api/mockApi";
@@ -35,14 +35,38 @@ function fmtDate(iso: string) {
   return `${(d.getMonth() + 1).toString().padStart(2, "0")}.${d.getDate().toString().padStart(2, "0")} ${d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false })}`;
 }
 
-// ─── Tooltip ──────────────────────────────────────────────────────────────────
+// ─── Tooltip (position:fixed to escape overflow:hidden ancestors) ─────────────
 
 function Tooltip({ text }: { text: string }) {
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [coords, setCoords] = useState<{ x: number; y: number } | null>(null);
+
+  const show = () => {
+    if (!btnRef.current) return;
+    const r = btnRef.current.getBoundingClientRect();
+    setCoords({ x: r.left, y: r.bottom + 6 });
+  };
+
   return (
-    <span className="twb-tooltip-wrap">
-      <span className="twb-tooltip-icon">?</span>
-      <span className="twb-tooltip-bubble">{text}</span>
-    </span>
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        className="twb-tooltip-icon"
+        onMouseEnter={show}
+        onMouseLeave={() => setCoords(null)}
+      >
+        ?
+      </button>
+      {coords && (
+        <div
+          className="twb-tooltip-bubble"
+          style={{ position: "fixed", left: coords.x, top: coords.y }}
+        >
+          {text}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -326,7 +350,7 @@ function SpanList({ run, selectedSpanId, onSelect }: {
         {run.errorMessage && <p className="twb-run-card__error">{run.errorMessage}</p>}
       </div>
 
-      <div className="twb-col-divider" />
+      <div className="twb-col-divider--strong" />
       <div className="twb-col-section-label">SPAN 목록</div>
 
       {sortedSpans.map(span => {
@@ -361,7 +385,7 @@ function TraceList({ runs, selectedId, isLoading, onSelect }: {
         <span className="twb-col-head__title">Trace 목록</span>
         <Tooltip text="에이전트 모드로 실행한 기록입니다. 각 Trace는 한 번의 에이전트 실행을 나타내며, 성공/실패 여부와 소요 시간을 확인할 수 있습니다." />
       </div>
-      <div className="twb-col-divider" />
+      <div className="twb-col-divider--strong" />
 
       {isLoading ? (
         <div className="twb-empty">불러오는 중...</div>

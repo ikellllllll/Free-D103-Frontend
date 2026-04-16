@@ -5989,14 +5989,22 @@ html[data-theme="light"] .design-dev .problem-table__head {
   flex-shrink: 0;
   margin: 0;
 }
+/* stronger section divider */
+.twb-col-divider--strong {
+  height: 4px;
+  background: linear-gradient(to bottom, var(--border), transparent);
+  flex-shrink: 0;
+}
 
 .twb-col-section-label {
-  padding: 7px 12px 4px;
+  padding: 8px 12px 4px;
   font-size: 0.6rem;
   font-weight: 700;
   letter-spacing: .07em;
   color: var(--muted-2);
   text-transform: uppercase;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
 }
 
 /* scrollable inner area */
@@ -6066,45 +6074,39 @@ html[data-theme="light"] .design-dev .problem-table__head {
 /* ── empty state sizes ── */
 .twb-empty--sm { font-size: 0.72rem; padding: 24px 12px; }
 
-/* ── Tooltip ── */
-.twb-tooltip-wrap {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-}
+/* ── Tooltip (position:fixed via JS — escapes overflow:hidden) ── */
 .twb-tooltip-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   border: 1px solid var(--muted-2);
+  background: none;
   font-size: 0.6rem;
   color: var(--muted);
   cursor: default;
   user-select: none;
   flex-shrink: 0;
 }
+.twb-tooltip-icon:hover { border-color: var(--accent); color: var(--accent); }
+
+/* bubble is rendered via fixed positioning (inline style), just need visual styles */
 .twb-tooltip-bubble {
-  display: none;
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 100;
-  width: 220px;
-  padding: 8px 10px;
+  z-index: 9999;
+  width: 240px;
+  padding: 9px 12px;
   background: var(--surface-3, #1e1e2e);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 0.68rem;
-  line-height: 1.5;
+  border-radius: 8px;
+  font-size: 0.69rem;
+  line-height: 1.6;
   color: var(--text);
-  box-shadow: 0 4px 16px rgba(0,0,0,.25);
+  box-shadow: 0 6px 24px rgba(0,0,0,.35);
   white-space: normal;
   pointer-events: none;
 }
-.twb-tooltip-wrap:hover .twb-tooltip-bubble { display: block; }
 
 /* ── Trace list view ── */
 .twb-list-view { flex:1; overflow-y:auto; display:flex; flex-direction:column; }
