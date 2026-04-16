@@ -5556,3 +5556,94 @@ html[data-theme="light"] .design-dev .problem-table__head {
     grid-template-columns: 1fr;
   }
 }
+
+/* ─── Model picker (문제 상세) ───────────────────────────────── */
+
+.model-pick { display: flex; flex-direction: column; gap: 10px; }
+
+.model-pick__groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.model-pick__group {
+  display: contents;
+}
+
+.model-pick__group-label {
+  width: 100%;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.model-pick__no-key {
+  font-size: 0.65rem;
+  color: var(--muted-2);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.model-pick-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.model-pick-card:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface-2));
+}
+
+.model-pick-card--active {
+  border-color: var(--accent) !important;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-2)) !important;
+}
+
+.model-pick-card--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.model-pick-card__label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.model-pick-card__note {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+/* IDE 모델 배지 */
+.ide-model-badge {
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-2));
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  color: var(--accent);
+  font-family: var(--font-mono);
+}

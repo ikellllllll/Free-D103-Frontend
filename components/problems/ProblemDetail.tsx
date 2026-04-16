@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import Markdown from "react-markdown";
@@ -26,16 +26,59 @@ const LANG_OPTIONS: { value: ProblemLanguage; label: string; icon: string; desc:
   { value: "python", label: "Python", icon: "🐍", desc: "FastAPI · Pydantic" }
 ];
 
+const BYOK_STORAGE_KEY = "aig-byok-keys-v1";
+
+type ModelOption = { id: string; label: string; note: string; provider: string };
+
+const MODEL_OPTIONS: Record<string, ModelOption[]> = {
+  default: [
+    { id: "aig-default", label: "AIG 기본 모델", note: "시스템 제공", provider: "default" }
+  ],
+  anthropic: [
+    { id: "claude-opus-4-6",   label: "Claude Opus 4.6",   note: "가장 강력", provider: "anthropic" },
+    { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", note: "균형",      provider: "anthropic" },
+    { id: "claude-haiku-4-5",  label: "Claude Haiku 4.5",  note: "빠름",      provider: "anthropic" }
+  ],
+  openai: [
+    { id: "gpt-4o",      label: "GPT-4o",      note: "최신 멀티모달", provider: "openai" },
+    { id: "gpt-4o-mini", label: "GPT-4o mini", note: "경량",          provider: "openai" }
+  ],
+  google: [
+    { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash", note: "빠름",  provider: "google" },
+    { id: "gemini-1.5-pro",   label: "Gemini 1.5 Pro",   note: "강력",  provider: "google" }
+  ],
+  mistral: [
+    { id: "mistral-large-latest", label: "Mistral Large", note: "최상위", provider: "mistral" },
+    { id: "mistral-small-latest", label: "Mistral Small", note: "경량",   provider: "mistral" }
+  ]
+};
+
+const PROVIDER_LABELS: Record<string, string> = {
+  anthropic: "Anthropic",
+  openai: "OpenAI",
+  google: "Google AI",
+  mistral: "Mistral"
+};
+
 export function ProblemDetail({ problemId }: { problemId: string }) {
   const router = useRouter();
   const { withPrefix } = useRouteScope();
   const user = useAuthStore((state) => state.user);
   const addToast = useUiStore((state) => state.addToast);
   const [language, setLanguage] = useState<ProblemLanguage>("java");
+  const [aiModel, setAiModel] = useState<ModelOption>({ id: "aig-default", label: "AIG 기본 모델", note: "시스템 제공", provider: "default" });
+  const [byokKeys, setByokKeys] = useState<Record<string, string>>({});
   const { data: problem, isLoading, isError } = useQuery({
     queryKey: ["problem", problemId],
     queryFn: () => mockApi.getProblemDetail(problemId)
   });
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(BYOK_STORAGE_KEY);
+      setByokKeys(raw ? JSON.parse(raw) : {});
+    } catch { setByokKeys({}); }
+  }, []);
 
   const handleStart = async () => {
     if (!user) {
@@ -45,7 +88,7 @@ export function ProblemDetail({ problemId }: { problemId: string }) {
     }
 
     try {
-      const session = await mockApi.createSession(problemId, user.id, language);
+      const session = await mockApi.createSession(problemId, user.id, language, aiModel.id, aiModel.provider);
       addToast("풀이 세션이 생성되었습니다.", "success");
       router.push(withPrefix(`/sessions/${session.id}/start`));
     } catch (error) {
@@ -80,6 +123,9 @@ export function ProblemDetail({ problemId }: { problemId: string }) {
       problem={problem}
       language={language}
       onLanguageChange={setLanguage}
+      aiModel={aiModel}
+      onAiModelChange={setAiModel}
+      byokKeys={byokKeys}
       onStart={handleStart}
     />
   );
@@ -89,11 +135,17 @@ function ProblemDetailContent({
   problem,
   language,
   onLanguageChange,
+  aiModel,
+  onAiModelChange,
+  byokKeys,
   onStart
 }: {
   problem: ProblemDetailType;
   language: ProblemLanguage;
   onLanguageChange: (l: ProblemLanguage) => void;
+  aiModel: ModelOption;
+  onAiModelChange: (m: ModelOption) => void;
+  byokKeys: Record<string, string>;
   onStart: () => void;
 }) {
   const { withPrefix } = useRouteScope();
@@ -127,6 +179,50 @@ function ProblemDetailContent({
                   <span className="lang-pick-card__desc">{desc}</span>
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* 모델 선택 */}
+          <div className="model-pick">
+            <span className="lang-pick__label">AI 모델</span>
+            <div className="model-pick__groups">
+              {/* 기본 모델 */}
+              {MODEL_OPTIONS.default.map(opt => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  className={`model-pick-card${aiModel.id === opt.id ? " model-pick-card--active" : ""}`}
+                  onClick={() => onAiModelChange(opt)}
+                >
+                  <span className="model-pick-card__label">{opt.label}</span>
+                  <span className="model-pick-card__note">{opt.note}</span>
+                </button>
+              ))}
+
+              {/* BYOK provider별 모델 */}
+              {Object.entries(MODEL_OPTIONS).filter(([p]) => p !== "default").map(([provider, models]) => {
+                const hasKey = !!byokKeys[provider];
+                return (
+                  <div key={provider} className="model-pick__group">
+                    <span className="model-pick__group-label">
+                      {PROVIDER_LABELS[provider]}
+                      {!hasKey && <span className="model-pick__no-key">키 미등록</span>}
+                    </span>
+                    {models.map(opt => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        className={`model-pick-card${aiModel.id === opt.id ? " model-pick-card--active" : ""}${!hasKey ? " model-pick-card--disabled" : ""}`}
+                        onClick={() => hasKey && onAiModelChange(opt)}
+                        disabled={!hasKey}
+                      >
+                        <span className="model-pick-card__label">{opt.label}</span>
+                        <span className="model-pick-card__note">{opt.note}</span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
             </div>
           </div>
 

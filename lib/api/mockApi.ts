@@ -62,7 +62,9 @@ const createSeedDb = (): MockDb => {
     readyAt: 0,
     files: createStarterFiles("java"),
     messages: [],
-    traces: []
+    traces: [],
+    aiModel: "aig-default",
+    aiProvider: "default"
   };
 
   const session2: SolveSession = {
@@ -78,7 +80,9 @@ const createSeedDb = (): MockDb => {
     readyAt: 0,
     files: createStarterFiles("python"),
     messages: [],
-    traces: []
+    traces: [],
+    aiModel: "aig-default",
+    aiProvider: "default"
   };
 
   const submission1: Submission = {
@@ -319,7 +323,7 @@ export const mockApi = {
     return clone(problem);
   },
 
-  async createSession(problemId: string, userId: string, language: ProblemLanguage = "java") {
+  async createSession(problemId: string, userId: string, language: ProblemLanguage = "java", aiModel = "aig-default", aiProvider = "default") {
     await delay(320);
     const db = readDb();
     if (!getProblemById(problemId)) {
@@ -334,7 +338,7 @@ export const mockApi = {
       return clone(existing);
     }
 
-    const session = createInitialSession(uid("session"), userId, problemId, language);
+    const session = { ...createInitialSession(uid("session"), userId, problemId, language), aiModel, aiProvider };
     db.sessions.push(session);
     writeDb(db);
     return clone(session);

@@ -1483,6 +1483,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           {session?.language === "python" ? "🐍 Python" : "☕ Java"}
         </span>
 
+        {session?.aiModel && session.aiModel !== "aig-default" && (
+          <span className="ide-model-badge">{session.aiModel}</span>
+        )}
+
         <span className="editor-tabbar__divider" />
 
         <button type="button" className="ide-command-button" onClick={handleRun} disabled={runLoading}>

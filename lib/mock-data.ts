@@ -605,7 +605,9 @@ export const createInitialSession = (sessionId: string, userId: string, problemI
   readyAt: Date.now() + 2200,
   files: createStarterFiles(language),
   messages: createStarterMessages(),
-  traces: createStarterTraces()
+  traces: createStarterTraces(),
+  aiModel: "aig-default",
+  aiProvider: "default"
 });
 
 export const createSubmission = (submissionId: string, sessionId: string): Submission => ({
