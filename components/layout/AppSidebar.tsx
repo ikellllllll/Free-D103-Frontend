@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookOpen, Wrench, User, Sun, Moon, LogOut } from "lucide-react";
+import { BookOpen, Cpu, User, Sun, Moon, LogOut } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
@@ -13,7 +13,7 @@ import { useUiStore } from "@/store/uiStore";
 
 const navItems = [
   { href: "/problems", icon: BookOpen, label: "과제 목록" },
-  { href: "/workshop", icon: Wrench, label: "워크숍" },
+  { href: "/harness", icon: Cpu, label: "하네스" },
   { href: "/mypage", icon: User, label: "마이페이지" }
 ];
 

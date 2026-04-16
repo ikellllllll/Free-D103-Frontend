@@ -4723,3 +4723,328 @@ html[data-theme="light"] .design-dev .problem-table__head {
     grid-template-columns: 1fr;
   }
 }
+
+/* ─── Harness page ───────────────────────────────────────────── */
+.harness-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 280px;
+  gap: 16px;
+  height: calc(100vh - var(--header-h, 56px) - 32px);
+  align-items: start;
+}
+
+/* File tree */
+.harness-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  overflow: hidden;
+  height: 100%;
+}
+
+.harness-tree__header {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.harness-tree__nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.harness-tree__footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+}
+
+.harness-save-all {
+  width: 100%;
+  font-size: 0.82rem;
+}
+
+/* File item */
+.harness-file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  cursor: pointer;
+  color: var(--text);
+  transition: background 0.15s;
+  position: relative;
+}
+
+.harness-file-item:last-child {
+  border-bottom: none;
+}
+
+.harness-file-item:hover { background: var(--panel-strong); }
+
+.harness-file-item--active {
+  background: var(--accent-dim);
+  border-left: 3px solid var(--accent);
+  padding-left: 13px;
+}
+
+.harness-file-item__icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.harness-file-item__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.harness-file-item__name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.harness-file-item__path {
+  font-size: 0.7rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.harness-file-tag {
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+.harness-file-tag--main  { background: var(--accent-dim); color: var(--accent); }
+.harness-file-tag--meta  { background: rgba(20, 184, 166, 0.14); color: var(--teal); }
+.harness-file-tag--temp  { background: rgba(251, 191, 36, 0.14); color: var(--amber); }
+
+.harness-dirty-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--amber);
+  flex-shrink: 0;
+}
+
+/* Editor area */
+.harness-editor-area {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  overflow: hidden;
+  height: 100%;
+}
+
+.harness-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-strong);
+}
+
+.harness-editor-header__left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.harness-editor-path {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+.harness-unsaved-badge {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--amber);
+  font-weight: 600;
+}
+
+.harness-editor-header__actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.harness-editor-header__actions .button {
+  font-size: 0.82rem;
+  padding: 5px 12px;
+}
+
+.harness-editor-body {
+  flex: 1;
+  overflow: hidden;
+}
+
+.harness-textarea {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 16px 18px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.84rem;
+  line-height: 1.7;
+  resize: none;
+  box-sizing: border-box;
+}
+
+/* BYOK panel */
+.harness-byok-panel { height: 100%; overflow-y: auto; }
+.harness-byok-panel .card { height: 100%; box-sizing: border-box; }
+
+.harness-byok-title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 6px 0 4px;
+}
+
+.harness-byok-desc { margin-bottom: 0; }
+
+.harness-byok-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.harness-byok-item {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.harness-byok-item__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.harness-byok-item__label {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.harness-byok-status {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.harness-byok-status--set   { background: rgba(74, 222, 128, 0.13); color: var(--green); }
+.harness-byok-status--empty { background: var(--panel-strong); color: var(--muted); }
+
+.harness-byok-item__display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.harness-byok-value {
+  font-size: 0.76rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  word-break: break-all;
+  flex: 1;
+  min-width: 0;
+}
+
+.harness-byok-item__display-actions,
+.harness-byok-item__edit-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.harness-byok-item__display-actions .button,
+.harness-byok-item__edit-actions .button {
+  font-size: 0.76rem;
+  padding: 4px 9px;
+}
+
+.harness-byok-item__edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.harness-byok-input {
+  font-size: 0.8rem;
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+}
+
+.harness-byok-delete {
+  color: var(--red);
+  border-color: rgba(248, 113, 113, 0.3);
+}
+
+.harness-byok-delete:hover {
+  background: rgba(248, 113, 113, 0.1);
+}
+
+@media (max-width: 1100px) {
+  .harness-layout {
+    grid-template-columns: 200px minmax(0, 1fr);
+    grid-template-rows: 1fr auto;
+  }
+
+  .harness-byok-panel {
+    grid-column: 1 / -1;
+    height: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .harness-layout {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .harness-tree,
+  .harness-editor-area {
+    height: auto;
+    min-height: 200px;
+  }
+
+  .harness-editor-area { min-height: 360px; }
+  .harness-textarea { min-height: 280px; }
+}
