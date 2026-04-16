@@ -1,31 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { Card } from "@/components/common/Card";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
 import { useAuthStore } from "@/store/authStore";
-
-interface HistoryItem {
-  id: string;
-  title: string;
-  date: string;
-  passRate: string;
-  aiUsage: string;
-  href: string;
-}
-
-interface ResumableSession {
-  sessionId: string;
-  title: string;
-  level: 1 | 2 | 3;
-  category: string;
-  aiRequestCount: number;
-  lastSavedAt: string;
-  href: string;
-}
 
 interface AvgScore {
   label: string;
@@ -47,6 +29,96 @@ const TONE_CLASS: Record<"good" | "mid" | "warn", string> = {
 
 const LEVEL_LABEL: Record<1 | 2 | 3, string> = { 1: "Lv 1", 2: "Lv 2", 3: "Lv 3" };
 
+const BYOK_PROVIDERS = [
+  { id: "anthropic", label: "Anthropic", placeholder: "sk-ant-..." },
+  { id: "openai", label: "OpenAI", placeholder: "sk-..." },
+  { id: "google", label: "Google AI", placeholder: "AIza..." },
+  { id: "mistral", label: "Mistral", placeholder: "..." }
+] as const;
+
+type ProviderId = (typeof BYOK_PROVIDERS)[number]["id"];
+
+const BYOK_STORAGE_KEY = "aig-byok-keys-v1";
+
+function loadByokKeys(): Partial<Record<ProviderId, string>> {
+  try {
+    const raw = localStorage.getItem(BYOK_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveByokKeys(keys: Partial<Record<ProviderId, string>>) {
+  localStorage.setItem(BYOK_STORAGE_KEY, JSON.stringify(keys));
+}
+
+function ByokSection() {
+  const [keys, setKeys] = useState<Partial<Record<ProviderId, string>>>(() => loadByokKeys());
+  const [saved, setSaved] = useState(false);
+
+  const handleChange = (id: ProviderId, value: string) => {
+    setKeys((prev) => ({ ...prev, [id]: value }));
+    setSaved(false);
+  };
+
+  const handleSave = () => {
+    saveByokKeys(keys);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  return (
+    <Card>
+      <div className="section-head">
+        <div>
+          <span className="eyebrow">API 키</span>
+          <h2>BYOK — AI 제공자 키</h2>
+          <p className="muted-copy" style={{ marginTop: 4 }}>
+            직접 보유한 API 키를 등록하면 해당 AI 모델을 사용할 수 있습니다.
+            키는 브라우저 로컬 스토리지에만 저장되며 서버로 전송되지 않습니다.
+          </p>
+        </div>
+      </div>
+
+      <div className="byok-grid">
+        {BYOK_PROVIDERS.map(({ id, label, placeholder }) => (
+          <div key={id} className="byok-row">
+            <label className="byok-row__label" htmlFor={`byok-${id}`}>{label}</label>
+            <input
+              id={`byok-${id}`}
+              type="password"
+              className="byok-row__input"
+              placeholder={placeholder}
+              value={keys[id] ?? ""}
+              onChange={(e) => handleChange(id, e.target.value)}
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </div>
+        ))}
+      </div>
+
+      <div className="byok-actions">
+        <button type="button" className="button button--primary" onClick={handleSave}>
+          {saved ? "저장됨 ✓" : "저장"}
+        </button>
+        <button
+          type="button"
+          className="button"
+          onClick={() => {
+            const empty: Partial<Record<ProviderId, string>> = {};
+            setKeys(empty);
+            saveByokKeys(empty);
+          }}
+        >
+          전체 삭제
+        </button>
+      </div>
+    </Card>
+  );
+}
+
 export default function MyPage() {
   const { withPrefix } = useRouteScope();
   const user = useAuthStore((state) => state.user);
@@ -56,10 +128,8 @@ export default function MyPage() {
     enabled: !!user
   });
 
-  const resumableSessions = (data?.resumableSessions ?? []) as ResumableSession[];
   const avgScores = (data?.avgScores ?? []) as AvgScore[];
   const levelBreakdown = (data?.levelBreakdown ?? []) as LevelBreakdown[];
-  const history = (data?.history ?? []) as HistoryItem[];
 
   return (
     <div className="stack-24">
@@ -100,32 +170,6 @@ export default function MyPage() {
         )}
       </Card>
 
-      {/* 진행 중 세션 — 이어하기 */}
-      {resumableSessions.length > 0 && (
-        <Card>
-          <div className="section-head">
-            <div>
-              <span className="eyebrow">진행 중</span>
-              <h2>이어서 풀기</h2>
-            </div>
-          </div>
-
-          <div className="resume-list">
-            {resumableSessions.map((item) => (
-              <div key={item.sessionId} className="resume-row">
-                <div className="resume-row__info">
-                  <strong>{item.title}</strong>
-                  <small>Lv {item.level} · {item.category} · AI {item.aiRequestCount}회</small>
-                </div>
-                <Link href={withPrefix(item.href)} className="chip chip--accent">
-                  이어하기
-                </Link>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
       {/* 역량 점수 — 완료된 리포트가 있을 때만 */}
       {avgScores.length > 0 && (
         <Card>
@@ -156,41 +200,24 @@ export default function MyPage() {
         </Card>
       )}
 
-      {/* 제출 이력 */}
+      {/* 풀이 기록 바로가기 */}
       <Card>
         <div className="section-head">
           <div>
-            <span className="eyebrow">이력</span>
-            <h2>제출 이력</h2>
+            <span className="eyebrow">풀이</span>
+            <h2>풀이 기록</h2>
+            <p className="muted-copy" style={{ marginTop: 4 }}>
+              진행 중이거나 완료한 과제 풀이 목록을 확인할 수 있습니다.
+            </p>
           </div>
+          <Link href={withPrefix("/sessions")} className="button button--primary">
+            풀이 기록 보기
+          </Link>
         </div>
-
-        {history.length === 0 ? (
-          <p className="muted-copy" style={{ padding: "16px 0" }}>아직 제출한 과제가 없어요.</p>
-        ) : (
-          <div className="history-table">
-            <div className="history-row history-row--head">
-              <span>과제</span>
-              <span>제출일</span>
-              <span>통과율</span>
-              <span>AI 활용</span>
-              <span>열기</span>
-            </div>
-
-            {history.map((item) => (
-              <div key={`${item.title}-${item.date}`} className="history-row">
-                <span>{item.title}</span>
-                <span>{item.date}</span>
-                <span>{item.passRate}</span>
-                <span>{item.aiUsage}</span>
-                <Link href={withPrefix(item.href)} className="text-link">
-                  열기
-                </Link>
-              </div>
-            ))}
-          </div>
-        )}
       </Card>
+
+      {/* BYOK */}
+      <ByokSection />
     </div>
   );
 }

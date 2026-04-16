@@ -56,3 +56,20 @@ export interface Submission {
   submittedAt: string;
   readyAt: number;
 }
+
+export interface SessionListItem {
+  sessionId: string;
+  problemId: string;
+  problemTitle: string;
+  problemLevel: 1 | 2 | 3;
+  problemCategory: string;
+  difficulty: string;
+  language: ProblemLanguage;
+  status: SessionStatus;
+  startedAt: string;
+  endedAt: string | null;
+  aiRequestCount: number;
+  submissionId: string | null;
+  passRate: string | null;
+  score: number | null;
+}

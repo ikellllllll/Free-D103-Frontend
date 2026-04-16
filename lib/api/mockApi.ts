@@ -18,7 +18,7 @@ import type { AiEditSuggestion, AiMessage, TraceEvent } from "@/lib/types/ai";
 import type { AuthUser, LoginInput, SignupInput } from "@/lib/types/auth";
 import type { ProblemDetail, ProblemSummary } from "@/lib/types/problem";
 import type { FeedbackReport } from "@/lib/types/report";
-import type { ProblemLanguage, RunResult, SolveSession, Submission, TestRunResult } from "@/lib/types/session";
+import type { ProblemLanguage, RunResult, SessionListItem, SolveSession, Submission, TestRunResult } from "@/lib/types/session";
 
 interface MockDb {
   users: AuthUser[];
@@ -41,14 +41,65 @@ const getStorage = () => {
   return window.localStorage;
 };
 
-const createSeedDb = (): MockDb => ({
-  users: [defaultUser],
-  auth: { currentUserId: defaultUser.id },
-  problems,
-  sessions: [],
-  submissions: [],
-  reports: []
-});
+const createSeedDb = (): MockDb => {
+  const now = new Date();
+  const daysAgo = (n: number) => new Date(now.getTime() - n * 86400000).toISOString();
+
+  const s1Id = "session-seed-01";
+  const s2Id = "session-seed-02";
+  const sub1Id = "submission-seed-01";
+
+  const session1: SolveSession = {
+    id: s1Id,
+    workspaceId: `ws-${s1Id}`,
+    problemId: "todo-api",
+    userId: defaultUser.id,
+    language: "java",
+    status: "SUBMITTED",
+    aiRequestCount: 8,
+    lastSavedAt: daysAgo(7),
+    createdAt: daysAgo(8),
+    readyAt: 0,
+    files: createStarterFiles("java"),
+    messages: [],
+    traces: []
+  };
+
+  const session2: SolveSession = {
+    id: s2Id,
+    workspaceId: `ws-${s2Id}`,
+    problemId: "jwt-auth",
+    userId: defaultUser.id,
+    language: "python",
+    status: "IN_PROGRESS",
+    aiRequestCount: 3,
+    lastSavedAt: daysAgo(2),
+    createdAt: daysAgo(3),
+    readyAt: 0,
+    files: createStarterFiles("python"),
+    messages: [],
+    traces: []
+  };
+
+  const submission1: Submission = {
+    id: sub1Id,
+    sessionId: s1Id,
+    status: "COMPLETED",
+    submittedAt: daysAgo(7),
+    readyAt: 0
+  };
+
+  const report1 = createFeedbackReport(sub1Id, []);
+
+  return {
+    users: [defaultUser],
+    auth: { currentUserId: defaultUser.id },
+    problems,
+    sessions: [session1, session2],
+    submissions: [submission1],
+    reports: [report1]
+  };
+};
 
 const formatClock = (value: Date) =>
   value.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -470,6 +521,45 @@ export const mockApi = {
     await delay(150);
     const report = await this.getReport(submissionId);
     return clone(report.timeline);
+  },
+
+  async getSessions(userId: string): Promise<SessionListItem[]> {
+    await delay(200);
+    const db = readDb();
+    const userSessions = db.sessions
+      .filter((s) => s.userId === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return userSessions
+      .map((session): SessionListItem | null => {
+        const problem = getProblemById(session.problemId);
+        if (!problem) return null;
+
+        const submission = session.status === "SUBMITTED"
+          ? db.submissions.find((s) => s.sessionId === session.id) ?? null
+          : null;
+        const report = submission
+          ? db.reports.find((r) => r.submissionId === submission.id) ?? null
+          : null;
+
+        return {
+          sessionId: session.id,
+          problemId: session.problemId,
+          problemTitle: problem.title,
+          problemLevel: problem.level,
+          problemCategory: problem.category,
+          difficulty: problem.level === 1 ? "쉬움" : problem.level === 2 ? "보통" : "어려움",
+          language: session.language ?? "java",
+          status: session.status,
+          startedAt: session.createdAt,
+          endedAt: submission?.submittedAt ?? null,
+          aiRequestCount: session.aiRequestCount,
+          submissionId: submission?.id ?? null,
+          passRate: report?.status === "COMPLETED" ? report.testSummary : null,
+          score: report?.status === "COMPLETED" ? report.testPassRate : null
+        };
+      })
+      .filter((item): item is SessionListItem => item !== null);
   },
 
   async getMyDashboard(userId: string) {

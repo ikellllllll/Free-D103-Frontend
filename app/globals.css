@@ -5048,3 +5048,257 @@ html[data-theme="light"] .design-dev .problem-table__head {
   .harness-editor-area { min-height: 360px; }
   .harness-textarea { min-height: 280px; }
 }
+
+/* ─── Session List (/sessions) ──────────────────────────────── */
+
+.slist-filters {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+}
+
+.slist-filter-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--muted);
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.slist-filter-tab:hover {
+  color: var(--fg);
+}
+
+.slist-filter-tab--active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.slist-filter-tab__count {
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  min-width: 20px;
+  text-align: center;
+}
+
+.slist-filter-tab--active .slist-filter-tab__count {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+}
+
+.slist-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.slist-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  text-decoration: none;
+  color: var(--fg);
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  transition: background 0.12s;
+}
+
+.slist-row:last-child {
+  border-bottom: none;
+}
+
+.slist-row:hover {
+  background: var(--surface-2);
+}
+
+.slist-row__left {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.slist-row__badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slist-row__cat {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.slist-row__title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.slist-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  flex-wrap: wrap;
+}
+
+.slist-row__divider {
+  color: var(--border);
+}
+
+.slist-row__pass {
+  color: var(--green);
+  font-weight: 600;
+}
+
+.slist-lang-badge {
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.slist-row__right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.slist-row__action {
+  font-size: 0.8rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.slist-row:hover .slist-row__action {
+  color: var(--accent);
+}
+
+.slist-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 60px 24px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.slist-empty strong {
+  font-size: 1rem;
+  color: var(--fg);
+}
+
+.slist-empty p {
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+/* page-header utility */
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.page-header h1 {
+  margin: 4px 0 4px;
+}
+
+.page-header .muted-copy {
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  .slist-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .slist-row__right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .page-header {
+    flex-direction: column;
+  }
+}
+
+/* ─── BYOK (마이페이지) ──────────────────────────────────────── */
+
+.byok-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.byok-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.byok-row__label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.byok-row__input {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  padding: 7px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--fg);
+  width: 100%;
+}
+
+.byok-row__input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.byok-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+@media (max-width: 500px) {
+  .byok-row {
+    grid-template-columns: 1fr;
+  }
+}
