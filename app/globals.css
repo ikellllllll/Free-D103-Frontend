@@ -5956,11 +5956,15 @@ html[data-theme="light"] .design-dev .problem-table__head {
 .twb-col--spans  { width: 260px; flex-shrink: 0; }
 .twb-col--detail { flex: 1; }
 
-/* column resizer (visual divider) */
+/* column resizer (visual vertical divider) */
 .twb-col-resizer {
   width: 1px;
-  background: var(--border);
   flex-shrink: 0;
+  /* 기본(다크): 밝은 선 */
+  background: rgba(255,255,255,0.12);
+}
+html[data-theme="light"] .twb-col-resizer {
+  background: rgba(0,0,0,0.18);
 }
 
 /* column header */
@@ -6097,13 +6101,13 @@ html[data-theme="light"] .design-dev .problem-table__head {
   z-index: 9999;
   width: 240px;
   padding: 9px 12px;
-  background: var(--surface-3, #1e1e2e);
-  border: 1px solid var(--border);
+  background: #1a1d2e;
+  border: 1px solid rgba(255,255,255,.1);
   border-radius: 8px;
   font-size: 0.69rem;
   line-height: 1.6;
-  color: var(--text);
-  box-shadow: 0 6px 24px rgba(0,0,0,.35);
+  color: #e2e8f0;           /* 항상 밝은 글씨 — 라이트/다크 무관 */
+  box-shadow: 0 6px 24px rgba(0,0,0,.45);
   white-space: normal;
   pointer-events: none;
 }
