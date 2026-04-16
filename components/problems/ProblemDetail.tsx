@@ -40,14 +40,15 @@ const MODEL_OPTIONS: Record<string, ModelOption[]> = {
     { id: "claude-haiku-4-5",  label: "Claude Haiku 4.5",  note: "빠름 · 경량", provider: "anthropic" }
   ],
   openai: [
-    { id: "gpt-4.1",       label: "GPT-4.1",       note: "최신 플래그십", provider: "openai" },
-    { id: "gpt-4.1-mini",  label: "GPT-4.1 mini",  note: "경량 · 빠름",  provider: "openai" },
-    { id: "gpt-4o",        label: "GPT-4o",         note: "멀티모달",     provider: "openai" },
-    { id: "gpt-4o-mini",   label: "GPT-4o mini",    note: "경량",         provider: "openai" }
+    { id: "gpt-5.4",      label: "GPT-5.4",      note: "최신 플래그십", provider: "openai" },
+    { id: "gpt-5.4-mini", label: "GPT-5.4 mini", note: "균형",          provider: "openai" },
+    { id: "gpt-5.4-nano", label: "GPT-5.4 nano", note: "경량 · 빠름",   provider: "openai" },
+    { id: "gpt-4.1",      label: "GPT-4.1",      note: "이전 세대",     provider: "openai" }
   ],
   google: [
-    { id: "gemini-2.5-pro",   label: "Gemini 2.5 Pro",   note: "최신 플래그십", provider: "google" },
-    { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", note: "고성능 · 저가", provider: "google" }
+    { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro",   note: "최신 플래그십",  provider: "google" },
+    { id: "gemini-2.5-pro",         label: "Gemini 2.5 Pro",   note: "안정 · 장문맥",  provider: "google" },
+    { id: "gemini-2.5-flash",       label: "Gemini 2.5 Flash", note: "고성능 · 저가",  provider: "google" }
   ]
 };
 
