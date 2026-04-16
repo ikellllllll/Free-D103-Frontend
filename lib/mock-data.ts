@@ -469,22 +469,22 @@ export const starterTracesSeed: TraceEvent[] = [
 
 export const reportScores: ScoreItem[] = [
   {
-    label: "프롬프트 명확성",
+    label: "하네스 품질 점수",
     score: 82,
     tone: "good",
-    note: "에러 메시지와 현재 파일 문맥을 함께 제공해 요청 품질이 안정적이었습니다."
+    note: "HARNESS.md에 작성된 에이전트 지시 품질과 문제 문맥 명확성이 우수했습니다."
   },
   {
-    label: "응답 검증",
+    label: "실행 품질 점수",
     score: 46,
     tone: "warn",
-    note: "AI 제안을 적용한 뒤 테스트와 상태 코드를 더 자주 확인할 필요가 있습니다."
+    note: "AI 제안 코드를 실행·테스트로 검증하고 결과를 반영하는 빈도를 높일 필요가 있습니다."
   },
   {
-    label: "자기 주도성",
+    label: "트레이스 활용 점수",
     score: 65,
     tone: "mid",
-    note: "문제를 쪼개는 흐름은 좋지만 일부 구간에서 AI 의존도가 다소 높았습니다."
+    note: "에이전트 트레이스를 참고하는 흐름은 있으나 일부 구간에서 활용도가 다소 낮았습니다."
   }
 ];
 

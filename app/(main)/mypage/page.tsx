@@ -27,6 +27,13 @@ const TONE_CLASS: Record<"good" | "mid" | "warn", string> = {
   warn: "progress-bar__fill--warn"
 };
 
+// 점수별 툴팁 설명
+const SCORE_TIPS: Record<string, string> = {
+  "하네스 품질 점수": "HARNESS.md에 작성된 에이전트 지시 품질과 문제 문맥 명확성을 평가합니다.",
+  "실행 품질 점수": "AI 제안 코드를 실행·테스트로 검증하고 결과를 코드에 반영한 정도를 측정합니다.",
+  "트레이스 활용 점수": "에이전트 실행 트레이스를 얼마나 활용하고 디버깅에 적용했는지 평가합니다."
+};
+
 const BYOK_PROVIDERS = [
   { id: "anthropic", label: "Anthropic", placeholder: "sk-ant-..." },
   { id: "openai", label: "OpenAI", placeholder: "sk-..." },
@@ -49,6 +56,17 @@ function saveByokKeys(keys: Partial<Record<ProviderId, string>>) {
   localStorage.setItem(BYOK_STORAGE_KEY, JSON.stringify(keys));
 }
 
+function ScoreTooltip({ label }: { label: string }) {
+  const tip = SCORE_TIPS[label];
+  if (!tip) return null;
+  return (
+    <span className="mp-tooltip-wrap" aria-label={tip}>
+      <span className="mp-tooltip-icon">?</span>
+      <span className="mp-tooltip-bubble">{tip}</span>
+    </span>
+  );
+}
+
 function ByokSection() {
   const [keys, setKeys] = useState<Partial<Record<ProviderId, string>>>(() => loadByokKeys());
   const [saved, setSaved] = useState(false);
@@ -68,6 +86,7 @@ function ByokSection() {
       <div className="mp-card__head">
         <span className="eyebrow">API 키</span>
         <h2 className="mp-card__title">BYOK</h2>
+        <p className="muted-copy mp-card__sub">키는 브라우저 로컬 스토리지에만 저장됩니다.</p>
       </div>
       <div className="byok-compact-grid">
         {BYOK_PROVIDERS.map(({ id, label, placeholder }) => (
@@ -93,11 +112,14 @@ function ByokSection() {
         <button
           type="button"
           className="button button--sm"
-          onClick={() => { const e: Partial<Record<ProviderId, string>> = {}; setKeys(e); saveByokKeys(e); }}
+          onClick={() => {
+            const e: Partial<Record<ProviderId, string>> = {};
+            setKeys(e);
+            saveByokKeys(e);
+          }}
         >
           초기화
         </button>
-        <span className="mp-byok-note">키는 브라우저에만 저장됩니다.</span>
       </div>
     </Card>
   );
@@ -119,6 +141,7 @@ export default function MyPage() {
     <div className="stack-16">
       {/* ── 프로필 카드 ── */}
       <Card className="mp-profile">
+        {/* 좌: 아바타 + 이름 */}
         <div className="mp-profile__left">
           <span className="profile-avatar">{data?.user.name.slice(0, 1) ?? "H"}</span>
           <div className="mp-profile__info">
@@ -128,19 +151,57 @@ export default function MyPage() {
           </div>
         </div>
 
-        <div className="mp-profile__right">
-          {/* 인라인 통계 */}
-          <div className="mp-stats">
-            {(data?.stats ?? []).map((stat) => (
-              <div key={stat.label} className="mp-stat">
-                <strong className="mp-stat__val">{stat.value}</strong>
-                <span className="mp-stat__label">{stat.label}</span>
-                <span className="mp-stat__note">{stat.note}</span>
-              </div>
-            ))}
+        {/* 우: 통계 */}
+        <div className="mp-stats">
+          {(data?.stats ?? []).map((stat) => (
+            <div key={stat.label} className="mp-stat">
+              <strong className="mp-stat__val">{stat.value}</strong>
+              <span className="mp-stat__label">{stat.label}</span>
+              <span className="mp-stat__note">{stat.note}</span>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* ── 하단 2열 ── */}
+      <div className="mp-bottom">
+        {/* AI 활용 점수 */}
+        <Card className="mp-card">
+          <div className="mp-card__head">
+            <span className="eyebrow">역량</span>
+            <h2 className="mp-card__title">AI 활용 점수</h2>
+            <span className="muted-copy mp-card__sub">{data?.history?.length ?? 0}회 제출 평균</span>
+          </div>
+          {avgScores.length === 0 ? (
+            <p className="muted-copy" style={{ fontSize: "0.82rem" }}>제출 완료 후 점수가 집계됩니다.</p>
+          ) : (
+            <div className="mp-scores">
+              {avgScores.map((item) => (
+                <div key={item.label} className="mp-score-row">
+                  <div className="mp-score-row__head">
+                    <span className="mp-score-row__name">
+                      {item.label}
+                      <ScoreTooltip label={item.label} />
+                    </span>
+                    <strong>{item.score}</strong>
+                  </div>
+                  <div className="progress-bar progress-bar--soft">
+                    <span className={TONE_CLASS[item.tone]} style={{ width: `${item.score}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* 풀이 기록 + 레벨별 현황 */}
+        <Card className="mp-card">
+          <div className="mp-card__head">
+            <span className="eyebrow">풀이</span>
+            <h2 className="mp-card__title">풀이 기록</h2>
+            <span className="muted-copy mp-card__sub">진행 중·완료 과제 목록</span>
           </div>
 
-          {/* 레벨별 */}
           {levelBreakdown.length > 0 && (
             <div className="mp-levels">
               {levelBreakdown.map(({ level, total, completed }) => (
@@ -154,50 +215,15 @@ export default function MyPage() {
               ))}
             </div>
           )}
-        </div>
-      </Card>
 
-      {/* ── 하단 2열 ── */}
-      <div className="mp-bottom">
-        {/* AI 활용 점수 */}
-        {avgScores.length > 0 && (
-          <Card className="mp-card">
-            <div className="mp-card__head">
-              <span className="eyebrow">역량</span>
-              <h2 className="mp-card__title">AI 활용 점수</h2>
-              <span className="muted-copy mp-card__sub">{data?.history?.length ?? 0}회 제출 평균</span>
-            </div>
-            <div className="mp-scores">
-              {avgScores.map((item) => (
-                <div key={item.label} className="mp-score-row">
-                  <div className="mp-score-row__head">
-                    <span>{item.label}</span>
-                    <strong>{item.score}</strong>
-                  </div>
-                  <div className="progress-bar progress-bar--soft">
-                    <span className={TONE_CLASS[item.tone]} style={{ width: `${item.score}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
-
-        {/* 풀이 기록 바로가기 */}
-        <Card className="mp-card mp-sessions-card">
-          <div className="mp-card__head">
-            <span className="eyebrow">풀이</span>
-            <h2 className="mp-card__title">풀이 기록</h2>
-            <span className="muted-copy mp-card__sub">진행 중·완료 과제 목록</span>
-          </div>
-          <Link href={withPrefix("/sessions")} className="button button--primary mp-sessions-btn">
+          <Link href={withPrefix("/sessions")} className="button button--primary button--sm mp-sessions-btn">
             풀이 기록 보기 →
           </Link>
         </Card>
-
-        {/* BYOK */}
-        <ByokSection />
       </div>
+
+      {/* ── BYOK ── */}
+      <ByokSection />
     </div>
   );
 }

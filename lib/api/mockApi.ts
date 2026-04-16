@@ -29,7 +29,7 @@ interface MockDb {
   reports: FeedbackReport[];
 }
 
-const STORAGE_KEY = "aig-mock-db-v1";
+const STORAGE_KEY = "aig-mock-db-v2";
 const delay = (ms = 300) => new Promise((resolve) => window.setTimeout(resolve, ms));
 const uid = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
