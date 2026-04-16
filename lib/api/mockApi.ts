@@ -294,6 +294,17 @@ export const mockApi = {
     return clone(getSessionOrThrow(readDb(), sessionId));
   },
 
+  async switchLanguage(sessionId: string, language: ProblemLanguage) {
+    await delay(200);
+    const db = readDb();
+    const session = getSessionOrThrow(db, sessionId);
+    session.language = language;
+    session.files = createStarterFiles(language);
+    appendTrace(session, "실행", `언어 전환: ${language === "java" ? "Java" : "Python"}`, "스타터 파일 초기화");
+    writeDb(db);
+    return clone(session);
+  },
+
   async getWorkspace(sessionId: string) {
     await delay(160);
     const session = getSessionOrThrow(readDb(), sessionId);

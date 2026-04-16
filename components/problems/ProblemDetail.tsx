@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import Markdown from "react-markdown";
@@ -11,7 +10,6 @@ import { Card } from "@/components/common/Card";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
 import type { ProblemDetail as ProblemDetailType } from "@/lib/types/problem";
-import type { ProblemLanguage } from "@/lib/types/session";
 import { useAuthStore } from "@/store/authStore";
 import { useUiStore } from "@/store/uiStore";
 
@@ -26,8 +24,6 @@ export function ProblemDetail({ problemId }: { problemId: string }) {
   const { withPrefix } = useRouteScope();
   const user = useAuthStore((state) => state.user);
   const addToast = useUiStore((state) => state.addToast);
-  const [language, setLanguage] = useState<ProblemLanguage>("java");
-  const [starting, setStarting] = useState(false);
   const { data: problem, isLoading, isError } = useQuery({
     queryKey: ["problem", problemId],
     queryFn: () => mockApi.getProblemDetail(problemId)
@@ -40,13 +36,11 @@ export function ProblemDetail({ problemId }: { problemId: string }) {
       return;
     }
 
-    setStarting(true);
     try {
-      const session = await mockApi.createSession(problemId, user.id, language);
+      const session = await mockApi.createSession(problemId, user.id);
       addToast("풀이 세션이 생성되었습니다.", "success");
       router.push(withPrefix(`/sessions/${session.id}/start`));
     } catch (error) {
-      setStarting(false);
       addToast(error instanceof Error ? error.message : "세션 생성에 실패했습니다.", "error");
     }
   };
@@ -73,29 +67,15 @@ export function ProblemDetail({ problemId }: { problemId: string }) {
     );
   }
 
-  return (
-    <ProblemDetailContent
-      problem={problem}
-      language={language}
-      onLanguageChange={setLanguage}
-      onStart={handleStart}
-      starting={starting}
-    />
-  );
+  return <ProblemDetailContent problem={problem} onStart={handleStart} />;
 }
 
 function ProblemDetailContent({
   problem,
-  language,
-  onLanguageChange,
-  onStart,
-  starting
+  onStart
 }: {
   problem: ProblemDetailType;
-  language: ProblemLanguage;
-  onLanguageChange: (l: ProblemLanguage) => void;
   onStart: () => void;
-  starting: boolean;
 }) {
   const { withPrefix } = useRouteScope();
 
@@ -111,26 +91,8 @@ function ProblemDetailContent({
             <Badge tone={levelTone[problem.level]}>Lv {problem.level}</Badge>
           </div>
           <p className="muted-copy problem-summary">{problem.summary}</p>
-
-          <div className="lang-selector">
-            <span className="lang-selector__label">언어 선택</span>
-            <div className="lang-selector__options">
-              {(["java", "python"] as const).map((lang) => (
-                <button
-                  key={lang}
-                  type="button"
-                  className={`lang-option${language === lang ? " lang-option--active" : ""}`}
-                  onClick={() => onLanguageChange(lang)}
-                >
-                  <span className="lang-option__icon">{lang === "java" ? "☕" : "🐍"}</span>
-                  <span>{lang === "java" ? "Java" : "Python"}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <button className="button button--primary problem-start-btn" onClick={onStart} disabled={starting}>
-            {starting ? "세션 생성 중..." : "풀이 시작"}
+          <button className="button button--primary problem-start-btn" onClick={onStart}>
+            풀이 시작
           </button>
         </Card>
 
@@ -160,10 +122,6 @@ function ProblemDetailContent({
               <strong className="problem-meta__value">{problem.category}</strong>
             </div>
             <div className="problem-meta__item">
-              <span className="problem-meta__label">언어</span>
-              <strong className="problem-meta__value">{language === "java" ? "☕ Java" : "🐍 Python"}</strong>
-            </div>
-            <div className="problem-meta__item">
               <span className="problem-meta__label">제한시간</span>
               <strong className="problem-meta__value">{problem.estimate}</strong>
             </div>
@@ -172,8 +130,8 @@ function ProblemDetailContent({
               <strong className="problem-meta__value">{problem.passRate}%</strong>
             </div>
           </div>
-          <button className="button button--primary problem-meta-card__btn" onClick={onStart} disabled={starting}>
-            {starting ? "세션 생성 중..." : "풀이 시작"}
+          <button className="button button--primary problem-meta-card__btn" onClick={onStart}>
+            풀이 시작
           </button>
         </Card>
       </aside>
