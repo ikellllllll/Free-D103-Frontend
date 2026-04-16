@@ -715,7 +715,9 @@ export const mockApi = {
           llmCalls: [
             { llmCallId: "llm-1", vendor: "CLAUDE" as const, modelName: "claude-sonnet-4-6", inputTokens: 3200, outputTokens: 480, latencyMs: 1840, finishReason: "end_turn", status: "COMPLETED" as const }
           ],
-          patches: []
+          patches: [],
+          inputJson: { task: "Analyze TodoService and plan refactoring strategy", files: ["src/TodoService.java", "src/TodoRepository.java"], goal: "Replace Optional.get() with orElseThrow() pattern" },
+          outputJson: { plan: ["1. Replace Optional.get() in getTodoById", "2. Replace in updateTodo", "3. Create TodoNotFoundException"], estimatedChanges: 2, confidence: 0.95 }
         },
         {
           spanId: "span-1-2",
@@ -736,7 +738,9 @@ export const mockApi = {
           patches: [
             { patchId: "patch-1", filePath: "src/TodoService.java", additions: 14, deletions: 6 },
             { patchId: "patch-2", filePath: "src/exception/TodoNotFoundException.java", additions: 18, deletions: 0 }
-          ]
+          ],
+          inputJson: { plan: ["Replace Optional.get() in getTodoById", "Create TodoNotFoundException"], currentContent: "public Todo getTodoById(Long id) {\n  return todoRepository.findById(id).get();\n}" },
+          outputJson: { status: "success", filesModified: ["src/TodoService.java", "src/exception/TodoNotFoundException.java"], compilationResult: "BUILD SUCCESS", patchSummary: "+14 -6 lines" }
         },
         {
           spanId: "span-1-3",
@@ -751,7 +755,9 @@ export const mockApi = {
             { toolCallId: "tc-5", toolName: "bash", argsJson: { cmd: "./gradlew test" }, durationMs: 3800, status: "COMPLETED" as const }
           ],
           llmCalls: [],
-          patches: []
+          patches: [],
+          inputJson: { command: "./gradlew test", scope: "full test suite" },
+          outputJson: { exitCode: 0, testsRun: 12, passed: 12, failed: 0, duration: "3.8s", summary: "BUILD SUCCESS" }
         }
       ]
     };
@@ -785,7 +791,9 @@ export const mockApi = {
           llmCalls: [
             { llmCallId: "llm-3", vendor: "CLAUDE" as const, modelName: "claude-sonnet-4-6", inputTokens: 3120, outputTokens: 620, latencyMs: 1600, finishReason: "end_turn", status: "COMPLETED" as const }
           ],
-          patches: []
+          patches: [],
+          inputJson: { task: "Analyze TodoService and plan refactoring strategy", files: ["src/TodoService.java"], goal: "Replace Optional.get() with orElseThrow() pattern" },
+          outputJson: { plan: ["Replace Optional.get() in getTodoById", "Create TodoNotFoundException"], estimatedChanges: 2, confidence: 0.88 }
         },
         {
           spanId: "span-2-2",
@@ -801,7 +809,9 @@ export const mockApi = {
             { toolCallId: "tc-8", toolName: "bash", argsJson: { cmd: "./gradlew compileJava" }, durationMs: 3800, status: "FAILED" as const }
           ],
           llmCalls: [],
-          patches: []
+          patches: [],
+          inputJson: { plan: ["Replace Optional.get() in getTodoById"], currentContent: "public Todo getTodoById(Long id) {\n  return todoRepository.findById(id).get();\n}" },
+          outputJson: { status: "FAILED", error: "cannot find symbol — TodoNotFoundException", exitCode: 1, buildOutput: "TodoService.java:24: error: cannot find symbol\n  throw new TodoNotFoundException(id);\n              ^" }
         }
       ]
     };

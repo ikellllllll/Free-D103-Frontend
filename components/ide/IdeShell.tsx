@@ -10,6 +10,7 @@ import { Badge } from "@/components/common/Badge";
 import { Card } from "@/components/common/Card";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { TracePanel } from "@/components/ide/TracePanel";
+import { TraceWorkbench } from "@/components/ide/TraceWorkbench";
 import { useAiChat } from "@/hooks/useAiChat";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { mockApi } from "@/lib/api/mockApi";
@@ -369,7 +370,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const [extensionQuery, setExtensionQuery] = useState("");
   const [agentSnapshotVersion, setAgentSnapshotVersion] = useState(INITIAL_AGENT_SNAPSHOT_VERSION);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
-  const [activeWorkbenchTab, setActiveWorkbenchTab] = useState<"code" | "problem">("code");
+  const [activeWorkbenchTab, setActiveWorkbenchTab] = useState<"code" | "problem" | "trace">("code");
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [openTabPaths, setOpenTabPaths] = useState<string[]>([]);
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
@@ -779,7 +780,11 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const problemRequirementsCount = problem?.requirements.length ?? 0;
   const problemCasesCount = problem?.publicCases.length ?? 0;
   const breadcrumbParts =
-    activeWorkbenchTab === "problem" ? ["problem", problem?.title ?? "brief"] : activeFile?.path.split("/") ?? [];
+    activeWorkbenchTab === "problem"
+      ? ["problem", problem?.title ?? "brief"]
+      : activeWorkbenchTab === "trace"
+        ? ["trace", "에이전트 실행 기록"]
+        : activeFile?.path.split("/") ?? [];
   const bottomTabMeta: Record<BottomPanelTab, string> = {
     output: runResult ? `code ${runResult.exitCode}` : "ready",
     tests: testResult ? `${testResult.passed}/${testResult.total}` : "idle",
@@ -1540,22 +1545,39 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               <span className="activity-bar__badge">{problemRequirementsCount}</span>
             </button>
 
-            {activityItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={
-                  activeWorkbenchTab === "code" && sidebarOpen && sidebarView === item.id
-                    ? "activity-bar__item activity-bar__item--active"
-                    : "activity-bar__item"
-                }
-                title={item.label}
-                onClick={() => handleActivityClick(item.id)}
-              >
-                <span className="activity-bar__label">{item.short}</span>
-                {activityMeta[item.id] ? <span className="activity-bar__badge">{activityMeta[item.id]}</span> : null}
-              </button>
-            ))}
+            {activityItems.map((item) =>
+              item.id === "trace" ? (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={
+                    activeWorkbenchTab === "trace"
+                      ? "activity-bar__item activity-bar__item--active"
+                      : "activity-bar__item"
+                  }
+                  title={item.label}
+                  onClick={() => setActiveWorkbenchTab("trace")}
+                >
+                  <span className="activity-bar__label">{item.short}</span>
+                  {activityMeta[item.id] ? <span className="activity-bar__badge">{activityMeta[item.id]}</span> : null}
+                </button>
+              ) : (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={
+                    activeWorkbenchTab === "code" && sidebarOpen && sidebarView === item.id
+                      ? "activity-bar__item activity-bar__item--active"
+                      : "activity-bar__item"
+                  }
+                  title={item.label}
+                  onClick={() => handleActivityClick(item.id)}
+                >
+                  <span className="activity-bar__label">{item.short}</span>
+                  {activityMeta[item.id] ? <span className="activity-bar__badge">{activityMeta[item.id]}</span> : null}
+                </button>
+              )
+            )}
 
             <button
               type="button"
@@ -1579,7 +1601,11 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           </div>
         </aside>
 
-        {activeWorkbenchTab === "problem" ? (
+        {activeWorkbenchTab === "trace" ? (
+          <div className="ide-shell__trace-wb">
+            <TraceWorkbench sessionId={sessionId} onClose={() => setActiveWorkbenchTab("code")} />
+          </div>
+        ) : activeWorkbenchTab === "problem" ? (
           <div className="ide-shell__problem">
             <div className="problem-stage">{renderProblemWorkspace()}</div>
             <div className="status-bar">

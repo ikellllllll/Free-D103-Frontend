@@ -41,6 +41,8 @@ export interface AgentSpan {
   toolCalls: AgentToolCall[];
   llmCalls: AgentLlmCall[];
   patches: AgentPatch[];
+  inputJson: Record<string, unknown> | null;
+  outputJson: Record<string, unknown> | null;
 }
 
 export interface AgentRunTrace {
