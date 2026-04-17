@@ -459,9 +459,10 @@ export function TraceWorkbench({ sessionId, onClose }: { sessionId: string; onCl
     queryFn:  () => mockApi.getAgentTraces(sessionId),
     staleTime: 30_000,
     refetchInterval: (query) => {
-      // 실행 중인 Trace가 있을 때만 5초 폴링, 없으면 중단
-      const hasRunning = query.state.data?.some((r) => r.status === "RUNNING");
-      return hasRunning ? 5000 : false;
+      // 완료/실패/취소된 Trace만 있으면 폴링 중단, 진행 중인 Trace가 있으면 5초 폴링
+      const TERMINAL: string[] = ["COMPLETED", "FAILED", "CANCELLED"];
+      const hasActive = (query.state.data ?? []).some((r) => !TERMINAL.includes(r.status));
+      return hasActive ? 5000 : false;
     }
   });
 
