@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { mockApi } from "@/lib/api/mockApi";
@@ -122,8 +122,8 @@ function flattenJson(obj: Record<string, unknown>, prefix = ""): Array<{ path: s
 
 function JsonTable({ data }: { data: Record<string, unknown> | null }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const rows = useMemo(() => (data ? flattenJson(data) : []), [data]);
   if (!data || Object.keys(data).length === 0) return null;
-  const rows = flattenJson(data);
   const toggle = (p: string) => setExpanded(prev => { const n = new Set(prev); n.has(p) ? n.delete(p) : n.add(p); return n; });
   return (
     <table className="twb-io-table">
@@ -177,7 +177,7 @@ const LOG_ICON: Record<string, string>  = { llm: "🤖", tool: "🔧", patch: "�
 const LOG_CLASS: Record<string, string> = { llm: "twb-log-row--llm", tool: "twb-log-row--tool", patch: "twb-log-row--patch", span: "twb-log-row--span" };
 
 function LogTimeline({ span }: { span: AgentSpan }) {
-  const entries = buildLogEntries(span);
+  const entries = useMemo(() => buildLogEntries(span), [span]);
   return (
     <div className="twb-log-timeline">
       <div className="twb-log-header"><span>offset</span><span>event</span><span>detail</span></div>
@@ -457,7 +457,12 @@ export function TraceWorkbench({ sessionId, onClose }: { sessionId: string; onCl
   const { data: runs = [], isLoading } = useQuery({
     queryKey: ["agentTraces", sessionId],
     queryFn:  () => mockApi.getAgentTraces(sessionId),
-    refetchInterval: 10000
+    staleTime: 30_000,
+    refetchInterval: (query) => {
+      // 실행 중인 Trace가 있을 때만 5초 폴링, 없으면 중단
+      const hasRunning = query.state.data?.some((r) => r.status === "RUNNING");
+      return hasRunning ? 5000 : false;
+    }
   });
 
   const handleSelectRun = (run: AgentRunTrace) => {
