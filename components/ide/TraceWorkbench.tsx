@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { mockApi } from "@/lib/api/mockApi";
@@ -19,6 +19,7 @@ const STATUS_BADGE: Record<string, string> = {
   COMPLETED: "twb-badge twb-badge--ok", FAILED: "twb-badge twb-badge--err",
   RUNNING: "twb-badge twb-badge--run", PENDING: "twb-badge twb-badge--idle", CANCELLED: "twb-badge twb-badge--idle"
 };
+const TRACE_PAGE_SIZE = 6;
 
 function fmtDuration(ms: number | null) {
   if (ms === null) return "-";
@@ -33,6 +34,9 @@ function fmtTime(iso: string) {
 function fmtDate(iso: string) {
   const d = new Date(iso);
   return `${(d.getMonth() + 1).toString().padStart(2, "0")}.${d.getDate().toString().padStart(2, "0")} ${d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false })}`;
+}
+function getSortedSpans(run: AgentRunTrace) {
+  return [...run.spans].sort((a, b) => a.sequenceNo - b.sequenceNo);
 }
 
 // ─── Tooltip (position:fixed to escape overflow:hidden ancestors) ─────────────
@@ -302,8 +306,8 @@ function SpanDetail({ span }: { span: AgentSpan }) {
 
 // ─── Col 2: Span List ─────────────────────────────────────────────────────────
 
-function SpanList({ run, selectedSpanId, onSelect }: {
-  run: AgentRunTrace | null; selectedSpanId: string | null; onSelect: (s: AgentSpan) => void;
+function SpanList({ run, selectedSpanId, onSelect, showRunSummary = true }: {
+  run: AgentRunTrace | null; selectedSpanId: string | null; onSelect: (s: AgentSpan) => void; showRunSummary?: boolean;
 }) {
   if (!run) {
     return (
@@ -321,7 +325,7 @@ function SpanList({ run, selectedSpanId, onSelect }: {
     );
   }
 
-  const sortedSpans = [...run.spans].sort((a, b) => a.sequenceNo - b.sequenceNo);
+  const sortedSpans = getSortedSpans(run);
   const totalTokens = run.totalInputTokens + run.totalOutputTokens;
 
   return (
@@ -332,25 +336,29 @@ function SpanList({ run, selectedSpanId, onSelect }: {
       </div>
       <div className="twb-col-divider" />
 
-      {/* run summary */}
-      <div className="twb-run-card">
-        <div className="twb-run-card__row">
-          <span className={`trace-dot ${STATUS_DOT[run.status]}`} />
-          <span className={STATUS_BADGE[run.status]}>{STATUS_LABEL[run.status]}</span>
-          <span className="twb-run-card__dur">{fmtDuration(run.durationMs)}</span>
-        </div>
-        <div className="twb-run-card__meta">
-          <span>{fmtTokens(totalTokens)} tok</span>
-          <span>·</span>
-          <span>{run.totalCostCredits} cr</span>
-          <span>·</span>
-          <span>{sortedSpans.length}개 span</span>
-        </div>
-        {run.summaryText && <p className="twb-run-card__summary">{run.summaryText}</p>}
-        {run.errorMessage && <p className="twb-run-card__error">{run.errorMessage}</p>}
-      </div>
-
-      <div className="twb-col-divider--strong" />
+      {showRunSummary ? (
+        <>
+          <div className="twb-run-card">
+            <div className="twb-run-card__row">
+              <span className={`trace-dot ${STATUS_DOT[run.status]}`} />
+              <span className={STATUS_BADGE[run.status]}>{STATUS_LABEL[run.status]}</span>
+              <span className="twb-run-card__dur">{fmtDuration(run.durationMs)}</span>
+            </div>
+            <div className="twb-run-card__meta">
+              <span>{fmtTokens(totalTokens)} tok</span>
+              <span>·</span>
+              <span>{run.totalCostCredits} cr</span>
+              <span>·</span>
+              <span>{sortedSpans.length}개 span</span>
+            </div>
+            {run.summaryText && <p className="twb-run-card__summary">{run.summaryText}</p>}
+            {run.errorMessage && <p className="twb-run-card__error">{run.errorMessage}</p>}
+          </div>
+          <div className="twb-col-divider--strong" />
+        </>
+      ) : (
+        <div className="twb-col-divider--strong" />
+      )}
       <div className="twb-col-section-label">SPAN 목록</div>
 
       {sortedSpans.map(span => {
@@ -376,52 +384,96 @@ function SpanList({ run, selectedSpanId, onSelect }: {
 
 // ─── Col 1: Trace List ────────────────────────────────────────────────────────
 
-function TraceList({ runs, selectedId, isLoading, onSelect }: {
-  runs: AgentRunTrace[]; selectedId: string | null; isLoading: boolean; onSelect: (r: AgentRunTrace) => void;
+function TraceList({ runs, selectedId, isLoading, page, totalPages, totalRuns, onPageChange, onSelect }: {
+  runs: AgentRunTrace[];
+  selectedId: string | null;
+  isLoading: boolean;
+  page: number;
+  totalPages: number;
+  totalRuns: number;
+  onPageChange: (page: number) => void;
+  onSelect: (r: AgentRunTrace) => void;
 }) {
+  const pageNumbers = useMemo(() => {
+    if (totalRuns === 0 || totalPages <= 0) return [];
+    const windowSize = 5;
+    const start = Math.max(1, Math.min(page - Math.floor(windowSize / 2), totalPages - windowSize + 1));
+    const end = Math.min(totalPages, start + windowSize - 1);
+    return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+  }, [page, totalPages, totalRuns]);
+
   return (
-    <div className="twb-col twb-col--runs">
+    <div className="twb-col twb-col--runs twb-col--runs-main">
       <div className="twb-col-head">
         <span className="twb-col-head__title">Trace 목록</span>
         <Tooltip text="에이전트 모드로 실행한 기록입니다. 각 Trace는 한 번의 에이전트 실행을 나타내며, 성공/실패 여부와 소요 시간을 확인할 수 있습니다." />
       </div>
       <div className="twb-col-divider--strong" />
 
-      {isLoading ? (
-        <div className="twb-empty">불러오는 중...</div>
-      ) : runs.length === 0 ? (
-        <div className="twb-empty twb-empty--center twb-empty--sm">
-          <span>실행 기록 없음</span>
+      <div className="twb-list-toolbar">
+        <div className="twb-list-toolbar__meta">
+          <strong>총 {totalRuns}개</strong>
+          <span>{totalRuns > 0 ? `${page} / ${totalPages} 페이지` : "페이지 없음"}</span>
         </div>
-      ) : (
-        runs.map(run => {
-          const isSelected = selectedId === run.agentTraceId;
-          const totalTokens = run.totalInputTokens + run.totalOutputTokens;
-          return (
-            <button key={run.agentTraceId} type="button"
-              className={`twb-run-row${isSelected ? " twb-run-row--active" : ""}${run.status === "FAILED" ? " twb-run-row--fail" : ""}`}
-              onClick={() => onSelect(run)}
-            >
-              <div className="twb-run-row__top">
-                <span className={`trace-dot ${STATUS_DOT[run.status]}`} />
-                <span className={STATUS_BADGE[run.status]}>{STATUS_LABEL[run.status]}</span>
-                <span className="twb-run-row__dur">{fmtDuration(run.durationMs)}</span>
-              </div>
-              <div className="twb-run-row__date">{fmtDate(run.startedAt)}</div>
-              {run.summaryText && (
-                <p className="twb-run-row__summary">{run.summaryText}</p>
-              )}
-              {run.status === "FAILED" && run.errorMessage && (
-                <p className="twb-run-row__error">{run.errorMessage}</p>
-              )}
-              <div className="twb-run-row__meta">
-                <span>{fmtTokens(totalTokens)} tok</span>
-                <span>{run.spans.length} spans</span>
-              </div>
-            </button>
-          );
-        })
-      )}
+        <div className="twb-pagination twb-pagination--compact">
+          <button type="button" className="twb-pagination__nav" onClick={() => onPageChange(page - 1)} disabled={page <= 1}>
+            이전
+          </button>
+          <div className="twb-pagination__pages">
+            {pageNumbers.map((pageNumber) => (
+              <button
+                key={pageNumber}
+                type="button"
+                className={pageNumber === page ? "twb-pagination__page twb-pagination__page--active" : "twb-pagination__page"}
+                onClick={() => onPageChange(pageNumber)}
+              >
+                {pageNumber}
+              </button>
+            ))}
+          </div>
+          <button type="button" className="twb-pagination__nav" onClick={() => onPageChange(page + 1)} disabled={totalRuns === 0 || page >= totalPages}>
+            다음
+          </button>
+        </div>
+      </div>
+
+      <div className="twb-run-list">
+        {isLoading ? (
+          <div className="twb-empty">불러오는 중...</div>
+        ) : runs.length === 0 ? (
+          <div className="twb-empty twb-empty--center twb-empty--sm">
+            <span>실행 기록 없음</span>
+          </div>
+        ) : (
+          runs.map(run => {
+            const isSelected = selectedId === run.agentTraceId;
+            const totalTokens = run.totalInputTokens + run.totalOutputTokens;
+            return (
+              <button key={run.agentTraceId} type="button"
+                className={`twb-run-row${isSelected ? " twb-run-row--active" : ""}${run.status === "FAILED" ? " twb-run-row--fail" : ""}`}
+                onClick={() => onSelect(run)}
+              >
+                <div className="twb-run-row__top">
+                  <span className={`trace-dot ${STATUS_DOT[run.status]}`} />
+                  <span className={STATUS_BADGE[run.status]}>{STATUS_LABEL[run.status]}</span>
+                  <span className="twb-run-row__dur">{fmtDuration(run.durationMs)}</span>
+                </div>
+                <div className="twb-run-row__date">{fmtDate(run.startedAt)}</div>
+                {run.summaryText && (
+                  <p className="twb-run-row__summary">{run.summaryText}</p>
+                )}
+                {run.status === "FAILED" && run.errorMessage && (
+                  <p className="twb-run-row__error">{run.errorMessage}</p>
+                )}
+                <div className="twb-run-row__meta">
+                  <span>{fmtTokens(totalTokens)} tok</span>
+                  <span>{run.spans.length} spans</span>
+                </div>
+              </button>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }
@@ -451,8 +503,9 @@ function DetailPane({ span }: { span: AgentSpan | null }) {
 // ─── TraceWorkbench ───────────────────────────────────────────────────────────
 
 export function TraceWorkbench({ sessionId, onClose }: { sessionId: string; onClose: () => void }) {
-  const [selectedRun,  setSelectedRun]  = useState<AgentRunTrace | null>(null);
-  const [selectedSpan, setSelectedSpan] = useState<AgentSpan | null>(null);
+  const [page, setPage] = useState(1);
+  const [selectedRunId,  setSelectedRunId]  = useState<string | null>(null);
+  const [selectedSpanId, setSelectedSpanId] = useState<string | null>(null);
 
   const { data: runs = [], isLoading } = useQuery({
     queryKey: ["agentTraces", sessionId],
@@ -466,9 +519,66 @@ export function TraceWorkbench({ sessionId, onClose }: { sessionId: string; onCl
     }
   });
 
+  const totalPages = Math.max(1, Math.ceil(runs.length / TRACE_PAGE_SIZE));
+  const paginatedRuns = useMemo(() => {
+    const startIndex = (page - 1) * TRACE_PAGE_SIZE;
+    return runs.slice(startIndex, startIndex + TRACE_PAGE_SIZE);
+  }, [page, runs]);
+
+  const selectedRun = useMemo(
+    () => runs.find((run) => run.agentTraceId === selectedRunId) ?? null,
+    [runs, selectedRunId]
+  );
+  const selectedSpan = useMemo(
+    () => selectedRun?.spans.find((span) => span.spanId === selectedSpanId) ?? null,
+    [selectedRun, selectedSpanId]
+  );
+  const selectedRunSpans = useMemo(() => (selectedRun ? getSortedSpans(selectedRun) : []), [selectedRun]);
+  const selectedRunTokens = selectedRun ? selectedRun.totalInputTokens + selectedRun.totalOutputTokens : 0;
+
+  // 페이지 수 줄어들면 현재 페이지 클램프
+  useEffect(() => {
+    setPage((cur) => Math.min(cur, totalPages));
+  }, [totalPages]);
+
+  // 선택된 Trace가 사라지면 초기화, 첫 Span 자동 선택
+  useEffect(() => {
+    if (!selectedRun) {
+      if (selectedRunId) setSelectedRunId(null);
+      if (selectedSpanId) setSelectedSpanId(null);
+      return;
+    }
+    const hasSelectedSpan = selectedSpanId && selectedRun.spans.some((s) => s.spanId === selectedSpanId);
+    if (!hasSelectedSpan) {
+      setSelectedSpanId(selectedRunSpans[0]?.spanId ?? null);
+    }
+  }, [selectedRun, selectedRunId, selectedRunSpans, selectedSpanId]);
+
+  // Escape 키로 드로어 닫기
+  useEffect(() => {
+    if (!selectedRunId) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelectedRunId(null);
+        setSelectedSpanId(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedRunId]);
+
   const handleSelectRun = (run: AgentRunTrace) => {
-    setSelectedRun(run);
-    setSelectedSpan(null); // 새 Trace 선택 시 Span 초기화
+    setSelectedRunId(run.agentTraceId);
+    setSelectedSpanId(getSortedSpans(run)[0]?.spanId ?? null);
+  };
+
+  const handleCloseDetail = () => {
+    setSelectedRunId(null);
+    setSelectedSpanId(null);
+  };
+
+  const handlePageChange = (nextPage: number) => {
+    setPage(Math.min(Math.max(nextPage, 1), totalPages));
   };
 
   return (
@@ -494,22 +604,77 @@ export function TraceWorkbench({ sessionId, onClose }: { sessionId: string; onCl
         <button type="button" className="twb-close-btn" onClick={onClose} title="코드 화면으로 돌아가기">×</button>
       </div>
 
-      {/* 3-column body */}
-      <div className="twb-3col">
+      {/* list + drawer body */}
+      <div className="twb-stage">
         <TraceList
-          runs={runs}
-          selectedId={selectedRun?.agentTraceId ?? null}
+          runs={paginatedRuns}
+          selectedId={selectedRunId}
           isLoading={isLoading}
+          page={page}
+          totalPages={totalPages}
+          totalRuns={runs.length}
+          onPageChange={handlePageChange}
           onSelect={handleSelectRun}
         />
-        <div className="twb-col-resizer" />
-        <SpanList
-          run={selectedRun}
-          selectedSpanId={selectedSpan?.spanId ?? null}
-          onSelect={setSelectedSpan}
-        />
-        <div className="twb-col-resizer" />
-        <DetailPane span={selectedSpan} />
+
+        {/* slide-in drawer for span detail */}
+        <div className={selectedRun ? "twb-drawer-layer twb-drawer-layer--open" : "twb-drawer-layer"}>
+          <button
+            type="button"
+            className="twb-drawer__scrim"
+            aria-label="Trace 상세 닫기"
+            onClick={handleCloseDetail}
+            tabIndex={selectedRun ? 0 : -1}
+          />
+          <aside
+            className={selectedRun ? "twb-drawer twb-drawer--open" : "twb-drawer"}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Trace 상세"
+            aria-hidden={!selectedRun}
+          >
+            <div className="twb-drawer__header">
+              <div className="twb-drawer__title-wrap">
+                <span className="panel-title panel-title--compact">trace detail</span>
+                <strong>Trace 상세</strong>
+                {selectedRun && <span className={STATUS_BADGE[selectedRun.status]}>{STATUS_LABEL[selectedRun.status]}</span>}
+              </div>
+              <button type="button" className="twb-close-btn" onClick={handleCloseDetail} title="Trace 상세 닫기">×</button>
+            </div>
+
+            {selectedRun && (
+              <>
+                <div className="twb-drawer__summary">
+                  <div className="twb-drawer__summary-top">
+                    <span className={`trace-dot ${STATUS_DOT[selectedRun.status] ?? "trace-dot--idle"}`} />
+                    <strong>{fmtDate(selectedRun.startedAt)}</strong>
+                    <span className="twb-drawer__summary-sep">·</span>
+                    <span>{fmtDuration(selectedRun.durationMs)}</span>
+                    <span className="twb-drawer__summary-sep">·</span>
+                    <span>{fmtTokens(selectedRunTokens)} tok</span>
+                    <span className="twb-drawer__summary-sep">·</span>
+                    <span>{selectedRun.totalCostCredits} cr</span>
+                    <span className="twb-drawer__summary-sep">·</span>
+                    <span>{selectedRunSpans.length} spans</span>
+                  </div>
+                  {selectedRun.summaryText && <p className="twb-drawer__summary-text">{selectedRun.summaryText}</p>}
+                  {selectedRun.errorMessage && <p className="twb-drawer__summary-error">{selectedRun.errorMessage}</p>}
+                </div>
+
+                <div className="twb-drawer__body">
+                  <SpanList
+                    run={selectedRun}
+                    selectedSpanId={selectedSpanId}
+                    onSelect={(span) => setSelectedSpanId(span.spanId)}
+                    showRunSummary={false}
+                  />
+                  <div className="twb-col-resizer" />
+                  <DetailPane span={selectedSpan} />
+                </div>
+              </>
+            )}
+          </aside>
+        </div>
       </div>
     </div>
   );
