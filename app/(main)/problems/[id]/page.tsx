@@ -1,5 +1,6 @@
 import { ProblemDetail } from "@/components/problems/ProblemDetail";
 
-export default function ProblemDetailPage({ params }: { params: { id: string } }) {
-  return <ProblemDetail problemId={params.id} />;
+export default async function ProblemDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return <ProblemDetail problemId={id} />;
 }

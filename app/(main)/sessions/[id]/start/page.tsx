@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo } from "react";
+import { use, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 
@@ -10,8 +10,8 @@ import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
 import { getProblemById } from "@/lib/mock-data";
 
-export default function SessionStartPage({ params }: { params: { id: string } }) {
-  const sessionId = params.id;
+export default function SessionStartPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: sessionId } = use(params);
   const router = useRouter();
   const { withPrefix } = useRouteScope();
   const { data: session } = useQuery({

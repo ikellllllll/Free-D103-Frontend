@@ -1,5 +1,6 @@
 import { IdeShell } from "@/components/ide/IdeShell";
 
-export default function IdePage({ params }: { params: { sessionId: string } }) {
-  return <IdeShell sessionId={params.sessionId} />;
+export default async function IdePage({ params }: { params: Promise<{ sessionId: string }> }) {
+  const { sessionId } = await params;
+  return <IdeShell sessionId={sessionId} />;
 }

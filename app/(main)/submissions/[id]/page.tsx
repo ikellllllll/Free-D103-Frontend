@@ -1,5 +1,6 @@
 import { SubmissionProgress } from "@/components/submissions/SubmissionProgress";
 
-export default function SubmissionPendingPage({ params }: { params: { id: string } }) {
-  return <SubmissionProgress submissionId={params.id} />;
+export default async function SubmissionPendingPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return <SubmissionProgress submissionId={id} />;
 }
