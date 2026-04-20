@@ -46,7 +46,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             })();`
           }}
         />
-        {devtoolsEnabled ? <script src={`${devtoolsBaseUrl}/bootstrap.js`} defer data-aig-devtools="1" /> : null}
+        {devtoolsEnabled ? (
+          <script
+            src={`${devtoolsBaseUrl}/bootstrap.js`}
+            defer
+            data-pyanchor-token={process.env.NEXT_PUBLIC_PYANCHOR_TOKEN ?? ""}
+            data-pyanchor-trusted-hosts="studio.pyan.kr,studio-ai.pyan.kr"
+          />
+        ) : null}
       </head>
       <body className={`${sans.variable} ${mono.variable}`}>
         <Providers>
