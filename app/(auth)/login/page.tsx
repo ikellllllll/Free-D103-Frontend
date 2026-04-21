@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
@@ -39,6 +40,7 @@ export default function LoginPage() {
   return (
     <form className="stack-24" onSubmit={handleSubmit}>
       <button className="button social-button" type="button">
+        <Image src="/icons8-github-로고.svg" alt="" width={18} height={18} aria-hidden className="social-button__github-icon" />
         GitHub 계정으로 계속
       </button>
 

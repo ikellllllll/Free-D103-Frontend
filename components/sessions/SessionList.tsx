@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { Badge } from "@/components/common/Badge";
+import { LangIcon } from "@/components/common/LangIcon";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
 import type { SessionListItem } from "@/lib/types/session";
@@ -70,9 +71,7 @@ function SessionRow({ item }: { item: SessionListItem }) {
         </div>
         <strong className="slist-row__title">{item.problemTitle}</strong>
         <div className="slist-row__meta">
-          <span className="slist-lang-badge">
-            {item.language === "python" ? "🐍 Python" : "☕ Java"}
-          </span>
+          <LangIcon language={item.language} size={14} showLabel className="slist-lang-badge" />
           <span className="slist-row__divider">·</span>
           <span>AI {item.aiRequestCount}회</span>
           <span className="slist-row__divider">·</span>
