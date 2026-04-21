@@ -605,7 +605,7 @@ export function TraceWorkbench({ sessionId, onClose }: { sessionId: string; onCl
       </div>
 
       {/* list + drawer body */}
-      <div className="twb-stage">
+      <div className={`twb-stage${selectedRun ? " twb-stage--drawer-open" : ""}`}>
         <TraceList
           runs={paginatedRuns}
           selectedId={selectedRunId}

@@ -8,6 +8,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Badge } from "@/components/common/Badge";
 import { Card } from "@/components/common/Card";
+import { LangIcon } from "@/components/common/LangIcon";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { TracePanel } from "@/components/ide/TracePanel";
 import { TraceWorkbench } from "@/components/ide/TraceWorkbench";
@@ -1491,9 +1492,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         <span className="editor-tabbar__meta">{problem?.title ?? "문제 풀이"}</span>
         <span className="editor-tabbar__meta">{lastSavedLabel}</span>
 
-        <span className="ide-lang-badge">
-          {session?.language === "python" ? "🐍 Python" : "☕ Java"}
-        </span>
+        {session?.language && (
+          <LangIcon language={session.language} size={13} showLabel className="ide-lang-badge" />
+        )}
 
         {session?.aiModel && session.aiModel !== "aig-default" && (
           <span className="ide-model-badge">{session.aiModel}</span>

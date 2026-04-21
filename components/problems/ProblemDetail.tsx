@@ -8,6 +8,7 @@ import Markdown from "react-markdown";
 
 import { Badge } from "@/components/common/Badge";
 import { Card } from "@/components/common/Card";
+import { LangIcon } from "@/components/common/LangIcon";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
 import type { ProblemDetail as ProblemDetailType } from "@/lib/types/problem";
@@ -21,9 +22,9 @@ const levelTone = {
   3: "level3"
 } as const;
 
-const LANG_OPTIONS: { value: ProblemLanguage; label: string; icon: string; desc: string }[] = [
-  { value: "java", label: "Java", icon: "☕", desc: "Spring Boot · JPA" },
-  { value: "python", label: "Python", icon: "🐍", desc: "FastAPI · Pydantic" }
+const LANG_OPTIONS: { value: ProblemLanguage; label: string; desc: string }[] = [
+  { value: "java",   label: "Java",   desc: "Spring Boot · JPA" },
+  { value: "python", label: "Python", desc: "FastAPI · Pydantic" }
 ];
 
 const BYOK_STORAGE_KEY = "aig-byok-keys-v1";
@@ -165,14 +166,14 @@ function ProblemDetailContent({
           <div className="lang-pick">
             <span className="lang-pick__label">풀이 언어</span>
             <div className="lang-pick__options">
-              {LANG_OPTIONS.map(({ value, label, icon, desc }) => (
+              {LANG_OPTIONS.map(({ value, label, desc }) => (
                 <button
                   key={value}
                   type="button"
                   className={`lang-pick-card${language === value ? " lang-pick-card--active" : ""}`}
                   onClick={() => onLanguageChange(value)}
                 >
-                  <span className="lang-pick-card__icon">{icon}</span>
+                  <LangIcon language={value} size={20} className="lang-pick-card__icon" />
                   <span className="lang-pick-card__name">{label}</span>
                   <span className="lang-pick-card__desc">{desc}</span>
                 </button>
@@ -249,7 +250,7 @@ function ProblemDetailContent({
             <div className="problem-meta__item">
               <span className="problem-meta__label">풀이 언어</span>
               <strong className="problem-meta__value">
-                {language === "java" ? "☕ Java" : "🐍 Python"}
+                <LangIcon language={language} size={14} showLabel className="lang-meta-badge" />
               </strong>
             </div>
             <div className="problem-meta__item">

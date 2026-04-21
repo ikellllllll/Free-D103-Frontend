@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { type ReactNode } from "react";
@@ -8,7 +8,6 @@ import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 
 const MODE_CONFIG = {
   login: {
-    heroTitle: "과제 풀이를 바로 이어갈 수 있는 작업 공간",
     heroDescription:
       "과제 요구사항 확인, IDE 작업, 제출 기록, 피드백 리포트까지 한 흐름으로 이어지는 AIG 워크스페이스입니다.",
     sectionLabel: "작업 시작",
@@ -19,7 +18,6 @@ const MODE_CONFIG = {
     footerAction: "회원가입"
   },
   signup: {
-    heroTitle: "풀이 기록이 쌓이는 개인 워크스페이스",
     heroDescription:
       "세션, Trace, 제출 리포트를 계정 단위로 이어서 확인할 수 있는 AIG 작업 공간입니다.",
     sectionLabel: "계정 생성",
@@ -33,6 +31,22 @@ const MODE_CONFIG = {
 
 type AuthMode = keyof typeof MODE_CONFIG;
 
+function getHeroTitle(mode: AuthMode) {
+  if (mode === "signup") {
+    return (
+      <>
+        풀이 기록이 쌓이는 개인 <span className="auth-title-accent">워크스페이스</span>
+      </>
+    );
+  }
+
+  return (
+    <>
+      과제 풀이를 바로 이어갈 수 있는 <span className="auth-title-accent">작업 공간</span>
+    </>
+  );
+}
+
 export function AuthLayoutShell({ children }: { children: ReactNode }) {
   const { withPrefix, currentPath } = useRouteScope();
   const mode: AuthMode = currentPath.includes("/signup") ? "signup" : "login";
@@ -40,7 +54,7 @@ export function AuthLayoutShell({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <AuthHero key={mode} title={cfg.heroTitle} description={cfg.heroDescription} />
+      <AuthHero key={mode} title={getHeroTitle(mode)} description={cfg.heroDescription} />
 
       <section className="auth-form-panel" data-auth-mode={mode}>
         <div className="auth-form-panel__tabs" data-auth-mode={mode}>

@@ -1,4 +1,4 @@
-type BrandLogoVariant = "primary" | "primary-word" | "app-icon";
+type BrandLogoVariant = "primary" | "primary-word" | "primary-word-v2" | "app-icon";
 
 interface BrandLogoProps {
   variant?: BrandLogoVariant;
@@ -10,6 +10,7 @@ interface BrandLogoProps {
 const SRCS: Record<BrandLogoVariant, { light: string; dark: string }> = {
   "primary":      { light: "/brand/logo-primary-light.svg",      dark: "/brand/logo-primary-dark.svg" },
   "primary-word": { light: "/brand/logo-primary-word-light.svg", dark: "/brand/logo-primary-word-dark.svg" },
+  "primary-word-v2": { light: "/brand/logo-primary-word-v2-light.svg", dark: "/brand/logo-primary-word-v2-dark.svg" },
   "app-icon":     { light: "/brand/app-icon-light.svg",          dark: "/brand/app-icon-dark.svg" },
 };
 

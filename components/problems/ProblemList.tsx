@@ -68,7 +68,7 @@ export function ProblemList() {
   );
 
   return (
-    <div className="stack-24">
+    <div className="stack-24 problem-list-page">
       {/* ── Page header ── */}
       <div className="page-header">
         <p className="page-header__eyebrow">AIG · 과제 목록</p>
