@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans_KR, JetBrains_Mono } from "next/font/google";
+import { IBM_Plex_Sans_KR, Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 
 import { RouteScopeProvider } from "@/components/routing/RouteScopeProvider";
 
@@ -16,6 +16,18 @@ const mono = JetBrains_Mono({
   subsets: ["latin"],
   weight: ["400", "500", "700"],
   variable: "--font-mono"
+});
+
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-inter"
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["500", "700"],
+  variable: "--font-space-grotesk"
 });
 
 export const metadata: Metadata = {
@@ -55,7 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           />
         ) : null}
       </head>
-      <body className={`${sans.variable} ${mono.variable}`}>
+      <body className={`${sans.variable} ${mono.variable} ${inter.variable} ${spaceGrotesk.variable}`}>
         <Providers>
           <RouteScopeProvider prefix="">{children}</RouteScopeProvider>
 

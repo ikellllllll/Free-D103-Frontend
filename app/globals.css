@@ -1,3 +1,6 @@
+/* Tailwind utilities only (preflight disabled in tailwind.config.ts) */
+@tailwind utilities;
+
 /* ─── Design tokens ──────────────────────────────────────────── */
 :root {
   --font-sans: "IBM Plex Sans KR", sans-serif;
@@ -9543,4 +9546,30 @@ html[data-theme="light"] .design-dev[data-v3-theme] {
     radial-gradient(circle at 12% 0%, rgba(37, 99, 235, 0.1), transparent 24%),
     radial-gradient(circle at 88% 8%, rgba(124, 58, 237, 0.08), transparent 18%),
     linear-gradient(180deg, #f8fbff 0%, #f4f7fb 100%);
+}
+
+/* ═══════════════════════════════════════════════
+   dev2 (Orbit-style landing) helpers
+   ═══════════════════════════════════════════════ */
+.dev2-root {
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.bg-gradient-radial {
+  background-image: radial-gradient(circle at top center, var(--tw-gradient-stops));
+}
+.text-gradient {
+  -webkit-text-fill-color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+.mockup-shadow {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+.glass-panel {
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.5);
 }
