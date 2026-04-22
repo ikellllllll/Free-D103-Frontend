@@ -148,7 +148,14 @@ export default function Dev2SignupPage() {
           </button>
 
           <p className="text-center text-xs text-gray-500 pt-2">
-            계속하면 <a href="#" className="text-indigo-600 font-semibold hover:text-indigo-700">이용약관</a>에 동의하는 것으로 간주됩니다.
+            계속하면{" "}
+            <Link
+              href="/dev2/terms"
+              className="text-indigo-600 font-semibold hover:text-indigo-700"
+            >
+              이용약관
+            </Link>
+            에 동의하는 것으로 간주됩니다.
           </p>
         </form>
 

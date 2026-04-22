@@ -463,6 +463,11 @@ export function LandingAIG() {
               <ul className="space-y-2">
                 <li>D103 띠링띠링</li>
                 <li className="text-indigo-200/50">SSAFY 14기</li>
+                <li>
+                  <Link href="/dev2/terms" className="hover:text-white transition-colors">
+                    이용약관
+                  </Link>
+                </li>
               </ul>
             </div>
           </div>
