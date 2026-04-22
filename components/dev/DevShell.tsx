@@ -13,11 +13,15 @@ import {
   Moon,
   LogOut,
   Search,
+  Palette,
+  Check,
+  ChevronLeft,
   type LucideIcon
 } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
+import { THEME_OPTIONS, useDevTheme, type V3ThemeTone } from "@/components/dev/DevThemeContext";
 import { mockApi } from "@/lib/api/mockApi";
 import { useAuthStore } from "@/store/authStore";
 import { useThemeStore } from "@/store/themeStore";
@@ -73,11 +77,27 @@ export function DevShell({ children }: { children: ReactNode }) {
   const hydrated = useThemeStore((state) => state.hydrated);
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
   const addToast = useUiStore((state) => state.addToast);
+  const { themeTone, setThemeTone } = useDevTheme();
 
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteMode, setPaletteMode] = useState<"main" | "theme">("main");
   const [paletteQuery, setPaletteQuery] = useState("");
   const [paletteIndex, setPaletteIndex] = useState(0);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  const openPalette = () => {
+    setPaletteOpen(true);
+    setPaletteMode("main");
+    setPaletteQuery("");
+    setPaletteIndex(0);
+  };
+
+  const closePalette = () => {
+    setPaletteOpen(false);
+    setPaletteMode("main");
+    setPaletteQuery("");
+    setPaletteIndex(0);
+  };
 
   const surface = getSurfaceTitle(currentPath);
   const fullBleed = isFullBleedSurface(pathname);
@@ -94,25 +114,46 @@ export function DevShell({ children }: { children: ReactNode }) {
       const meta = e.metaKey || e.ctrlKey;
       if (meta && (e.key === "k" || e.key === "K")) {
         e.preventDefault();
-        setPaletteOpen((v) => !v);
-        setPaletteQuery("");
-        setPaletteIndex(0);
+        if (paletteOpen) {
+          closePalette();
+        } else {
+          openPalette();
+        }
       } else if (e.key === "Escape") {
-        setPaletteOpen(false);
-        setUserMenuOpen(false);
+        if (!paletteOpen) {
+          setUserMenuOpen(false);
+          return;
+        }
+        if (paletteMode === "theme") {
+          setPaletteMode("main");
+          setPaletteQuery("");
+          setPaletteIndex(0);
+        } else {
+          closePalette();
+        }
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []);
+  }, [paletteOpen, paletteMode]);
 
-  const allItems: PaletteItem[] = useMemo(() => {
+  const mainItems: PaletteItem[] = useMemo(() => {
     const items: PaletteItem[] = NAV_ITEMS.map((n) => ({
       id: `nav-${n.href}`,
       label: n.label,
       href: n.href,
       icon: n.icon
     }));
+    items.push({
+      id: "action-theme-tone",
+      label: "테마 색상 선택",
+      icon: Palette,
+      action: () => {
+        setPaletteMode("theme");
+        setPaletteQuery("");
+        setPaletteIndex(0);
+      }
+    });
     if (hydrated) {
       items.push({
         id: "action-theme",
@@ -120,7 +161,7 @@ export function DevShell({ children }: { children: ReactNode }) {
         icon: theme === "dark" ? Sun : Moon,
         action: () => {
           toggleTheme();
-          setPaletteOpen(false);
+          closePalette();
         }
       });
     }
@@ -129,12 +170,39 @@ export function DevShell({ children }: { children: ReactNode }) {
       label: "로그아웃",
       icon: LogOut,
       action: () => {
-        setPaletteOpen(false);
+        closePalette();
         void handleLogout();
       }
     });
     return items;
   }, [hydrated, theme]);
+
+  const themeItems: PaletteItem[] = useMemo(() => {
+    const back: PaletteItem = {
+      id: "theme-back",
+      label: "← 뒤로",
+      icon: ChevronLeft,
+      action: () => {
+        setPaletteMode("main");
+        setPaletteQuery("");
+        setPaletteIndex(0);
+      }
+    };
+    const tones: PaletteItem[] = THEME_OPTIONS.map((opt) => ({
+      id: `theme-${opt.id}`,
+      label: opt.id === themeTone ? `${opt.label} · 현재` : opt.label,
+      icon: opt.id === themeTone ? Check : Palette,
+      action: () => {
+        setThemeTone(opt.id as V3ThemeTone);
+        setPaletteMode("main");
+        setPaletteQuery("");
+        setPaletteIndex(0);
+      }
+    }));
+    return [back, ...tones];
+  }, [themeTone, setThemeTone]);
+
+  const allItems = paletteMode === "theme" ? themeItems : mainItems;
 
   const filteredItems = useMemo(() => {
     const q = paletteQuery.trim().toLowerCase();
@@ -169,7 +237,7 @@ export function DevShell({ children }: { children: ReactNode }) {
 
   const selectItem = (item: PaletteItem) => {
     if (item.href) {
-      setPaletteOpen(false);
+      closePalette();
       router.push(withPrefix(item.href));
     } else if (item.action) {
       item.action();
@@ -215,11 +283,7 @@ export function DevShell({ children }: { children: ReactNode }) {
           <button
             type="button"
             className="dev-sidebar__palette-cta"
-            onClick={() => {
-              setPaletteOpen(true);
-              setPaletteQuery("");
-              setPaletteIndex(0);
-            }}
+            onClick={openPalette}
           >
             <Search size={13} strokeWidth={2} />
             <span>찾기</span>
@@ -295,11 +359,7 @@ export function DevShell({ children }: { children: ReactNode }) {
               <button
                 type="button"
                 className="dev-topbar__quick"
-                onClick={() => {
-                  setPaletteOpen(true);
-                  setPaletteQuery("");
-                  setPaletteIndex(0);
-                }}
+                onClick={openPalette}
                 title="명령 팔레트 (⌘K)"
                 aria-label="명령 팔레트 열기"
               >
@@ -322,7 +382,7 @@ export function DevShell({ children }: { children: ReactNode }) {
       {paletteOpen ? (
         <div
           className="dev-palette-scrim"
-          onClick={() => setPaletteOpen(false)}
+          onClick={closePalette}
           role="presentation"
         >
           <div
@@ -332,11 +392,15 @@ export function DevShell({ children }: { children: ReactNode }) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="dev-palette__head">
-              <Search size={16} strokeWidth={2} />
+              {paletteMode === "theme" ? (
+                <Palette size={16} strokeWidth={2} />
+              ) : (
+                <Search size={16} strokeWidth={2} />
+              )}
               <input
                 autoFocus
                 className="dev-palette__input"
-                placeholder="찾기"
+                placeholder={paletteMode === "theme" ? "테마 색상 선택" : "찾기"}
                 value={paletteQuery}
                 onChange={(e) => {
                   setPaletteQuery(e.target.value);
