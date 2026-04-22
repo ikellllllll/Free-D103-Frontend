@@ -175,18 +175,25 @@ export default function Dev2ProblemsPage() {
   }, [data, level, category]);
 
   return (
-    <div className="bg-gradient-to-b from-indigo-50/30 via-white to-white min-h-screen">
-      <div className="max-w-7xl mx-auto px-6 py-12">
+    <div className="relative bg-gradient-to-b from-indigo-50/30 via-white to-white min-h-screen overflow-hidden">
+      {/* Floating blobs */}
+      <div className="absolute top-0 left-0 right-0 h-[500px] pointer-events-none overflow-hidden">
+        <div className="orbit-blob w-96 h-96 bg-indigo-300/40 top-[-100px] left-[10%] animate-blob-1" />
+        <div className="orbit-blob w-80 h-80 bg-purple-300/40 top-[-60px] right-[15%] animate-blob-2" />
+        <div className="absolute inset-0 bg-grid-pattern opacity-50" />
+      </div>
+
+      <div className="relative max-w-7xl mx-auto px-6 py-12">
         {/* Hero */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold mb-4">
-            <Sparkles size={12} strokeWidth={2.4} />
-            <span>{filtered.length}개 과제</span>
+        <div className="text-center mb-10 animate-slide-up">
+          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white/80 backdrop-blur-sm border border-indigo-100 text-indigo-700 text-xs font-semibold mb-4 shadow-sm">
+            <Sparkles size={12} strokeWidth={2.4} className="animate-dot-pulse" />
+            <span>{filtered.length}개 과제 · 실무 시나리오</span>
           </div>
-          <h1 className="text-4xl md:text-5xl font-display font-bold text-gray-900 tracking-tight mb-4">
+          <h1 className="text-4xl md:text-5xl font-display font-bold text-gray-900 tracking-tight mb-4 leading-tight">
             AI와 함께 푸는
             <br />
-            <span className="bg-gradient-to-r from-indigo-600 to-purple-600 text-gradient">
+            <span className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 text-gradient bg-gradient-animate">
               실무 백엔드 과제
             </span>
           </h1>
@@ -196,7 +203,8 @@ export default function Dev2ProblemsPage() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-8 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-8 p-4 bg-white/70 backdrop-blur-sm rounded-2xl border border-gray-100 shadow-sm animate-slide-up"
+          style={{ animationDelay: "0.1s", animationFillMode: "both" }}>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 mr-2">
               난이도
@@ -226,20 +234,25 @@ export default function Dev2ProblemsPage() {
         </div>
 
         {/* Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 stagger-children">
           {isLoading ? (
-            Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
+            Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="animate-fade-in">
+                <SkeletonCard />
+              </div>
+            ))
           ) : filtered.length === 0 ? (
-            <div className="col-span-full text-center py-20 text-gray-400 border border-dashed border-gray-200 rounded-2xl">
+            <div className="col-span-full text-center py-20 text-gray-400 border border-dashed border-gray-200 rounded-2xl bg-white/50 animate-fade-in">
               조건에 맞는 과제가 없습니다.
             </div>
           ) : (
             filtered.map((p) => (
-              <ProblemCard
-                key={p.id}
-                problem={p}
-                href={p.status === "잠김" ? undefined : withPrefix(`/problems/${p.id}`)}
-              />
+              <div key={p.id} className="animate-slide-up" style={{ animationFillMode: "both" }}>
+                <ProblemCard
+                  problem={p}
+                  href={p.status === "잠김" ? undefined : withPrefix(`/problems/${p.id}`)}
+                />
+              </div>
             ))
           )}
         </div>

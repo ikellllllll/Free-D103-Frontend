@@ -43,8 +43,8 @@ export default function Dev2LoginPage() {
   };
 
   return (
-    <div className="w-full max-w-md">
-      <div className="bg-white rounded-3xl border border-gray-100 shadow-xl p-8 md:p-10">
+    <div className="w-full max-w-md animate-scale-in">
+      <div className="bg-white/90 backdrop-blur-sm rounded-3xl border border-gray-100 shadow-xl p-8 md:p-10">
         <div className="mb-8">
           <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold mb-4">
             <Sparkles size={12} strokeWidth={2.4} />

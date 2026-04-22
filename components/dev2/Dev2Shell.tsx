@@ -173,9 +173,13 @@ export function Dev2Shell({ children }: { children: ReactNode }) {
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link
             href={withPrefix("/problems")}
-            className="flex items-center space-x-2 text-indigo-600 font-display font-bold text-xl"
+            className="group flex items-center space-x-2 text-indigo-600 font-display font-bold text-xl"
           >
-            <Sparkles size={24} strokeWidth={2} />
+            <Sparkles
+              size={24}
+              strokeWidth={2}
+              className="transition-transform group-hover:rotate-12 group-hover:scale-110"
+            />
             <span>AIG</span>
           </Link>
 

@@ -35,10 +35,10 @@ export default function Dev2LandingPage() {
             <a href="#voices" className="hover:text-indigo-600 transition-colors">Voices</a>
           </nav>
           <div className="hidden md:flex items-center space-x-4">
-            <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors">
+            <Link href="/dev2/login" className="text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors">
               Sign in
             </Link>
-            <Link href="/signup" className="bg-indigo-600 text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-indigo-700 transition-colors">
+            <Link href="/dev2/signup" className="bg-indigo-600 text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-indigo-700 transition-colors">
               Get started
             </Link>
           </div>
@@ -67,7 +67,7 @@ export default function Dev2LandingPage() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
-                href="/signup"
+                href="/dev2/signup"
                 className="flex items-center space-x-2 bg-gray-900 text-white px-8 py-4 rounded-full font-semibold hover:bg-gray-800 transition-colors shadow-lg"
               >
                 <Sparkles size={20} strokeWidth={2} />
@@ -170,7 +170,7 @@ export default function Dev2LandingPage() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
-                href="/signup"
+                href="/dev2/signup"
                 className="flex items-center space-x-2 bg-white text-indigo-600 px-8 py-4 rounded-full font-semibold hover:bg-indigo-50 transition-colors shadow-lg"
               >
                 <Rocket size={20} strokeWidth={2} />
@@ -453,7 +453,7 @@ export default function Dev2LandingPage() {
               AI 시대의 개발자 역량, 지금 시작하세요.
             </h2>
             <Link
-              href="/signup"
+              href="/dev2/signup"
               className="flex items-center space-x-2 bg-white text-indigo-600 px-8 py-4 rounded-full font-semibold hover:bg-indigo-50 transition-colors shadow-lg mx-auto w-fit"
             >
               <Sparkles size={20} strokeWidth={2} />
@@ -479,7 +479,7 @@ export default function Dev2LandingPage() {
               <ul className="space-y-3">
                 <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
                 <li><a href="#spaces" className="hover:text-white transition-colors">Spaces</a></li>
-                <li><Link href="/signup" className="hover:text-white transition-colors">시작하기</Link></li>
+                <li><Link href="/dev2/signup" className="hover:text-white transition-colors">시작하기</Link></li>
               </ul>
             </div>
             <div>

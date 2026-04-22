@@ -146,8 +146,13 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
   }
 
   return (
-    <div className="bg-gradient-to-b from-indigo-50/30 via-white to-white min-h-screen">
-      <div className="max-w-7xl mx-auto px-6 py-10">
+    <div className="relative bg-gradient-to-b from-indigo-50/30 via-white to-white min-h-screen overflow-hidden">
+      <div className="absolute top-0 left-0 right-0 h-[400px] pointer-events-none overflow-hidden">
+        <div className="orbit-blob w-80 h-80 bg-indigo-300/30 top-[-60px] left-[15%] animate-blob-1" />
+        <div className="orbit-blob w-72 h-72 bg-purple-300/30 top-[-40px] right-[10%] animate-blob-2" />
+        <div className="absolute inset-0 bg-grid-pattern opacity-30" />
+      </div>
+      <div className="relative max-w-7xl mx-auto px-6 py-10">
         <Link
           href={withPrefix("/problems")}
           className="inline-flex items-center space-x-1.5 text-sm text-gray-500 hover:text-indigo-600 mb-6 transition-colors"
@@ -160,7 +165,7 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
           {/* ── Main Column ── */}
           <div className="space-y-6">
             {/* Header Card */}
-            <section className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <section className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden animate-slide-up">
               <div className="p-8 bg-gradient-to-br from-indigo-50/50 to-purple-50/30 border-b border-gray-100">
                 <div className="flex items-start justify-between gap-4 mb-3">
                   <h1 className="text-2xl md:text-3xl font-display font-bold text-gray-900 tracking-tight">
@@ -274,7 +279,7 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
             </section>
 
             {/* Description Card */}
-            <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
+            <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 animate-slide-up" style={{ animationDelay: "0.1s", animationFillMode: "both" }}>
               <div className="mb-5">
                 <span className="inline-block text-xs font-semibold uppercase tracking-wider text-indigo-600 mb-2">
                   과제 개요
@@ -311,7 +316,7 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
 
           {/* ── Side Column ── */}
           <aside className="lg:sticky lg:top-24 self-start">
-            <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
+            <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4 animate-slide-up" style={{ animationDelay: "0.2s", animationFillMode: "both" }}>
               <h3 className="text-sm font-semibold text-gray-900 flex items-center space-x-2">
                 <TrendingUp size={14} className="text-indigo-600" />
                 <span>과제 정보</span>

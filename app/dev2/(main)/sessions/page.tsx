@@ -139,17 +139,24 @@ export default function Dev2SessionsPage() {
   };
 
   return (
-    <div className="bg-gradient-to-b from-indigo-50/30 via-white to-white min-h-screen">
-      <div className="max-w-7xl mx-auto px-6 py-12">
+    <div className="relative bg-gradient-to-b from-indigo-50/30 via-white to-white min-h-screen overflow-hidden">
+      {/* Floating blobs */}
+      <div className="absolute top-0 left-0 right-0 h-[400px] pointer-events-none overflow-hidden">
+        <div className="orbit-blob w-80 h-80 bg-indigo-300/30 top-[-80px] right-[20%] animate-blob-1" />
+        <div className="orbit-blob w-72 h-72 bg-purple-300/30 top-[-40px] left-[10%] animate-blob-2" />
+        <div className="absolute inset-0 bg-grid-pattern opacity-40" />
+      </div>
+
+      <div className="relative max-w-7xl mx-auto px-6 py-12">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8 animate-slide-up">
           <div>
-            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold mb-3">
-              <Sparkles size={12} strokeWidth={2.4} />
+            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white/80 backdrop-blur-sm border border-indigo-100 text-indigo-700 text-xs font-semibold mb-3 shadow-sm">
+              <Sparkles size={12} strokeWidth={2.4} className="animate-dot-pulse" />
               <span>풀이 기록</span>
             </div>
             <h1 className="text-3xl md:text-4xl font-display font-bold text-gray-900 tracking-tight">
-              내 세션
+              내 <span className="bg-gradient-to-r from-indigo-600 to-purple-600 text-gradient">세션</span>
             </h1>
             <p className="text-gray-600 mt-2">진행 중이거나 완료한 과제 풀이 목록입니다.</p>
           </div>
@@ -191,15 +198,22 @@ export default function Dev2SessionsPage() {
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl border border-gray-100 p-6 animate-pulse h-40" />
+              <div
+                key={i}
+                className="rounded-2xl border border-gray-100 p-6 h-40 skeleton-shimmer"
+              />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 stagger-children">
             {filtered.length === 0 ? (
               <EmptyState filter={filter} />
             ) : (
-              filtered.map((item) => <SessionCard key={item.sessionId} item={item} />)
+              filtered.map((item) => (
+                <div key={item.sessionId} className="animate-slide-up" style={{ animationFillMode: "both" }}>
+                  <SessionCard item={item} />
+                </div>
+              ))
             )}
           </div>
         )}

@@ -52,8 +52,10 @@ export default function Dev2FeedbackReportPage({
     <div className="bg-gradient-to-b from-indigo-50/30 via-white to-white min-h-screen">
       <div className="max-w-6xl mx-auto px-6 py-12 space-y-6">
         {/* Hero */}
-        <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-3xl p-8 md:p-10 text-white relative overflow-hidden">
+        <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-700 bg-gradient-animate rounded-3xl p-8 md:p-10 text-white relative overflow-hidden animate-slide-up">
           <div className="absolute inset-0 bg-gradient-radial from-white/20 to-transparent opacity-30" />
+          <div className="absolute top-10 right-10 w-64 h-64 rounded-full bg-white/10 blur-3xl animate-blob-1" />
+          <div className="absolute bottom-10 left-20 w-48 h-48 rounded-full bg-purple-300/20 blur-3xl animate-blob-2" />
           <div className="relative flex flex-col md:flex-row md:items-end md:justify-between gap-4">
             <div>
               <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-sm text-xs font-semibold mb-3">
@@ -87,8 +89,8 @@ export default function Dev2FeedbackReportPage({
         </div>
 
         {/* Test + AI scores */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 stagger-children">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 animate-slide-up" style={{ animationFillMode: "both" }}>
             <div className="inline-flex items-center space-x-2 text-xs font-semibold uppercase tracking-wider text-indigo-600 mb-3">
               <CheckCircle2 size={14} />
               <span>테스트 결과</span>
@@ -107,7 +109,7 @@ export default function Dev2FeedbackReportPage({
             </small>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 animate-slide-up" style={{ animationFillMode: "both" }}>
             <div className="inline-flex items-center space-x-2 text-xs font-semibold uppercase tracking-wider text-indigo-600 mb-3">
               <TrendingUp size={14} />
               <span>AI 활용 분석</span>
@@ -141,7 +143,7 @@ export default function Dev2FeedbackReportPage({
 
         {/* Strengths + Improvements */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 animate-slide-up" style={{ animationFillMode: "both" }}>
             <div className="inline-flex items-center space-x-2 text-xs font-semibold uppercase tracking-wider text-green-600 mb-3">
               <CheckCircle2 size={14} />
               <span>강점</span>
@@ -157,7 +159,7 @@ export default function Dev2FeedbackReportPage({
             </ul>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 animate-slide-up" style={{ animationFillMode: "both" }}>
             <div className="inline-flex items-center space-x-2 text-xs font-semibold uppercase tracking-wider text-amber-600 mb-3">
               <AlertCircle size={14} />
               <span>보완 포인트</span>
@@ -175,7 +177,7 @@ export default function Dev2FeedbackReportPage({
         </div>
 
         {/* Summary */}
-        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100 p-6 md:p-8">
+        <div className="bg-gradient-to-r from-indigo-50 via-purple-50 to-indigo-50 bg-gradient-animate rounded-2xl border border-indigo-100 p-6 md:p-8 animate-slide-up" style={{ animationFillMode: "both" }}>
           <div className="inline-flex items-center space-x-2 text-xs font-semibold uppercase tracking-wider text-indigo-700 mb-2">
             <FileText size={14} />
             <span>한 줄 요약</span>

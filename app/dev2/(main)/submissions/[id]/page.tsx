@@ -88,9 +88,13 @@ export default function Dev2SubmissionProgressPage({
   }
 
   return (
-    <div className="bg-gradient-to-b from-indigo-50/30 via-white to-white min-h-screen">
-      <div className="max-w-2xl mx-auto px-6 py-12">
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-xl p-10">
+    <div className="relative bg-gradient-to-b from-indigo-50/30 via-white to-white min-h-screen overflow-hidden">
+      <div className="absolute top-0 left-0 right-0 h-[500px] pointer-events-none overflow-hidden">
+        <div className="orbit-blob w-96 h-96 bg-indigo-300/30 top-[-60px] left-[20%] animate-blob-1" />
+        <div className="orbit-blob w-72 h-72 bg-purple-300/30 top-[-40px] right-[15%] animate-blob-2" />
+      </div>
+      <div className="relative max-w-2xl mx-auto px-6 py-12">
+        <div className="bg-white rounded-3xl border border-gray-100 shadow-xl p-10 animate-scale-in">
           <div className="mb-8">
             <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold mb-3">
               <Sparkles size={12} strokeWidth={2.4} />

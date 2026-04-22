@@ -148,8 +148,10 @@ export default function Dev2MyPage() {
     <div className="bg-gradient-to-b from-indigo-50/30 via-white to-white min-h-screen">
       <div className="max-w-6xl mx-auto px-6 py-12 space-y-6">
         {/* Profile hero */}
-        <section className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-3xl p-8 md:p-10 text-white relative overflow-hidden">
+        <section className="bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-700 bg-gradient-animate rounded-3xl p-8 md:p-10 text-white relative overflow-hidden animate-slide-up">
           <div className="absolute inset-0 bg-gradient-radial from-white/20 to-transparent opacity-30" />
+          <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white/10 blur-3xl animate-blob-1" />
+          <div className="absolute bottom-0 left-10 w-48 h-48 rounded-full bg-purple-300/20 blur-3xl animate-blob-2" />
           <div className="relative flex flex-col md:flex-row md:items-center gap-6">
             <div className="flex items-center space-x-4">
               <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-2xl font-display font-bold">
@@ -183,9 +185,9 @@ export default function Dev2MyPage() {
           </div>
         </section>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 stagger-children">
           {/* AI 점수 */}
-          <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-8">
+          <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-8 animate-slide-up" style={{ animationFillMode: "both" }}>
             <div className="mb-5">
               <div className="inline-flex items-center space-x-2 text-xs font-semibold uppercase tracking-wider text-indigo-600 mb-1">
                 <Award size={14} />
@@ -229,7 +231,7 @@ export default function Dev2MyPage() {
           </section>
 
           {/* 풀이 기록 */}
-          <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-8 flex flex-col">
+          <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-8 flex flex-col animate-slide-up" style={{ animationFillMode: "both" }}>
             <div className="mb-5">
               <div className="inline-flex items-center space-x-2 text-xs font-semibold uppercase tracking-wider text-indigo-600 mb-1">
                 <TrendingUp size={14} />
