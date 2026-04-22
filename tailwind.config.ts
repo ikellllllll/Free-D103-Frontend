@@ -5,6 +5,23 @@ const config: Config = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}"
   ],
+  safelist: [
+    // gradient direction
+    { pattern: /^bg-gradient-to-(r|l|t|b|tr|tl|br|bl)$/ },
+    // gradient color stops
+    {
+      pattern: /^(from|via|to)-(indigo|violet|teal|purple|rose|amber|green|blue|pink|mint)-(50|100|200|300|400|500|600|700|800|900)$/
+    },
+    // ring colors (group-hover variants)
+    {
+      pattern: /^(group-hover:)?ring-(indigo|violet|teal|purple|rose|amber)-(100|200|300)$/,
+      variants: ["group-hover"]
+    },
+    // common utility classes used dynamically
+    "bg-white/10",
+    "bg-white/15",
+    "bg-white/20"
+  ],
   theme: {
     extend: {
       fontFamily: {
