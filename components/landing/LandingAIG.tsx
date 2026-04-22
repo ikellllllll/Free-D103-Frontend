@@ -197,7 +197,7 @@ export function LandingAIG() {
                   style={{ animationFillMode: "both" }}
                 >
                   <div
-                    className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-6 shadow-lg transition-all"
+                    className="flex items-center justify-center w-14 h-14 rounded-2xl mb-6 shadow-lg transition-all"
                     style={{
                       backgroundImage: f.iconBg,
                       boxShadow: "0 10px 25px -10px rgba(99, 102, 241, 0.4)"
@@ -206,7 +206,7 @@ export function LandingAIG() {
                     <Icon size={26} strokeWidth={2} className="text-white" />
                   </div>
                   <div
-                    className="inline-block text-[11px] font-mono font-semibold uppercase tracking-wider mb-2"
+                    className="text-[11px] font-mono font-semibold uppercase tracking-wider mb-2"
                     style={{ color: f.tagColor }}
                   >
                     {f.tag}
