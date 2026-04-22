@@ -96,18 +96,25 @@ export function LandingAIG() {
 
         {/* Stats bar (inside hero, bottom overlay) */}
         <div className="relative z-10 px-6 pb-16">
-          <div className="max-w-5xl mx-auto flex flex-wrap items-center justify-around gap-6 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl px-8 py-6">
+          <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-0 bg-white/[0.07] backdrop-blur-xl border border-white/15 rounded-2xl overflow-hidden">
             {[
               { value: "5종", label: "실무 과제" },
               { value: "2개", label: "지원 언어" },
               { value: "3가지", label: "평가 기준" },
               { value: "SSAFY 14기", label: "자율 프로젝트" }
-            ].map((s) => (
-              <div key={s.label} className="text-center">
-                <div className="text-2xl md:text-3xl font-display font-bold bg-gradient-to-r from-indigo-200 to-teal-200 text-gradient">
+            ].map((s, i) => (
+              <div
+                key={s.label}
+                className={`text-center py-6 px-4 ${
+                  i < 3 ? "md:border-r border-white/10" : ""
+                } ${i === 1 ? "border-r md:border-r border-white/10" : ""} ${
+                  i === 2 ? "border-t md:border-t-0 border-white/10" : ""
+                } ${i === 3 ? "border-t md:border-t-0 border-white/10" : ""}`}
+              >
+                <div className="text-2xl md:text-3xl font-display font-bold text-white">
                   {s.value}
                 </div>
-                <div className="text-xs text-indigo-200/70 mt-1 font-medium tracking-wider uppercase">
+                <div className="text-[11px] text-indigo-200/80 mt-1.5 font-medium tracking-widest uppercase">
                   {s.label}
                 </div>
               </div>
@@ -144,42 +151,45 @@ export function LandingAIG() {
                 title: "Chat Mode",
                 tag: "질문하는 능력",
                 desc: "AI에게 직접 질문하고 답변을 받으며 코드를 작성합니다. 프롬프트 품질이 곧 실력입니다.",
-                accent: "from-indigo-500 to-indigo-600",
-                bg: "bg-indigo-50"
+                gradient: "from-indigo-500 to-indigo-600",
+                tagColor: "text-indigo-600",
+                ring: "group-hover:ring-indigo-200"
               },
               {
                 icon: Bot,
                 title: "Agent Mode",
                 tag: "설계하는 능력",
                 desc: "하네스를 설계하고 에이전트에게 과제를 위임합니다. 자율 실행된 에이전트의 Trace가 남습니다.",
-                accent: "from-violet-500 to-violet-600",
-                bg: "bg-violet-50"
+                gradient: "from-violet-500 to-violet-600",
+                tagColor: "text-violet-600",
+                ring: "group-hover:ring-violet-200"
               },
               {
                 icon: LineChart,
                 title: "AI 피드백 리포트",
                 tag: "객관적 평가",
                 desc: "하네스 품질 · 실행 품질 · Trace 활용 3가지 기준으로 AI 활용 역량을 수치화합니다.",
-                accent: "from-teal-500 to-teal-600",
-                bg: "bg-teal-50"
+                gradient: "from-teal-500 to-teal-600",
+                tagColor: "text-teal-600",
+                ring: "group-hover:ring-teal-200"
               }
             ].map((f) => {
               const Icon = f.icon;
               return (
                 <div
                   key={f.title}
-                  className="group relative bg-white rounded-3xl border border-gray-100 p-8 hover:border-indigo-200 hover:shadow-xl transition-all animate-slide-up"
+                  className="group relative bg-white rounded-3xl border border-gray-100 p-8 hover:-translate-y-1 hover:shadow-2xl transition-all animate-slide-up"
                   style={{ animationFillMode: "both" }}
                 >
-                  <div className={`inline-flex items-center justify-center w-14 h-14 rounded-2xl ${f.bg} mb-6`}>
-                    <Icon size={26} strokeWidth={1.8} className={`bg-gradient-to-br ${f.accent} text-transparent bg-clip-text`} style={{ color: "currentColor" }} />
+                  <div className={`inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br ${f.gradient} mb-6 shadow-lg shadow-indigo-500/20 ring-4 ring-transparent ${f.ring} transition-all`}>
+                    <Icon size={26} strokeWidth={2} className="text-white" />
                   </div>
-                  <div className="inline-block text-[11px] font-mono font-semibold uppercase tracking-wider text-indigo-600 mb-2">
+                  <div className={`inline-block text-[11px] font-mono font-semibold uppercase tracking-wider ${f.tagColor} mb-2`}>
                     {f.tag}
                   </div>
                   <h3 className="text-xl font-display font-bold text-gray-900 mb-3">{f.title}</h3>
                   <p className="text-sm text-gray-600 leading-relaxed">{f.desc}</p>
-                  <div className="mt-6 inline-flex items-center space-x-1 text-sm font-semibold text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="mt-6 inline-flex items-center space-x-1 text-sm font-semibold text-indigo-600 opacity-60 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
                     <span>자세히 보기</span>
                     <ChevronRight size={14} strokeWidth={2.4} />
                   </div>
@@ -210,37 +220,32 @@ export function LandingAIG() {
             </p>
           </div>
 
-          <div className="relative">
-            {/* Connecting line */}
-            <div className="hidden lg:block absolute top-[48px] left-[10%] right-[10%] h-0.5 bg-gradient-to-r from-indigo-200 via-violet-200 to-teal-200" />
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 stagger-children relative">
-              {[
-                { num: "01", title: "세션 시작", desc: "과제를 선택하고 워크스페이스를 생성합니다.", icon: FlaskConical },
-                { num: "02", title: "코드 수정", desc: "코드를 작성하고 AI 제안을 받아 개선합니다.", icon: Code2 },
-                { num: "03", title: "Trace 분석", desc: "실행 흐름을 추적하고 병목과 오류를 파악합니다.", icon: Activity },
-                { num: "04", title: "제출", desc: "테스트를 통과하면 과제를 제출합니다.", icon: Upload },
-                { num: "05", title: "리포트", desc: "AI 리포트로 피드백을 확인하고 다음 과제를 준비합니다.", icon: FileText }
-              ].map((step) => {
-                const Icon = step.icon;
-                return (
-                  <div
-                    key={step.num}
-                    className="relative bg-white rounded-2xl border border-gray-100 p-6 hover:border-indigo-200 hover:shadow-lg transition-all animate-slide-up"
-                    style={{ animationFillMode: "both" }}
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="relative w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-display font-bold text-sm shadow-lg shadow-indigo-500/30">
-                        {step.num}
-                      </div>
-                      <Icon size={18} strokeWidth={1.8} className="text-gray-300" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 stagger-children">
+            {[
+              { num: "01", title: "세션 시작", desc: "과제를 선택하고 워크스페이스를 생성합니다.", icon: FlaskConical, color: "from-indigo-500 to-indigo-600" },
+              { num: "02", title: "코드 수정", desc: "코드를 작성하고 AI 제안을 받아 개선합니다.", icon: Code2, color: "from-indigo-500 to-violet-500" },
+              { num: "03", title: "Trace 분석", desc: "실행 흐름을 추적하고 병목과 오류를 파악합니다.", icon: Activity, color: "from-violet-500 to-violet-600" },
+              { num: "04", title: "제출", desc: "테스트를 통과하면 과제를 제출합니다.", icon: Upload, color: "from-violet-500 to-teal-500" },
+              { num: "05", title: "리포트", desc: "AI 리포트로 피드백을 확인하고 다음 과제를 준비합니다.", icon: FileText, color: "from-teal-500 to-teal-600" }
+            ].map((step) => {
+              const Icon = step.icon;
+              return (
+                <div
+                  key={step.num}
+                  className="relative bg-white rounded-2xl border border-gray-100 p-6 hover:-translate-y-1 hover:shadow-xl transition-all animate-slide-up group"
+                  style={{ animationFillMode: "both" }}
+                >
+                  <div className="flex items-center justify-between mb-5">
+                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${step.color} flex items-center justify-center text-white font-display font-bold text-sm shadow-lg`}>
+                      {step.num}
                     </div>
-                    <h3 className="text-base font-semibold text-gray-900 mb-2 leading-tight">{step.title}</h3>
-                    <p className="text-xs text-gray-500 leading-relaxed">{step.desc}</p>
+                    <Icon size={20} strokeWidth={1.8} className="text-indigo-300 group-hover:text-indigo-500 transition-colors" />
                   </div>
-                );
-              })}
-            </div>
+                  <h3 className="text-base font-semibold text-gray-900 mb-2 leading-tight">{step.title}</h3>
+                  <p className="text-xs text-gray-500 leading-relaxed">{step.desc}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
