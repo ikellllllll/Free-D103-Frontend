@@ -8,7 +8,7 @@ import {
   MessageSquare,
   FileText,
   FolderOpen,
-  Apple,
+  Rocket,
   Monitor,
   Shield,
   Lock,
@@ -174,8 +174,8 @@ export default function Dev2LandingPage() {
                 href="/signup"
                 className="flex items-center space-x-2 bg-white text-indigo-600 px-8 py-4 rounded-full font-semibold hover:bg-indigo-50 transition-colors shadow-lg"
               >
-                <Apple size={20} strokeWidth={2} />
-                <span>웹에서 시작</span>
+                <Rocket size={20} strokeWidth={2} />
+                <span>회원가입하고 시작</span>
               </Link>
               <a
                 href="#features"
