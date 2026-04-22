@@ -9174,6 +9174,329 @@ body:has(.v3-root) .page-shell {
 /* ── Light mode: v3 테마 변수 덮어쓰기 방지 ─────────────────────
    .design-dev[data-v3-theme] 블록이 파일 뒤에 있어 같은 specificity에서
    light mode 변수를 이겨버림. 이 블록이 가장 뒤에서 복원.            */
+/* ═══════════════════════════════════════════════
+   v3 Problems List (ProblemListV3)
+   ═══════════════════════════════════════════════ */
+
+.v3-plist-page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 42px 32px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  font-family: var(--font-sans);
+}
+
+.v3-plist-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 42px 36px;
+  border-radius: 20px;
+  border: 1px solid var(--v3-line);
+  background:
+    radial-gradient(circle at 90% -10%, color-mix(in srgb, var(--v3-teal) 32%, transparent), transparent 50%),
+    radial-gradient(circle at 10% 110%, color-mix(in srgb, var(--v3-sage) 18%, transparent), transparent 55%),
+    linear-gradient(135deg, color-mix(in srgb, var(--v3-surf) 84%, #000 8%) 0%, color-mix(in srgb, var(--v3-bg) 94%, #000 6%) 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.v3-plist-hero__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  align-self: flex-start;
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--v3-teal) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--v3-teal) 30%, transparent);
+  color: var(--v3-sage);
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.v3-plist-hero__badge-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--v3-sage);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--v3-sage) 80%, transparent);
+}
+
+.v3-plist-hero__title {
+  margin: 0;
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--v3-mint);
+  line-height: 1.2;
+}
+
+.v3-plist-hero__accent {
+  background: linear-gradient(135deg, var(--v3-glow) 0%, var(--v3-mint) 20%, var(--v3-sage) 55%, var(--v3-teal) 88%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+.v3-plist-hero__sub {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--v3-mint-dim);
+  line-height: 1.6;
+}
+
+.v3-plist-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 22px;
+  padding: 16px 22px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--v3-surf) 56%, transparent);
+  border: 1px solid var(--v3-line);
+}
+
+.v3-plist-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.v3-plist-filter-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--v3-sage);
+  font-family: var(--font-mono);
+}
+
+.v3-plist-chips {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.v3-plist-chip {
+  padding: 6px 14px;
+  border: 1px solid var(--v3-line-mid);
+  background: transparent;
+  color: var(--v3-mint-dim);
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s, transform 0.12s;
+  font-family: var(--font-sans);
+}
+.v3-plist-chip:hover {
+  border-color: color-mix(in srgb, var(--v3-teal) 62%, transparent);
+  color: var(--v3-mint);
+  background: color-mix(in srgb, var(--v3-teal) 10%, transparent);
+}
+.v3-plist-chip--active {
+  background: var(--v3-sage);
+  border-color: var(--v3-sage);
+  color: var(--v3-bg);
+  font-weight: 600;
+}
+.v3-plist-chip--active:hover {
+  background: var(--v3-mint);
+  border-color: var(--v3-mint);
+  color: var(--v3-bg);
+  transform: translateY(-1px);
+}
+
+.v3-plist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.v3-plist-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px 22px 18px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--v3-surf) 66%, transparent);
+  border: 1px solid var(--v3-line);
+  color: var(--v3-mint);
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 0.18s, background 0.18s, transform 0.18s, box-shadow 0.18s;
+  position: relative;
+  overflow: hidden;
+  min-height: 180px;
+}
+.v3-plist-card::before {
+  content: "";
+  position: absolute;
+  inset: -1px -1px auto auto;
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle at top right, color-mix(in srgb, var(--v3-teal) 20%, transparent), transparent 65%);
+  opacity: 0;
+  transition: opacity 0.24s;
+  pointer-events: none;
+}
+.v3-plist-card:hover {
+  border-color: color-mix(in srgb, var(--v3-teal) 52%, transparent);
+  background: color-mix(in srgb, var(--v3-surf) 82%, transparent);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--v3-teal) 14%, transparent);
+}
+.v3-plist-card:hover::before {
+  opacity: 1;
+}
+.v3-plist-card--locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.v3-plist-card--skeleton {
+  pointer-events: none;
+  opacity: 0.5;
+  gap: 14px;
+  justify-content: center;
+}
+
+.v3-plist-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.v3-plist-card__order {
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--v3-teal);
+  letter-spacing: 0.04em;
+}
+
+.v3-plist-card__level {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 3px 9px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+.v3-plist-card__level--1 {
+  background: color-mix(in srgb, #6aa874 18%, transparent);
+  color: #b7e2bd;
+  border: 1px solid color-mix(in srgb, #6aa874 35%, transparent);
+}
+.v3-plist-card__level--2 {
+  background: color-mix(in srgb, #c68a3d 18%, transparent);
+  color: #eabf87;
+  border: 1px solid color-mix(in srgb, #c68a3d 35%, transparent);
+}
+.v3-plist-card__level--3 {
+  background: color-mix(in srgb, #c96a63 18%, transparent);
+  color: #f0a69e;
+  border: 1px solid color-mix(in srgb, #c96a63 35%, transparent);
+}
+
+.v3-plist-card__title {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+  color: var(--v3-mint);
+}
+
+.v3-plist-card__summary {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: var(--v3-mint-faint);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.v3-plist-card__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--v3-line);
+  font-size: 0.72rem;
+  color: var(--v3-mint-dim);
+  font-family: var(--font-mono);
+}
+
+.v3-plist-card__cat {
+  color: var(--v3-sage);
+  letter-spacing: 0.02em;
+}
+
+.v3-plist-card__pass {
+  color: var(--v3-mint-dim);
+}
+
+.v3-plist-card__status {
+  margin-left: auto;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--v3-mint) 6%, transparent);
+  border: 1px solid var(--v3-line-mid);
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+}
+.v3-plist-card__status--done {
+  background: color-mix(in srgb, var(--v3-sage) 18%, transparent);
+  color: var(--v3-sage);
+  border-color: color-mix(in srgb, var(--v3-sage) 34%, transparent);
+}
+.v3-plist-card__status--active {
+  background: color-mix(in srgb, var(--v3-teal) 18%, transparent);
+  color: var(--v3-teal);
+  border-color: color-mix(in srgb, var(--v3-teal) 34%, transparent);
+}
+.v3-plist-card__status--locked {
+  opacity: 0.6;
+}
+
+.v3-plist-card__skeleton-line {
+  height: 12px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--v3-mint) 10%, transparent);
+}
+
+.v3-plist-empty {
+  grid-column: 1 / -1;
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--v3-mint-faint);
+  font-size: 0.9rem;
+  border: 1px dashed var(--v3-line-mid);
+  border-radius: 14px;
+}
+
+@media (max-width: 700px) {
+  .v3-plist-page { padding: 30px 18px 60px; gap: 22px; }
+  .v3-plist-hero { padding: 28px 22px; }
+  .v3-plist-filters { padding: 14px 16px; gap: 14px; }
+  .v3-plist-filter-group { gap: 8px; }
+  .v3-plist-grid { grid-template-columns: 1fr; }
+}
+
 html[data-theme="light"] .design-dev[data-v3-theme] {
   --bg:           #f4f7fb;
   --bg-soft:      #ffffff;
