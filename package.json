@@ -20,7 +20,7 @@
     "lucide-react": "^1.8.0",
     "monaco-editor": "^0.55.1",
     "next": "^15.5.15",
-    "pyanchor": "^0.24.0",
+    "pyanchor": "^0.32.8",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",

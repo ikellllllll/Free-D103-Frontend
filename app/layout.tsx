@@ -64,6 +64,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             defer
             data-pyanchor-token={process.env.NEXT_PUBLIC_PYANCHOR_TOKEN ?? ""}
             data-pyanchor-trusted-hosts="studio.pyan.kr,studio-ai.pyan.kr"
+            data-pyanchor-locale="ko"
           />
         ) : null}
       </head>
