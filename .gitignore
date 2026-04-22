@@ -12,3 +12,27 @@ current-problems*.png
 ide-vscode-like.png
 .ai-edit-runtime
 .workshop-runtime
+
+# ── Env / secrets ──
+.env.production
+.env*.local
+
+# ── pyanchor (ai-edit sidecar 대체) ──
+pyanchor.config.cjs
+.pyanchor/
+
+# ── openclaw / AI 에이전트 런타임 ──
+.openclaw/
+
+# ── abbot 백업 파일 ──
+*.bak-pre-abbot
+
+# ── openclaw 에이전트 워크스페이스 md (프로젝트 루트에 생성됨) ──
+/AGENTS.md
+/BOOTSTRAP.md
+/EDIT_BRIEF.md
+/HEARTBEAT.md
+/IDENTITY.md
+/SOUL.md
+/TOOLS.md
+/USER.md
