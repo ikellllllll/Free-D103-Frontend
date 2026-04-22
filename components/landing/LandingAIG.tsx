@@ -64,7 +64,17 @@ export function LandingAIG() {
             <br />
             실무 역량을 키우는
             <br />
-            <span className="bg-gradient-to-r from-indigo-300 via-teal-200 to-violet-300 text-gradient bg-gradient-animate">
+            <span
+              className="bg-gradient-animate"
+              style={{
+                backgroundImage: "linear-gradient(90deg, #A5B4FC, #99F6E4, #C4B5FD, #A5B4FC)",
+                backgroundSize: "200% 200%",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+                color: "transparent"
+              }}
+            >
               코딩 워크스페이스
             </span>
           </h1>
@@ -135,7 +145,15 @@ export function LandingAIG() {
               <span>CORE FEATURES</span>
             </div>
             <h2 className="text-4xl md:text-5xl font-display font-bold text-gray-900 tracking-tight mb-4">
-              AI를 <span className="bg-gradient-to-r from-indigo-600 to-violet-600 text-gradient">어떻게 쓰느냐</span>를
+              AI를 <span
+                style={{
+                  backgroundImage: "linear-gradient(90deg, #4F46E5, #7C3AED)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                  color: "transparent"
+                }}
+              >어떻게 쓰느냐</span>를
               <br />
               평가합니다
             </h2>
@@ -211,7 +229,17 @@ export function LandingAIG() {
             <h2 className="text-4xl md:text-5xl font-display font-bold text-gray-900 tracking-tight mb-4">
               학습부터 분석까지
               <br />
-              <span className="bg-gradient-to-r from-indigo-600 via-violet-600 to-teal-600 text-gradient bg-gradient-animate">
+              <span
+                className="bg-gradient-animate"
+                style={{
+                  backgroundImage: "linear-gradient(90deg, #4F46E5, #7C3AED, #14B8A6, #4F46E5)",
+                  backgroundSize: "200% 200%",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                  color: "transparent"
+                }}
+              >
                 한 흐름으로
               </span>
             </h2>
@@ -262,7 +290,15 @@ export function LandingAIG() {
               <h2 className="text-4xl md:text-5xl font-display font-bold text-gray-900 tracking-tight leading-tight mb-6">
                 내가 AI를
                 <br />
-                <span className="bg-gradient-to-r from-teal-600 to-indigo-600 text-gradient">
+                <span
+                  style={{
+                    backgroundImage: "linear-gradient(90deg, #0D9488, #4F46E5)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    backgroundClip: "text",
+                    color: "transparent"
+                  }}
+                >
                   어떻게 썼는지
                 </span>
                 <br />
@@ -339,7 +375,17 @@ export function LandingAIG() {
           <h2 className="text-4xl md:text-5xl font-display font-bold tracking-tight mb-6 leading-tight">
             AI 시대의 개발자 역량,
             <br />
-            <span className="bg-gradient-to-r from-indigo-300 via-teal-200 to-violet-300 text-gradient bg-gradient-animate">
+            <span
+              className="bg-gradient-animate"
+              style={{
+                backgroundImage: "linear-gradient(90deg, #A5B4FC, #99F6E4, #C4B5FD, #A5B4FC)",
+                backgroundSize: "200% 200%",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+                color: "transparent"
+              }}
+            >
               지금 증명하세요
             </span>
           </h2>
