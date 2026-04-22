@@ -17,6 +17,10 @@ ide-vscode-like.png
 .env.production
 .env*.local
 
+# ── Claude Code MCP (개인 설정) ──
+.mcp.json
+.claude/settings.local.json
+
 # ── pyanchor (ai-edit sidecar 대체) ──
 pyanchor.config.cjs
 .pyanchor/

@@ -1,6 +1,52 @@
 /* Tailwind utilities only (preflight disabled in tailwind.config.ts) */
 @tailwind utilities;
 
+/* Tailwind gradient CSS variable fallbacks — normally come from preflight/base,
+   but we disabled preflight so we need these explicitly for bg-gradient-* to work. */
+@property --tw-gradient-from {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
+@property --tw-gradient-via {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
+@property --tw-gradient-to {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
+@property --tw-gradient-stops {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-gradient-via-stops {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-gradient-from-position {
+  syntax: "<length-percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+@property --tw-gradient-via-position {
+  syntax: "<length-percentage>";
+  inherits: false;
+  initial-value: 50%;
+}
+@property --tw-gradient-to-position {
+  syntax: "<length-percentage>";
+  inherits: false;
+  initial-value: 100%;
+}
+*, ::before, ::after {
+  --tw-gradient-from-position: 0%;
+  --tw-gradient-via-position: 50%;
+  --tw-gradient-to-position: 100%;
+}
+
 /* ─── Design tokens ──────────────────────────────────────────── */
 :root {
   --font-sans: "IBM Plex Sans KR", sans-serif;
