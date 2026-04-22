@@ -85,10 +85,9 @@ export default function Dev2LandingPage() {
           {/* IDE mockup */}
           <div className="relative w-full max-w-5xl mx-auto mt-16 rounded-2xl overflow-hidden mockup-shadow bg-white border border-gray-200">
             <div className="flex items-center px-4 py-3 bg-gray-50 border-b border-gray-200">
-              <div className="flex space-x-2">
-                <div className="w-3 h-3 rounded-full bg-red-400" />
-                <div className="w-3 h-3 rounded-full bg-yellow-400" />
-                <div className="w-3 h-3 rounded-full bg-green-400" />
+              <div className="flex items-center space-x-2 shrink-0">
+                <Sparkles size={14} strokeWidth={2} className="text-indigo-600" />
+                <span className="text-sm font-semibold text-gray-700">AIG Studio</span>
               </div>
               <div className="mx-auto flex items-center space-x-2 bg-white px-4 py-1 rounded-md border border-gray-200 text-sm text-gray-500 shadow-sm w-1/2 justify-center">
                 <Search size={14} strokeWidth={2} />
@@ -328,7 +327,7 @@ export default function Dev2LandingPage() {
               취향대로 커스텀.
             </h2>
             <p className="text-xl text-gray-600 mb-16">
-              11가지 컬러 테마 + 단축키 + 레이아웃. ⌘K 로 빠른 탐색.
+              11가지 컬러 테마 + 단축키 + 레이아웃. Ctrl + K 로 빠른 탐색.
             </p>
             <div className="relative max-w-4xl mx-auto">
               <div className="rounded-2xl overflow-hidden mockup-shadow border border-gray-200 bg-[#fbcfe8] p-8 flex h-[400px] md:h-[500px]">
