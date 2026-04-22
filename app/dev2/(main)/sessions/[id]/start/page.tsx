@@ -45,7 +45,7 @@ export default function Dev2SessionStartPage({
 
   return (
     <div className="bg-gradient-to-b from-indigo-50/30 via-white to-white min-h-screen">
-      <div className="max-w-2xl mx-auto px-6 py-16">
+      <div className="max-w-2xl mx-auto px-6 pt-28 pb-16">
         <div className="bg-white rounded-3xl border border-gray-100 shadow-xl p-10">
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 mb-4">

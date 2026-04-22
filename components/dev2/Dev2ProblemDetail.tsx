@@ -1,25 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import Markdown from "react-markdown";
 import {
   ArrowLeft,
+  ArrowRight,
   Sparkles,
   Clock,
-  TrendingUp,
   Code2,
   Rocket,
   AlertTriangle,
-  Check
+  Check,
+  Info,
+  ChevronDown,
+  Copy,
+  Check as CheckIcon
 } from "lucide-react";
 
 import { LangIcon } from "@/components/common/LangIcon";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
-import type { ProblemDetail as ProblemDetailType } from "@/lib/types/problem";
 import type { ProblemLanguage } from "@/lib/types/session";
 import { useAuthStore } from "@/store/authStore";
 import { useUiStore } from "@/store/uiStore";
@@ -61,11 +64,11 @@ const PROVIDER_LABELS: Record<string, string> = {
   google: "Google AI"
 };
 
-const LEVEL_COLORS = {
-  1: "bg-green-50 text-green-700 border-green-200",
-  2: "bg-amber-50 text-amber-700 border-amber-200",
-  3: "bg-rose-50 text-rose-700 border-rose-200"
-} as const;
+const LEVEL_STYLES: Record<1 | 2 | 3, string> = {
+  1: "bg-green-100 text-green-700",
+  2: "bg-amber-100 text-amber-700",
+  3: "bg-rose-100 text-rose-700"
+};
 
 export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
   const router = useRouter();
@@ -80,6 +83,8 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
     provider: "default"
   });
   const [byokKeys, setByokKeys] = useState<Record<string, string>>({});
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const { data: problem, isLoading, isError } = useQuery({
     queryKey: ["problem", problemId],
@@ -94,6 +99,22 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
       setByokKeys({});
     }
   }, []);
+
+  const needsKey =
+    aiModel.provider !== "default" && !byokKeys[aiModel.provider];
+
+  const endpointsText = useMemo(() => problem?.endpoints.join("\n") ?? "", [problem]);
+
+  const handleCopy = async () => {
+    if (!endpointsText) return;
+    try {
+      await navigator.clipboard.writeText(endpointsText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* noop */
+    }
+  };
 
   const handleStart = async () => {
     if (!user) {
@@ -122,7 +143,7 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
 
   if (isLoading) {
     return (
-      <div className="max-w-7xl mx-auto px-6 py-12">
+      <div className="max-w-6xl mx-auto px-6 pt-28 pb-12">
         <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">
           <div className="inline-flex items-center space-x-2 text-gray-500">
             <Sparkles size={18} className="animate-pulse" />
@@ -135,7 +156,7 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
 
   if (isError || !problem) {
     return (
-      <div className="max-w-7xl mx-auto px-6 py-12">
+      <div className="max-w-6xl mx-auto px-6 pt-28 pb-12">
         <div className="bg-white rounded-2xl border border-rose-100 p-10 text-center">
           <AlertTriangle size={32} className="mx-auto text-rose-500 mb-3" />
           <p className="text-gray-700 font-semibold mb-1">과제를 찾을 수 없습니다.</p>
@@ -146,13 +167,16 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
   }
 
   return (
-    <div className="relative bg-gradient-to-b from-indigo-50/30 via-white to-white min-h-screen overflow-hidden">
-      <div className="absolute top-0 left-0 right-0 h-[400px] pointer-events-none overflow-hidden">
-        <div className="orbit-blob w-80 h-80 bg-indigo-300/30 top-[-60px] left-[15%] animate-blob-1" />
-        <div className="orbit-blob w-72 h-72 bg-purple-300/30 top-[-40px] right-[10%] animate-blob-2" />
+    <div className="relative bg-gradient-to-b from-indigo-50/40 via-white to-white min-h-screen overflow-hidden">
+      {/* Floating orbs (mirror the problems list background) */}
+      <div className="absolute top-0 left-0 right-0 h-[700px] pointer-events-none overflow-hidden">
+        <div className="absolute -top-10 -left-40 w-[460px] h-[460px] rounded-full bg-indigo-400/30 blur-3xl animate-blob-1" />
+        <div className="absolute top-[10%] -right-40 w-[460px] h-[460px] rounded-full bg-purple-400/30 blur-3xl animate-blob-2" />
         <div className="absolute inset-0 bg-grid-pattern opacity-30" />
       </div>
-      <div className="relative max-w-7xl mx-auto px-6 py-10">
+
+      <div className="relative max-w-6xl mx-auto px-6 pt-28 pb-16">
+        {/* Breadcrumb */}
         <Link
           href={withPrefix("/problems")}
           className="inline-flex items-center space-x-1.5 text-sm text-gray-500 hover:text-indigo-600 mb-6 transition-colors"
@@ -164,150 +188,187 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
           {/* ── Main Column ── */}
           <div className="space-y-6">
-            {/* Header Card */}
-            <section className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden animate-slide-up">
-              <div className="p-8 bg-gradient-to-br from-indigo-50/50 to-purple-50/30 border-b border-gray-100">
-                <div className="flex items-start justify-between gap-4 mb-3">
-                  <h1 className="text-2xl md:text-3xl font-display font-bold text-gray-900 tracking-tight">
-                    {problem.title}
-                  </h1>
-                  <span
-                    className={`shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full border ${LEVEL_COLORS[problem.level]}`}
-                  >
-                    Lv {problem.level}
-                  </span>
-                </div>
-                <p className="text-gray-600 leading-relaxed">{problem.summary}</p>
-              </div>
-
-              <div className="p-8 space-y-6">
-                {/* Language pick */}
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
-                    풀이 언어
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {LANG_OPTIONS.map((opt) => {
-                      const active = language === opt.value;
-                      return (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => setLanguage(opt.value)}
-                          className={`flex items-center space-x-3 p-4 rounded-xl border-2 text-left transition-all ${
-                            active
-                              ? "border-indigo-500 bg-indigo-50/50 shadow-sm"
-                              : "border-gray-200 hover:border-indigo-200"
-                          }`}
-                        >
-                          <LangIcon language={opt.value} size={24} />
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-2">
-                              <span className="font-semibold text-gray-900">{opt.label}</span>
-                              {active && (
-                                <Check size={14} className="text-indigo-600" strokeWidth={3} />
-                              )}
-                            </div>
-                            <span className="text-xs text-gray-500">{opt.desc}</span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Model pick */}
-                <div>
-                  <label
-                    htmlFor="dev2-model-select"
-                    className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3"
-                  >
-                    AI 모델
-                  </label>
-                  <select
-                    id="dev2-model-select"
-                    value={aiModel.id}
-                    onChange={(e) => {
-                      const all = Object.values(MODEL_OPTIONS).flat();
-                      const found = all.find((m) => m.id === e.target.value);
-                      if (found) setAiModel(found);
-                    }}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
-                  >
-                    {MODEL_OPTIONS.default.map((opt) => (
-                      <option key={opt.id} value={opt.id}>
-                        {opt.label} — {opt.note}
-                      </option>
-                    ))}
-                    {Object.entries(MODEL_OPTIONS)
-                      .filter(([p]) => p !== "default")
-                      .map(([provider, models]) => (
-                        <optgroup
-                          key={provider}
-                          label={`${PROVIDER_LABELS[provider]}${!byokKeys[provider] ? " (키 미등록)" : ""}`}
-                        >
-                          {models.map((opt) => (
-                            <option
-                              key={opt.id}
-                              value={opt.id}
-                              disabled={!byokKeys[provider]}
-                            >
-                              {opt.label} — {opt.note}
-                            </option>
-                          ))}
-                        </optgroup>
-                      ))}
-                  </select>
-                  {!byokKeys[aiModel.provider] && aiModel.provider !== "default" && (
-                    <div className="mt-2 flex items-center space-x-1.5 text-xs text-amber-600">
-                      <AlertTriangle size={12} />
-                      <span>선택한 모델의 API 키가 등록되지 않았습니다.</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Start */}
-                <button
-                  type="button"
-                  onClick={handleStart}
-                  className="w-full flex items-center justify-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3.5 rounded-xl shadow-sm transition-colors"
+            {/* Hero Card */}
+            <section
+              className="relative bg-white rounded-2xl border border-gray-100 shadow-sm p-8 md:p-10 overflow-hidden animate-slide-up"
+            >
+              {/* Soft gradient wash */}
+              <div
+                className="absolute inset-0 pointer-events-none opacity-70"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(135deg, rgba(238, 242, 255, 0.9) 0%, rgba(250, 245, 255, 0.6) 60%, rgba(255, 255, 255, 0) 100%)"
+                }}
+              />
+              <div className="relative flex items-start justify-between gap-4 mb-4">
+                <h1 className="text-3xl md:text-4xl font-display font-bold text-gray-900 tracking-tight leading-[1.15]">
+                  {problem.title}
+                </h1>
+                <span
+                  className={`shrink-0 text-xs font-bold px-3 py-1.5 rounded-full ${LEVEL_STYLES[problem.level]}`}
                 >
-                  <Rocket size={16} strokeWidth={2.4} />
-                  <span>풀이 시작</span>
-                </button>
+                  Lv {problem.level}
+                </span>
               </div>
+              <p className="relative text-[15px] text-gray-600 leading-relaxed max-w-2xl">
+                {problem.summary}
+              </p>
             </section>
 
-            {/* Description Card */}
-            <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 animate-slide-up" style={{ animationDelay: "0.1s", animationFillMode: "both" }}>
-              <div className="mb-5">
-                <span className="inline-block text-xs font-semibold uppercase tracking-wider text-indigo-600 mb-2">
-                  과제 개요
-                </span>
-                <h2 className="text-xl font-display font-bold text-gray-900">문제 설명</h2>
+            {/* Language + Model + Start Card */}
+            <section
+              className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 space-y-6 animate-slide-up"
+              style={{ animationDelay: "0.05s", animationFillMode: "both" }}
+            >
+              {/* Language */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 mb-3">
+                  Language
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {LANG_OPTIONS.map((opt) => {
+                    const active = language === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setLanguage(opt.value)}
+                        className={`flex items-center p-4 rounded-xl border-2 text-left transition-all ${
+                          active
+                            ? "border-indigo-500 bg-indigo-50/40 shadow-sm"
+                            : "border-gray-200 bg-white hover:border-indigo-200"
+                        }`}
+                      >
+                        <LangIcon language={opt.value} size={28} />
+                        <div className="flex-1 ml-3">
+                          <div className="font-semibold text-gray-900 text-[15px]">
+                            {opt.label}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-0.5">{opt.desc}</div>
+                        </div>
+                        {/* Right check circle */}
+                        <span
+                          className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-all ${
+                            active
+                              ? "bg-indigo-600 text-white"
+                              : "border border-gray-300 bg-white"
+                          }`}
+                        >
+                          {active && <Check size={14} strokeWidth={3} />}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
-              <div className="prose-mini mb-6 text-gray-700 leading-relaxed">
+              {/* AI Model */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 mb-3">
+                  AI Model
+                </label>
+                <ModelSelect
+                  aiModel={aiModel}
+                  setAiModel={setAiModel}
+                  byokKeys={byokKeys}
+                  open={modelMenuOpen}
+                  setOpen={setModelMenuOpen}
+                />
+
+                {needsKey && (
+                  <div className="mt-2.5 flex items-center space-x-2 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg px-3.5 py-2.5">
+                    <AlertTriangle size={14} className="shrink-0" />
+                    <span className="font-medium">
+                      선택한 Provider API 키가 필요합니다.{" "}
+                      <Link
+                        href={withPrefix("/mypage")}
+                        className="underline hover:text-amber-900"
+                      >
+                        마이페이지에서 등록
+                      </Link>
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Start button */}
+              <button
+                type="button"
+                onClick={handleStart}
+                className="group w-full flex items-center justify-center space-x-2 text-white font-semibold py-4 rounded-2xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+                style={{
+                  backgroundImage: "linear-gradient(90deg, #4F46E5, #7C3AED)",
+                  boxShadow: "0 16px 32px -12px rgba(99, 102, 241, 0.5)"
+                }}
+              >
+                <Rocket size={16} strokeWidth={2.4} />
+                <span className="text-[15px]">풀이 시작</span>
+                <ArrowRight
+                  size={16}
+                  strokeWidth={2.4}
+                  className="group-hover:translate-x-0.5 transition-transform"
+                />
+              </button>
+            </section>
+
+            {/* Problem Brief */}
+            <section
+              className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 animate-slide-up"
+              style={{ animationDelay: "0.1s", animationFillMode: "both" }}
+            >
+              <span className="block text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 mb-2">
+                Problem Brief
+              </span>
+              <h2 className="text-xl font-display font-bold text-gray-900 mb-4">
+                Requirements
+              </h2>
+
+              <div className="prose-mini text-[15px] text-gray-700 leading-relaxed mb-5">
                 <Markdown>{problem.description}</Markdown>
               </div>
 
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">핵심 요구사항</h3>
-                <ul className="space-y-2">
-                  {problem.requirements.map((req) => (
-                    <li key={req} className="flex items-start space-x-2 text-sm text-gray-700">
-                      <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-indigo-500 mt-2" />
-                      <span className="leading-relaxed">{req}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <ul className="space-y-2 mb-6">
+                {problem.requirements.map((req) => (
+                  <li
+                    key={req}
+                    className="flex items-start space-x-2.5 text-[15px] text-gray-700"
+                  >
+                    <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-indigo-500 mt-2.5" />
+                    <span className="leading-relaxed">{req}</span>
+                  </li>
+                ))}
+              </ul>
 
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">요구 엔드포인트</h3>
-                <div className="bg-gray-900 rounded-xl p-4 overflow-x-auto">
-                  <pre className="text-sm text-gray-100 font-mono leading-relaxed whitespace-pre">
-                    {problem.endpoints.join("\n")}
+              {/* Endpoints code block */}
+              <div className="relative bg-gray-900 rounded-xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className="absolute top-3 right-3 p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-colors"
+                  aria-label="복사"
+                >
+                  {copied ? (
+                    <CheckIcon size={14} strokeWidth={2.4} className="text-green-400" />
+                  ) : (
+                    <Copy size={14} strokeWidth={2} />
+                  )}
+                </button>
+                <div className="flex">
+                  {/* Line numbers */}
+                  <div className="shrink-0 py-4 pl-4 pr-3 text-xs font-mono text-gray-600 select-none">
+                    {problem.endpoints.map((_, i) => (
+                      <div key={i} className="leading-6">
+                        {i + 1}
+                      </div>
+                    ))}
+                  </div>
+                  {/* Code */}
+                  <pre className="flex-1 py-4 pr-4 text-sm text-gray-100 font-mono leading-6 overflow-x-auto">
+                    {problem.endpoints.map((line, i) => (
+                      <div key={i}>
+                        {highlightEndpoint(line)}
+                      </div>
+                    ))}
                   </pre>
                 </div>
               </div>
@@ -316,43 +377,54 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
 
           {/* ── Side Column ── */}
           <aside className="lg:sticky lg:top-24 self-start">
-            <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4 animate-slide-up" style={{ animationDelay: "0.2s", animationFillMode: "both" }}>
-              <h3 className="text-sm font-semibold text-gray-900 flex items-center space-x-2">
-                <TrendingUp size={14} className="text-indigo-600" />
-                <span>과제 정보</span>
-              </h3>
+            <section
+              className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 animate-slide-up"
+              style={{ animationDelay: "0.15s", animationFillMode: "both" }}
+            >
+              {/* Header */}
+              <div className="flex items-center space-x-2.5 pb-5 border-b border-gray-100">
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600">
+                  <Info size={16} strokeWidth={2.2} />
+                </span>
+                <span className="font-display font-bold text-gray-900 text-[17px]">
+                  Task Info
+                </span>
+              </div>
 
-              <div className="space-y-3">
-                <MetaRow label="카테고리" value={problem.category} />
+              {/* Rows */}
+              <div className="py-2 divide-y divide-gray-100">
+                <MetaRow label="Category" value={problem.category} />
                 <MetaRow
-                  label="풀이 언어"
+                  label="Language"
                   value={
-                    <LangIcon language={language} size={14} showLabel className="inline-flex" />
+                    <span className="inline-flex items-center space-x-1.5">
+                      <LangIcon language={language} size={14} />
+                      <span>{language === "java" ? "Java" : "Python"}</span>
+                    </span>
                   }
                 />
-                <MetaRow label="AI 모델" value={aiModel.label} />
+                <MetaRow label="AI Model" value={aiModel.label} />
                 <MetaRow
-                  label="제한시간"
+                  label="Time Limit"
                   value={
                     <span className="inline-flex items-center space-x-1">
-                      <Clock size={12} />
+                      <Clock size={12} strokeWidth={2.2} />
                       <span>{problem.estimate}</span>
                     </span>
                   }
                 />
-                <MetaRow label="현재 통과율" value={`${problem.passRate}%`} />
+                <MetaRow label="Pass Rate" value={`${problem.passRate}%`} />
               </div>
 
-              <div className="pt-3 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={handleStart}
-                  className="w-full flex items-center justify-center space-x-2 bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3 rounded-xl transition-colors"
-                >
-                  <Code2 size={16} strokeWidth={2} />
-                  <span>IDE로 바로 시작</span>
-                </button>
-              </div>
+              {/* IDE button */}
+              <button
+                type="button"
+                onClick={handleStart}
+                className="mt-5 w-full flex items-center justify-center space-x-2 bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3.5 rounded-xl transition-colors"
+              >
+                <Code2 size={16} strokeWidth={2.2} />
+                <span>IDE로 바로 시작</span>
+              </button>
             </section>
           </aside>
         </div>
@@ -361,11 +433,189 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
   );
 }
 
+/* ─── Subcomponents ─── */
+
 function MetaRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between text-sm">
+    <div className="flex items-center justify-between text-sm py-3">
       <span className="text-gray-500">{label}</span>
       <span className="font-semibold text-gray-900">{value}</span>
     </div>
+  );
+}
+
+function ModelSelect({
+  aiModel,
+  setAiModel,
+  byokKeys,
+  open,
+  setOpen
+}: {
+  aiModel: ModelOption;
+  setAiModel: (m: ModelOption) => void;
+  byokKeys: Record<string, string>;
+  open: boolean;
+  setOpen: (v: boolean) => void;
+}) {
+  // Close on Escape / outside click
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [open, setOpen]);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl border-2 bg-white text-left transition-colors ${
+          open
+            ? "border-indigo-500 ring-2 ring-indigo-100"
+            : "border-gray-200 hover:border-indigo-300"
+        }`}
+      >
+        <div>
+          <div className="font-semibold text-gray-900 text-[15px]">{aiModel.label}</div>
+          <div className="text-xs text-gray-500 mt-0.5">
+            {aiModel.provider === "default"
+              ? "시스템 제공"
+              : `${PROVIDER_LABELS[aiModel.provider]} · ${aiModel.note}`}
+          </div>
+        </div>
+        <ChevronDown
+          size={18}
+          strokeWidth={2}
+          className={`text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {open && (
+        <>
+          {/* Backdrop for click-outside */}
+          <div
+            className="fixed inset-0 z-30"
+            onClick={() => setOpen(false)}
+            aria-hidden
+          />
+          <div className="absolute left-0 right-0 mt-2 bg-white rounded-xl border border-gray-200 shadow-xl z-40 overflow-hidden max-h-[320px] overflow-y-auto">
+            {/* Default group */}
+            <div className="py-2">
+              <div className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">
+                AIG
+              </div>
+              {MODEL_OPTIONS.default.map((m) => (
+                <ModelRow
+                  key={m.id}
+                  model={m}
+                  active={aiModel.id === m.id}
+                  disabled={false}
+                  onClick={() => {
+                    setAiModel(m);
+                    setOpen(false);
+                  }}
+                />
+              ))}
+            </div>
+            {Object.entries(MODEL_OPTIONS)
+              .filter(([p]) => p !== "default")
+              .map(([provider, models]) => {
+                const hasKey = Boolean(byokKeys[provider]);
+                return (
+                  <div key={provider} className="py-2 border-t border-gray-100">
+                    <div className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 flex items-center justify-between">
+                      <span>{PROVIDER_LABELS[provider]}</span>
+                      {!hasKey && (
+                        <span className="inline-flex items-center space-x-1 text-amber-600 normal-case tracking-normal font-semibold text-[10px]">
+                          <AlertTriangle size={10} strokeWidth={2.4} />
+                          <span>Key 미등록</span>
+                        </span>
+                      )}
+                    </div>
+                    {models.map((m) => (
+                      <ModelRow
+                        key={m.id}
+                        model={m}
+                        active={aiModel.id === m.id}
+                        disabled={!hasKey}
+                        onClick={() => {
+                          if (!hasKey) return;
+                          setAiModel(m);
+                          setOpen(false);
+                        }}
+                      />
+                    ))}
+                  </div>
+                );
+              })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ModelRow({
+  model,
+  active,
+  disabled,
+  onClick
+}: {
+  model: ModelOption;
+  active: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`w-full flex items-center justify-between px-4 py-2.5 text-left transition-colors ${
+        disabled
+          ? "opacity-50 cursor-not-allowed"
+          : active
+            ? "bg-indigo-50"
+            : "hover:bg-gray-50"
+      }`}
+    >
+      <div>
+        <div
+          className={`text-sm font-semibold ${
+            active ? "text-indigo-700" : "text-gray-900"
+          }`}
+        >
+          {model.label}
+        </div>
+        <div className="text-xs text-gray-500 mt-0.5">{model.note}</div>
+      </div>
+      {active && <Check size={14} strokeWidth={3} className="text-indigo-600" />}
+    </button>
+  );
+}
+
+/* Endpoint highlighting — color the HTTP verb */
+function highlightEndpoint(line: string) {
+  const match = line.match(/^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+(.*)$/);
+  if (!match) return <span>{line}</span>;
+  const [, verb, rest] = match;
+  const verbColor =
+    verb === "GET"
+      ? "text-green-400"
+      : verb === "POST"
+        ? "text-blue-400"
+        : verb === "PUT" || verb === "PATCH"
+          ? "text-amber-400"
+          : verb === "DELETE"
+            ? "text-rose-400"
+            : "text-gray-300";
+  return (
+    <>
+      <span className={`${verbColor} font-bold`}>{verb}</span>
+      <span className="text-gray-100"> {rest}</span>
+    </>
   );
 }

@@ -183,7 +183,7 @@ export default function Dev2ProblemsPage() {
         <div className="absolute inset-0 bg-grid-pattern opacity-30" />
       </div>
 
-      <div className="relative max-w-6xl mx-auto px-6 py-10">
+      <div className="relative max-w-6xl mx-auto px-6 pt-28 pb-10">
         {/* Hero */}
         <div className="text-center mb-10 animate-slide-up">
           <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-white border border-indigo-100 text-indigo-700 text-sm font-semibold mb-6 shadow-sm">

@@ -168,8 +168,8 @@ export function Dev2Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-white font-sans">
-      {/* ── Pill-shape floating nav ── */}
-      <header className="fixed top-4 left-0 right-0 z-40 px-6 pointer-events-none">
+      {/* ── Pill-shape floating nav (pure overlay, no layout space) ── */}
+      <header className="fixed top-4 left-0 right-0 z-50 px-6 pointer-events-none">
         <div className="max-w-6xl mx-auto flex items-center justify-between bg-white/95 backdrop-blur-xl rounded-full px-3 pl-6 py-2.5 shadow-xl shadow-indigo-900/10 border border-white pointer-events-auto">
           <Link
             href={withPrefix("/problems")}
@@ -339,8 +339,8 @@ export function Dev2Shell({ children }: { children: ReactNode }) {
         )}
       </header>
 
-      {/* ── Content ── */}
-      <main className="pt-24 min-h-screen">{children}</main>
+      {/* ── Content (nav floats over top; pages manage their own top padding) ── */}
+      <main className="min-h-screen">{children}</main>
 
       {/* ── Command Palette ── */}
       {paletteOpen && (
