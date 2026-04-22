@@ -1,12 +1,5 @@
-"use client";
-
-import { AppThemeWrapper } from "@/components/dev/AppThemeWrapper";
-import { LandingV3 } from "@/components/landing/LandingV3";
+import { redirect } from "next/navigation";
 
 export default function HomePage() {
-  return (
-    <AppThemeWrapper>
-      <LandingV3 />
-    </AppThemeWrapper>
-  );
+  redirect("/login");
 }
