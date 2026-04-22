@@ -169,27 +169,24 @@ export function LandingAIG() {
                 title: "Chat Mode",
                 tag: "질문하는 능력",
                 desc: "AI에게 직접 질문하고 답변을 받으며 코드를 작성합니다. 프롬프트 품질이 곧 실력입니다.",
-                gradient: "from-indigo-500 to-indigo-600",
-                tagColor: "text-indigo-600",
-                ring: "group-hover:ring-indigo-200"
+                iconBg: "linear-gradient(135deg, #6366F1, #4F46E5)",
+                tagColor: "#4F46E5"
               },
               {
                 icon: Bot,
                 title: "Agent Mode",
                 tag: "설계하는 능력",
                 desc: "하네스를 설계하고 에이전트에게 과제를 위임합니다. 자율 실행된 에이전트의 Trace가 남습니다.",
-                gradient: "from-violet-500 to-violet-600",
-                tagColor: "text-violet-600",
-                ring: "group-hover:ring-violet-200"
+                iconBg: "linear-gradient(135deg, #8B5CF6, #7C3AED)",
+                tagColor: "#7C3AED"
               },
               {
                 icon: LineChart,
                 title: "AI 피드백 리포트",
                 tag: "객관적 평가",
                 desc: "하네스 품질 · 실행 품질 · Trace 활용 3가지 기준으로 AI 활용 역량을 수치화합니다.",
-                gradient: "from-teal-500 to-teal-600",
-                tagColor: "text-teal-600",
-                ring: "group-hover:ring-teal-200"
+                iconBg: "linear-gradient(135deg, #14B8A6, #0D9488)",
+                tagColor: "#0D9488"
               }
             ].map((f) => {
               const Icon = f.icon;
@@ -199,10 +196,19 @@ export function LandingAIG() {
                   className="group relative bg-white rounded-3xl border border-gray-100 p-8 hover:-translate-y-1 hover:shadow-2xl transition-all animate-slide-up"
                   style={{ animationFillMode: "both" }}
                 >
-                  <div className={`inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br ${f.gradient} mb-6 shadow-lg shadow-indigo-500/20 ring-4 ring-transparent ${f.ring} transition-all`}>
+                  <div
+                    className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-6 shadow-lg transition-all"
+                    style={{
+                      backgroundImage: f.iconBg,
+                      boxShadow: "0 10px 25px -10px rgba(99, 102, 241, 0.4)"
+                    }}
+                  >
                     <Icon size={26} strokeWidth={2} className="text-white" />
                   </div>
-                  <div className={`inline-block text-[11px] font-mono font-semibold uppercase tracking-wider ${f.tagColor} mb-2`}>
+                  <div
+                    className="inline-block text-[11px] font-mono font-semibold uppercase tracking-wider mb-2"
+                    style={{ color: f.tagColor }}
+                  >
                     {f.tag}
                   </div>
                   <h3 className="text-xl font-display font-bold text-gray-900 mb-3">{f.title}</h3>
@@ -250,11 +256,11 @@ export function LandingAIG() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 stagger-children">
             {[
-              { num: "01", title: "세션 시작", desc: "과제를 선택하고 워크스페이스를 생성합니다.", icon: FlaskConical, color: "from-indigo-500 to-indigo-600" },
-              { num: "02", title: "코드 수정", desc: "코드를 작성하고 AI 제안을 받아 개선합니다.", icon: Code2, color: "from-indigo-500 to-violet-500" },
-              { num: "03", title: "Trace 분석", desc: "실행 흐름을 추적하고 병목과 오류를 파악합니다.", icon: Activity, color: "from-violet-500 to-violet-600" },
-              { num: "04", title: "제출", desc: "테스트를 통과하면 과제를 제출합니다.", icon: Upload, color: "from-violet-500 to-teal-500" },
-              { num: "05", title: "리포트", desc: "AI 리포트로 피드백을 확인하고 다음 과제를 준비합니다.", icon: FileText, color: "from-teal-500 to-teal-600" }
+              { num: "01", title: "세션 시작", desc: "과제를 선택하고 워크스페이스를 생성합니다.", icon: FlaskConical, bg: "linear-gradient(135deg, #6366F1, #4F46E5)" },
+              { num: "02", title: "코드 수정", desc: "코드를 작성하고 AI 제안을 받아 개선합니다.", icon: Code2, bg: "linear-gradient(135deg, #6366F1, #8B5CF6)" },
+              { num: "03", title: "Trace 분석", desc: "실행 흐름을 추적하고 병목과 오류를 파악합니다.", icon: Activity, bg: "linear-gradient(135deg, #8B5CF6, #7C3AED)" },
+              { num: "04", title: "제출", desc: "테스트를 통과하면 과제를 제출합니다.", icon: Upload, bg: "linear-gradient(135deg, #8B5CF6, #14B8A6)" },
+              { num: "05", title: "리포트", desc: "AI 리포트로 피드백을 확인하고 다음 과제를 준비합니다.", icon: FileText, bg: "linear-gradient(135deg, #14B8A6, #0D9488)" }
             ].map((step) => {
               const Icon = step.icon;
               return (
@@ -264,7 +270,13 @@ export function LandingAIG() {
                   style={{ animationFillMode: "both" }}
                 >
                   <div className="flex items-center justify-between mb-5">
-                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${step.color} flex items-center justify-center text-white font-display font-bold text-sm shadow-lg`}>
+                    <div
+                      className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-display font-bold text-sm shadow-lg"
+                      style={{
+                        backgroundImage: step.bg,
+                        boxShadow: "0 10px 20px -8px rgba(99, 102, 241, 0.4)"
+                      }}
+                    >
                       {step.num}
                     </div>
                     <Icon size={20} strokeWidth={1.8} className="text-indigo-300 group-hover:text-indigo-500 transition-colors" />
@@ -310,7 +322,11 @@ export function LandingAIG() {
               </p>
               <Link
                 href="/dev2/signup"
-                className="inline-flex items-center space-x-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-semibold px-6 py-3 rounded-full transition-all shadow-lg shadow-indigo-500/30 hover:shadow-xl hover:-translate-y-0.5"
+                className="inline-flex items-center space-x-2 text-white font-semibold px-6 py-3 rounded-full transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+                style={{
+                  backgroundImage: "linear-gradient(90deg, #4F46E5, #7C3AED)",
+                  boxShadow: "0 10px 25px -8px rgba(99, 102, 241, 0.5)"
+                }}
               >
                 <span>리포트 체험하기</span>
                 <ArrowRight size={16} strokeWidth={2.4} />
@@ -333,16 +349,22 @@ export function LandingAIG() {
                       <span>상위 27%</span>
                     </div>
                   </div>
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-lg">
+                  <div
+                    className="w-24 h-24 rounded-full flex items-center justify-center text-white shadow-lg"
+                    style={{
+                      backgroundImage: "linear-gradient(135deg, #6366F1, #7C3AED)",
+                      boxShadow: "0 15px 30px -10px rgba(99, 102, 241, 0.5)"
+                    }}
+                  >
                     <LineChart size={36} strokeWidth={1.5} />
                   </div>
                 </div>
 
                 <div className="space-y-4 pt-4 border-t border-gray-100">
                   {[
-                    { label: "하네스 품질", score: 85, color: "from-indigo-500 to-indigo-600" },
-                    { label: "실행 품질", score: 78, color: "from-violet-500 to-violet-600" },
-                    { label: "Trace 활용", score: 84, color: "from-teal-500 to-teal-600" }
+                    { label: "하네스 품질", score: 85, bar: "linear-gradient(90deg, #6366F1, #4F46E5)" },
+                    { label: "실행 품질", score: 78, bar: "linear-gradient(90deg, #8B5CF6, #7C3AED)" },
+                    { label: "Trace 활용", score: 84, bar: "linear-gradient(90deg, #14B8A6, #0D9488)" }
                   ].map((item) => (
                     <div key={item.label}>
                       <div className="flex items-center justify-between mb-1.5">
@@ -351,8 +373,11 @@ export function LandingAIG() {
                       </div>
                       <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                         <div
-                          className={`h-full bg-gradient-to-r ${item.color} rounded-full`}
-                          style={{ width: `${item.score}%` }}
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${item.score}%`,
+                            backgroundImage: item.bar
+                          }}
                         />
                       </div>
                     </div>
