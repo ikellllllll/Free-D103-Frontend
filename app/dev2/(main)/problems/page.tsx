@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Lock, CheckCircle2, Clock, Sparkles } from "lucide-react";
+import { Lock, CheckCircle2, Clock, Circle } from "lucide-react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
@@ -17,10 +17,10 @@ import type {
 const LEVEL_OPTIONS = [1, 2, 3] as const;
 const CATEGORY_OPTIONS = ["API 구현", "버그 수정"] as const;
 
-const LEVEL_COLORS: Record<ProblemLevel, { bg: string; text: string; border: string }> = {
-  1: { bg: "bg-green-50", text: "text-green-700", border: "border-green-200" },
-  2: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
-  3: { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200" }
+const LEVEL_STYLES: Record<ProblemLevel, { bg: string; text: string }> = {
+  1: { bg: "bg-green-100", text: "text-green-700" },
+  2: { bg: "bg-amber-100", text: "text-amber-700" },
+  3: { bg: "bg-rose-100", text: "text-rose-700" }
 };
 
 function FilterChip({
@@ -36,10 +36,10 @@ function FilterChip({
     <button
       type="button"
       onClick={onClick}
-      className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-all ${
+      className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all ${
         active
           ? "bg-indigo-600 text-white shadow-sm"
-          : "bg-white text-gray-600 border border-gray-200 hover:border-indigo-300 hover:text-indigo-600"
+          : "text-gray-600 border border-gray-200 bg-white hover:border-indigo-300 hover:text-indigo-600"
       }`}
     >
       {children}
@@ -47,50 +47,44 @@ function FilterChip({
   );
 }
 
-function SkeletonCard() {
-  return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-6 animate-pulse">
-      <div className="flex items-center justify-between mb-4">
-        <div className="h-6 w-16 bg-gray-100 rounded" />
-        <div className="h-6 w-12 bg-gray-100 rounded-full" />
-      </div>
-      <div className="h-5 w-3/4 bg-gray-100 rounded mb-3" />
-      <div className="h-4 w-full bg-gray-100 rounded mb-2" />
-      <div className="h-4 w-2/3 bg-gray-100 rounded mb-6" />
-      <div className="h-10 bg-gray-50 rounded-lg" />
-    </div>
-  );
-}
-
 function StatusBadge({ status }: { status: ProblemStatus }) {
+  const base =
+    "inline-flex items-center space-x-1.5 text-xs font-semibold px-3 py-1.5 rounded-full";
   if (status === "완료") {
     return (
-      <span className="inline-flex items-center space-x-1 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
-        <CheckCircle2 size={12} strokeWidth={2.4} />
+      <span className={`${base} bg-green-100 text-green-700`}>
+        <CheckCircle2 size={13} strokeWidth={2.4} />
         <span>완료</span>
       </span>
     );
   }
   if (status === "진행 중") {
     return (
-      <span className="inline-flex items-center space-x-1 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
-        <Clock size={12} strokeWidth={2.4} />
+      <span className={`${base} bg-blue-100 text-blue-700`}>
+        <Clock size={13} strokeWidth={2.4} />
         <span>진행 중</span>
       </span>
     );
   }
   if (status === "잠김") {
     return (
-      <span className="inline-flex items-center space-x-1 text-xs font-semibold text-gray-500 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full">
-        <Lock size={12} strokeWidth={2.4} />
+      <span className={`${base} bg-gray-100 text-gray-500`}>
+        <Lock size={13} strokeWidth={2.4} />
         <span>잠김</span>
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center text-xs font-medium text-gray-500 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full">
-      미시작
+    <span className={`${base} border border-gray-200 text-gray-500 bg-white`}>
+      <Circle size={13} strokeWidth={2} />
+      <span>미시작</span>
     </span>
+  );
+}
+
+function SkeletonCard() {
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-7 skeleton-shimmer h-[220px]" />
   );
 }
 
@@ -101,31 +95,37 @@ function ProblemCard({
   problem: ProblemSummary;
   href?: string;
 }) {
-  const levelColor = LEVEL_COLORS[problem.level];
+  const levelStyle = LEVEL_STYLES[problem.level];
   const locked = problem.status === "잠김";
 
   const inner = (
     <>
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-mono text-indigo-600 font-semibold">
-          #{problem.order}
+      {/* Top row */}
+      <div className="flex items-start justify-between mb-5">
+        <span className="text-sm font-mono font-bold text-indigo-600">
+          #{problem.order.toString().padStart(2, "0")}
         </span>
         <span
-          className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${levelColor.bg} ${levelColor.text} ${levelColor.border}`}
+          className={`text-xs font-bold px-2.5 py-1 rounded-md ${levelStyle.bg} ${levelStyle.text}`}
         >
           Lv {problem.level}
         </span>
       </div>
-      <h3 className="text-base font-semibold text-gray-900 mb-2 leading-tight">
+
+      {/* Title */}
+      <h3 className="text-xl font-display font-bold text-gray-900 mb-2.5 leading-tight">
         {problem.title}
       </h3>
-      <p className="text-sm text-gray-600 leading-relaxed mb-5 line-clamp-2">
+
+      {/* Description */}
+      <p className="text-sm text-gray-500 leading-relaxed mb-5 line-clamp-2 min-h-[2.75rem]">
         {problem.summary}
       </p>
-      <div className="flex items-center justify-between pt-4 border-t border-gray-100 text-xs">
-        <div className="flex items-center space-x-2">
-          <span className="text-indigo-600 font-medium">{problem.category}</span>
-          <span className="text-gray-300">·</span>
+
+      {/* Divider */}
+      <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
+        <div className="flex items-center space-x-3 text-sm">
+          <span className="text-indigo-600 font-semibold">{problem.category}</span>
           <span className="text-gray-500">통과율 {problem.passRate}%</span>
         </div>
         <StatusBadge status={problem.status} />
@@ -136,7 +136,7 @@ function ProblemCard({
   if (locked || !href) {
     return (
       <div
-        className={`bg-white rounded-2xl border border-gray-100 p-6 ${
+        className={`bg-white rounded-2xl border border-gray-100 p-7 shadow-sm ${
           locked ? "opacity-60 cursor-not-allowed" : ""
         }`}
       >
@@ -148,7 +148,7 @@ function ProblemCard({
   return (
     <Link
       href={href}
-      className="group block bg-white rounded-2xl border border-gray-100 p-6 hover:border-indigo-300 hover:shadow-lg transition-all"
+      className="group block bg-white rounded-2xl border border-gray-100 p-7 shadow-sm hover:border-indigo-300 hover:shadow-xl hover:-translate-y-1 transition-all"
     >
       {inner}
     </Link>
@@ -175,40 +175,50 @@ export default function Dev2ProblemsPage() {
   }, [data, level, category]);
 
   return (
-    <div className="relative bg-gradient-to-b from-indigo-50/30 via-white to-white min-h-screen overflow-hidden">
+    <div className="relative bg-gradient-to-b from-indigo-50/40 via-white to-white min-h-screen overflow-hidden">
       {/* Floating blobs */}
-      <div className="absolute top-0 left-0 right-0 h-[500px] pointer-events-none overflow-hidden">
-        <div className="orbit-blob w-96 h-96 bg-indigo-300/40 top-[-100px] left-[10%] animate-blob-1" />
-        <div className="orbit-blob w-80 h-80 bg-purple-300/40 top-[-60px] right-[15%] animate-blob-2" />
-        <div className="absolute inset-0 bg-grid-pattern opacity-50" />
+      <div className="absolute top-0 left-0 right-0 h-[800px] pointer-events-none overflow-hidden">
+        <div className="absolute -top-10 -left-32 w-[420px] h-[420px] rounded-full bg-indigo-400/30 blur-3xl animate-blob-1" />
+        <div className="absolute top-[10%] -right-32 w-[420px] h-[420px] rounded-full bg-purple-400/30 blur-3xl animate-blob-2" />
+        <div className="absolute inset-0 bg-grid-pattern opacity-30" />
       </div>
 
-      <div className="relative max-w-7xl mx-auto px-6 py-12">
+      <div className="relative max-w-6xl mx-auto px-6 py-10">
         {/* Hero */}
         <div className="text-center mb-10 animate-slide-up">
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white/80 backdrop-blur-sm border border-indigo-100 text-indigo-700 text-xs font-semibold mb-4 shadow-sm">
-            <Sparkles size={12} strokeWidth={2.4} className="animate-dot-pulse" />
+          <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-white border border-indigo-100 text-indigo-700 text-sm font-semibold mb-6 shadow-sm">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-dot-pulse" />
             <span>{filtered.length}개 과제 · 실무 시나리오</span>
           </div>
-          <h1 className="text-4xl md:text-5xl font-display font-bold text-gray-900 tracking-tight mb-4 leading-tight">
-            AI와 함께 푸는
+          <h1 className="text-4xl md:text-6xl font-display font-bold text-gray-900 tracking-tight mb-4 leading-[1.1]">
+            실무 백엔드 과제를
             <br />
-            <span className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 text-gradient bg-gradient-animate">
-              실무 백엔드 과제
+            <span
+              className="bg-gradient-animate"
+              style={{
+                backgroundImage: "linear-gradient(90deg, #4F46E5, #7C3AED, #4F46E5)",
+                backgroundSize: "200% 200%",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+                color: "transparent"
+              }}
+            >
+              AI 에이전트와 함께
             </span>
           </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
-            Spring Boot 기반 API 구현부터 버그 수정까지, 난이도별 엄선된 실무 시나리오.
+          <p className="text-lg text-gray-500 max-w-2xl mx-auto leading-relaxed">
+            Spring Boot · FastAPI 기반 엄선된 시나리오, 난이도별로 정리했습니다.
           </p>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-8 p-4 bg-white/70 backdrop-blur-sm rounded-2xl border border-gray-100 shadow-sm animate-slide-up"
-          style={{ animationDelay: "0.1s", animationFillMode: "both" }}>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 mr-2">
-              난이도
-            </span>
+        {/* Filter bar */}
+        <div
+          className="flex flex-wrap items-center justify-between gap-4 mb-10 px-6 py-4 bg-white rounded-2xl border border-gray-100 shadow-sm animate-slide-up"
+          style={{ animationDelay: "0.1s", animationFillMode: "both" }}
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm font-semibold text-gray-700 mr-2">난이도</span>
             <FilterChip active={level === "ALL"} onClick={() => setLevel("ALL")}>
               전체
             </FilterChip>
@@ -218,10 +228,9 @@ export default function Dev2ProblemsPage() {
               </FilterChip>
             ))}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 mr-2">
-              유형
-            </span>
+          <div className="hidden md:block w-px h-8 bg-gray-200" />
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm font-semibold text-gray-700 mr-2">유형</span>
             <FilterChip active={category === "ALL"} onClick={() => setCategory("ALL")}>
               전체
             </FilterChip>
@@ -247,7 +256,11 @@ export default function Dev2ProblemsPage() {
             </div>
           ) : (
             filtered.map((p) => (
-              <div key={p.id} className="animate-slide-up" style={{ animationFillMode: "both" }}>
+              <div
+                key={p.id}
+                className="animate-slide-up"
+                style={{ animationFillMode: "both" }}
+              >
                 <ProblemCard
                   problem={p}
                   href={p.status === "잠김" ? undefined : withPrefix(`/problems/${p.id}`)}

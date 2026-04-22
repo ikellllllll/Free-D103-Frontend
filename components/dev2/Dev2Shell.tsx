@@ -168,48 +168,46 @@ export function Dev2Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-white font-sans">
-      {/* ── Top Nav ── */}
-      <header className="fixed top-0 left-0 right-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      {/* ── Pill-shape floating nav ── */}
+      <header className="fixed top-4 left-0 right-0 z-40 px-6 pointer-events-none">
+        <div className="max-w-6xl mx-auto flex items-center justify-between bg-white/95 backdrop-blur-xl rounded-full px-3 pl-6 py-2.5 shadow-xl shadow-indigo-900/10 border border-white pointer-events-auto">
           <Link
             href={withPrefix("/problems")}
-            className="group flex items-center space-x-2 text-indigo-600 font-display font-bold text-xl"
+            className="group flex items-center space-x-2 text-indigo-600 font-display font-bold text-lg shrink-0"
           >
             <Sparkles
-              size={24}
+              size={22}
               strokeWidth={2}
-              className="transition-transform group-hover:rotate-12 group-hover:scale-110"
+              className="transition-transform group-hover:rotate-12"
             />
             <span>AIG</span>
           </Link>
 
-          <nav className="hidden md:flex items-center space-x-1 text-sm font-medium text-gray-600">
+          <nav className="hidden md:flex items-center space-x-1 text-sm font-medium text-gray-600 mx-6">
             {NAV_ITEMS.map((item) => {
-              const Icon = item.icon;
               const active =
                 currentPath === item.href || currentPath.startsWith(`${item.href}/`);
               return (
                 <Link
                   key={item.href}
                   href={withPrefix(item.href)}
-                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg transition-colors ${
+                  className={`px-4 py-1.5 rounded-full transition-colors ${
                     active
-                      ? "bg-indigo-50 text-indigo-700"
+                      ? "bg-indigo-600 text-white"
                       : "hover:text-indigo-600 hover:bg-gray-50"
                   }`}
                 >
-                  <Icon size={16} strokeWidth={2} />
                   <span>{item.label}</span>
                 </Link>
               );
             })}
           </nav>
 
-          <div className="hidden md:flex items-center space-x-3">
+          <div className="hidden md:flex items-center space-x-2 shrink-0">
             <button
               type="button"
               onClick={openPalette}
-              className="flex items-center space-x-2 px-3 py-1.5 rounded-md border border-gray-200 text-sm text-gray-500 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
+              className="flex items-center space-x-2 px-3 py-1.5 rounded-full border border-gray-200 text-sm text-gray-500 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
               title="명령 팔레트 (Ctrl+K)"
             >
               <Search size={14} strokeWidth={2} />
@@ -222,11 +220,11 @@ export function Dev2Shell({ children }: { children: ReactNode }) {
               <button
                 type="button"
                 onClick={() => setUserMenuOpen((v) => !v)}
-                className="flex items-center space-x-2 text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors"
+                className="flex items-center space-x-2 pl-2 pr-3 py-1 rounded-full text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                 aria-haspopup="menu"
                 aria-expanded={userMenuOpen}
               >
-                <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-semibold">
+                <span className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-semibold">
                   {user?.name?.slice(0, 1)?.toUpperCase() ?? "U"}
                 </span>
                 <span>{user?.name ?? "사용자"}</span>
@@ -342,7 +340,7 @@ export function Dev2Shell({ children }: { children: ReactNode }) {
       </header>
 
       {/* ── Content ── */}
-      <main className="pt-16 min-h-screen">{children}</main>
+      <main className="pt-24 min-h-screen">{children}</main>
 
       {/* ── Command Palette ── */}
       {paletteOpen && (
