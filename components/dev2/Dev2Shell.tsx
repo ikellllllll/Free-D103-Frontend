@@ -1,0 +1,407 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  Sparkles,
+  BookOpen,
+  History,
+  FlaskConical,
+  TestTube,
+  User,
+  Sun,
+  Moon,
+  LogOut,
+  Search,
+  Menu,
+  X,
+  type LucideIcon
+} from "lucide-react";
+
+import { useRouteScope } from "@/components/routing/RouteScopeProvider";
+import { mockApi } from "@/lib/api/mockApi";
+import { useAuthStore } from "@/store/authStore";
+import { useThemeStore } from "@/store/themeStore";
+import { useUiStore } from "@/store/uiStore";
+
+type NavItem = { href: string; icon: LucideIcon; label: string };
+
+const NAV_ITEMS: NavItem[] = [
+  { href: "/problems", icon: BookOpen, label: "과제 목록" },
+  { href: "/sessions", icon: History, label: "풀이 기록" },
+  { href: "/workshop", icon: FlaskConical, label: "워크숍" },
+  { href: "/harness", icon: TestTube, label: "하네스" },
+  { href: "/mypage", icon: User, label: "마이페이지" }
+];
+
+type PaletteItem = {
+  id: string;
+  label: string;
+  href?: string;
+  action?: () => void;
+  icon: LucideIcon;
+};
+
+export function Dev2Shell({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const { currentPath, withPrefix } = useRouteScope();
+  const user = useAuthStore((s) => s.user);
+  const signOut = useAuthStore((s) => s.signOut);
+  const theme = useThemeStore((s) => s.theme);
+  const hydrated = useThemeStore((s) => s.hydrated);
+  const toggleTheme = useThemeStore((s) => s.toggleTheme);
+  const addToast = useUiStore((s) => s.addToast);
+
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteQuery, setPaletteQuery] = useState("");
+  const [paletteIndex, setPaletteIndex] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  const handleLogout = async () => {
+    await mockApi.logout();
+    signOut();
+    addToast("로그아웃되었습니다.", "success");
+    router.replace(withPrefix("/login"));
+  };
+
+  const openPalette = () => {
+    setPaletteOpen(true);
+    setPaletteQuery("");
+    setPaletteIndex(0);
+  };
+
+  const closePalette = () => {
+    setPaletteOpen(false);
+    setPaletteQuery("");
+    setPaletteIndex(0);
+  };
+
+  // Ctrl+K / Esc
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      const meta = e.metaKey || e.ctrlKey;
+      if (meta && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        setPaletteOpen((v) => {
+          if (v) {
+            setPaletteQuery("");
+            setPaletteIndex(0);
+            return false;
+          }
+          setPaletteQuery("");
+          setPaletteIndex(0);
+          return true;
+        });
+      } else if (e.key === "Escape") {
+        setPaletteOpen(false);
+        setUserMenuOpen(false);
+        setMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, []);
+
+  const allItems: PaletteItem[] = useMemo(() => {
+    const items: PaletteItem[] = NAV_ITEMS.map((n) => ({
+      id: `nav-${n.href}`,
+      label: n.label,
+      href: n.href,
+      icon: n.icon
+    }));
+    if (hydrated) {
+      items.push({
+        id: "action-theme",
+        label: theme === "dark" ? "라이트 모드" : "다크 모드",
+        icon: theme === "dark" ? Sun : Moon,
+        action: () => {
+          toggleTheme();
+          closePalette();
+        }
+      });
+    }
+    items.push({
+      id: "action-logout",
+      label: "로그아웃",
+      icon: LogOut,
+      action: () => {
+        closePalette();
+        void handleLogout();
+      }
+    });
+    return items;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, theme]);
+
+  const filteredItems = useMemo(() => {
+    const q = paletteQuery.trim().toLowerCase();
+    if (!q) return allItems;
+    return allItems.filter((i) => i.label.toLowerCase().includes(q));
+  }, [allItems, paletteQuery]);
+
+  useEffect(() => {
+    if (!paletteOpen) return;
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setPaletteIndex((i) => Math.min(filteredItems.length - 1, i + 1));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setPaletteIndex((i) => Math.max(0, i - 1));
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const item = filteredItems[paletteIndex];
+        if (!item) return;
+        if (item.href) {
+          closePalette();
+          router.push(withPrefix(item.href));
+        } else if (item.action) {
+          item.action();
+        }
+      }
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [paletteOpen, filteredItems, paletteIndex, router, withPrefix]);
+
+  return (
+    <div className="min-h-screen bg-white font-sans">
+      {/* ── Top Nav ── */}
+      <header className="fixed top-0 left-0 right-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+          <Link
+            href={withPrefix("/problems")}
+            className="flex items-center space-x-2 text-indigo-600 font-display font-bold text-xl"
+          >
+            <Sparkles size={24} strokeWidth={2} />
+            <span>AIG</span>
+          </Link>
+
+          <nav className="hidden md:flex items-center space-x-1 text-sm font-medium text-gray-600">
+            {NAV_ITEMS.map((item) => {
+              const Icon = item.icon;
+              const active =
+                currentPath === item.href || currentPath.startsWith(`${item.href}/`);
+              return (
+                <Link
+                  key={item.href}
+                  href={withPrefix(item.href)}
+                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg transition-colors ${
+                    active
+                      ? "bg-indigo-50 text-indigo-700"
+                      : "hover:text-indigo-600 hover:bg-gray-50"
+                  }`}
+                >
+                  <Icon size={16} strokeWidth={2} />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="hidden md:flex items-center space-x-3">
+            <button
+              type="button"
+              onClick={openPalette}
+              className="flex items-center space-x-2 px-3 py-1.5 rounded-md border border-gray-200 text-sm text-gray-500 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
+              title="명령 팔레트 (Ctrl+K)"
+            >
+              <Search size={14} strokeWidth={2} />
+              <span>찾기</span>
+              <kbd className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500">
+                Ctrl K
+              </kbd>
+            </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setUserMenuOpen((v) => !v)}
+                className="flex items-center space-x-2 text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors"
+                aria-haspopup="menu"
+                aria-expanded={userMenuOpen}
+              >
+                <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-semibold">
+                  {user?.name?.slice(0, 1)?.toUpperCase() ?? "U"}
+                </span>
+                <span>{user?.name ?? "사용자"}</span>
+              </button>
+              {userMenuOpen && (
+                <div
+                  className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50"
+                  role="menu"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {hydrated && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        toggleTheme();
+                        setUserMenuOpen(false);
+                      }}
+                      className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+                      <span>{theme === "dark" ? "라이트 모드" : "다크 모드"}</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      void handleLogout();
+                    }}
+                    className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    <LogOut size={16} />
+                    <span>로그아웃</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Mobile menu button */}
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen((v) => !v)}
+            className="md:hidden text-gray-600"
+            aria-label="메뉴"
+          >
+            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        </div>
+
+        {/* Mobile dropdown */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-gray-100 bg-white">
+            <nav className="px-4 py-3 space-y-1">
+              {NAV_ITEMS.map((item) => {
+                const Icon = item.icon;
+                const active =
+                  currentPath === item.href || currentPath.startsWith(`${item.href}/`);
+                return (
+                  <Link
+                    key={item.href}
+                    href={withPrefix(item.href)}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium ${
+                      active
+                        ? "bg-indigo-50 text-indigo-700"
+                        : "text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    <Icon size={16} strokeWidth={2} />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  openPalette();
+                }}
+                className="w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
+              >
+                <Search size={16} strokeWidth={2} />
+                <span>찾기 (Ctrl+K)</span>
+              </button>
+              {hydrated && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    toggleTheme();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
+                >
+                  {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+                  <span>{theme === "dark" ? "라이트 모드" : "다크 모드"}</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  void handleLogout();
+                }}
+                className="w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
+              >
+                <LogOut size={16} strokeWidth={2} />
+                <span>로그아웃</span>
+              </button>
+            </nav>
+          </div>
+        )}
+      </header>
+
+      {/* ── Content ── */}
+      <main className="pt-16 min-h-screen">{children}</main>
+
+      {/* ── Command Palette ── */}
+      {paletteOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-start justify-center pt-24 px-4"
+          onClick={closePalette}
+          role="presentation"
+        >
+          <div
+            className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden"
+            role="dialog"
+            aria-label="명령 팔레트"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center space-x-3 px-4 py-3 border-b border-gray-100">
+              <Search size={18} strokeWidth={2} className="text-gray-400" />
+              <input
+                autoFocus
+                className="flex-1 text-sm text-gray-900 placeholder-gray-400 outline-none bg-transparent"
+                placeholder="찾기"
+                value={paletteQuery}
+                onChange={(e) => {
+                  setPaletteQuery(e.target.value);
+                  setPaletteIndex(0);
+                }}
+              />
+              <kbd className="text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-500">esc</kbd>
+            </div>
+            <div className="max-h-80 overflow-y-auto py-2">
+              {filteredItems.length === 0 ? (
+                <div className="px-4 py-6 text-center text-sm text-gray-400">결과 없음</div>
+              ) : (
+                filteredItems.map((item, i) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      type="button"
+                      key={item.id}
+                      onMouseEnter={() => setPaletteIndex(i)}
+                      onClick={() => {
+                        if (item.href) {
+                          closePalette();
+                          router.push(withPrefix(item.href));
+                        } else if (item.action) {
+                          item.action();
+                        }
+                      }}
+                      className={`w-full flex items-center space-x-3 px-4 py-2.5 text-sm text-left transition-colors ${
+                        i === paletteIndex
+                          ? "bg-indigo-50 text-indigo-700"
+                          : "text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      <Icon size={16} strokeWidth={2} className={i === paletteIndex ? "text-indigo-600" : "text-gray-400"} />
+                      <span className="flex-1">{item.label}</span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
