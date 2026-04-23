@@ -387,15 +387,15 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
                   <Info size={16} strokeWidth={2.2} />
                 </span>
                 <span className="font-display font-bold text-gray-900 text-[17px]">
-                  Task Info
+                  과제 정보
                 </span>
               </div>
 
               {/* Rows */}
               <div className="py-2 divide-y divide-gray-100">
-                <MetaRow label="Category" value={problem.category} />
+                <MetaRow label="카테고리" value={problem.category} />
                 <MetaRow
-                  label="Language"
+                  label="언어"
                   value={
                     <span className="inline-flex items-center space-x-1.5">
                       <LangIcon language={language} size={14} />
@@ -403,9 +403,9 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
                     </span>
                   }
                 />
-                <MetaRow label="AI Model" value={aiModel.label} />
+                <MetaRow label="AI 모델" value={aiModel.label} />
                 <MetaRow
-                  label="Time Limit"
+                  label="예상 시간"
                   value={
                     <span className="inline-flex items-center space-x-1">
                       <Clock size={12} strokeWidth={2.2} />
@@ -413,7 +413,7 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
                     </span>
                   }
                 />
-                <MetaRow label="Pass Rate" value={`${problem.passRate}%`} />
+                <MetaRow label="통과율" value={`${problem.passRate}%`} />
               </div>
 
               {/* IDE button */}

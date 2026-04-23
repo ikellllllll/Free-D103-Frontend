@@ -305,10 +305,10 @@ export default function Dev2TimelinePage({
               <span>리포트로</span>
             </Link>
             <h1 className="text-3xl md:text-4xl font-display font-bold text-gray-900 tracking-tight leading-[1.1]">
-              Trace Timeline
+              Trace 타임라인
             </h1>
             <p className="text-sm text-gray-500 mt-1">
-              Submission #{shortSub} · {spans.length} spans · {totalSec}s total
+              제출 #{shortSub} · {spans.length} 스팬 · 총 {totalSec}초
             </p>
           </div>
 

@@ -204,7 +204,7 @@ export default function Dev2FeedbackReportPage({
             </span>
             <div className="min-w-0">
               <div className="font-display font-bold text-gray-900 text-[17px]">
-                Trace Timeline
+                Trace 타임라인
               </div>
               <div className="text-sm text-gray-500 mt-0.5">
                 모든 LLM 호출, Tool 실행, 재시도 단계를 한 번에 확인할 수 있어요.

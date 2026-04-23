@@ -273,7 +273,7 @@ export default function Dev2HarnessPage() {
           {/* Left: File list */}
           <aside className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden self-start">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-              <span className="font-display font-bold text-gray-900">Agent Files</span>
+              <span className="font-display font-bold text-gray-900">에이전트 파일</span>
               <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
                 {AGENT_FILES.length}
               </span>

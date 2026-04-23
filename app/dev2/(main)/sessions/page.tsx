@@ -197,11 +197,11 @@ export default function Dev2SessionsPage() {
             <div className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white border border-indigo-100 text-indigo-700 text-xs font-semibold mb-5 shadow-sm">
               <span>📚</span>
               <span>
-                {sessions.length} sessions · {stats.completed} completed
+                {sessions.length}개 세션 · {stats.completed}개 완료
               </span>
             </div>
             <h1 className="text-4xl md:text-5xl font-display font-bold text-gray-900 tracking-tight leading-[1.1] mb-3">
-              Your Sessions
+              내 세션 기록
             </h1>
             <p className="text-[15px] text-gray-500 leading-relaxed max-w-xl">
               모든 풀이 기록을 한 번에 — 완료된 건 다시 복기하고, 진행 중인 건 이어서
