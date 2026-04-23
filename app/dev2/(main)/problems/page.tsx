@@ -3,7 +3,19 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Lock, CheckCircle2, Clock, Circle } from "lucide-react";
+import {
+  Lock,
+  CheckCircle2,
+  Clock,
+  Circle,
+  Search,
+  X,
+  ArrowRight,
+  Sparkles,
+  Target,
+  TrendingUp,
+  Layers
+} from "lucide-react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
@@ -16,13 +28,65 @@ import type {
 
 const LEVEL_OPTIONS = [1, 2, 3] as const;
 const CATEGORY_OPTIONS = ["API 구현", "버그 수정"] as const;
+const STATUS_OPTIONS = ["미시작", "진행 중", "완료"] as const;
+const SORT_OPTIONS = [
+  { id: "default", label: "기본 순서" },
+  { id: "pass-desc", label: "통과율 높은 순" },
+  { id: "pass-asc", label: "통과율 낮은 순" },
+  { id: "level-asc", label: "난이도 낮은 순" },
+  { id: "level-desc", label: "난이도 높은 순" }
+] as const;
 
-const LEVEL_STYLES: Record<ProblemLevel, { bg: string; text: string }> = {
-  1: { bg: "bg-green-100", text: "text-green-700" },
-  2: { bg: "bg-amber-100", text: "text-amber-700" },
-  3: { bg: "bg-rose-100", text: "text-rose-700" }
+type SortId = (typeof SORT_OPTIONS)[number]["id"];
+
+const LEVEL_META: Record<
+  ProblemLevel,
+  {
+    label: string;
+    chipBg: string;
+    chipText: string;
+    ringTrack: string;
+    ringFill: string;
+    stripFrom: string;
+    stripTo: string;
+    barFill: string;
+  }
+> = {
+  1: {
+    label: "입문",
+    chipBg: "bg-emerald-50",
+    chipText: "text-emerald-700",
+    ringTrack: "stroke-emerald-100",
+    ringFill: "stroke-emerald-500",
+    stripFrom: "from-emerald-400",
+    stripTo: "to-teal-500",
+    barFill: "bg-emerald-500"
+  },
+  2: {
+    label: "중급",
+    chipBg: "bg-amber-50",
+    chipText: "text-amber-700",
+    ringTrack: "stroke-amber-100",
+    ringFill: "stroke-amber-500",
+    stripFrom: "from-amber-400",
+    stripTo: "to-orange-500",
+    barFill: "bg-amber-500"
+  },
+  3: {
+    label: "고급",
+    chipBg: "bg-rose-50",
+    chipText: "text-rose-700",
+    ringTrack: "stroke-rose-100",
+    ringFill: "stroke-rose-500",
+    stripFrom: "from-rose-400",
+    stripTo: "to-fuchsia-500",
+    barFill: "bg-rose-500"
+  }
 };
 
+// ────────────────────────────────────────────────
+// Small UI atoms
+// ────────────────────────────────────────────────
 function FilterChip({
   active,
   onClick,
@@ -36,9 +100,9 @@ function FilterChip({
     <button
       type="button"
       onClick={onClick}
-      className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all ${
+      className={`px-4 sm:px-5 py-2 rounded-xl text-sm font-semibold transition-all ${
         active
-          ? "bg-indigo-600 text-white shadow-sm"
+          ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/30"
           : "text-gray-600 border border-gray-200 bg-white hover:border-indigo-300 hover:text-indigo-600"
       }`}
     >
@@ -47,47 +111,168 @@ function FilterChip({
   );
 }
 
+function FilterGroup({
+  label,
+  children
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+      <span className="text-xs sm:text-sm font-semibold text-gray-700 mr-1">
+        {label}
+      </span>
+      {children}
+    </div>
+  );
+}
+
 function StatusBadge({ status }: { status: ProblemStatus }) {
   const base =
-    "inline-flex items-center space-x-1.5 text-xs font-semibold px-3 py-1.5 rounded-full";
+    "inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full";
   if (status === "완료") {
     return (
-      <span className={`${base} bg-green-100 text-green-700`}>
-        <CheckCircle2 size={13} strokeWidth={2.4} />
+      <span className={`${base} bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100`}>
+        <CheckCircle2 size={12} strokeWidth={2.6} />
         <span>완료</span>
       </span>
     );
   }
   if (status === "진행 중") {
     return (
-      <span className={`${base} bg-blue-100 text-blue-700`}>
-        <Clock size={13} strokeWidth={2.4} />
+      <span className={`${base} bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100`}>
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inset-0 rounded-full bg-indigo-500 animate-ping opacity-70" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-500" />
+        </span>
         <span>진행 중</span>
       </span>
     );
   }
   if (status === "잠김") {
     return (
-      <span className={`${base} bg-gray-100 text-gray-500`}>
-        <Lock size={13} strokeWidth={2.4} />
+      <span className={`${base} bg-gray-100 text-gray-500 ring-1 ring-gray-200`}>
+        <Lock size={12} strokeWidth={2.4} />
         <span>잠김</span>
       </span>
     );
   }
   return (
     <span className={`${base} border border-gray-200 text-gray-500 bg-white`}>
-      <Circle size={13} strokeWidth={2} />
+      <Circle size={12} strokeWidth={2} />
       <span>미시작</span>
     </span>
   );
 }
 
-function SkeletonCard() {
+function LevelRing({ level }: { level: ProblemLevel }) {
+  const meta = LEVEL_META[level];
+  const radius = 16;
+  const circ = 2 * Math.PI * radius;
+  const pct = level / 3;
+  const offset = circ * (1 - pct);
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-7 skeleton-shimmer h-[220px]" />
+    <span className="relative inline-flex items-center justify-center w-10 h-10 shrink-0">
+      <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
+        <circle
+          cx="20"
+          cy="20"
+          r={radius}
+          fill="none"
+          strokeWidth="3"
+          className={meta.ringTrack}
+        />
+        <circle
+          cx="20"
+          cy="20"
+          r={radius}
+          fill="none"
+          strokeWidth="3"
+          strokeLinecap="round"
+          className={meta.ringFill}
+          style={{
+            strokeDasharray: circ,
+            strokeDashoffset: offset,
+            transform: "rotate(-90deg)",
+            transformOrigin: "20px 20px",
+            transition: "stroke-dashoffset 500ms ease"
+          }}
+        />
+      </svg>
+      <span
+        className={`absolute inset-0 flex items-center justify-center text-[11px] font-bold ${meta.chipText}`}
+      >
+        Lv{level}
+      </span>
+    </span>
   );
 }
 
+// ────────────────────────────────────────────────
+// Stat card (glassmorphism, 2026 trend)
+// ────────────────────────────────────────────────
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  suffix,
+  tone
+}: {
+  icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
+  label: string;
+  value: number;
+  suffix: string;
+  tone: "indigo" | "emerald" | "amber" | "sky";
+}) {
+  const tones: Record<typeof tone, { bg: string; text: string; ring: string }> = {
+    indigo: {
+      bg: "bg-indigo-50",
+      text: "text-indigo-600",
+      ring: "ring-indigo-100"
+    },
+    emerald: {
+      bg: "bg-emerald-50",
+      text: "text-emerald-600",
+      ring: "ring-emerald-100"
+    },
+    amber: {
+      bg: "bg-amber-50",
+      text: "text-amber-600",
+      ring: "ring-amber-100"
+    },
+    sky: {
+      bg: "bg-sky-50",
+      text: "text-sky-600",
+      ring: "ring-sky-100"
+    }
+  };
+  const t = tones[tone];
+  return (
+    <div className="group relative overflow-hidden rounded-2xl bg-white/80 backdrop-blur border border-white ring-1 ring-gray-100 p-4 sm:p-5 shadow-sm transition-all hover:shadow-lg hover:-translate-y-0.5">
+      <div className="flex items-center gap-3">
+        <span
+          className={`inline-flex w-9 h-9 items-center justify-center rounded-xl ${t.bg} ${t.text} ring-1 ${t.ring}`}
+        >
+          <Icon size={18} strokeWidth={2.2} />
+        </span>
+        <div className="min-w-0">
+          <div className="text-xs font-semibold text-gray-500 truncate">{label}</div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-xl sm:text-2xl font-bold text-gray-900 tabular-nums">
+              {value}
+            </span>
+            <span className="text-sm font-semibold text-gray-400">{suffix}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────
+// Problem card (the star of the redesign)
+// ────────────────────────────────────────────────
 function ProblemCard({
   problem,
   href
@@ -95,50 +280,109 @@ function ProblemCard({
   problem: ProblemSummary;
   href?: string;
 }) {
-  const levelStyle = LEVEL_STYLES[problem.level];
+  const meta = LEVEL_META[problem.level];
   const locked = problem.status === "잠김";
 
   const inner = (
     <>
-      {/* Top row */}
-      <div className="flex items-start justify-between mb-5">
-        <span className="text-sm font-mono font-bold text-indigo-600">
-          #{problem.order.toString().padStart(2, "0")}
-        </span>
-        <span
-          className={`text-xs font-bold px-2.5 py-1 rounded-md ${levelStyle.bg} ${levelStyle.text}`}
-        >
-          Lv {problem.level}
-        </span>
+      {/* Top accent strip — makes the card instantly identifiable by level */}
+      <div
+        className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${meta.stripFrom} ${meta.stripTo}`}
+        aria-hidden="true"
+      />
+
+      {/* Sheen on hover */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
+        aria-hidden="true"
+      >
+        <div className="absolute -inset-x-10 -top-24 h-40 bg-gradient-to-b from-indigo-500/10 via-indigo-500/0 to-transparent blur-2xl" />
       </div>
 
-      {/* Title */}
-      <h3 className="text-xl font-display font-bold text-gray-900 mb-2.5 leading-tight">
-        {problem.title}
-      </h3>
-
-      {/* Description */}
-      <p className="text-sm text-gray-500 leading-relaxed mb-5 line-clamp-2 min-h-[2.75rem]">
-        {problem.summary}
-      </p>
-
-      {/* Divider */}
-      <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
-        <div className="flex items-center space-x-3 text-sm">
-          <span className="text-indigo-600 font-semibold">{problem.category}</span>
-          <span className="text-gray-500">통과율 {problem.passRate}%</span>
+      <div className="relative p-5 sm:p-6">
+        {/* Top row */}
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <LevelRing level={problem.level} />
+            <div className="flex flex-col min-w-0">
+              <span className="text-[11px] font-mono font-bold text-indigo-600">
+                #{problem.order.toString().padStart(2, "0")}
+              </span>
+              <span
+                className={`text-[11px] font-semibold ${meta.chipText}`}
+              >
+                {meta.label} · Lv {problem.level}
+              </span>
+            </div>
+          </div>
+          <StatusBadge status={problem.status} />
         </div>
-        <StatusBadge status={problem.status} />
+
+        {/* Title + description */}
+        <h3 className="text-lg sm:text-xl font-display font-bold text-gray-900 leading-tight mb-2 text-balance">
+          {problem.title}
+        </h3>
+        <p className="text-sm text-gray-500 leading-relaxed line-clamp-2 min-h-[2.75rem] mb-4">
+          {problem.summary}
+        </p>
+
+        {/* Meta row */}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs mb-4">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-semibold ring-1 ring-indigo-100">
+            {problem.category}
+          </span>
+          {problem.estimate ? (
+            <>
+              <span className="text-gray-300" aria-hidden="true">
+                ·
+              </span>
+              <span className="inline-flex items-center gap-1 text-gray-500 font-medium">
+                <Clock size={11} strokeWidth={2.4} />
+                {problem.estimate}
+              </span>
+            </>
+          ) : null}
+        </div>
+
+        {/* Divider */}
+        <div className="pt-4 border-t border-gray-100">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-gray-500">통과율</span>
+            <span className="text-xs font-bold text-gray-900 tabular-nums">
+              {problem.passRate}%
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+              <div
+                className={`absolute inset-y-0 left-0 rounded-full ${meta.barFill} transition-[width] duration-700 ease-out`}
+                style={{ width: `${problem.passRate}%` }}
+              />
+            </div>
+            <span
+              className={`inline-flex w-7 h-7 shrink-0 items-center justify-center rounded-full text-indigo-600 bg-indigo-50 ring-1 ring-indigo-100 transition-all group-hover:bg-indigo-600 group-hover:text-white group-hover:translate-x-0.5 ${
+                locked ? "opacity-40" : ""
+              }`}
+              aria-hidden="true"
+            >
+              <ArrowRight size={14} strokeWidth={2.4} />
+            </span>
+          </div>
+        </div>
       </div>
     </>
   );
 
+  const shell =
+    "group relative overflow-hidden rounded-2xl bg-white border-2 border-gray-100 shadow-[0_1px_2px_rgba(17,24,39,0.04),0_8px_24px_-12px_rgba(79,70,229,0.08)] transition-all duration-300";
+
   if (locked || !href) {
     return (
       <div
-        className={`bg-white rounded-2xl border border-gray-100 p-7 shadow-sm ${
+        className={`${shell} ${
           locked ? "opacity-60 cursor-not-allowed" : ""
         }`}
+        aria-disabled={locked || undefined}
       >
         {inner}
       </div>
@@ -148,55 +392,113 @@ function ProblemCard({
   return (
     <Link
       href={href}
-      className="group block bg-white rounded-2xl border border-gray-100 p-7 shadow-sm hover:border-indigo-300 hover:shadow-xl hover:-translate-y-1 transition-all"
+      className={`${shell} hover:border-indigo-300 hover:shadow-[0_1px_2px_rgba(17,24,39,0.04),0_20px_40px_-18px_rgba(79,70,229,0.35)] hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2`}
     >
       {inner}
     </Link>
   );
 }
 
+function SkeletonCard() {
+  return (
+    <div className="rounded-2xl border-2 border-gray-100 bg-white overflow-hidden">
+      <div className="h-1 bg-gradient-to-r from-gray-100 to-gray-200" />
+      <div className="p-5 sm:p-6 skeleton-shimmer h-[220px]" />
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────
+// Page
+// ────────────────────────────────────────────────
 export default function Dev2ProblemsPage() {
   const { withPrefix } = useRouteScope();
+  const [search, setSearch] = useState("");
   const [level, setLevel] = useState<ProblemLevel | "ALL">("ALL");
   const [category, setCategory] = useState<ProblemCategory | "ALL">("ALL");
+  const [status, setStatus] = useState<ProblemStatus | "ALL">("ALL");
+  const [sort, setSort] = useState<SortId>("default");
 
   const { data, isLoading } = useQuery({
     queryKey: ["problems"],
     queryFn: () => mockApi.getProblems()
   });
 
+  const all = data ?? [];
+
   const filtered = useMemo(() => {
-    const base = data ?? [];
-    return base.filter(
+    const q = search.trim().toLowerCase();
+    const base = all.filter(
       (p) =>
         (level === "ALL" || p.level === level) &&
-        (category === "ALL" || p.category === category)
+        (category === "ALL" || p.category === category) &&
+        (status === "ALL" || p.status === status) &&
+        (q === "" ||
+          p.title.toLowerCase().includes(q) ||
+          p.summary.toLowerCase().includes(q))
     );
-  }, [data, level, category]);
+    const sorted = [...base];
+    switch (sort) {
+      case "pass-desc":
+        sorted.sort((a, b) => b.passRate - a.passRate);
+        break;
+      case "pass-asc":
+        sorted.sort((a, b) => a.passRate - b.passRate);
+        break;
+      case "level-asc":
+        sorted.sort((a, b) => a.level - b.level);
+        break;
+      case "level-desc":
+        sorted.sort((a, b) => b.level - a.level);
+        break;
+    }
+    return sorted;
+  }, [all, search, level, category, status, sort]);
+
+  const stats = useMemo(() => {
+    const total = all.length;
+    const done = all.filter((p) => p.status === "완료").length;
+    const inProgress = all.filter((p) => p.status === "진행 중").length;
+    const avgPass = total
+      ? Math.round(all.reduce((s, p) => s + p.passRate, 0) / total)
+      : 0;
+    return { total, done, inProgress, avgPass };
+  }, [all]);
+
+  const filtersActive =
+    search !== "" || level !== "ALL" || category !== "ALL" || status !== "ALL";
+
+  const resetFilters = () => {
+    setSearch("");
+    setLevel("ALL");
+    setCategory("ALL");
+    setStatus("ALL");
+  };
 
   return (
     <div className="relative bg-gradient-to-b from-indigo-50/40 via-white to-white min-h-screen overflow-hidden">
-      {/* Floating blobs */}
+      {/* Floating blobs & grid */}
       <div className="absolute top-0 left-0 right-0 h-[800px] pointer-events-none overflow-hidden">
         <div className="absolute -top-10 -left-32 w-[420px] h-[420px] rounded-full bg-indigo-400/30 blur-3xl animate-blob-1" />
         <div className="absolute top-[10%] -right-32 w-[420px] h-[420px] rounded-full bg-purple-400/30 blur-3xl animate-blob-2" />
         <div className="absolute inset-0 bg-grid-pattern opacity-30" />
       </div>
 
-      <div className="relative max-w-6xl mx-auto px-6 pt-28 pb-10">
+      <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-24 sm:pt-28 pb-12 sm:pb-16">
         {/* Hero */}
-        <div className="text-center mb-10 animate-slide-up">
-          <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-white border border-indigo-100 text-indigo-700 text-sm font-semibold mb-6 shadow-sm">
+        <div className="text-center mb-8 sm:mb-10 animate-slide-up">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/80 backdrop-blur border border-indigo-100 text-indigo-700 text-xs sm:text-sm font-semibold mb-5 sm:mb-6 shadow-sm">
             <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-dot-pulse" />
-            <span>{filtered.length}개 과제 · 실무 시나리오</span>
+            <span>{all.length}개 과제 · 실무 시나리오</span>
           </div>
-          <h1 className="text-4xl md:text-6xl font-display font-bold text-gray-900 tracking-tight mb-4 leading-[1.1]">
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-display font-bold text-gray-900 tracking-tight mb-3 sm:mb-4 leading-[1.1] text-balance">
             실무 백엔드 과제를
             <br />
             <span
               className="bg-gradient-animate"
               style={{
-                backgroundImage: "linear-gradient(90deg, #4F46E5, #7C3AED, #4F46E5)",
+                backgroundImage:
+                  "linear-gradient(90deg, #4F46E5, #7C3AED, #4F46E5)",
                 backgroundSize: "200% 200%",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
@@ -207,43 +509,188 @@ export default function Dev2ProblemsPage() {
               AI 에이전트와 함께
             </span>
           </h1>
-          <p className="text-lg text-gray-500 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-sm sm:text-lg text-gray-500 max-w-2xl mx-auto leading-relaxed text-pretty px-2">
             Spring Boot · FastAPI 기반 엄선된 시나리오, 난이도별로 정리했습니다.
           </p>
         </div>
 
-        {/* Filter bar */}
+        {/* Stats */}
         <div
-          className="flex flex-wrap items-center justify-between gap-4 mb-10 px-6 py-4 bg-white rounded-2xl border border-gray-100 shadow-sm animate-slide-up"
+          className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8 animate-slide-up"
+          style={{ animationDelay: "0.05s", animationFillMode: "both" }}
+        >
+          <StatCard
+            icon={Layers}
+            label="전체 과제"
+            value={stats.total}
+            suffix="개"
+            tone="indigo"
+          />
+          <StatCard
+            icon={CheckCircle2}
+            label="완료"
+            value={stats.done}
+            suffix="개"
+            tone="emerald"
+          />
+          <StatCard
+            icon={Sparkles}
+            label="진행 중"
+            value={stats.inProgress}
+            suffix="개"
+            tone="amber"
+          />
+          <StatCard
+            icon={TrendingUp}
+            label="평균 통과율"
+            value={stats.avgPass}
+            suffix="%"
+            tone="sky"
+          />
+        </div>
+
+        {/* Search + sort */}
+        <div
+          className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-4 animate-slide-up"
           style={{ animationDelay: "0.1s", animationFillMode: "both" }}
         >
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm font-semibold text-gray-700 mr-2">난이도</span>
+          <div className="relative flex-1">
+            <Search
+              size={16}
+              strokeWidth={2.2}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+            />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="제목이나 설명으로 검색..."
+              className="w-full bg-white/80 backdrop-blur border border-gray-200 rounded-2xl pl-11 pr-10 py-3 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 transition-all"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full inline-flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+                aria-label="검색어 지우기"
+              >
+                <X size={14} strokeWidth={2.4} />
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <label
+              htmlFor="dev2-sort"
+              className="text-sm font-semibold text-gray-700 whitespace-nowrap"
+            >
+              정렬
+            </label>
+            <select
+              id="dev2-sort"
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortId)}
+              className="flex-1 sm:flex-none bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 font-medium shadow-sm focus:outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 transition-all cursor-pointer"
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Filter bar */}
+        <div
+          className="flex flex-col gap-3 sm:gap-4 mb-6 sm:mb-8 p-4 sm:p-5 bg-white/80 backdrop-blur rounded-2xl border border-gray-100 shadow-sm animate-slide-up"
+          style={{ animationDelay: "0.15s", animationFillMode: "both" }}
+        >
+          <FilterGroup label="난이도">
             <FilterChip active={level === "ALL"} onClick={() => setLevel("ALL")}>
               전체
             </FilterChip>
             {LEVEL_OPTIONS.map((v) => (
-              <FilterChip key={v} active={level === v} onClick={() => setLevel(v)}>
+              <FilterChip
+                key={v}
+                active={level === v}
+                onClick={() => setLevel(v)}
+              >
                 Lv {v}
+                <span className="ml-1 text-[10px] opacity-70">
+                  {LEVEL_META[v].label}
+                </span>
               </FilterChip>
             ))}
-          </div>
-          <div className="hidden md:block w-px h-8 bg-gray-200" />
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm font-semibold text-gray-700 mr-2">유형</span>
-            <FilterChip active={category === "ALL"} onClick={() => setCategory("ALL")}>
+          </FilterGroup>
+
+          <div className="h-px w-full bg-gray-100" />
+
+          <FilterGroup label="유형">
+            <FilterChip
+              active={category === "ALL"}
+              onClick={() => setCategory("ALL")}
+            >
               전체
             </FilterChip>
             {CATEGORY_OPTIONS.map((c) => (
-              <FilterChip key={c} active={category === c} onClick={() => setCategory(c)}>
+              <FilterChip
+                key={c}
+                active={category === c}
+                onClick={() => setCategory(c)}
+              >
                 {c}
               </FilterChip>
             ))}
+          </FilterGroup>
+
+          <div className="h-px w-full bg-gray-100" />
+
+          <FilterGroup label="상태">
+            <FilterChip
+              active={status === "ALL"}
+              onClick={() => setStatus("ALL")}
+            >
+              전체
+            </FilterChip>
+            {STATUS_OPTIONS.map((s) => (
+              <FilterChip
+                key={s}
+                active={status === s}
+                onClick={() => setStatus(s)}
+              >
+                {s}
+              </FilterChip>
+            ))}
+          </FilterGroup>
+        </div>
+
+        {/* Result count */}
+        <div
+          className="flex items-center justify-between mb-4 sm:mb-5 animate-fade-in"
+          style={{ animationDelay: "0.2s", animationFillMode: "both" }}
+        >
+          <div className="flex items-center gap-2 text-sm">
+            <Target size={14} strokeWidth={2.2} className="text-indigo-500" />
+            <span className="font-semibold text-gray-900">
+              {filtered.length}
+            </span>
+            <span className="text-gray-400">/ {all.length}</span>
+            <span className="text-gray-500 font-medium">개 과제</span>
           </div>
+          {filtersActive && (
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
+            >
+              <X size={13} strokeWidth={2.4} />
+              필터 초기화
+            </button>
+          )}
         </div>
 
         {/* Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 stagger-children">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 stagger-children">
           {isLoading ? (
             Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="animate-fade-in">
@@ -251,8 +698,26 @@ export default function Dev2ProblemsPage() {
               </div>
             ))
           ) : filtered.length === 0 ? (
-            <div className="col-span-full text-center py-20 text-gray-400 border border-dashed border-gray-200 rounded-2xl bg-white/50 animate-fade-in">
-              조건에 맞는 과제가 없습니다.
+            <div className="col-span-full flex flex-col items-center justify-center text-center py-16 sm:py-20 px-6 border border-dashed border-gray-200 rounded-2xl bg-white/60 backdrop-blur animate-fade-in">
+              <div className="relative w-16 h-16 mb-5">
+                <div className="absolute inset-0 rounded-full bg-indigo-100/70 animate-pulse" />
+                <div className="absolute inset-2 rounded-full bg-white ring-1 ring-indigo-100 flex items-center justify-center">
+                  <Search size={20} strokeWidth={2} className="text-indigo-500" />
+                </div>
+              </div>
+              <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1">
+                조건에 맞는 과제가 없어요
+              </h3>
+              <p className="text-sm text-gray-500 mb-5">
+                필터를 조정하거나 검색어를 지워보세요.
+              </p>
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold shadow-sm shadow-indigo-600/30 hover:bg-indigo-700 transition-colors"
+              >
+                필터 초기화
+              </button>
             </div>
           ) : (
             filtered.map((p) => (
@@ -263,7 +728,11 @@ export default function Dev2ProblemsPage() {
               >
                 <ProblemCard
                   problem={p}
-                  href={p.status === "잠김" ? undefined : withPrefix(`/problems/${p.id}`)}
+                  href={
+                    p.status === "잠김"
+                      ? undefined
+                      : withPrefix(`/problems/${p.id}`)
+                  }
                 />
               </div>
             ))
