@@ -47,8 +47,7 @@ const LEVEL_META: Record<
     chipText: string;
     ringTrack: string;
     ringFill: string;
-    stripFrom: string;
-    stripTo: string;
+    strip: string;
     barFill: string;
   }
 > = {
@@ -58,8 +57,7 @@ const LEVEL_META: Record<
     chipText: "text-emerald-700",
     ringTrack: "stroke-emerald-100",
     ringFill: "stroke-emerald-500",
-    stripFrom: "from-emerald-400",
-    stripTo: "to-teal-500",
+    strip: "bg-emerald-500",
     barFill: "bg-emerald-500"
   },
   2: {
@@ -68,8 +66,7 @@ const LEVEL_META: Record<
     chipText: "text-amber-700",
     ringTrack: "stroke-amber-100",
     ringFill: "stroke-amber-500",
-    stripFrom: "from-amber-400",
-    stripTo: "to-orange-500",
+    strip: "bg-amber-500",
     barFill: "bg-amber-500"
   },
   3: {
@@ -78,8 +75,7 @@ const LEVEL_META: Record<
     chipText: "text-rose-700",
     ringTrack: "stroke-rose-100",
     ringFill: "stroke-rose-500",
-    stripFrom: "from-rose-400",
-    stripTo: "to-fuchsia-500",
+    strip: "bg-rose-500",
     barFill: "bg-rose-500"
   }
 };
@@ -287,17 +283,9 @@ function ProblemCard({
     <>
       {/* Top accent strip — makes the card instantly identifiable by level */}
       <div
-        className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${meta.stripFrom} ${meta.stripTo}`}
+        className={`absolute inset-x-0 top-0 h-1 ${meta.strip}`}
         aria-hidden="true"
       />
-
-      {/* Diagonal sheen sweep on hover */}
-      <div
-        className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl"
-        aria-hidden="true"
-      >
-        <div className="absolute -inset-y-10 left-0 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-indigo-400/15 to-transparent -translate-x-[250%] group-hover:translate-x-[450%] transition-transform duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)]" />
-      </div>
 
       <div className="relative flex flex-col flex-1 p-5 sm:p-6 pt-6 sm:pt-7">
         {/* Header: Ring + order + status */}
@@ -397,7 +385,7 @@ function ProblemCard({
 function SkeletonCard() {
   return (
     <div className="rounded-2xl border border-gray-200/80 bg-white overflow-hidden shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)]">
-      <div className="h-1 bg-gradient-to-r from-gray-100 to-gray-200" />
+      <div className="h-1 bg-gray-200" />
       <div className="p-5 sm:p-6 skeleton-shimmer h-[220px]" />
     </div>
   );
