@@ -1847,18 +1847,25 @@ body:has(.ide-route--workspace) .page-shell > * {
 }
 
 .tree-folder {
+  appearance: none;
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 8px;
   min-height: 28px;
+  border: 0;
+  background: transparent;
   color: var(--muted);
   font-family: var(--font-mono);
   font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
 }
 
 .tree-folder--root {
   padding-left: 12px;
   color: var(--text);
+  cursor: default;
 }
 
 .tree-row__twistie {
@@ -7602,6 +7609,34 @@ body:has(.v3-root) .page-shell {
   --v3-line-mid:   rgba(255,255,255,0.2);
 }
 
+.v3-root[data-v3-theme="v0-tone"] {
+  --v3-bg:         #000000;
+  --v3-surf:       #111111;
+  --v3-accent:     #ffffff;
+  --v3-teal:       #888888;
+  --v3-sage:       #cccccc;
+  --v3-mint:       #ffffff;
+  --v3-glow:       #ffffff;
+  --v3-mint-dim:   rgba(255,255,255,0.65);
+  --v3-mint-faint: rgba(255,255,255,0.38);
+  --v3-line:       rgba(255,255,255,0.1);
+  --v3-line-mid:   rgba(255,255,255,0.2);
+}
+
+.v3-root[data-v3-theme="v0-white"] {
+  --v3-bg:         #ffffff;
+  --v3-surf:       #f5f5f5;
+  --v3-accent:     #111111;
+  --v3-teal:       #555555;
+  --v3-sage:       #333333;
+  --v3-mint:       #111111;
+  --v3-glow:       #000000;
+  --v3-mint-dim:   rgba(0,0,0,0.62);
+  --v3-mint-faint: rgba(0,0,0,0.35);
+  --v3-line:       rgba(0,0,0,0.08);
+  --v3-line-mid:   rgba(0,0,0,0.16);
+}
+
 .v3-root[data-v3-theme="tennis-tone"] {
   --v3-bg:         #102542;
   --v3-surf:       #1c344f;
@@ -7884,6 +7919,15 @@ body:has(.v3-root) .page-shell {
 
 .v3-theme-switcher__btn[data-tone="wood-tone"] .v3-theme-switcher__swatch {
   background: linear-gradient(90deg, #4B4237, #736B60, #A49694, #D5A021, #EDE7D9);
+}
+
+.v3-theme-switcher__btn[data-tone="v0-tone"] .v3-theme-switcher__swatch {
+  background: linear-gradient(90deg, #000000, #111111, #444444, #aaaaaa, #ffffff);
+}
+
+.v3-theme-switcher__btn[data-tone="v0-white"] .v3-theme-switcher__swatch {
+  background: linear-gradient(90deg, #ffffff, #f5f5f5, #cccccc, #555555, #111111);
+  border: 1px solid rgba(0,0,0,0.12);
 }
 
 .v3-theme-switcher__btn[data-tone="sports-tone"] .v3-theme-switcher__swatch {
@@ -8868,6 +8912,34 @@ body:has(.v3-root) .page-shell {
   --v3-line-mid:   rgba(255,255,255,0.2);
 }
 
+.auth-page--dev[data-v3-theme="v0-tone"] {
+  --v3-bg:         #000000;
+  --v3-surf:       #111111;
+  --v3-accent:     #ffffff;
+  --v3-teal:       #888888;
+  --v3-sage:       #cccccc;
+  --v3-mint:       #ffffff;
+  --v3-glow:       #ffffff;
+  --v3-mint-dim:   rgba(255,255,255,0.65);
+  --v3-mint-faint: rgba(255,255,255,0.38);
+  --v3-line:       rgba(255,255,255,0.1);
+  --v3-line-mid:   rgba(255,255,255,0.2);
+}
+
+.auth-page--dev[data-v3-theme="v0-white"] {
+  --v3-bg:         #ffffff;
+  --v3-surf:       #f5f5f5;
+  --v3-accent:     #111111;
+  --v3-teal:       #555555;
+  --v3-sage:       #333333;
+  --v3-mint:       #111111;
+  --v3-glow:       #000000;
+  --v3-mint-dim:   rgba(0,0,0,0.62);
+  --v3-mint-faint: rgba(0,0,0,0.35);
+  --v3-line:       rgba(0,0,0,0.08);
+  --v3-line-mid:   rgba(0,0,0,0.16);
+}
+
 .auth-page--dev[data-v3-theme="tennis-tone"] {
   --v3-bg:         #102542;
   --v3-surf:       #1c344f;
@@ -9204,6 +9276,34 @@ body:has(.v3-root) .page-shell {
   --v3-mint-faint: rgba(229,229,229,0.42);
   --v3-line: rgba(255,255,255,0.1);
   --v3-line-mid: rgba(255,255,255,0.2);
+}
+
+.design-dev[data-v3-theme="v0-tone"] {
+  --v3-bg: #000000;
+  --v3-surf: #111111;
+  --v3-accent: #ffffff;
+  --v3-teal: #888888;
+  --v3-sage: #cccccc;
+  --v3-mint: #ffffff;
+  --v3-glow: #ffffff;
+  --v3-mint-dim: rgba(255,255,255,0.65);
+  --v3-mint-faint: rgba(255,255,255,0.38);
+  --v3-line: rgba(255,255,255,0.1);
+  --v3-line-mid: rgba(255,255,255,0.2);
+}
+
+.design-dev[data-v3-theme="v0-white"] {
+  --v3-bg: #ffffff;
+  --v3-surf: #f5f5f5;
+  --v3-accent: #111111;
+  --v3-teal: #555555;
+  --v3-sage: #333333;
+  --v3-mint: #111111;
+  --v3-glow: #000000;
+  --v3-mint-dim: rgba(0,0,0,0.62);
+  --v3-mint-faint: rgba(0,0,0,0.35);
+  --v3-line: rgba(0,0,0,0.08);
+  --v3-line-mid: rgba(0,0,0,0.16);
 }
 
 .design-dev[data-v3-theme="tennis-tone"] {

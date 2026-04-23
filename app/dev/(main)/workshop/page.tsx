@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { isV0ThemeTone, useDevTheme } from "@/components/dev/DevThemeContext";
+import V0WorkshopPage from "@/components/dev/v0/V0WorkshopPage";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import type {
   WorkshopGenerateInput,
@@ -206,6 +208,12 @@ function VariantPanel({
 }
 
 export default function DevWorkshopPage() {
+  const { themeTone } = useDevTheme();
+
+  return isV0ThemeTone(themeTone) ? <V0WorkshopPage /> : <StandardDevWorkshopPage />;
+}
+
+function StandardDevWorkshopPage() {
   const { withPrefix } = useRouteScope();
   const addToast = useUiStore((state) => state.addToast);
   const [form, setForm] = useState<WorkshopGenerateInput>(defaultForm);

@@ -21,7 +21,8 @@ import {
 
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
-import { THEME_OPTIONS, useDevTheme, type V3ThemeTone } from "@/components/dev/DevThemeContext";
+import { THEME_OPTIONS, isV0ThemeTone, useDevTheme, type V3ThemeTone } from "@/components/dev/DevThemeContext";
+import { DevShell as V0DevShell } from "@/components/dev/v0/V0DevShell";
 import { mockApi } from "@/lib/api/mockApi";
 import { useAuthStore } from "@/store/authStore";
 import { useThemeStore } from "@/store/themeStore";
@@ -68,6 +69,16 @@ function isFullBleedSurface(pathname: string): boolean {
 }
 
 export function DevShell({ children }: { children: ReactNode }) {
+  const { themeTone } = useDevTheme();
+
+  if (isV0ThemeTone(themeTone)) {
+    return <V0DevShell>{children}</V0DevShell>;
+  }
+
+  return <StandardDevShell>{children}</StandardDevShell>;
+}
+
+function StandardDevShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const { currentPath, withPrefix } = useRouteScope();
