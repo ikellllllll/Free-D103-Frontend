@@ -364,27 +364,6 @@ export default function Dev2HarnessPage() {
             {/* Path header */}
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/60 gap-3 flex-wrap bg-white/40 backdrop-blur-sm">
               <div className="flex items-center gap-2.5 min-w-0">
-                <span
-                  className="flex items-center gap-0.5 shrink-0 -ml-1 text-gray-500"
-                  aria-hidden="true"
-                >
-                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-md hover:bg-black/5 transition-colors">
-                    <svg width="10" height="10" viewBox="0 0 10 10">
-                      <line x1="1" y1="9" x2="9" y2="9" stroke="currentColor" strokeWidth="1" strokeLinecap="square" />
-                    </svg>
-                  </span>
-                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-md hover:bg-black/5 transition-colors">
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                      <rect x="1" y="1" width="8" height="8" stroke="currentColor" strokeWidth="1" />
-                    </svg>
-                  </span>
-                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-md hover:bg-rose-500 hover:text-white transition-colors">
-                    <svg width="10" height="10" viewBox="0 0 10 10">
-                      <line x1="1" y1="1" x2="9" y2="9" stroke="currentColor" strokeWidth="1" strokeLinecap="square" />
-                      <line x1="9" y1="1" x2="1" y2="9" stroke="currentColor" strokeWidth="1" strokeLinecap="square" />
-                    </svg>
-                  </span>
-                </span>
                 <code className="font-mono text-sm text-gray-700 font-semibold truncate">
                   {activeFile.path}
                 </code>
