@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { Sparkles, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { ArrowRight, Eye, EyeOff } from "lucide-react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
@@ -51,26 +51,15 @@ export default function Dev2SignupPage() {
 
   return (
     <div className="w-full max-w-md animate-scale-in">
-      <div className="bg-white rounded-3xl shadow-2xl p-10">
-        {/* Pill badge */}
-        <div className="flex justify-center mb-6">
-          <div
-            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full border border-indigo-100 text-indigo-600 text-xs font-semibold"
-            style={{ background: "#EEF2FF" }}
-          >
-            <Sparkles size={12} strokeWidth={2.4} />
-            <span>AIG 회원가입</span>
-          </div>
-        </div>
-
+      <div className="bg-white rounded-3xl shadow-2xl p-8">
         <h1 className="text-center text-2xl md:text-3xl font-display font-bold text-gray-900 tracking-tight mb-2">
           AI 워크스페이스 시작하기
         </h1>
-        <p className="text-center text-sm text-gray-500 mb-8">
+        <p className="text-center text-sm text-gray-500 mb-5">
           몇 초만에 계정을 만들고 바로 첫 과제를 시작하세요.
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
           <Field label="이름">
             <input
               autoComplete="name"
@@ -137,7 +126,7 @@ export default function Dev2SignupPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center space-x-2 text-white font-semibold py-3.5 rounded-2xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+            className="w-full flex items-center justify-center space-x-2 text-white font-semibold py-3 rounded-2xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed mt-1"
             style={{
               backgroundImage: "linear-gradient(90deg, #4F46E5, #7C3AED)",
               boxShadow: "0 12px 28px -10px rgba(99, 102, 241, 0.5)"
@@ -147,7 +136,7 @@ export default function Dev2SignupPage() {
             {!loading && <ArrowRight size={16} strokeWidth={2.4} />}
           </button>
 
-          <p className="text-center text-xs text-gray-500 pt-2">
+          <p className="text-center text-xs text-gray-500 pt-1">
             계속하면{" "}
             <Link
               href="/dev2/terms"
@@ -176,7 +165,7 @@ export default function Dev2SignupPage() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="block text-sm font-semibold text-gray-800 mb-2">{label}</span>
+      <span className="block text-sm font-semibold text-gray-800 mb-1.5">{label}</span>
       {children}
     </label>
   );

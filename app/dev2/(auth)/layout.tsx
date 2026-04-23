@@ -1,6 +1,6 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Sparkles } from "lucide-react";
 
 export default function Dev2AuthLayout({ children }: { children: ReactNode }) {
   return (
@@ -13,21 +13,17 @@ export default function Dev2AuthLayout({ children }: { children: ReactNode }) {
         <div className="absolute inset-0 bg-grid-pattern opacity-[0.15]" />
       </div>
 
-      <header className="relative px-6 py-5 animate-fade-in z-10">
+      <header className="relative px-6 py-4 animate-fade-in z-10">
         <Link
           href="/dev2"
           className="inline-flex items-center space-x-2 text-white font-display font-bold text-xl group"
         >
-          <Sparkles
-            size={22}
-            strokeWidth={2}
-            className="animate-dot-pulse group-hover:animate-spin transition-transform"
-          />
+          <Image src="/brand/app-icon-dark.svg" alt="AIG" width={28} height={28} className="rounded-lg" />
           <span>AIG</span>
         </Link>
       </header>
 
-      <main className="relative z-10 flex-1 flex items-center justify-center px-6 py-12">
+      <main className="relative z-10 flex-1 flex items-center justify-center px-6 py-4">
         {children}
       </main>
     </div>

@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { Sparkles, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { ArrowRight, Eye, EyeOff } from "lucide-react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
@@ -45,27 +45,17 @@ export default function Dev2LoginPage() {
 
   return (
     <div className="w-full max-w-md animate-scale-in">
-      <div className="bg-white rounded-3xl shadow-2xl p-10">
-        <div className="flex justify-center mb-6">
-          <div
-            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full border border-indigo-100 text-indigo-600 text-xs font-semibold"
-            style={{ background: "#EEF2FF" }}
-          >
-            <Sparkles size={12} strokeWidth={2.4} />
-            <span>AIG 로그인</span>
-          </div>
-        </div>
-
+      <div className="bg-white rounded-3xl shadow-2xl p-8">
         <h1 className="text-center text-2xl md:text-3xl font-display font-bold text-gray-900 tracking-tight mb-2">
           다시 오신 걸 환영합니다
         </h1>
-        <p className="text-center text-sm text-gray-500 mb-8">
+        <p className="text-center text-sm text-gray-500 mb-6">
           이메일과 비밀번호로 로그인하세요.
         </p>
 
         <button
           type="button"
-          className="w-full flex items-center justify-center space-x-2 px-4 py-3 rounded-2xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 mb-6"
+          className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 rounded-2xl border border-gray-200 bg-gray-50 hover:border-gray-300 hover:bg-gray-100 transition-colors text-sm font-medium text-gray-700 mb-5"
         >
           <Image
             src="/icons8-github-%EB%A1%9C%EA%B3%A0.svg"
@@ -77,15 +67,15 @@ export default function Dev2LoginPage() {
           <span>GitHub 계정으로 계속</span>
         </button>
 
-        <div className="flex items-center mb-6">
+        <div className="flex items-center mb-5">
           <div className="flex-1 h-px bg-gray-200" />
           <span className="px-3 text-xs text-gray-400 uppercase tracking-wider">또는</span>
           <div className="flex-1 h-px bg-gray-200" />
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
           <label className="block">
-            <span className="block text-sm font-semibold text-gray-800 mb-2">이메일</span>
+            <span className="block text-sm font-semibold text-gray-800 mb-1.5">이메일</span>
             <input
               type="email"
               autoComplete="email"
@@ -97,7 +87,7 @@ export default function Dev2LoginPage() {
           </label>
 
           <label className="block">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-1.5">
               <span className="block text-sm font-semibold text-gray-800">비밀번호</span>
               <button type="button" className="text-xs text-indigo-600 hover:text-indigo-700">
                 비밀번호 찾기
@@ -126,7 +116,7 @@ export default function Dev2LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center space-x-2 text-white font-semibold py-3.5 rounded-2xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+            className="w-full flex items-center justify-center space-x-2 text-white font-semibold py-3 rounded-2xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed mt-1"
             style={{
               backgroundImage: "linear-gradient(90deg, #4F46E5, #7C3AED)",
               boxShadow: "0 12px 28px -10px rgba(99, 102, 241, 0.5)"

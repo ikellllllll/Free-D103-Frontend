@@ -7,21 +7,18 @@ import {
   Sparkles,
   ArrowRight,
   PlayCircle,
-  MessageSquare,
-  Bot,
   LineChart,
-  ChevronRight,
-  Activity,
   Minus,
   Square,
   X
 } from "lucide-react";
 
-const SECTION_IDS = ["hero", "features", "workflow", "demo", "reports", "cta"] as const;
+const SECTION_IDS = ["hero", "showcase", "features", "workflow", "demo", "reports", "cta"] as const;
 type SectionId = (typeof SECTION_IDS)[number];
 
 const SECTION_LABELS: Record<SectionId, string> = {
   hero: "홈",
+  showcase: "미리보기",
   features: "기능",
   workflow: "워크플로",
   demo: "데모",
@@ -104,17 +101,27 @@ const IDE_STEPS = [
   }
 ];
 
+const SHOWCASE_STATS = [
+  { value: "5종", label: "실무 과제" },
+  { value: "2개", label: "지원 언어" },
+  { value: "3가지", label: "평가 기준" },
+  { value: "14기", label: "SSAFY" }
+];
+
 export function LandingAIG() {
-  const scrollRef = useRef<HTMLDivElement | null>(null);
   const sectionRefs = useRef<Record<SectionId, HTMLElement | null>>({
     hero: null,
+    showcase: null,
     features: null,
     workflow: null,
     demo: null,
     reports: null,
     cta: null
   });
+  const previewRef = useRef<HTMLDivElement | null>(null);
   const [activeSection, setActiveSection] = useState<SectionId>("hero");
+  const isScrollingRef = useRef(false);
+  const currentSectionRef = useRef(0);
 
   // Workflow step selector
   const [activeStep, setActiveStep] = useState(0);
@@ -169,12 +176,35 @@ export function LandingAIG() {
     []
   );
 
-  const scrollToSection = useCallback((id: SectionId) => {
-    const node = sectionRefs.current[id];
-    if (node) {
-      node.scrollIntoView({ behavior: "smooth", block: "start" });
+  const scrollToIdx = useCallback((idx: number) => {
+    const clamped = Math.max(0, Math.min(SECTION_IDS.length - 1, idx));
+    currentSectionRef.current = clamped;
+    setActiveSection(SECTION_IDS[clamped]);
+
+    if (clamped === 0) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
     }
+    const id = SECTION_IDS[clamped];
+    // showcase: preview 카드 상단이 viewport 상단에 오도록 스크롤
+    if (id === "showcase" && previewRef.current) {
+      const top = previewRef.current.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+      return;
+    }
+    const node = sectionRefs.current[id];
+    if (!node) return;
+    const top = node.getBoundingClientRect().top + window.scrollY;
+    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
   }, []);
+
+  const scrollToSection = useCallback((id: SectionId) => {
+    const idx = SECTION_IDS.indexOf(id);
+    if (idx < 0) return;
+    isScrollingRef.current = true;
+    scrollToIdx(idx);
+    window.setTimeout(() => { isScrollingRef.current = false; }, 900);
+  }, [scrollToIdx]);
 
   const handleAnchorJump = useCallback(
     (id: SectionId) => (event: React.MouseEvent) => {
@@ -184,9 +214,74 @@ export function LandingAIG() {
     [scrollToSection]
   );
 
+  // PPT-style wheel snap
+  // 마우스 휠: deltaY 크고 드문 이벤트 → 즉시 snap
+  // 트랙패드: deltaY 작고 연속 이벤트 → debounce 누적 후 snap
+  const wheelAccumRef = useRef(0);
+  const wheelTimerRef = useRef<number | null>(null);
+
   useEffect(() => {
-    const root = scrollRef.current;
-    if (!root) return;
+    const triggerSnap = (dir: number) => {
+      const next = currentSectionRef.current + dir;
+      if (next < 0 || next >= SECTION_IDS.length) return;
+      isScrollingRef.current = true;
+      scrollToIdx(next);
+      window.setTimeout(() => { isScrollingRef.current = false; }, 900);
+    };
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (isScrollingRef.current) return;
+
+      // 마우스 휠: 큰 deltaY (>= 50) 또는 line 모드 → 즉시 snap
+      if (Math.abs(e.deltaY) >= 50 || e.deltaMode === 1) {
+        if (wheelTimerRef.current) {
+          clearTimeout(wheelTimerRef.current);
+          wheelTimerRef.current = null;
+        }
+        wheelAccumRef.current = 0;
+        triggerSnap(e.deltaY > 0 ? 1 : -1);
+        return;
+      }
+
+      // 트랙패드: 작은 deltaY → 누적 후 100ms 디바운스
+      wheelAccumRef.current += e.deltaY;
+      if (wheelTimerRef.current) clearTimeout(wheelTimerRef.current);
+      wheelTimerRef.current = window.setTimeout(() => {
+        const accum = wheelAccumRef.current;
+        wheelAccumRef.current = 0;
+        wheelTimerRef.current = null;
+        if (Math.abs(accum) < 30) return;
+        triggerSnap(accum > 0 ? 1 : -1);
+      }, 100);
+    };
+
+    window.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      window.removeEventListener("wheel", onWheel);
+      if (wheelTimerRef.current) clearTimeout(wheelTimerRef.current);
+    };
+  }, [scrollToIdx]);
+
+  // Keyboard arrow / PageDown
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!["ArrowDown", "ArrowUp", "PageDown", "PageUp"].includes(e.key)) return;
+      e.preventDefault();
+      if (isScrollingRef.current) return;
+      const dir = (e.key === "ArrowDown" || e.key === "PageDown") ? 1 : -1;
+      const next = currentSectionRef.current + dir;
+      if (next < 0 || next >= SECTION_IDS.length) return;
+      isScrollingRef.current = true;
+      scrollToIdx(next);
+      window.setTimeout(() => { isScrollingRef.current = false; }, 900);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [scrollToIdx]);
+
+  // IntersectionObserver — viewport root, sync currentSectionRef
+  useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         const visible = entries
@@ -194,10 +289,15 @@ export function LandingAIG() {
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
         if (visible[0]) {
           const id = visible[0].target.getAttribute("data-section") as SectionId | null;
-          if (id) setActiveSection(id);
+          if (id) {
+            setActiveSection(id);
+            if (!isScrollingRef.current) {
+              currentSectionRef.current = SECTION_IDS.indexOf(id);
+            }
+          }
         }
       },
-      { root, threshold: [0.35, 0.55, 0.75] }
+      { root: null, threshold: [0.35, 0.55, 0.75] }
     );
     SECTION_IDS.forEach((id) => {
       const node = sectionRefs.current[id];
@@ -209,13 +309,9 @@ export function LandingAIG() {
   const dots = useMemo(() => SECTION_IDS, []);
 
   return (
-    <div
-      ref={scrollRef}
-      className="h-screen overflow-y-scroll scroll-smooth bg-white font-sans"
-      style={{ scrollSnapType: "y mandatory" }}
-    >
+    <div className="dev2-landing-scroll w-full max-w-none bg-[#0F0F2E] font-sans">
       {/* Section dots (right side, fixed) */}
-      <div className="pointer-events-none fixed right-6 top-1/2 z-40 -translate-y-1/2 hidden md:flex flex-col items-center gap-3">
+      <div className="pointer-events-none fixed right-6 top-1/2 z-40 -translate-y-1/2 hidden md:flex flex-col items-end gap-3">
         {dots.map((id) => {
           const isActive = activeSection === id;
           return (
@@ -224,17 +320,10 @@ export function LandingAIG() {
               type="button"
               onClick={() => scrollToSection(id)}
               aria-label={`${SECTION_LABELS[id]} 섹션으로 이동`}
-              className={`pointer-events-auto group flex items-center gap-2 transition-all cursor-pointer ${
+              className={`pointer-events-auto group flex items-center justify-end gap-2 transition-all cursor-pointer ${
                 isActive ? "text-indigo-600" : "text-gray-400 hover:text-indigo-500"
               }`}
             >
-              <span
-                className={`block rounded-full border transition-all ${
-                  isActive
-                    ? "w-3 h-3 border-indigo-600 bg-indigo-600 shadow-[0_0_0_4px_rgba(99,102,241,0.15)]"
-                    : "w-2.5 h-2.5 border-gray-300 bg-white group-hover:border-indigo-400"
-                }`}
-              />
               <span
                 className={`text-xs font-semibold uppercase tracking-wider transition-opacity ${
                   isActive ? "opacity-100" : "opacity-0 group-hover:opacity-70"
@@ -242,6 +331,13 @@ export function LandingAIG() {
               >
                 {SECTION_LABELS[id]}
               </span>
+              <span
+                className={`block w-3 h-3 rounded-full border transition-all ${
+                  isActive
+                    ? "border-indigo-600 bg-indigo-600 shadow-[0_0_0_4px_rgba(99,102,241,0.15)]"
+                    : "border-gray-400 bg-gray-400 group-hover:border-indigo-400 group-hover:bg-indigo-400"
+                }`}
+              />
             </button>
           );
         })}
@@ -252,11 +348,11 @@ export function LandingAIG() {
         ref={setSectionRef("hero")}
         data-section="hero"
         id="hero"
-        className="relative min-h-screen overflow-hidden bg-[#0F0F2E] text-white flex flex-col"
+        className="relative bg-[#0F0F2E] text-white flex flex-col overflow-visible"
         style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
       >
         {/* Floating orbs */}
-        <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div className="absolute -top-24 left-[8%] w-[420px] h-[420px] rounded-full bg-violet-500/40 blur-3xl animate-blob-1" />
           <div className="absolute top-10 right-[5%] w-[360px] h-[360px] rounded-full bg-teal-400/30 blur-3xl animate-blob-2" />
           <div className="absolute top-[55%] left-[35%] w-[260px] h-[260px] rounded-full bg-indigo-500/30 blur-3xl animate-float" />
@@ -266,11 +362,12 @@ export function LandingAIG() {
         {/* Pill nav */}
         <div className="relative z-10 pt-6 px-6">
           <nav className="mx-auto max-w-5xl flex items-center justify-between bg-white/95 backdrop-blur-md rounded-full px-5 py-2.5 shadow-xl shadow-indigo-900/30">
-            <Link href="/dev2" className="flex items-center space-x-2 text-indigo-600 font-display font-bold text-lg group cursor-pointer">
-              <Sparkles size={20} strokeWidth={2} className="transition-transform group-hover:rotate-12" />
-              <span>AIG</span>
+            <Link href="/dev2" className="flex items-center space-x-2 font-display font-bold text-lg group cursor-pointer">
+              <Image src="/brand/app-icon-light.svg" alt="AIG" width={28} height={28} className="rounded-lg" />
+              <span className="text-indigo-600">AIG</span>
             </Link>
             <div className="hidden md:flex items-center space-x-8 text-sm font-medium text-gray-700">
+              <a href="#showcase" onClick={handleAnchorJump("showcase")} className="hover:text-indigo-600 transition-colors cursor-pointer">미리보기</a>
               <a href="#features" onClick={handleAnchorJump("features")} className="hover:text-indigo-600 transition-colors cursor-pointer">기능</a>
               <a href="#workflow" onClick={handleAnchorJump("workflow")} className="hover:text-indigo-600 transition-colors cursor-pointer">워크플로</a>
               <a href="#reports" onClick={handleAnchorJump("reports")} className="hover:text-indigo-600 transition-colors cursor-pointer">리포트</a>
@@ -287,13 +384,12 @@ export function LandingAIG() {
         </div>
 
         {/* Hero content */}
-        <div className="relative z-10 flex-1 flex flex-col justify-center px-6 py-12 text-center max-w-4xl mx-auto w-full animate-slide-up">
-          <div className="inline-flex self-center items-center space-x-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-3.5 py-1.5 text-xs font-semibold text-indigo-100 mb-6">
-            <span className="w-1.5 h-1.5 rounded-full bg-teal-300 animate-dot-pulse" />
-            <span>SSAFY 14기 · D103 자율 프로젝트</span>
+        <div className="relative z-10 flex flex-col items-center px-6 pt-6 pb-10 text-center max-w-4xl mx-auto w-full animate-slide-up md:pt-8">
+          <div className="self-center inline-flex border-l-2 border-white/40 pl-3 text-xs font-semibold tracking-[0.12em] text-white/55 mb-3">
+            SSAFY 14기 · D103 자율 프로젝트
           </div>
 
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-bold tracking-tight leading-[1.1] mb-6">
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-bold tracking-tight leading-[1.1] mb-4">
             AI 에이전트와 함께
             <br />
             실무 역량을 키우는
@@ -313,7 +409,7 @@ export function LandingAIG() {
             </span>
           </h1>
 
-          <p className="text-base md:text-xl text-indigo-200/90 max-w-2xl mx-auto leading-relaxed mb-8">
+          <p className="text-base md:text-xl text-indigo-200/90 max-w-2xl mx-auto leading-relaxed mb-5">
             실무 과제를 풀고, 에이전트 흐름을 기록하고,
             <br className="hidden md:block" />
             AI 활용 역량을 피드백 리포트로 확인하세요.
@@ -324,13 +420,12 @@ export function LandingAIG() {
               href="/dev2/signup"
               className="inline-flex items-center space-x-2 bg-white text-indigo-900 hover:bg-indigo-50 font-semibold px-6 py-3.5 rounded-full transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 cursor-pointer"
             >
-              <Sparkles size={18} strokeWidth={2.2} />
               <span>무료로 시작하기</span>
               <ArrowRight size={16} strokeWidth={2.4} />
             </Link>
             <a
-              href="#features"
-              onClick={handleAnchorJump("features")}
+              href="#showcase"
+              onClick={handleAnchorJump("showcase")}
               className="inline-flex items-center space-x-2 bg-white/10 hover:bg-white/15 backdrop-blur-sm border border-white/20 text-white font-semibold px-6 py-3.5 rounded-full transition-colors cursor-pointer"
             >
               <PlayCircle size={18} strokeWidth={2.2} />
@@ -339,128 +434,149 @@ export function LandingAIG() {
           </div>
         </div>
 
-        {/* Stats bar (inside hero, bottom overlay) */}
-        <div className="relative z-10 px-6 pb-10">
-          <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-0 bg-white/[0.07] backdrop-blur-xl border border-white/15 rounded-2xl overflow-hidden">
-            {[
-              { value: "5종", label: "실무 과제" },
-              { value: "2개", label: "지원 언어" },
-              { value: "3가지", label: "평가 기준" },
-              { value: "SSAFY 14기", label: "자율 프로젝트" }
-            ].map((s, i) => (
-              <div
-                key={s.label}
-                className={`text-center py-5 px-4 ${
-                  i < 3 ? "md:border-r border-white/10" : ""
-                } ${i === 1 ? "border-r md:border-r border-white/10" : ""} ${
-                  i === 2 ? "border-t md:border-t-0 border-white/10" : ""
-                } ${i === 3 ? "border-t md:border-t-0 border-white/10" : ""}`}
-              >
-                <div className="text-2xl md:text-3xl font-display font-bold text-white">
+        {/* ── Floating preview — extends into showcase section (like /dev) ── */}
+        <div
+          ref={previewRef}
+          className="relative z-20 flex justify-center px-6 md:px-10"
+          style={{ marginBottom: "-160px" }}
+        >
+          <div className="w-full max-w-5xl">
+            {/* Glass frame — padding + backdrop + deep shadow (like /dev v3-glass-frame) */}
+            <div
+              className="relative rounded-[20px] overflow-hidden backdrop-blur-sm"
+              style={{
+                background: "rgba(165,180,252,0.055)",
+                border: "1px solid rgba(165,180,252,0.20)",
+                padding: "8px",
+                boxShadow: "0 0 0 1px rgba(165,180,252,0.07), 0 40px 80px rgba(0,0,0,0.65), 0 8px 24px rgba(0,0,0,0.45)"
+              }}
+            >
+              {/* floating feature badges */}
+              <div className="absolute left-5 top-4 z-20 flex gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/40 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-sm">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  IDE
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-400/30 bg-indigo-500/20 px-2.5 py-1 text-[10px] font-semibold text-indigo-200 backdrop-blur-sm">
+                  Diff View
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-teal-400/30 bg-teal-500/20 px-2.5 py-1 text-[10px] font-semibold text-teal-200 backdrop-blur-sm">
+                  Agent Mode
+                </span>
+              </div>
+              <div className="relative overflow-hidden rounded-[14px]">
+                <Image
+                  src="/problemsDIFF.png"
+                  alt="AIG dev IDE 워크스페이스 미리보기"
+                  width={1160}
+                  height={700}
+                  className="block w-full object-cover object-top"
+                  style={{ maxHeight: "70vh" }}
+                  priority
+                  sizes="(max-width: 768px) 94vw, 88vw"
+                />
+                {/* bottom fade */}
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#0a0a20]/70 to-transparent" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ────────────────── SHOWCASE (preview continues + stats) ────────────────── */}
+      {/* padding-top matches margin-bottom on preview (-160px) so stats start exactly below preview */}
+      <section
+        ref={setSectionRef("showcase")}
+        data-section="showcase"
+        id="showcase"
+        className="relative bg-[#0A0A20] text-white"
+        style={{ scrollSnapAlign: "start", scrollSnapStop: "always", paddingTop: "160px" }}
+      >
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(99,102,241,0.10),transparent_55%)]" />
+          <div className="absolute inset-0 bg-grid-pattern opacity-[0.06]" />
+        </div>
+        <div className="relative z-10 max-w-5xl mx-auto px-6 w-full py-10">
+          <div className="grid grid-cols-4 gap-0 border-t border-white/10 pt-8 pb-12">
+            {SHOWCASE_STATS.map((s, i) => (
+              <div key={s.label} className={`text-center py-6 ${i < 3 ? "border-r border-white/10" : ""}`}>
+                <div
+                  className="text-4xl md:text-5xl font-display font-bold mb-2"
+                  style={{ backgroundImage: "linear-gradient(90deg,#A5B4FC,#C4B5FD)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}
+                >
                   {s.value}
                 </div>
-                <div className="text-[11px] text-indigo-200/80 mt-1.5 font-medium tracking-widest uppercase">
-                  {s.label}
-                </div>
+                <div className="text-xs text-indigo-300/50 uppercase tracking-[0.12em]">{s.label}</div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ────────────────── FEATURES (3-up, spacious) ────────────────── */}
+      {/* ────────────────── FEATURES (Bento cards) ────────────────── */}
       <section
         ref={setSectionRef("features")}
         data-section="features"
         id="features"
-        className="relative min-h-screen bg-white overflow-hidden flex flex-col justify-center py-20"
+        className="relative min-h-screen bg-[#F8FAFC] overflow-hidden flex flex-col justify-center py-20"
         style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
       >
-        <div className="absolute top-40 left-0 w-96 h-96 rounded-full bg-indigo-100/50 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-40 right-0 w-96 h-96 rounded-full bg-violet-100/50 blur-3xl pointer-events-none" />
+        {/* aurora background */}
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute left-[10%] top-[15%] w-[500px] h-[500px] rounded-full bg-indigo-200/50 blur-[120px]" />
+          <div className="absolute right-[8%] bottom-[15%] w-[400px] h-[400px] rounded-full bg-violet-200/45 blur-[100px]" />
+          <div className="absolute left-[45%] top-[50%] w-[300px] h-[300px] rounded-full bg-teal-100/60 blur-[90px]" />
+          <div className="absolute inset-0 bg-grid-pattern opacity-[0.035]" />
+        </div>
 
         <div className="relative max-w-6xl mx-auto px-6 w-full">
-          <div className="text-center mb-14">
-            <div className="inline-flex items-center space-x-2 bg-indigo-50 border border-indigo-100 rounded-full px-3 py-1 text-xs font-semibold text-indigo-700 mb-5">
-              <Sparkles size={12} strokeWidth={2.4} />
-              <span>CORE FEATURES</span>
+          {/* heading */}
+          <div className="mb-12">
+            <div className="inline-block border-l-2 border-indigo-500 pl-3 text-xs font-semibold tracking-[0.12em] text-indigo-600 mb-4">
+              CORE FEATURES
             </div>
-            <h2 className="text-4xl md:text-5xl font-display font-bold text-gray-900 tracking-tight mb-4">
-              AI를 <span
-                style={{
-                  backgroundImage: "linear-gradient(90deg, #4F46E5, #7C3AED)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                  color: "transparent"
-                }}
-              >어떻게 쓰느냐</span>를
-              <br />
-              평가합니다
+            <h2 className="text-4xl md:text-5xl font-display font-bold tracking-tight mb-4 text-slate-950">
+              AI를{" "}
+              <span style={{ backgroundImage: "linear-gradient(90deg,#818CF8,#A78BFA,#67E8F9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
+                어떻게 쓰느냐
+              </span>
+              를<br />평가합니다
             </h2>
-            <p className="text-lg text-gray-500 max-w-2xl mx-auto leading-relaxed">
-              단순히 AI를 허용하는 게 아니라, AI를 설계하고 활용하는 과정을 Trace로 기록하고 피드백합니다.
+            <p className="text-base text-slate-600 max-w-xl leading-relaxed">
+              단순히 AI를 허용하는 게 아니라, 설계하고 활용하는 과정을 Trace로 기록하고 피드백합니다.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 stagger-children">
-            {[
-              {
-                icon: MessageSquare,
-                title: "Chat Mode",
-                tag: "질문하는 능력",
-                desc: "AI에게 직접 질문하고 답변을 받으며 코드를 작성합니다. 프롬프트 품질이 곧 실력입니다.",
-                iconBg: "linear-gradient(135deg, #6366F1, #4F46E5)",
-                tagColor: "#4F46E5"
-              },
-              {
-                icon: Bot,
-                title: "Agent Mode",
-                tag: "설계하는 능력",
-                desc: "하네스를 설계하고 에이전트에게 과제를 위임합니다. 자율 실행된 에이전트의 Trace가 남습니다.",
-                iconBg: "linear-gradient(135deg, #8B5CF6, #7C3AED)",
-                tagColor: "#7C3AED"
-              },
-              {
-                icon: LineChart,
-                title: "AI 피드백 리포트",
-                tag: "객관적 평가",
-                desc: "하네스 품질 · 실행 품질 · Trace 활용 3가지 기준으로 AI 활용 역량을 수치화합니다.",
-                iconBg: "linear-gradient(135deg, #14B8A6, #0D9488)",
-                tagColor: "#0D9488"
-              }
-            ].map((f) => {
-              const Icon = f.icon;
-              return (
-                <div
-                  key={f.title}
-                  className="group relative bg-white rounded-3xl border border-gray-100 p-8 hover:-translate-y-1 hover:shadow-2xl transition-all animate-slide-up cursor-default"
-                  style={{ animationFillMode: "both" }}
-                >
-                  <div
-                    className="flex items-center justify-center w-14 h-14 rounded-2xl mb-6 shadow-lg transition-all"
-                    style={{
-                      backgroundImage: f.iconBg,
-                      boxShadow: "0 10px 25px -10px rgba(99, 102, 241, 0.4)"
-                    }}
-                  >
-                    <Icon size={26} strokeWidth={2} className="text-white" />
-                  </div>
-                  <div
-                    className="text-[11px] font-mono font-semibold uppercase tracking-wider mb-2"
-                    style={{ color: f.tagColor }}
-                  >
-                    {f.tag}
-                  </div>
-                  <h3 className="text-xl font-display font-bold text-gray-900 mb-3">{f.title}</h3>
-                  <p className="text-sm text-gray-600 leading-relaxed">{f.desc}</p>
-                  <div className="mt-6 inline-flex items-center space-x-1 text-sm font-semibold text-indigo-600 opacity-60 group-hover:opacity-100 group-hover:translate-x-1 transition-all cursor-pointer">
-                    <span>자세히 보기</span>
-                    <ChevronRight size={14} strokeWidth={2.4} />
-                  </div>
-                </div>
-              );
-            })}
+          {/* Feature cards */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+
+            {/* Chat Mode */}
+            <div className="relative min-h-[260px] rounded-3xl border border-slate-200/80 bg-white/[0.86] backdrop-blur-sm overflow-hidden group hover:bg-white transition-all duration-300 p-8 flex flex-col justify-start shadow-[0_18px_55px_-32px_rgba(15,23,42,0.35)]">
+              <div>
+                <h3 className="text-3xl font-display font-bold text-slate-950 tracking-tight mb-5">Chat Mode</h3>
+                <p className="text-base text-slate-600 leading-7">AI에게 직접 질문하고 답변을 받으며 코드를 작성합니다. 프롬프트 품질이 곧 실력입니다.</p>
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-400/50 to-transparent" />
+            </div>
+
+            {/* Agent Mode */}
+            <div className="relative min-h-[260px] rounded-3xl border border-slate-200/80 bg-white/[0.86] backdrop-blur-sm overflow-hidden group hover:bg-white transition-all duration-300 p-8 flex flex-col justify-start shadow-[0_18px_55px_-32px_rgba(15,23,42,0.35)]">
+              <div className="min-w-0">
+                <h3 className="text-3xl font-display font-bold text-slate-950 tracking-tight mb-5">Agent Mode</h3>
+                <p className="text-base text-slate-600 leading-7">하네스를 설계하고 에이전트에게 과제를 위임합니다. 자율 실행된 에이전트의 Trace가 남습니다.</p>
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-400/50 to-transparent" />
+            </div>
+
+            {/* AI 피드백 리포트 */}
+            <div className="relative min-h-[260px] rounded-3xl border border-slate-200/80 bg-white/[0.86] backdrop-blur-sm overflow-hidden group hover:bg-white transition-all duration-300 p-8 flex flex-col justify-start shadow-[0_18px_55px_-32px_rgba(15,23,42,0.35)]">
+              <div className="min-w-0">
+                <h3 className="text-3xl font-display font-bold text-slate-950 tracking-tight mb-5">AI 피드백 리포트</h3>
+                <p className="text-base text-slate-600 leading-7">하네스 품질 · 실행 품질 · Trace 활용 3가지 기준으로 AI 활용 역량을 수치화합니다.</p>
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-teal-400/50 to-transparent" />
+            </div>
+
           </div>
         </div>
       </section>
@@ -470,14 +586,16 @@ export function LandingAIG() {
         ref={setSectionRef("workflow")}
         data-section="workflow"
         id="workflow"
-        className="relative min-h-screen bg-gradient-to-b from-indigo-50/40 via-white to-white flex flex-col justify-center py-16 overflow-hidden"
+        className="relative min-h-screen bg-white flex flex-col justify-center py-16 overflow-hidden"
         style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
       >
-        <div className="max-w-6xl mx-auto px-6 w-full">
+        <div className="absolute top-40 right-0 w-96 h-96 rounded-full bg-indigo-100/50 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-40 left-0 w-96 h-96 rounded-full bg-violet-100/50 blur-3xl pointer-events-none" />
+
+        <div className="relative max-w-6xl mx-auto px-6 w-full">
           <div className="text-center mb-10">
-            <div className="inline-flex items-center space-x-2 bg-white border border-indigo-100 rounded-full px-3 py-1 text-xs font-semibold text-indigo-700 mb-4 shadow-sm">
-              <Activity size={12} strokeWidth={2.4} />
-              <span>실제 워크플로</span>
+            <div className="inline-flex border-l-2 border-indigo-400 pl-3 text-xs font-semibold tracking-[0.12em] text-gray-400 mb-4">
+              실제 워크플로
             </div>
             <h2 className="text-3xl md:text-5xl font-display font-bold text-gray-900 tracking-tight mb-3">
               세션 시작부터 리포트까지
@@ -498,7 +616,7 @@ export function LandingAIG() {
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] gap-8 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] gap-8 items-stretch">
             {/* Left — steps + terminal */}
             <div className="flex flex-col gap-3">
               {WORKFLOW.map((w, i) => {
@@ -508,14 +626,14 @@ export function LandingAIG() {
                     key={w.step}
                     type="button"
                     onClick={() => goToStep(i)}
-                    className={`group w-full text-left flex items-center gap-4 px-5 py-3.5 rounded-2xl border transition-all cursor-pointer ${
+                    className={`group w-full text-left flex items-center gap-4 px-5 py-2 rounded-2xl border transition-all cursor-pointer ${
                       active
                         ? "bg-white border-indigo-200 shadow-[0_12px_30px_-12px_rgba(99,102,241,0.45)] -translate-y-0.5"
                         : "bg-white/60 border-gray-100 hover:bg-white hover:border-gray-200"
                     }`}
                   >
                     <span
-                      className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center font-display font-bold text-sm transition-colors ${
+                      className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center font-display font-bold text-sm transition-colors ${
                         active ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-500 group-hover:bg-gray-200"
                       }`}
                     >
@@ -538,8 +656,8 @@ export function LandingAIG() {
               })}
 
               {/* Terminal card */}
-              <div className="mt-2 rounded-2xl overflow-hidden border border-gray-200 shadow-xl shadow-indigo-900/5 bg-[#1E1B4B]">
-                <div className="flex items-center justify-between px-4 py-2 bg-[#171450] border-b border-white/5">
+              <div className="mt-1 rounded-2xl overflow-hidden border border-indigo-300/20 bg-indigo-950/80 backdrop-blur-2xl shadow-[inset_0_1px_0_rgba(165,180,252,0.15),inset_0_0_0_1px_rgba(165,180,252,0.06),0_12px_40px_rgba(49,46,129,0.35)]">
+                <div className="flex items-center justify-between px-4 py-1.5 bg-indigo-950/40 border-b border-indigo-300/10">
                   <span className="text-[11px] font-mono text-indigo-200/70">aig-terminal</span>
                   <div className="flex items-center gap-1.5">
                     <Minus size={10} className="text-indigo-200/40" strokeWidth={3} />
@@ -547,7 +665,7 @@ export function LandingAIG() {
                     <X size={10} className="text-indigo-200/40" strokeWidth={3} />
                   </div>
                 </div>
-                <div className="px-4 py-3 font-mono text-[13px] leading-6">
+                <div className="px-4 py-2 font-mono text-[13px] leading-6">
                   <div className="text-indigo-200/80">
                     <span className="text-teal-300">user@aig</span>
                     <span className="text-indigo-200/50">:</span>
@@ -573,8 +691,8 @@ export function LandingAIG() {
             </div>
 
             {/* Right — screenshot + progress dots */}
-            <div className="flex flex-col items-stretch gap-3">
-              <div className="flex items-center gap-2 px-1">
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2 px-1 shrink-0">
                 {WORKFLOW.map((_, i) => (
                   <button
                     key={i}
@@ -591,15 +709,15 @@ export function LandingAIG() {
                   />
                 ))}
               </div>
-              <div className="relative rounded-3xl border border-gray-200 bg-white/60 backdrop-blur p-2 shadow-2xl shadow-indigo-900/10">
+              <div className="relative flex-1 rounded-3xl border border-gray-200 bg-white/60 backdrop-blur p-2 shadow-2xl shadow-indigo-900/10">
                 <div className="absolute -inset-10 -z-10 bg-gradient-to-br from-indigo-200/40 via-violet-200/30 to-teal-200/30 blur-3xl rounded-full" />
-                <div className="relative aspect-[16/10] rounded-2xl overflow-hidden bg-gray-100">
+                <div className="relative h-full rounded-2xl overflow-hidden bg-gray-100">
                   <Image
                     src={step.img}
                     alt={step.alt}
                     fill
                     sizes="(max-width: 1024px) 100vw, 60vw"
-                    className={`object-cover transition-opacity duration-300 ${
+                    className={`object-cover object-top transition-opacity duration-300 ${
                       transitioning ? "opacity-0" : "opacity-100"
                     }`}
                     priority={activeStep === 0}
@@ -627,9 +745,8 @@ export function LandingAIG() {
 
         <div className="relative max-w-6xl mx-auto px-6 w-full">
           <div className="text-center mb-10">
-            <div className="inline-flex items-center space-x-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-3 py-1 text-xs font-semibold text-indigo-100 mb-4">
-              <PlayCircle size={12} strokeWidth={2.4} />
-              <span>라이브 데모</span>
+            <div className="inline-block bg-white/10 text-white/50 text-xs font-semibold tracking-[0.12em] px-2.5 py-1 rounded mb-4">
+              라이브 데모
             </div>
             <h2 className="text-3xl md:text-5xl font-display font-bold tracking-tight mb-3">
               실제 화면처럼 흐르는 워크플로
@@ -641,15 +758,20 @@ export function LandingAIG() {
 
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-5 items-stretch">
             {/* Left — IDE window mock */}
-            <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-[#0A0A20] shadow-2xl shadow-indigo-900/30">
-              <div className="flex items-center justify-between px-3 py-2 bg-[#161341] border-b border-white/5">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-full bg-rose-400/80" />
-                  <span className="w-3 h-3 rounded-full bg-amber-400/80" />
-                  <span className="w-3 h-3 rounded-full bg-emerald-400/80" />
-                </div>
+            <div className="relative rounded-2xl overflow-hidden border border-white/20 bg-white/[0.06] backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_8px_32px_rgba(0,0,0,0.35)]">
+              <div className="flex items-center justify-between px-3 py-2 bg-black/20 border-b border-white/10">
                 <span className="text-[11px] font-mono text-indigo-200/60 truncate">/dev2/ide/session-e89y3kqx-mo6u209l</span>
-                <span className="text-[11px] font-semibold text-indigo-200/80">Live IDE Session</span>
+                <div className="flex items-center gap-1">
+                  <span className="flex items-center justify-center w-7 h-5 rounded hover:bg-white/10 transition-colors cursor-default">
+                    <svg width="10" height="1" viewBox="0 0 10 1" fill="none"><rect width="10" height="1" fill="rgba(165,180,252,0.6)"/></svg>
+                  </span>
+                  <span className="flex items-center justify-center w-7 h-5 rounded hover:bg-white/10 transition-colors cursor-default">
+                    <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><rect x="0.5" y="0.5" width="8" height="8" stroke="rgba(165,180,252,0.6)" strokeWidth="1"/></svg>
+                  </span>
+                  <span className="flex items-center justify-center w-7 h-5 rounded hover:bg-rose-500/60 transition-colors cursor-default">
+                    <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><line x1="1" y1="1" x2="8" y2="8" stroke="rgba(165,180,252,0.6)" strokeWidth="1.2"/><line x1="8" y1="1" x2="1" y2="8" stroke="rgba(165,180,252,0.6)" strokeWidth="1.2"/></svg>
+                  </span>
+                </div>
               </div>
               <div className="relative aspect-[16/10]">
                 <Image
@@ -702,7 +824,7 @@ export function LandingAIG() {
             </div>
 
             {/* Right — Agent panel */}
-            <div className="rounded-2xl overflow-hidden border border-white/10 bg-white/[0.03] backdrop-blur-sm flex flex-col">
+            <div className="rounded-2xl overflow-hidden border border-white/20 bg-white/[0.08] backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_8px_32px_rgba(0,0,0,0.3)] flex flex-col">
               <div className="flex items-start justify-between gap-3 px-4 py-3 border-b border-white/10">
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-300 mb-1">Agent Mode</p>
@@ -783,9 +905,8 @@ export function LandingAIG() {
         <div className="max-w-6xl mx-auto px-6 w-full">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div className="animate-slide-up">
-              <div className="inline-flex items-center space-x-2 bg-teal-50 border border-teal-100 rounded-full px-3 py-1 text-xs font-semibold text-teal-700 mb-6">
-                <LineChart size={12} strokeWidth={2.4} />
-                <span>FEEDBACK REPORT</span>
+              <div className="inline-flex border-l-2 border-teal-500 pl-3 text-xs font-semibold tracking-[0.12em] text-gray-400 mb-6">
+                FEEDBACK REPORT
               </div>
               <h2 className="text-4xl md:text-5xl font-display font-bold text-gray-900 tracking-tight leading-tight mb-6">
                 내가 AI를

@@ -1,10 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
-  Sparkles,
   BookOpen,
   History,
   FlaskConical,
@@ -173,14 +173,10 @@ export function Dev2Shell({ children }: { children: ReactNode }) {
         <div className="max-w-6xl mx-auto flex items-center justify-between bg-white/95 backdrop-blur-xl rounded-full px-3 pl-6 py-2.5 shadow-xl shadow-indigo-900/10 border border-white pointer-events-auto">
           <Link
             href={withPrefix("/problems")}
-            className="group flex items-center space-x-2 text-indigo-600 font-display font-bold text-lg shrink-0"
+            className="group flex items-center space-x-2 font-display font-bold text-lg shrink-0"
           >
-            <Sparkles
-              size={22}
-              strokeWidth={2}
-              className="transition-transform group-hover:rotate-12"
-            />
-            <span>AIG</span>
+            <Image src="/brand/app-icon-light.svg" alt="AIG" width={28} height={28} className="rounded-lg" />
+            <span className="text-indigo-600">AIG</span>
           </Link>
 
           <nav className="hidden md:flex items-center space-x-1 text-sm font-medium text-gray-600 mx-6">
