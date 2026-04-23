@@ -122,8 +122,8 @@ function StatusBadge({ status }: { status: ProblemStatus }) {
     "inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full";
   if (status === "완료") {
     return (
-      <span className={`${base} bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100`}>
-        <CheckCircle2 size={12} strokeWidth={2.6} />
+      <span className={`${base} bg-violet-600 text-white ring-1 ring-violet-700/50 shadow-sm shadow-violet-600/30`}>
+        <CheckCircle2 size={12} strokeWidth={2.8} />
         <span>완료</span>
       </span>
     );
