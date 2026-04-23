@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Sparkles,
   Key,
   Trophy,
   Flame,
@@ -240,10 +239,6 @@ export default function Dev2MyPage() {
                 <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight leading-[1.1] mb-2">
                   {name}
                 </h1>
-                <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-sm text-xs font-semibold mb-2">
-                  <Sparkles size={12} strokeWidth={2.4} />
-                  <span>AIG Member since Jan 2026</span>
-                </div>
                 <p className="text-sm text-white/80 truncate">
                   SSAFY 14기 D103 · {email}
                 </p>
