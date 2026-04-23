@@ -11,10 +11,7 @@ import {
   Search,
   X,
   ArrowRight,
-  Sparkles,
-  Target,
-  TrendingUp,
-  Layers
+  Target
 } from "lucide-react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
@@ -205,57 +202,23 @@ function LevelRing({ level }: { level: ProblemLevel }) {
 // Stat card (glassmorphism, 2026 trend)
 // ────────────────────────────────────────────────
 function StatCard({
-  icon: Icon,
   label,
   value,
-  suffix,
-  tone
+  suffix
 }: {
-  icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
   label: string;
   value: number;
   suffix: string;
-  tone: "indigo" | "emerald" | "amber" | "sky";
 }) {
-  const tones: Record<typeof tone, { bg: string; text: string; ring: string }> = {
-    indigo: {
-      bg: "bg-indigo-50",
-      text: "text-indigo-600",
-      ring: "ring-indigo-100"
-    },
-    emerald: {
-      bg: "bg-emerald-50",
-      text: "text-emerald-600",
-      ring: "ring-emerald-100"
-    },
-    amber: {
-      bg: "bg-amber-50",
-      text: "text-amber-600",
-      ring: "ring-amber-100"
-    },
-    sky: {
-      bg: "bg-sky-50",
-      text: "text-sky-600",
-      ring: "ring-sky-100"
-    }
-  };
-  const t = tones[tone];
   return (
     <div className="group relative overflow-hidden rounded-2xl bg-white border border-gray-200/80 p-4 sm:p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_8px_20px_-14px_rgba(79,70,229,0.18)] transition-[transform,box-shadow] duration-300 ease-out hover:-translate-y-1 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_10px_20px_-12px_rgba(79,70,229,0.25),0_20px_40px_-20px_rgba(17,24,39,0.15)]">
-      <div className="flex items-center gap-3">
-        <span
-          className={`inline-flex w-9 h-9 items-center justify-center rounded-xl ${t.bg} ${t.text} ring-1 ${t.ring}`}
-        >
-          <Icon size={18} strokeWidth={2.2} />
-        </span>
-        <div className="min-w-0">
-          <div className="text-xs font-semibold text-gray-500 truncate">{label}</div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-xl sm:text-2xl font-bold text-gray-900 tabular-nums">
-              {value}
-            </span>
-            <span className="text-sm font-semibold text-gray-400">{suffix}</span>
-          </div>
+      <div className="min-w-0">
+        <div className="text-xs font-semibold text-gray-500 truncate">{label}</div>
+        <div className="flex items-baseline gap-1 mt-1">
+          <span className="text-xl sm:text-2xl font-bold text-gray-900 tabular-nums">
+            {value}
+          </span>
+          <span className="text-sm font-semibold text-gray-400">{suffix}</span>
         </div>
       </div>
     </div>
@@ -492,34 +455,10 @@ export default function Dev2ProblemsPage() {
           className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8 animate-slide-up"
           style={{ animationDelay: "0.05s", animationFillMode: "both" }}
         >
-          <StatCard
-            icon={Layers}
-            label="전체 과제"
-            value={stats.total}
-            suffix="개"
-            tone="indigo"
-          />
-          <StatCard
-            icon={CheckCircle2}
-            label="완료"
-            value={stats.done}
-            suffix="개"
-            tone="emerald"
-          />
-          <StatCard
-            icon={Sparkles}
-            label="진행 중"
-            value={stats.inProgress}
-            suffix="개"
-            tone="amber"
-          />
-          <StatCard
-            icon={TrendingUp}
-            label="평균 통과율"
-            value={stats.avgPass}
-            suffix="%"
-            tone="sky"
-          />
+          <StatCard label="전체 과제" value={stats.total} suffix="개" />
+          <StatCard label="완료" value={stats.done} suffix="개" />
+          <StatCard label="진행 중" value={stats.inProgress} suffix="개" />
+          <StatCard label="평균 통과율" value={stats.avgPass} suffix="%" />
         </div>
 
         {/* Search + sort */}
