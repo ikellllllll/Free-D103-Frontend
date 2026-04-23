@@ -168,42 +168,42 @@ function StatusBadge({ status }: { status: ProblemStatus }) {
 
 function LevelRing({ level }: { level: ProblemLevel }) {
   const meta = LEVEL_META[level];
-  const radius = 16;
+  const radius = 14;
   const circ = 2 * Math.PI * radius;
   const pct = level / 3;
   const offset = circ * (1 - pct);
   return (
-    <span className="relative inline-flex items-center justify-center w-10 h-10 shrink-0">
-      <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
+    <span className="relative inline-flex items-center justify-center w-9 h-9 shrink-0">
+      <svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true">
         <circle
-          cx="20"
-          cy="20"
+          cx="18"
+          cy="18"
           r={radius}
           fill="none"
-          strokeWidth="3"
+          strokeWidth="2.5"
           className={meta.ringTrack}
         />
         <circle
-          cx="20"
-          cy="20"
+          cx="18"
+          cy="18"
           r={radius}
           fill="none"
-          strokeWidth="3"
+          strokeWidth="2.5"
           strokeLinecap="round"
           className={meta.ringFill}
           style={{
             strokeDasharray: circ,
             strokeDashoffset: offset,
             transform: "rotate(-90deg)",
-            transformOrigin: "20px 20px",
+            transformOrigin: "18px 18px",
             transition: "stroke-dashoffset 500ms ease"
           }}
         />
       </svg>
       <span
-        className={`absolute inset-0 flex items-center justify-center text-[11px] font-bold ${meta.chipText}`}
+        className={`absolute inset-0 flex items-center justify-center text-xs font-bold ${meta.chipText}`}
       >
-        Lv{level}
+        {level}
       </span>
     </span>
   );
@@ -293,86 +293,74 @@ function ProblemCard({
 
       {/* Diagonal sheen sweep on hover */}
       <div
-        className="pointer-events-none absolute inset-0 overflow-hidden"
+        className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl"
         aria-hidden="true"
       >
-        <div
-          className="absolute -inset-y-10 left-0 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-indigo-400/20 to-transparent -translate-x-[250%] group-hover:translate-x-[450%] transition-transform duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
-        />
+        <div className="absolute -inset-y-10 left-0 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-indigo-400/15 to-transparent -translate-x-[250%] group-hover:translate-x-[450%] transition-transform duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)]" />
       </div>
-      {/* Corner glow on hover */}
-      <div
-        className="pointer-events-none absolute -top-24 -right-24 w-48 h-48 rounded-full bg-indigo-400/0 group-hover:bg-indigo-400/20 blur-3xl transition-colors duration-500"
-        aria-hidden="true"
-      />
 
-      <div className="relative p-5 sm:p-6">
-        {/* Top row */}
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <LevelRing level={problem.level} />
-            <div className="flex flex-col min-w-0">
-              <span className="text-[11px] font-mono font-bold text-indigo-600">
-                #{problem.order.toString().padStart(2, "0")}
-              </span>
-              <span
-                className={`text-[11px] font-semibold ${meta.chipText}`}
-              >
-                {meta.label} · Lv {problem.level}
-              </span>
-            </div>
+      <div className="relative flex flex-col flex-1 p-5 sm:p-6 pt-6 sm:pt-7">
+        {/* Header: Ring + order + status */}
+        <div className="flex items-center gap-3 mb-4">
+          <LevelRing level={problem.level} />
+          <div className="flex items-baseline gap-2 min-w-0 flex-1">
+            <span className="text-sm font-mono font-bold text-gray-900 tabular-nums">
+              #{problem.order.toString().padStart(2, "0")}
+            </span>
+            <span className={`text-[11px] font-semibold ${meta.chipText} uppercase tracking-wide`}>
+              {meta.label}
+            </span>
           </div>
           <StatusBadge status={problem.status} />
         </div>
 
         {/* Title + description */}
-        <h3 className="text-lg sm:text-xl font-display font-bold text-gray-900 leading-tight mb-2 text-balance">
+        <h3 className="text-base sm:text-lg font-display font-bold text-gray-900 leading-snug mb-1.5 line-clamp-2 text-balance">
           {problem.title}
         </h3>
-        <p className="text-sm text-gray-500 leading-relaxed line-clamp-2 min-h-[2.75rem] mb-4">
+        <p className="text-[13px] text-gray-500 leading-relaxed line-clamp-2 min-h-[2.6rem] mb-4">
           {problem.summary}
         </p>
 
         {/* Meta row */}
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs mb-4">
+        <div className="flex flex-wrap items-center gap-2 text-xs mb-5">
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-semibold ring-1 ring-indigo-100">
             {problem.category}
           </span>
           {problem.estimate ? (
-            <>
-              <span className="text-gray-300" aria-hidden="true">
-                ·
-              </span>
-              <span className="inline-flex items-center gap-1 text-gray-500 font-medium">
-                <Clock size={11} strokeWidth={2.4} />
-                {problem.estimate}
-              </span>
-            </>
+            <span className="inline-flex items-center gap-1 text-gray-500 font-medium">
+              <Clock size={11} strokeWidth={2.4} />
+              {problem.estimate}
+            </span>
           ) : null}
         </div>
 
-        {/* Divider */}
-        <div className="pt-4 border-t border-gray-100">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-gray-500">통과율</span>
-            <span className="text-xs font-bold text-gray-900 tabular-nums">
-              {problem.passRate}%
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="relative flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-              <div
-                className={`absolute inset-y-0 left-0 rounded-full ${meta.barFill} transition-[width] duration-700 ease-out`}
-                style={{ width: `${problem.passRate}%` }}
-              />
+        {/* Spacer pushes footer to bottom for equal-height cards */}
+        <div className="mt-auto pt-4 border-t border-gray-100">
+          <div className="flex items-end justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                  통과율
+                </span>
+                <span className="text-sm font-bold text-gray-900 tabular-nums">
+                  {problem.passRate}%
+                </span>
+              </div>
+              <div className="relative h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                <div
+                  className={`absolute inset-y-0 left-0 rounded-full ${meta.barFill} transition-[width] duration-700 ease-out`}
+                  style={{ width: `${problem.passRate}%` }}
+                />
+              </div>
             </div>
             <span
-              className={`inline-flex w-7 h-7 shrink-0 items-center justify-center rounded-full text-indigo-600 bg-indigo-50 ring-1 ring-indigo-100 transition-all group-hover:bg-indigo-600 group-hover:text-white group-hover:translate-x-0.5 ${
+              className={`inline-flex w-9 h-9 shrink-0 items-center justify-center rounded-xl text-indigo-600 bg-indigo-50 ring-1 ring-indigo-100 transition-all duration-300 group-hover:bg-indigo-600 group-hover:text-white group-hover:ring-indigo-600 group-hover:translate-x-0.5 group-hover:shadow-md group-hover:shadow-indigo-600/30 ${
                 locked ? "opacity-40" : ""
               }`}
               aria-hidden="true"
             >
-              <ArrowRight size={14} strokeWidth={2.4} />
+              <ArrowRight size={16} strokeWidth={2.4} />
             </span>
           </div>
         </div>
@@ -381,7 +369,7 @@ function ProblemCard({
   );
 
   const shell =
-    "group relative overflow-hidden rounded-2xl bg-white border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_2px_6px_-2px_rgba(17,24,39,0.05),0_12px_28px_-16px_rgba(79,70,229,0.18)] transition-[transform,box-shadow,border-color] duration-300 ease-out will-change-transform";
+    "group relative flex flex-col h-full overflow-hidden rounded-2xl bg-white border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_2px_6px_-2px_rgba(17,24,39,0.05),0_12px_28px_-16px_rgba(79,70,229,0.18)] transition-[transform,box-shadow,border-color] duration-300 ease-out will-change-transform";
 
   if (locked || !href) {
     return (
@@ -399,7 +387,7 @@ function ProblemCard({
   return (
     <Link
       href={href}
-      className={`${shell} hover:-translate-y-1.5 hover:scale-[1.015] hover:border-indigo-300/80 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_1px_2px_rgba(17,24,39,0.04),0_10px_20px_-10px_rgba(79,70,229,0.25),0_28px_50px_-20px_rgba(79,70,229,0.35),0_8px_16px_-8px_rgba(17,24,39,0.12)] active:-translate-y-1 active:scale-[1.005] active:duration-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2`}
+      className={`${shell} hover:-translate-y-1 hover:border-indigo-300 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_2px_4px_rgba(17,24,39,0.04),0_12px_24px_-12px_rgba(79,70,229,0.25),0_24px_44px_-20px_rgba(79,70,229,0.3)] active:-translate-y-0.5 active:duration-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2`}
     >
       {inner}
     </Link>
