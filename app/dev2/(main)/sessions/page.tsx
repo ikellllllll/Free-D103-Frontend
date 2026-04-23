@@ -231,25 +231,21 @@ export default function Dev2SessionsPage() {
           <StatTile
             label="완료"
             value={String(stats.completed)}
-            delta={stats.completedDelta > 0 ? `+${stats.completedDelta} 이번 주` : "이번 주 변화 없음"}
             accent="from-violet-500 to-indigo-600"
           />
           <StatTile
             label="진행 중"
             value={String(stats.inProgress)}
-            delta={stats.inProgDelta > 0 ? `+${stats.inProgDelta} 이번 주` : "이번 주 변화 없음"}
             accent="from-indigo-500 to-sky-500"
           />
           <StatTile
             label="평균 점수"
             value={stats.avgScore ? String(stats.avgScore) : "—"}
-            delta={stats.avgScore ? `+${stats.avgDelta} vs 지난 주` : "기록 없음"}
             accent="from-fuchsia-500 to-violet-600"
           />
           <StatTile
             label="총 학습 시간"
             value={stats.totalTime}
-            delta={`+${stats.timeDelta} vs 지난 주`}
             accent="from-sky-500 to-indigo-500"
           />
         </section>
@@ -409,12 +405,10 @@ export default function Dev2SessionsPage() {
 function StatTile({
   label,
   value,
-  delta,
   accent
 }: {
   label: string;
   value: string;
-  delta: string;
   accent: string;
 }) {
   return (
@@ -427,12 +421,9 @@ function StatTile({
       <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-500">
         {label}
       </span>
-      <div
-        className={`mt-2 text-3xl sm:text-[2.35rem] font-display font-bold leading-none tracking-tight bg-gradient-to-br ${accent} bg-clip-text text-transparent tabular-nums`}
-      >
+      <div className="mt-2 text-3xl sm:text-[2.35rem] font-display font-bold leading-none tracking-tight text-gray-900 tabular-nums">
         {value}
       </div>
-      <div className="mt-3 text-xs text-gray-500 font-medium">{delta}</div>
     </div>
   );
 }
