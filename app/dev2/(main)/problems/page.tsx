@@ -47,7 +47,6 @@ const LEVEL_META: Record<
     chipText: string;
     ringTrack: string;
     ringFill: string;
-    strip: string;
     barFill: string;
   }
 > = {
@@ -57,7 +56,6 @@ const LEVEL_META: Record<
     chipText: "text-emerald-700",
     ringTrack: "stroke-emerald-100",
     ringFill: "stroke-emerald-500",
-    strip: "bg-emerald-500",
     barFill: "bg-emerald-500"
   },
   2: {
@@ -66,7 +64,6 @@ const LEVEL_META: Record<
     chipText: "text-amber-700",
     ringTrack: "stroke-amber-100",
     ringFill: "stroke-amber-500",
-    strip: "bg-amber-500",
     barFill: "bg-amber-500"
   },
   3: {
@@ -75,7 +72,6 @@ const LEVEL_META: Record<
     chipText: "text-rose-700",
     ringTrack: "stroke-rose-100",
     ringFill: "stroke-rose-500",
-    strip: "bg-rose-500",
     barFill: "bg-rose-500"
   }
 };
@@ -281,13 +277,7 @@ function ProblemCard({
 
   const inner = (
     <>
-      {/* Top accent strip — makes the card instantly identifiable by level */}
-      <div
-        className={`absolute inset-x-0 top-0 h-1 ${meta.strip}`}
-        aria-hidden="true"
-      />
-
-      <div className="relative flex flex-col flex-1 p-5 sm:p-6 pt-6 sm:pt-7">
+      <div className="relative flex flex-col flex-1 p-5 sm:p-6">
         {/* Header: Ring + order + status */}
         <div className="flex items-center gap-3 mb-4">
           <LevelRing level={problem.level} />
