@@ -249,7 +249,7 @@ function StatCard({
   };
   const t = tones[tone];
   return (
-    <div className="group relative overflow-hidden rounded-2xl bg-white/80 backdrop-blur border border-white ring-1 ring-gray-100 p-4 sm:p-5 shadow-sm transition-all hover:shadow-lg hover:-translate-y-0.5">
+    <div className="group relative overflow-hidden rounded-2xl bg-white border border-gray-200/80 p-4 sm:p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_8px_20px_-14px_rgba(79,70,229,0.18)] transition-[transform,box-shadow] duration-300 ease-out hover:-translate-y-1 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_10px_20px_-12px_rgba(79,70,229,0.25),0_20px_40px_-20px_rgba(17,24,39,0.15)]">
       <div className="flex items-center gap-3">
         <span
           className={`inline-flex w-9 h-9 items-center justify-center rounded-xl ${t.bg} ${t.text} ring-1 ${t.ring}`}
@@ -291,13 +291,20 @@ function ProblemCard({
         aria-hidden="true"
       />
 
-      {/* Sheen on hover */}
+      {/* Diagonal sheen sweep on hover */}
       <div
-        className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="pointer-events-none absolute inset-0 overflow-hidden"
         aria-hidden="true"
       >
-        <div className="absolute -inset-x-10 -top-24 h-40 bg-gradient-to-b from-indigo-500/10 via-indigo-500/0 to-transparent blur-2xl" />
+        <div
+          className="absolute -inset-y-10 left-0 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-indigo-400/20 to-transparent -translate-x-[250%] group-hover:translate-x-[450%] transition-transform duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+        />
       </div>
+      {/* Corner glow on hover */}
+      <div
+        className="pointer-events-none absolute -top-24 -right-24 w-48 h-48 rounded-full bg-indigo-400/0 group-hover:bg-indigo-400/20 blur-3xl transition-colors duration-500"
+        aria-hidden="true"
+      />
 
       <div className="relative p-5 sm:p-6">
         {/* Top row */}
@@ -374,7 +381,7 @@ function ProblemCard({
   );
 
   const shell =
-    "group relative overflow-hidden rounded-2xl bg-white border-2 border-gray-100 shadow-[0_1px_2px_rgba(17,24,39,0.04),0_8px_24px_-12px_rgba(79,70,229,0.08)] transition-all duration-300";
+    "group relative overflow-hidden rounded-2xl bg-white border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_2px_6px_-2px_rgba(17,24,39,0.05),0_12px_28px_-16px_rgba(79,70,229,0.18)] transition-[transform,box-shadow,border-color] duration-300 ease-out will-change-transform";
 
   if (locked || !href) {
     return (
@@ -392,7 +399,7 @@ function ProblemCard({
   return (
     <Link
       href={href}
-      className={`${shell} hover:border-indigo-300 hover:shadow-[0_1px_2px_rgba(17,24,39,0.04),0_20px_40px_-18px_rgba(79,70,229,0.35)] hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2`}
+      className={`${shell} hover:-translate-y-1.5 hover:scale-[1.015] hover:border-indigo-300/80 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_1px_2px_rgba(17,24,39,0.04),0_10px_20px_-10px_rgba(79,70,229,0.25),0_28px_50px_-20px_rgba(79,70,229,0.35),0_8px_16px_-8px_rgba(17,24,39,0.12)] active:-translate-y-1 active:scale-[1.005] active:duration-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2`}
     >
       {inner}
     </Link>
@@ -401,7 +408,7 @@ function ProblemCard({
 
 function SkeletonCard() {
   return (
-    <div className="rounded-2xl border-2 border-gray-100 bg-white overflow-hidden">
+    <div className="rounded-2xl border border-gray-200/80 bg-white overflow-hidden shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)]">
       <div className="h-1 bg-gradient-to-r from-gray-100 to-gray-200" />
       <div className="p-5 sm:p-6 skeleton-shimmer h-[220px]" />
     </div>
@@ -476,7 +483,7 @@ export default function Dev2ProblemsPage() {
   };
 
   return (
-    <div className="relative bg-gradient-to-b from-indigo-50/40 via-white to-white min-h-screen overflow-hidden">
+    <div className="relative bg-gradient-to-b from-indigo-100/80 via-slate-100 to-slate-100 min-h-screen overflow-hidden">
       {/* Floating blobs & grid */}
       <div className="absolute top-0 left-0 right-0 h-[800px] pointer-events-none overflow-hidden">
         <div className="absolute -top-10 -left-32 w-[420px] h-[420px] rounded-full bg-indigo-400/30 blur-3xl animate-blob-1" />
@@ -602,7 +609,7 @@ export default function Dev2ProblemsPage() {
 
         {/* Filter bar */}
         <div
-          className="flex flex-col gap-3 sm:gap-4 mb-6 sm:mb-8 p-4 sm:p-5 bg-white/80 backdrop-blur rounded-2xl border border-gray-100 shadow-sm animate-slide-up"
+          className="flex flex-col gap-3 sm:gap-4 mb-6 sm:mb-8 p-4 sm:p-5 bg-white rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_8px_20px_-14px_rgba(79,70,229,0.15)] animate-slide-up"
           style={{ animationDelay: "0.15s", animationFillMode: "both" }}
         >
           <FilterGroup label="난이도">
