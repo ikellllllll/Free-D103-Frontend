@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import { mockApi } from "@/lib/api/mockApi";
 import type { AiMessage } from "@/lib/types/ai";
@@ -13,13 +13,13 @@ export function useAiChat(sessionId: string) {
   const [streaming, setStreaming] = useState(false);
   const [requestCount, setRequestCount] = useState(0);
 
-  const loadMessages = async () => {
+  const loadMessages = useCallback(async () => {
     const data = await mockApi.getChatMessages(sessionId);
     setMessages(data);
     return data;
-  };
+  }, [sessionId, setMessages]);
 
-  const send = async (message: string, currentFile?: string) => {
+  const send = useCallback(async (message: string, currentFile?: string) => {
     const optimistic: AiMessage = {
       id: `optimistic-${Date.now()}`,
       role: "user",
@@ -56,7 +56,7 @@ export function useAiChat(sessionId: string) {
         }
       }, 28);
     });
-  };
+  }, [appendMessages, messages, sessionId, setMessages]);
 
   return {
     messages,

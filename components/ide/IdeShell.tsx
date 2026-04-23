@@ -9,6 +9,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/common/Badge";
 import { Card } from "@/components/common/Card";
 import { LangIcon } from "@/components/common/LangIcon";
+import { isV0ThemeTone, useDevTheme } from "@/components/dev/DevThemeContext";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { TracePanel } from "@/components/ide/TracePanel";
 import { TraceWorkbench } from "@/components/ide/TraceWorkbench";
@@ -121,6 +122,11 @@ type WorkspaceTab = FileWorkspaceTab | DiffWorkspaceTab;
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const getFileName = (path: string) => path.split("/").pop() ?? path;
 const getFolderPath = (path: string) => path.split("/").slice(0, -1).join("/");
+const getFileExtension = (file: Pick<WorkspaceFile, "path" | "language">) => {
+  const name = getFileName(file.path);
+  const extension = name.includes(".") ? name.split(".").pop()?.toLowerCase() : "";
+  return extension || file.language.toLowerCase();
+};
 const DIFF_TAB_PREFIX = "diff:";
 const isDiffTabId = (value: string) => value.startsWith(DIFF_TAB_PREFIX);
 const createDiffTabId = (path: string) => `${DIFF_TAB_PREFIX}${path}`;
@@ -314,6 +320,7 @@ const buildFileTree = (files: ExplorerFile[]) => {
 export function IdeShell({ sessionId }: { sessionId: string }) {
   const router = useRouter();
   const { withPrefix } = useRouteScope();
+  const { themeTone } = useDevTheme();
   const queryClient = useQueryClient();
   const addToast = useUiStore((state) => state.addToast);
   const setWorkspace = useIdeStore((state) => state.setWorkspace);
@@ -378,6 +385,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const [explorerSections, setExplorerSections] = useState<Record<ExplorerSectionKey, boolean>>({
     project: true
   });
+  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(() => new Set());
+  const isV0 = isV0ThemeTone(themeTone);
 
   const { data: session, isLoading } = useQuery({
     queryKey: ["session", sessionId],
@@ -466,6 +475,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       void loadMessages();
     }
   }, [loadMessages, session]);
+
+  useEffect(() => {
+    setCollapsedFolders(new Set());
+  }, [sessionId]);
 
   useEffect(() => {
     if (selectedCode) {
@@ -1110,15 +1123,45 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     </button>
   );
 
+  const toggleFolder = useCallback((folderKey: string) => {
+    setCollapsedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(folderKey)) {
+        next.delete(folderKey);
+      } else {
+        next.add(folderKey);
+      }
+      return next;
+    });
+  }, []);
+
   const renderTreeNodes = (nodes: TreeNode[], depth = 0): Array<JSX.Element> =>
-    nodes.flatMap((node) => {
+    nodes.flatMap((node, index) => {
+      const isLast = index === nodes.length - 1;
+      const treeGuideLeft = `${8 + depth * 14}px`;
+      const treeGuideBottom = isLast ? "50%" : "-4px";
+
       if (node.kind === "folder") {
+        const collapsed = collapsedFolders.has(node.key);
         return [
-          <div key={node.key} className="tree-folder" style={{ paddingLeft: `${12 + depth * 14}px` }}>
-            <span className="tree-row__twistie">v</span>
+          <button
+            key={node.key}
+            type="button"
+            className={"tree-folder" + (collapsed ? " tree-folder--closed" : " tree-folder--open")}
+            aria-expanded={!collapsed}
+            style={{
+              ["--tree-depth" as string]: depth,
+              ["--tree-guide-left" as string]: treeGuideLeft,
+              ["--tree-guide-bottom" as string]: treeGuideBottom,
+              paddingLeft: `${12 + depth * 14}px`
+            }}
+            onClick={() => toggleFolder(node.key)}
+          >
+            <span className="tree-row__twistie">{collapsed ? ">" : "v"}</span>
+            <span className="tree-folder__icon" aria-hidden />
             <span className="tree-row__folder">{node.name}</span>
-          </div>,
-          ...renderTreeNodes(node.children, depth + 1)
+          </button>,
+          ...(collapsed ? [] : renderTreeNodes(node.children, depth + 1))
         ];
       }
 
@@ -1137,12 +1180,21 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           <button
             key={node.key}
             type="button"
-            className={isActiveVirtual ? "tree-row tree-row--virtual tree-row--active" : "tree-row tree-row--virtual"}
-            style={{ paddingLeft: `${18 + depth * 14}px` }}
+            className={
+              isActiveVirtual
+                ? "tree-row tree-row--file tree-row--virtual tree-row--active"
+                : "tree-row tree-row--file tree-row--virtual"
+            }
+            style={{
+              ["--tree-depth" as string]: depth,
+              ["--tree-guide-left" as string]: treeGuideLeft,
+              ["--tree-guide-bottom" as string]: treeGuideBottom,
+              paddingLeft: `${18 + depth * 14}px`
+            }}
             onClick={() => isWorktree ? openDiffTab(file.path) : focusLine(file.path)}
           >
             <span className="tree-row__main">
-              <span className="file-icon">{getFileToken(file)}</span>
+              <span className="file-icon" data-file-ext={getFileExtension(file)}>{getFileToken(file)}</span>
               <span className="tree-row__label">{node.name}</span>
             </span>
             {file.badge ? <span className="tree-row__badge">{file.badge}</span> : null}
@@ -1154,12 +1206,17 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         <button
           key={node.key}
           type="button"
-          className={file.path === activePath ? "tree-row tree-row--active" : "tree-row"}
-          style={{ paddingLeft: `${18 + depth * 14}px` }}
+          className={file.path === activePath ? "tree-row tree-row--file tree-row--active" : "tree-row tree-row--file"}
+          style={{
+            ["--tree-depth" as string]: depth,
+            ["--tree-guide-left" as string]: treeGuideLeft,
+            ["--tree-guide-bottom" as string]: treeGuideBottom,
+            paddingLeft: `${18 + depth * 14}px`
+          }}
           onClick={() => focusLine(file.path)}
         >
           <span className="tree-row__main">
-            <span className="file-icon">{getFileToken(file)}</span>
+            <span className="file-icon" data-file-ext={getFileExtension(file)}>{getFileToken(file)}</span>
             <span className="tree-row__label">{node.name}</span>
           </span>
           {unsavedPaths.includes(file.path) ? <span className="file-row__dot" /> : null}
@@ -1263,6 +1320,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             <div className="tree-root">
               <div className="tree-folder tree-folder--root">
                 <span className="tree-row__twistie">v</span>
+                <span className="tree-folder__icon" aria-hidden />
                 <span className="tree-row__folder">{session?.problemId ?? "workspace"}</span>
               </div>
               <div className="tree-root__children">{renderTreeNodes(fileTree, 1)}</div>
@@ -1532,7 +1590,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <div className="ide-route ide-route--workspace">
+    <div
+      className={"ide-route ide-route--workspace" + (isV0 ? " ide-route--v0" : "")}
+      data-v0-ide={isV0 ? themeTone : undefined}
+    >
       <section className="ide-shell ide-shell--workbench">
         <aside className="activity-bar">
           <div className="activity-bar__group">
