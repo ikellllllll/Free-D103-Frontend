@@ -1105,7 +1105,7 @@ export function LandingAIG() {
             <div className="grid grid-cols-3 gap-8 text-xs">
               <div>
                 <h4 className="text-white font-semibold mb-2 uppercase tracking-wider">Product</h4>
-                <ul className="space-y-1.5">
+                <ul className="space-y-1.5 list-none pl-0 m-0">
                   <li><a href="#features" onClick={handleAnchorJump("features")} className="hover:text-white transition-colors cursor-pointer">기능</a></li>
                   <li><a href="#workflow" onClick={handleAnchorJump("workflow")} className="hover:text-white transition-colors cursor-pointer">워크플로</a></li>
                   <li><a href="#reports" onClick={handleAnchorJump("reports")} className="hover:text-white transition-colors cursor-pointer">리포트</a></li>
@@ -1113,14 +1113,14 @@ export function LandingAIG() {
               </div>
               <div>
                 <h4 className="text-white font-semibold mb-2 uppercase tracking-wider">Start</h4>
-                <ul className="space-y-1.5">
+                <ul className="space-y-1.5 list-none pl-0 m-0">
                   <li><Link href="/dev2/login" className="hover:text-white transition-colors cursor-pointer">로그인</Link></li>
                   <li><Link href="/dev2/signup" className="hover:text-white transition-colors cursor-pointer">회원가입</Link></li>
                 </ul>
               </div>
               <div>
                 <h4 className="text-white font-semibold mb-2 uppercase tracking-wider">Team</h4>
-                <ul className="space-y-1.5">
+                <ul className="space-y-1.5 list-none pl-0 m-0">
                   <li>D103 띠링띠링</li>
                   <li className="text-indigo-200/50">SSAFY 14기</li>
                   <li>
