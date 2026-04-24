@@ -300,7 +300,7 @@ export default function Dev2HarnessPage() {
           <div className="relative grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5">
           {/* Left: File list (IDE pane) */}
           <aside
-            className="rounded-2xl overflow-hidden self-start border border-indigo-950/40 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(30,27,75,0.45),0_14px_36px_-20px_rgba(124,58,237,0.4)]"
+            className="rounded-2xl overflow-hidden self-start shadow-[0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(30,27,75,0.55),0_14px_36px_-20px_rgba(124,58,237,0.45)]"
             style={{ backgroundColor: "#0F0D2E" }}
           >
             <div
@@ -390,7 +390,7 @@ export default function Dev2HarnessPage() {
 
           {/* Right: Editor (IDE pane) */}
           <section
-            className="rounded-2xl overflow-hidden border border-indigo-950/40 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(30,27,75,0.45),0_14px_36px_-20px_rgba(124,58,237,0.4)]"
+            className="rounded-2xl overflow-hidden shadow-[0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(30,27,75,0.55),0_14px_36px_-20px_rgba(124,58,237,0.45)]"
             style={{ backgroundColor: "#0F0D2E" }}
           >
             {/* Path header — seamless with body */}
@@ -438,7 +438,7 @@ export default function Dev2HarnessPage() {
                     className={`relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${SPRING} ${
                       viewMode === "edit"
                         ? "text-indigo-600 font-black"
-                        : "text-indigo-50 font-bold hover:text-white"
+                        : "text-white font-bold hover:text-white"
                     }`}
                   >
                     <Pencil size={12} strokeWidth={viewMode === "edit" ? 3 : 2.6} />
@@ -450,7 +450,7 @@ export default function Dev2HarnessPage() {
                     className={`relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${SPRING} ${
                       viewMode === "preview"
                         ? "text-indigo-600 font-black"
-                        : "text-indigo-50 font-bold hover:text-white"
+                        : "text-white font-bold hover:text-white"
                     }`}
                   >
                     <Eye size={12} strokeWidth={viewMode === "preview" ? 3 : 2.6} />
