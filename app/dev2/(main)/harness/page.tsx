@@ -242,7 +242,7 @@ export default function Dev2HarnessPage() {
               <span>Agent Harness</span>
             </div>
             <h1 className="text-4xl md:text-5xl font-display font-bold text-gray-900 tracking-tight leading-[1.05] mb-3 text-balance">
-              에이전트 실행 환경 관��
+              에이전트 실행 환경 관����
             </h1>
             <p className="text-[15px] text-gray-500 leading-relaxed max-w-2xl">
               에이전트가 세션에서 읽는 지침·행동 규칙·스킬 파일을 직접 수정합니다.
@@ -337,21 +337,21 @@ export default function Dev2HarnessPage() {
                     onClick={() => setActiveId(file.id)}
                     className={`relative w-full flex items-start gap-3 px-3 py-2.5 text-left rounded-lg overflow-hidden ring-1 ring-inset ${SPRING}
                       ${active
-                        ? "bg-indigo-500/20 ring-indigo-400/40 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_4px_12px_-6px_rgba(124,58,237,0.4)]"
-                        : "bg-white/[0.03] ring-white/5 hover:bg-white/[0.07] hover:ring-white/10 active:scale-[0.98]"
+                        ? "bg-indigo-400/25 ring-indigo-300/50 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_-6px_rgba(124,58,237,0.45)]"
+                        : "bg-white/[0.08] ring-white/10 hover:bg-white/[0.14] hover:ring-white/20 active:scale-[0.98]"
                       }`}
                   >
                     {active && (
                       <span
-                        className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-gradient-to-b from-indigo-400 to-fuchsia-400"
+                        className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-gradient-to-b from-indigo-300 to-fuchsia-300"
                         aria-hidden="true"
                       />
                     )}
                     <span
                       className={`shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-lg ${SPRING}
-                        ring-1 ring-white/10 bg-white/[0.06]
-                        shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08)]
-                        ${active ? "text-indigo-200 scale-[1.03]" : "text-indigo-300/80"}`}
+                        ring-1 ring-white/20 bg-white/[0.12]
+                        shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15)]
+                        ${active ? "text-white scale-[1.03]" : "text-indigo-100"}`}
                     >
                       <Icon size={16} strokeWidth={2.2} />
                     </span>
@@ -359,7 +359,7 @@ export default function Dev2HarnessPage() {
                       <div className="flex items-center gap-2">
                         <span
                           className={`font-mono text-[13px] font-semibold truncate ${
-                            active ? "text-white" : "text-indigo-100/90"
+                            active ? "text-white" : "text-white/95"
                           }`}
                         >
                           {file.label}
@@ -373,12 +373,12 @@ export default function Dev2HarnessPage() {
                           </span>
                         )}
                       </div>
-                      <div className="text-[11px] font-mono text-indigo-300/50 mt-0.5 truncate">
+                      <div className="text-[11px] font-mono text-indigo-200/75 mt-0.5 truncate">
                         {file.summary}
                       </div>
                     </div>
                     <span
-                      className="shrink-0 self-start mt-0.5 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/5 ring-1 ring-white/10 text-indigo-200/80"
+                      className="shrink-0 self-start mt-0.5 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/15 ring-1 ring-white/20 text-white/90"
                     >
                       {file.tag}
                     </span>
@@ -393,20 +393,19 @@ export default function Dev2HarnessPage() {
             className="rounded-2xl overflow-hidden border border-indigo-950/40 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(30,27,75,0.45),0_14px_36px_-20px_rgba(124,58,237,0.4)]"
             style={{ backgroundColor: "#0F0D2E" }}
           >
-            {/* Path header — deep indigo preview chrome */}
+            {/* Path header — seamless with body */}
             <div
               className="relative flex items-center justify-between px-5 py-3.5 gap-3 flex-wrap text-white overflow-hidden"
               style={{
-                backgroundColor: "#1E1B4B",
-                boxShadow:
-                  "inset 0 1px 0 0 rgba(255,255,255,0.1), inset 0 -1px 0 0 rgba(0,0,0,0.2)"
+                backgroundImage:
+                  "linear-gradient(to bottom, #1E1B4B 0%, #0F0D2E 100%)"
               }}
             >
               <div
-                className="pointer-events-none absolute inset-0 opacity-70"
+                className="pointer-events-none absolute inset-0 opacity-60"
                 style={{
                   backgroundImage:
-                    "radial-gradient(120% 80% at 0% 0%, rgba(124,58,237,0.45), transparent 55%), radial-gradient(120% 80% at 100% 100%, rgba(236,72,153,0.25), transparent 60%)"
+                    "radial-gradient(120% 80% at 0% 0%, rgba(124,58,237,0.45), transparent 55%), radial-gradient(120% 80% at 100% 100%, rgba(236,72,153,0.2), transparent 60%)"
                 }}
                 aria-hidden="true"
               />
