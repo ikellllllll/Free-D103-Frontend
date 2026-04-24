@@ -1,0 +1,5 @@
+# GitHub → SSAFY GitLab 미러 시 author 재작성 규칙
+# 형식: 올바른 표시 <올바른 이메일>  과거 기록 <과거 이메일>
+
+# v0 봇 → 김민서로 변경
+김민서 <ghkd3954@naver.com> v0 <v0[bot]@users.noreply.github.com>

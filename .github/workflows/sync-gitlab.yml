@@ -1,0 +1,104 @@
+name: Sync to SSAFY GitLab (frontend/dev)
+
+# GitHub main 브랜치에 push되면 자동으로 GitLab의 frontend/dev 브랜치로 미러링
+# - v0 봇 author → 김민서로 재작성
+# - Claude Co-Authored-By trailer 제거
+# - 대용량 이미지/로그 파일 히스토리에서 제거
+# - 모든 파일을 frontend/ 서브디렉토리 아래로 이동
+# - 매 실행마다 frontend/dev 브랜치를 force-push로 덮어씀 (읽기 전용 미러)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}   # GitHub Actions 탭에서 수동 실행도 가능
+
+concurrency:
+  # 같은 브랜치에서 여러 push가 연속 오면 최신 것만 실행
+  group: sync-gitlab-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout GitHub main (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # filter-repo는 전체 히스토리 필요
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install git-filter-repo
+        run: pip install --quiet git-filter-repo==2.47.0
+
+      - name: Configure git identity (for merge commit)
+        run: |
+          git config --global user.email "sync-bot@github.actions"
+          git config --global user.name "GitHub Actions · SSAFY GitLab Sync"
+
+      - name: Rewrite authors + strip Claude trailer + purge large files
+        run: |
+          git filter-repo --force \
+            --mailmap .github/scripts/mailmap.txt \
+            --message-callback "$(cat .github/scripts/strip-claude-trailer.py)" \
+            --invert-paths \
+            --path '.next-dev-3002.log' \
+            --path '.next-server-3002.log' \
+            --path '.next-server.err.log' \
+            --path '.next-server.log' \
+            --path '.next-start-3000.log' \
+            --path 'current-problems.png' \
+            --path 'current-problems-final.png' \
+            --path 'current-problems-final2.png' \
+            --path 'current-problems-updated.png' \
+            --path 'ide-vscode-like.png' \
+            --path '.ai-edit-runtime'
+
+      - name: Move all history into frontend/ subdirectory
+        run: git filter-repo --force --to-subdirectory-filter frontend
+
+      - name: Clone SSAFY GitLab monorepo with write token
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_SYNC_TOKEN }}
+        run: |
+          if [ -z "$GITLAB_TOKEN" ]; then
+            echo "::error::GITLAB_SYNC_TOKEN secret 누락 — 설정 필요"
+            exit 1
+          fi
+          git clone \
+            "https://oauth2:${GITLAB_TOKEN}@lab.ssafy.com/s14-final/S14P31D103.git" \
+            ../gitlab-mirror
+
+      - name: Build frontend/dev from master + rewritten history
+        working-directory: ../gitlab-mirror
+        run: |
+          # master를 받아와 frontend/dev 브랜치를 매번 신규로 만듦
+          git fetch origin master
+          git checkout -B frontend/dev origin/master
+
+          # 재작성된 (상위 디렉토리에 있는) repo를 로컬 remote로 추가
+          git remote add rewritten "$GITHUB_WORKSPACE"
+          git fetch rewritten main
+
+          # master 위에 rewritten을 머지 (unrelated histories 허용)
+          git merge rewritten/main --allow-unrelated-histories --no-ff \
+            -m "chore(sync): GitHub main → frontend/dev 자동 미러 (${GITHUB_SHA::7})"
+
+      - name: Force push frontend/dev to GitLab
+        working-directory: ../gitlab-mirror
+        run: |
+          git push --force origin frontend/dev
+          echo "✅ GitLab frontend/dev 브랜치 동기화 완료"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### SSAFY GitLab Sync 결과" >> $GITHUB_STEP_SUMMARY
+          echo "- 트리거: \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- GitHub SHA: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- GitLab 브랜치: [frontend/dev](https://lab.ssafy.com/s14-final/S14P31D103/-/tree/frontend/dev)" >> $GITHUB_STEP_SUMMARY
