@@ -1,5 +1,6 @@
 .next
 node_modules
+.playwright-mcp/
 npm-debug.log*
 yarn-error.log*
 *.log

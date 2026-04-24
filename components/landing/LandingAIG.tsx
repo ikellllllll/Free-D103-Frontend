@@ -7,7 +7,6 @@ import {
   Sparkles,
   ArrowRight,
   PlayCircle,
-  LineChart,
   Minus,
   Square,
   X
@@ -961,42 +960,66 @@ export function LandingAIG() {
             {/* Mock score card */}
             <div className="relative animate-scale-in">
               <div className="absolute -inset-8 bg-gradient-to-br from-indigo-200/40 via-violet-200/40 to-teal-200/40 blur-3xl rounded-full pointer-events-none" />
-              <div className="relative bg-white rounded-3xl border border-gray-100 shadow-2xl p-8 space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-xs font-mono uppercase tracking-wider text-indigo-600 font-semibold mb-1">
+              <div className="relative overflow-hidden rounded-3xl border border-gray-100 bg-white p-8 shadow-2xl">
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-indigo-50 via-violet-50/70 to-transparent" />
+
+                <div className="relative flex items-start justify-between gap-6">
+                  <div className="min-w-0">
+                    <div className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-indigo-500">
+                      AI Utilization Score
+                    </div>
+                    <h3 className="font-display text-2xl font-bold tracking-tight text-gray-950">
                       종합 점수
-                    </div>
-                    <div className="text-5xl font-display font-bold text-gray-900">
-                      82<span className="text-2xl text-gray-400">/100</span>
-                    </div>
-                    <div className="inline-flex items-center space-x-1 mt-2 text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-100 rounded-full px-2.5 py-0.5">
-                      <span>상위 27%</span>
-                    </div>
+                    </h3>
+                    <p className="mt-2 max-w-[260px] text-sm leading-6 text-gray-500">
+                      설계, 실행, Trace 활용을 합산한 AI 협업 역량 지표입니다.
+                    </p>
                   </div>
-                  <div
-                    className="w-24 h-24 rounded-full flex items-center justify-center text-white shadow-lg"
-                    style={{
-                      backgroundImage: "linear-gradient(135deg, #6366F1, #7C3AED)",
-                      boxShadow: "0 15px 30px -10px rgba(99, 102, 241, 0.5)"
-                    }}
-                  >
-                    <LineChart size={36} strokeWidth={1.5} />
+
+                  <div className="relative shrink-0">
+                    <div
+                      className="flex h-32 w-32 items-center justify-center rounded-full p-2 shadow-[0_18px_40px_-22px_rgba(79,70,229,0.65)]"
+                      style={{ background: "conic-gradient(from 220deg, #4F46E5 0deg 295deg, #E5E7EB 295deg 360deg)" }}
+                    >
+                      <div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-white">
+                        <span className="font-display text-4xl font-bold leading-none text-gray-950">82</span>
+                        <span className="mt-1 text-xs font-semibold text-gray-400">/100</span>
+                      </div>
+                    </div>
+                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-teal-50 px-3 py-1 text-xs font-bold text-teal-700 ring-1 ring-teal-100">
+                      상위 27%
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-4 pt-4 border-t border-gray-100">
+                <div className="relative mt-8 grid grid-cols-3 gap-2">
                   {[
-                    { label: "하네스 품질", score: 85, bar: "linear-gradient(90deg, #6366F1, #4F46E5)" },
-                    { label: "실행 품질", score: 78, bar: "linear-gradient(90deg, #8B5CF6, #7C3AED)" },
-                    { label: "Trace 활용", score: 84, bar: "linear-gradient(90deg, #14B8A6, #0D9488)" }
+                    { label: "등급", value: "A-" },
+                    { label: "강점", value: "Trace" },
+                    { label: "개선", value: "+8점" }
+                  ].map((item) => (
+                    <div key={item.label} className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-center">
+                      <div className="text-[11px] font-semibold text-gray-400">{item.label}</div>
+                      <div className="mt-1 font-display text-lg font-bold text-gray-900">{item.value}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="relative mt-6 space-y-4 border-t border-gray-100 pt-5">
+                  {[
+                    { label: "하네스 품질", score: 85, note: "요구사항 분해 우수", bar: "linear-gradient(90deg, #6366F1, #4F46E5)" },
+                    { label: "실행 품질", score: 78, note: "예외 처리 보강 필요", bar: "linear-gradient(90deg, #8B5CF6, #7C3AED)" },
+                    { label: "Trace 활용", score: 84, note: "근거 기록 안정적", bar: "linear-gradient(90deg, #14B8A6, #0D9488)" }
                   ].map((item) => (
                     <div key={item.label}>
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-sm font-medium text-gray-700">{item.label}</span>
-                        <span className="text-sm font-bold text-gray-900">{item.score}</span>
+                        <div>
+                          <span className="text-sm font-semibold text-gray-800">{item.label}</span>
+                          <span className="ml-2 text-xs text-gray-400">{item.note}</span>
+                        </div>
+                        <span className="text-sm font-bold text-gray-950">{item.score}</span>
                       </div>
-                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full"
                           style={{
@@ -1007,6 +1030,13 @@ export function LandingAIG() {
                       </div>
                     </div>
                   ))}
+                </div>
+
+                <div className="relative mt-6 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4">
+                  <div className="text-sm font-bold text-indigo-900">다음 추천 액션</div>
+                  <p className="mt-1 text-sm leading-6 text-indigo-900/70">
+                    Agent Mode에서 테스트 실패 원인과 수정 근거를 함께 남기면 실행 품질 점수를 더 끌어올릴 수 있습니다.
+                  </p>
                 </div>
               </div>
             </div>
