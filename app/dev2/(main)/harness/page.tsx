@@ -287,16 +287,45 @@ export default function Dev2HarnessPage() {
         </section>
 
         {/* ── EDITOR BODY ── */}
-        <section className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5">
-          {/* Left: File list (glass) */}
-          <aside className={`rounded-2xl overflow-hidden self-start ${GLASS}`}>
-            <div className="flex items-center justify-between px-5 py-4 border-b border-white/60">
-              <span className="font-display font-bold text-gray-900">에이전트 파일</span>
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white/70 text-gray-700 ring-1 ring-white/80 tabular-nums">
+        <section className="relative [perspective:1400px]">
+          {/* Ambient violet halo — matches workshop preview */}
+          <div
+            className="pointer-events-none absolute -inset-x-10 -bottom-8 h-32 rounded-full blur-3xl opacity-70"
+            style={{
+              backgroundImage:
+                "radial-gradient(closest-side, rgba(124,58,237,0.35), transparent 70%)"
+            }}
+            aria-hidden="true"
+          />
+          <div className="relative grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5">
+          {/* Left: File list (IDE pane) */}
+          <aside
+            className="rounded-2xl overflow-hidden self-start shadow-[0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(30,27,75,0.55),0_14px_36px_-20px_rgba(124,58,237,0.45)]"
+            style={{ backgroundColor: "#0F0D2E" }}
+          >
+            <div
+              className="relative flex items-center justify-between px-5 py-4 text-white overflow-hidden"
+              style={{
+                backgroundColor: "#1E1B4B",
+                boxShadow:
+                  "inset 0 1px 0 0 rgba(255,255,255,0.1), inset 0 -1px 0 0 rgba(0,0,0,0.2)"
+              }}
+            >
+              {/* inner color wash */}
+              <div
+                className="pointer-events-none absolute inset-0 opacity-70"
+                style={{
+                  backgroundImage:
+                    "radial-gradient(120% 80% at 0% 0%, rgba(124,58,237,0.45), transparent 55%), radial-gradient(120% 80% at 100% 100%, rgba(236,72,153,0.28), transparent 60%)"
+                }}
+                aria-hidden="true"
+              />
+              <span className="relative font-display font-bold">에이전트 파일</span>
+              <span className="relative text-xs font-bold px-2 py-0.5 rounded-full bg-white/15 text-white ring-1 ring-white/25 tabular-nums backdrop-blur-sm">
                 {AGENT_FILES.length}
               </span>
             </div>
-            <div className="py-2">
+            <div className="flex flex-col gap-1 p-2">
               {AGENT_FILES.map((file) => {
                 const active = activeId === file.id;
                 const Icon = file.icon;
@@ -306,50 +335,50 @@ export default function Dev2HarnessPage() {
                     key={file.id}
                     type="button"
                     onClick={() => setActiveId(file.id)}
-                    className={`relative w-full flex items-start gap-3 px-5 py-3 text-left ${SPRING}
+                    className={`relative w-full flex items-start gap-3 px-3 py-2.5 text-left rounded-lg overflow-hidden ring-1 ring-inset ${SPRING}
                       ${active
-                        ? "bg-gradient-to-r from-indigo-50 via-violet-50 to-white"
-                        : "hover:bg-white/60 active:scale-[0.995]"
+                        ? "bg-indigo-400/25 ring-indigo-300/50 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_-6px_rgba(124,58,237,0.45)]"
+                        : "bg-white/[0.08] ring-white/10 hover:bg-white/[0.14] hover:ring-white/20 active:scale-[0.98]"
                       }`}
                   >
                     {active && (
                       <span
-                        className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-gradient-to-b from-indigo-500 to-fuchsia-500"
+                        className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-gradient-to-b from-indigo-300 to-fuchsia-300"
                         aria-hidden="true"
                       />
                     )}
                     <span
-                      className={`shrink-0 inline-flex items-center justify-center w-11 h-11 rounded-xl ${file.iconTint} ${SPRING}
-                        ring-1 ring-white/70
-                        shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_4px_12px_-6px_rgba(79,70,229,0.2)]
-                        ${active ? "scale-[1.03]" : "group-hover:scale-[1.02]"}`}
+                      className={`shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-lg ${SPRING}
+                        ring-1 ring-white/20 bg-white/[0.12]
+                        shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15)]
+                        ${active ? "text-white scale-[1.03]" : "text-indigo-100"}`}
                     >
-                      <Icon size={18} strokeWidth={2.2} />
+                      <Icon size={16} strokeWidth={2.2} />
                     </span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span
                           className={`font-mono text-[13px] font-semibold truncate ${
-                            active ? "text-indigo-900" : "text-gray-900"
+                            active ? "text-white" : "text-white/95"
                           }`}
                         >
                           {file.label}
                         </span>
                         {isDirty && (
                           <span
-                            className="relative shrink-0 w-1.5 h-1.5 rounded-full bg-amber-500"
+                            className="relative shrink-0 w-1.5 h-1.5 rounded-full bg-amber-400"
                             title="저장 안 됨"
                           >
-                            <span className="absolute inset-0 rounded-full bg-amber-400 opacity-70 animate-ping" />
+                            <span className="absolute inset-0 rounded-full bg-amber-300 opacity-70 animate-ping" />
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-gray-500 mt-0.5 truncate">
+                      <div className="text-[11px] font-mono text-indigo-200/75 mt-0.5 truncate">
                         {file.summary}
                       </div>
                     </div>
                     <span
-                      className={`shrink-0 self-start mt-1 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${TAG_STYLE[file.tag]}`}
+                      className="shrink-0 self-start mt-0.5 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/15 ring-1 ring-white/20 text-white/90"
                     >
                       {file.tag}
                     </span>
@@ -359,29 +388,46 @@ export default function Dev2HarnessPage() {
             </div>
           </aside>
 
-          {/* Right: Editor (glass) */}
-          <section className={`rounded-2xl overflow-hidden ${GLASS}`}>
-            {/* Path header */}
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/60 gap-3 flex-wrap bg-white/40 backdrop-blur-sm">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <code className="font-mono text-sm text-gray-700 font-semibold truncate">
+          {/* Right: Editor (IDE pane) */}
+          <section
+            className="rounded-2xl overflow-hidden shadow-[0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(30,27,75,0.55),0_14px_36px_-20px_rgba(124,58,237,0.45)]"
+            style={{ backgroundColor: "#0F0D2E" }}
+          >
+            {/* Path header — seamless with body */}
+            <div
+              className="relative flex items-center justify-between px-5 py-3.5 gap-3 flex-wrap text-white overflow-hidden"
+              style={{
+                backgroundImage:
+                  "linear-gradient(to bottom, #1E1B4B 0%, #0F0D2E 100%)"
+              }}
+            >
+              <div
+                className="pointer-events-none absolute inset-0 opacity-60"
+                style={{
+                  backgroundImage:
+                    "radial-gradient(120% 80% at 0% 0%, rgba(124,58,237,0.45), transparent 55%), radial-gradient(120% 80% at 100% 100%, rgba(236,72,153,0.2), transparent 60%)"
+                }}
+                aria-hidden="true"
+              />
+              <div className="relative flex items-center gap-2.5 min-w-0">
+                <code className="font-mono text-sm text-white/90 font-semibold truncate">
                   {activeFile.path}
                 </code>
                 {dirty.has(activeId) && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full ring-1 ring-amber-200/60">
-                    <span className="w-1 h-1 rounded-full bg-amber-600" />
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-amber-400/20 text-amber-200 px-2 py-0.5 rounded-full ring-1 ring-amber-300/30 backdrop-blur-sm">
+                    <span className="w-1 h-1 rounded-full bg-amber-300" />
                     unsaved
                   </span>
                 )}
-                <span className="text-xs text-gray-400 tabular-nums">
+                <span className="text-xs text-white/50 tabular-nums">
                   {lineCount} lines
                 </span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="relative flex items-center gap-2">
                 {/* View mode — segmented control */}
-                <div className="relative inline-flex rounded-xl bg-white/70 p-0.5 ring-1 ring-inset ring-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04)]">
+                <div className="relative inline-flex rounded-xl bg-white/10 p-0.5 ring-1 ring-inset ring-white/20 backdrop-blur-sm shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]">
                   <span
-                    className={`absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] rounded-lg bg-gradient-to-br from-white to-indigo-50 ring-1 ring-white shadow-[0_6px_14px_-8px_rgba(79,70,229,0.35)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                    className={`absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] rounded-lg bg-gradient-to-br from-white to-indigo-50 ring-1 ring-white shadow-[0_6px_14px_-8px_rgba(124,58,237,0.5)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                       viewMode === "preview" ? "translate-x-full" : "translate-x-0"
                     }`}
                     aria-hidden="true"
@@ -389,21 +435,25 @@ export default function Dev2HarnessPage() {
                   <button
                     type="button"
                     onClick={() => setViewMode("edit")}
-                    className={`relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold ${SPRING} ${
-                      viewMode === "edit" ? "text-indigo-700" : "text-gray-500 hover:text-gray-700"
+                    className={`relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${SPRING} ${
+                      viewMode === "edit"
+                        ? "text-indigo-600 font-black"
+                        : "text-white font-bold hover:text-white"
                     }`}
                   >
-                    <Pencil size={12} strokeWidth={2.6} />
+                    <Pencil size={12} strokeWidth={viewMode === "edit" ? 3 : 2.6} />
                     <span>편집</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setViewMode("preview")}
-                    className={`relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold ${SPRING} ${
-                      viewMode === "preview" ? "text-indigo-700" : "text-gray-500 hover:text-gray-700"
+                    className={`relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${SPRING} ${
+                      viewMode === "preview"
+                        ? "text-indigo-600 font-black"
+                        : "text-white font-bold hover:text-white"
                     }`}
                   >
-                    <Eye size={12} strokeWidth={2.6} />
+                    <Eye size={12} strokeWidth={viewMode === "preview" ? 3 : 2.6} />
                     <span>미리보기</span>
                   </button>
                 </div>
@@ -411,7 +461,7 @@ export default function Dev2HarnessPage() {
                 <button
                   type="button"
                   onClick={handleReset}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/70 ring-1 ring-inset ring-white/70 text-gray-600 text-xs font-semibold ${SPRING} hover:-translate-y-0.5 hover:bg-white hover:text-gray-800 active:translate-y-0 active:scale-[0.97]`}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 ring-1 ring-inset ring-white/20 text-white/80 text-xs font-semibold backdrop-blur-sm ${SPRING} hover:-translate-y-0.5 hover:bg-white/20 hover:text-white active:translate-y-0 active:scale-[0.97]`}
                   title="기본값으로 초기화"
                 >
                   <RotateCcw size={12} strokeWidth={2.6} />
@@ -442,33 +492,34 @@ export default function Dev2HarnessPage() {
                   value={activeContent}
                   onChange={(e) => handleContentChange(e.target.value)}
                   spellCheck={false}
-                  className="w-full min-h-[520px] px-6 py-5 font-mono text-[13px] leading-6 text-gray-800 bg-white/50 backdrop-blur-sm outline-none resize-none focus:bg-white transition-colors duration-300"
+                  style={{ caretColor: "#c4b5fd" }}
+                  className="w-full min-h-[520px] px-6 py-5 font-mono text-[13px] leading-6 text-indigo-50 bg-transparent outline-none resize-none selection:bg-indigo-500/30 selection:text-white"
                 />
               </div>
             ) : (
-              <div className="px-6 py-6 min-h-[520px] bg-white/60 backdrop-blur-sm">
+              <div className="px-6 py-6 min-h-[520px]">
                 <div
-                  className="prose-mini text-[14px] text-gray-800 leading-relaxed
-                    [&_h1]:text-3xl [&_h1]:font-display [&_h1]:font-bold [&_h1]:text-gray-900 [&_h1]:mb-4 [&_h1]:mt-0 [&_h1]:tracking-tight
-                    [&_h1]:before:content-['#'] [&_h1]:before:text-indigo-400 [&_h1]:before:mr-2 [&_h1]:before:font-normal
-                    [&_h2]:text-lg [&_h2]:font-display [&_h2]:font-bold [&_h2]:text-gray-900 [&_h2]:mt-6 [&_h2]:mb-2.5
-                    [&_h2]:before:content-['##'] [&_h2]:before:text-indigo-300 [&_h2]:before:mr-2 [&_h2]:before:font-normal [&_h2]:before:text-sm
-                    [&_h3]:text-base [&_h3]:font-bold [&_h3]:text-gray-900 [&_h3]:mt-4 [&_h3]:mb-2
+                  className="prose-mini text-[14px] text-indigo-100/90 leading-relaxed
+                    [&_h1]:text-3xl [&_h1]:font-display [&_h1]:font-bold [&_h1]:text-white [&_h1]:mb-4 [&_h1]:mt-0 [&_h1]:tracking-tight
+                    [&_h1]:before:content-['#'] [&_h1]:before:text-fuchsia-400 [&_h1]:before:mr-2 [&_h1]:before:font-normal
+                    [&_h2]:text-lg [&_h2]:font-display [&_h2]:font-bold [&_h2]:text-white [&_h2]:mt-6 [&_h2]:mb-2.5
+                    [&_h2]:before:content-['##'] [&_h2]:before:text-fuchsia-400/70 [&_h2]:before:mr-2 [&_h2]:before:font-normal [&_h2]:before:text-sm
+                    [&_h3]:text-base [&_h3]:font-bold [&_h3]:text-white [&_h3]:mt-4 [&_h3]:mb-2
                     [&_p]:mb-2.5
-                    [&_ul]:list-none [&_ul]:pl-5 [&_ul]:space-y-1.5 [&_ul]:mb-3 [&_ul>li]:pl-2 [&_ul>li]:relative [&_ul>li]:before:content-[''] [&_ul>li]:before:absolute [&_ul>li]:before:left-0 [&_ul>li]:before:top-[10px] [&_ul>li]:before:w-1.5 [&_ul>li]:before:h-1.5 [&_ul>li]:before:rounded-full [&_ul>li]:before:bg-indigo-500
-                    [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:space-y-1 [&_ol]:mb-2.5
-                    [&_code]:bg-indigo-50 [&_code]:text-indigo-700 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[13px] [&_code]:font-mono
-                    [&_pre]:bg-gray-900 [&_pre]:text-gray-100 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_pre]:my-3 [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:p-0
-                    [&_a]:text-indigo-600 [&_a]:underline [&_a]:underline-offset-2 hover:[&_a]:text-indigo-700
-                    [&_blockquote]:border-l-4 [&_blockquote]:border-indigo-200 [&_blockquote]:pl-4 [&_blockquote]:py-0.5 [&_blockquote]:my-3 [&_blockquote]:text-gray-600 [&_blockquote]:italic
-                    [&_hr]:my-5 [&_hr]:border-t [&_hr]:border-gray-200
-                    [&_strong]:font-bold [&_strong]:text-gray-900
+                    [&_ul]:list-none [&_ul]:pl-5 [&_ul]:space-y-1.5 [&_ul]:mb-3 [&_ul>li]:pl-2 [&_ul>li]:relative [&_ul>li]:before:content-[''] [&_ul>li]:before:absolute [&_ul>li]:before:left-0 [&_ul>li]:before:top-[10px] [&_ul>li]:before:w-1.5 [&_ul>li]:before:h-1.5 [&_ul>li]:before:rounded-full [&_ul>li]:before:bg-indigo-400
+                    [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:space-y-1 [&_ol]:mb-2.5 [&_ol]:marker:text-indigo-300
+                    [&_code]:bg-indigo-500/15 [&_code]:text-indigo-200 [&_code]:ring-1 [&_code]:ring-inset [&_code]:ring-indigo-400/20 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[13px] [&_code]:font-mono
+                    [&_pre]:bg-black/30 [&_pre]:ring-1 [&_pre]:ring-inset [&_pre]:ring-white/10 [&_pre]:text-indigo-50 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_pre]:my-3 [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:p-0 [&_pre_code]:ring-0
+                    [&_a]:text-indigo-300 [&_a]:underline [&_a]:underline-offset-2 hover:[&_a]:text-indigo-200
+                    [&_blockquote]:border-l-4 [&_blockquote]:border-indigo-400/60 [&_blockquote]:pl-4 [&_blockquote]:py-0.5 [&_blockquote]:my-3 [&_blockquote]:text-indigo-200/70 [&_blockquote]:italic
+                    [&_hr]:my-5 [&_hr]:border-t [&_hr]:border-white/10
+                    [&_strong]:font-bold [&_strong]:text-white
                     [&_em]:italic
-                    [&_del]:line-through [&_del]:text-gray-500
-                    [&_table]:w-full [&_table]:my-3 [&_table]:border-collapse [&_table]:rounded-lg [&_table]:overflow-hidden [&_table]:border [&_table]:border-gray-200
-                    [&_th]:bg-gray-50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-gray-700 [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-wider [&_th]:border-b [&_th]:border-gray-200
-                    [&_td]:px-3 [&_td]:py-2 [&_td]:border-b [&_td]:border-gray-100 [&_tr:last-child_td]:border-b-0
-                    [&_input[type=checkbox]]:mr-2 [&_input[type=checkbox]]:accent-indigo-600
+                    [&_del]:line-through [&_del]:text-indigo-300/50
+                    [&_table]:w-full [&_table]:my-3 [&_table]:border-collapse [&_table]:rounded-lg [&_table]:overflow-hidden [&_table]:ring-1 [&_table]:ring-white/10
+                    [&_th]:bg-white/5 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-indigo-100 [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-wider [&_th]:border-b [&_th]:border-white/10
+                    [&_td]:px-3 [&_td]:py-2 [&_td]:border-b [&_td]:border-white/5 [&_tr:last-child_td]:border-b-0
+                    [&_input[type=checkbox]]:mr-2 [&_input[type=checkbox]]:accent-indigo-500
                     [&_.task-list-item]:pl-0 [&_.task-list-item]:before:content-none [&_.contains-task-list]:pl-0"
                 >
                   <Markdown remarkPlugins={[remarkGfm]}>
@@ -478,6 +529,7 @@ export default function Dev2HarnessPage() {
               </div>
             )}
           </section>
+          </div>
         </section>
 
         {/* ── INFO BANNER (glass) ── */}
