@@ -15,10 +15,8 @@ import {
   Sun,
   Moon,
   Database,
-  AlertTriangle,
   CircleCheck,
   Wrench,
-  Code2,
   FileText,
   type LucideIcon
 } from "lucide-react";
@@ -131,7 +129,7 @@ export default function Dev2MyPage() {
             <strong className="font-bold text-gray-900">{h.title}</strong> 제출 · {h.passRate}
           </>
         ),
-        sub: `AI 활용: ${h.aiUsage}`,
+        sub: "리포트 업데이트됨",
         href: h.href,
         action: "리포트 보기"
       });
@@ -149,7 +147,7 @@ export default function Dev2MyPage() {
             <strong className="font-bold text-gray-900">{s.title}</strong> 풀이 중
           </>
         ),
-        sub: `Lv ${s.level} · ${s.category} · AI ${s.aiRequestCount}회`,
+        sub: `Lv ${s.level} · ${s.category}`,
         href: s.href,
         action: "이어가기"
       });
@@ -163,7 +161,7 @@ export default function Dev2MyPage() {
   const [notifyNewProblem, setNotifyNewProblem] = useState(true);
   const [notifyWeekly, setNotifyWeekly] = useState(true);
   const [notifyTier, setNotifyTier] = useState(true);
-  const [defaultModel, setDefaultModel] = useState("AIG Default Model");
+  const [defaultModel, setDefaultModel] = useState("자동 추천");
 
   /* BYOK */
   const [byokKeys, setByokKeys] = useState<Partial<Record<ProviderId, string>>>({});
@@ -204,39 +202,76 @@ export default function Dev2MyPage() {
   };
 
   return (
-    <div className="relative bg-gradient-to-b from-indigo-50/30 via-white to-white min-h-screen overflow-hidden">
-      {/* Floating orbs */}
-      <div className="absolute top-0 left-0 right-0 h-[800px] pointer-events-none overflow-hidden">
-        <div className="absolute -top-10 -left-40 w-[480px] h-[480px] rounded-full bg-indigo-400/25 blur-3xl animate-blob-1" />
-        <div className="absolute top-[12%] -right-40 w-[480px] h-[480px] rounded-full bg-violet-400/25 blur-3xl animate-blob-2" />
+    <div className="relative min-h-screen overflow-hidden bg-slate-50">
+      {/* Aurora mesh background */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        aria-hidden="true"
+        style={{
+          backgroundImage:
+            "radial-gradient(60% 50% at 12% 10%, rgba(99,102,241,0.28), transparent 60%), radial-gradient(50% 40% at 92% 18%, rgba(217,70,239,0.18), transparent 65%), radial-gradient(55% 45% at 50% 100%, rgba(56,189,248,0.14), transparent 60%)"
+        }}
+      />
+      <div className="absolute top-0 left-0 right-0 h-[860px] pointer-events-none overflow-hidden">
+        <div className="absolute -top-10 -left-40 w-[520px] h-[520px] rounded-full bg-indigo-400/30 blur-[120px] animate-blob-1" />
+        <div className="absolute top-[14%] -right-40 w-[480px] h-[480px] rounded-full bg-fuchsia-400/25 blur-[120px] animate-blob-2" />
+        <div className="absolute top-[32%] left-[28%] w-[360px] h-[360px] rounded-full bg-violet-400/20 blur-[120px]" />
         <div className="absolute inset-0 bg-grid-pattern opacity-25" />
       </div>
+      {/* Fade out near the bottom */}
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-64"
+        style={{
+          backgroundImage: "linear-gradient(to bottom, rgba(248,250,252,0), #f8fafc)"
+        }}
+        aria-hidden="true"
+      />
 
       <div className="relative max-w-6xl mx-auto px-6 pt-28 pb-16 space-y-6">
         {/* ── PROFILE HERO ── */}
         <section
-          className="relative rounded-3xl overflow-hidden text-white animate-slide-up"
+          className="relative rounded-3xl overflow-hidden text-white animate-slide-up shadow-[0_30px_70px_-30px_rgba(49,46,129,0.6)]"
           style={{
+            backgroundColor: "#312E81",
             backgroundImage:
-              "linear-gradient(135deg, #4338CA 0%, #4F46E5 35%, #7C3AED 75%, #6D28D9 100%)"
+              "radial-gradient(80% 100% at 0% 0%, rgba(99,102,241,0.9), transparent 55%), radial-gradient(70% 90% at 100% 0%, rgba(217,70,239,0.6), transparent 60%), radial-gradient(90% 120% at 50% 100%, rgba(14,165,233,0.45), transparent 60%), linear-gradient(135deg, #312E81 0%, #4338CA 50%, #6D28D9 100%)"
           }}
         >
-          <div className="absolute -top-12 -right-16 w-72 h-72 rounded-full bg-white/10 blur-3xl" />
-          <div className="absolute -bottom-12 -left-20 w-64 h-64 rounded-full bg-white/10 blur-2xl" />
-          <div className="absolute top-6 left-[25%] w-5 h-5 rounded-full bg-white/20 blur-sm" />
-          <div className="absolute top-[45%] left-[65%] w-3 h-3 rounded-full bg-white/30 blur-[2px]" />
+          {/* Aurora veils */}
+          <div className="absolute -top-20 -right-20 w-80 h-80 rounded-full bg-fuchsia-400/20 blur-3xl" />
+          <div className="absolute -bottom-20 -left-24 w-80 h-80 rounded-full bg-sky-400/20 blur-3xl" />
+          {/* Inset highlight */}
+          <div
+            className="pointer-events-none absolute inset-0 rounded-3xl"
+            style={{
+              boxShadow:
+                "inset 0 1px 0 0 rgba(255,255,255,0.18), inset 0 -1px 0 0 rgba(0,0,0,0.2)"
+            }}
+            aria-hidden="true"
+          />
 
           <div className="relative flex flex-col md:flex-row md:items-center gap-8 p-8 md:p-10">
             {/* Left: avatar + name */}
             <div className="flex items-center gap-5 min-w-0">
-              <div className="relative shrink-0">
-                <div className="w-[104px] h-[104px] rounded-full bg-white/95 text-indigo-700 flex items-center justify-center font-display font-bold text-3xl shadow-xl">
+              <div className="relative shrink-0 [perspective:800px]">
+                {/* ambient halo behind avatar */}
+                <div
+                  className="absolute inset-0 -z-10 rounded-full blur-2xl opacity-70"
+                  style={{
+                    backgroundImage:
+                      "radial-gradient(closest-side, rgba(217,70,239,0.5), transparent 70%)"
+                  }}
+                  aria-hidden="true"
+                />
+                <div
+                  className="w-[104px] h-[104px] rounded-full bg-white text-indigo-700 flex items-center justify-center font-display font-black text-3xl shadow-[inset_0_2px_0_0_rgba(255,255,255,1),inset_0_-6px_16px_-2px_rgba(99,102,241,0.25),0_20px_40px_-10px_rgba(49,46,129,0.6)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:[transform:rotateY(-8deg)_rotateX(4deg)]"
+                >
                   {initials}
                 </div>
-                <span className="absolute bottom-2 right-2 w-4 h-4 rounded-full bg-green-400 ring-4 ring-white/90" />
+                <span className="absolute bottom-2 right-2 w-4 h-4 rounded-full bg-emerald-400 ring-4 ring-indigo-900/80 shadow-[0_0_12px_rgba(16,185,129,0.6)]" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight leading-[1.1] mb-2">
+                <h1 className="text-3xl md:text-4xl font-display font-black tracking-tight leading-[1.1] mb-2">
                   {name}
                 </h1>
                 <p className="text-sm text-white/80 truncate">
@@ -248,7 +283,7 @@ export default function Dev2MyPage() {
             {/* Right: 3 stat chips */}
             <div className="md:ml-auto grid grid-cols-3 gap-3 shrink-0">
               <StatChip icon={Trophy} label="RANK" value="Top 12%" />
-              <StatChip icon={Flame} label="STREAK" value="7 days" suffix="🔥" />
+              <StatChip icon={Flame} label="STREAK" value="7 days" />
               <StatChip icon={Shield} label="TIER" value="Silver II" />
             </div>
           </div>
@@ -258,16 +293,35 @@ export default function Dev2MyPage() {
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Skill radar */}
           <div
-            className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-7 animate-slide-up"
+            className="relative overflow-hidden bg-white/70 backdrop-blur-md rounded-2xl ring-1 ring-inset ring-white/60 border border-gray-200/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(49,46,129,0.25)] p-6 md:p-7 animate-slide-up transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_1px_2px_rgba(17,24,39,0.04),0_30px_60px_-28px_rgba(79,70,229,0.35)]"
             style={{ animationFillMode: "both" }}
           >
-            <div className="mb-4">
-              <h2 className="font-display font-bold text-gray-900 text-[17px]">
-                AI 활용 역량
-              </h2>
-              <p className="text-xs text-gray-500 mt-0.5">
-                최근 10개 세션 평균 · 내 평균 {avgSkill}점
-              </p>
+            {/* Ambient corner wash */}
+            <div
+              className="pointer-events-none absolute -top-20 -right-20 w-52 h-52 rounded-full blur-3xl opacity-60"
+              style={{
+                backgroundImage:
+                  "radial-gradient(closest-side, rgba(167,139,250,0.35), transparent 70%)"
+              }}
+              aria-hidden="true"
+            />
+            <div className="relative mb-4 flex items-baseline justify-between gap-3">
+              <div>
+                <h2 className="font-display font-black text-gray-900 text-[17px] tracking-tight">
+                  역량 지표
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  최근 10개 세션 평균
+                </p>
+              </div>
+              <div className="text-right">
+                <div className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">
+                  AVG
+                </div>
+                <div className="font-display font-black text-2xl leading-none text-indigo-600 tabular-nums">
+                  {avgSkill}
+                </div>
+              </div>
             </div>
             <SkillRadar skills={skills} />
             <div className="flex items-center justify-center gap-5 text-xs text-gray-500 mt-3">
@@ -282,29 +336,40 @@ export default function Dev2MyPage() {
 
           {/* Recent activity */}
           <div
-            className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-7 animate-slide-up"
+            className="relative overflow-hidden bg-white/70 backdrop-blur-md rounded-2xl ring-1 ring-inset ring-white/60 border border-gray-200/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(49,46,129,0.25)] p-6 md:p-7 animate-slide-up transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_1px_2px_rgba(17,24,39,0.04),0_30px_60px_-28px_rgba(79,70,229,0.35)]"
             style={{ animationFillMode: "both", animationDelay: "0.05s" }}
           >
-            <h2 className="font-display font-bold text-gray-900 text-[17px] mb-4">
+            <div
+              className="pointer-events-none absolute -top-20 -left-20 w-52 h-52 rounded-full blur-3xl opacity-50"
+              style={{
+                backgroundImage:
+                  "radial-gradient(closest-side, rgba(99,102,241,0.3), transparent 70%)"
+              }}
+              aria-hidden="true"
+            />
+            <h2 className="relative font-display font-black text-gray-900 text-[17px] mb-4 tracking-tight">
               최근 활동
             </h2>
             {activity.length === 0 ? (
-              <p className="text-sm text-gray-400 py-10 text-center">
+              <p className="relative text-sm text-gray-400 py-10 text-center">
                 아직 활동 내역이 없어요.
               </p>
             ) : (
-              <div className="space-y-3">
+              <div className="relative flex flex-col gap-1.5">
                 {activity.map((row) => {
                   const Icon = row.icon;
                   return (
-                    <div key={row.id} className="flex items-start gap-3 py-1.5">
+                    <div
+                      key={row.id}
+                      className="group flex items-start gap-3 px-3 py-2.5 rounded-xl bg-white/40 ring-1 ring-inset ring-white/50 transition-[transform,background-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-white/80 hover:-translate-y-0.5"
+                    >
                       <span
-                        className={`shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-full ${row.tint}`}
+                        className={`shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-xl ${row.tint} ring-1 ring-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)]`}
                       >
                         <Icon size={15} strokeWidth={2.2} />
                       </span>
                       <div className="flex-1 min-w-0">
-                        <div className="text-xs text-gray-400 font-mono mb-0.5 tabular-nums">
+                        <div className="text-[11px] text-gray-400 font-mono mb-0.5 tabular-nums">
                           {row.time}
                         </div>
                         <div className="text-sm text-gray-700 leading-relaxed">
@@ -317,7 +382,7 @@ export default function Dev2MyPage() {
                       {row.href && row.action && (
                         <Link
                           href={withPrefix(row.href)}
-                          className="shrink-0 self-center text-sm font-semibold text-gray-600 hover:text-indigo-600 px-3 py-1.5 rounded-lg border border-gray-200 hover:border-indigo-300 transition-colors"
+                          className="shrink-0 self-center text-xs font-bold text-gray-600 hover:text-indigo-700 px-3 py-1.5 rounded-lg bg-white/70 ring-1 ring-inset ring-white/80 hover:ring-indigo-200 transition-[transform,color,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 active:scale-[0.97]"
                         >
                           {row.action}
                         </Link>
@@ -334,28 +399,36 @@ export default function Dev2MyPage() {
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* API Keys */}
           <div
-            className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-7 animate-slide-up"
+            className="relative overflow-hidden bg-white/70 backdrop-blur-md rounded-2xl ring-1 ring-inset ring-white/60 border border-gray-200/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(49,46,129,0.25)] p-6 md:p-7 animate-slide-up transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5"
             style={{ animationFillMode: "both" }}
           >
-            <div className="flex items-start gap-3 mb-5">
-              <span className="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600">
+            <div
+              className="pointer-events-none absolute -top-20 -right-20 w-52 h-52 rounded-full blur-3xl opacity-50"
+              style={{
+                backgroundImage:
+                  "radial-gradient(closest-side, rgba(99,102,241,0.3), transparent 70%)"
+              }}
+              aria-hidden="true"
+            />
+            <div className="relative flex items-start gap-3 mb-5">
+              <span className="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 ring-1 ring-inset ring-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)]">
                 <Key size={16} strokeWidth={2.2} />
               </span>
               <div>
-                <h2 className="font-display font-bold text-gray-900 text-[17px]">API 키</h2>
+                <h2 className="font-display font-black text-gray-900 text-[17px] tracking-tight">API 키</h2>
                 <p className="text-xs text-gray-500 mt-0.5">
                   내 OpenAI · Anthropic · Google 키를 안전하게 연결
                 </p>
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="relative flex flex-col gap-2">
               {BYOK_PROVIDERS.map((p) => {
                 const connected = Boolean(byokKeys[p.id]);
                 const isEditing = editingProvider === p.id;
                 return (
                   <div key={p.id}>
-                    <div className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-gray-200 transition-colors">
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-white/50 ring-1 ring-inset ring-white/60 transition-[transform,background-color,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-white/85 hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_8px_20px_-14px_rgba(79,70,229,0.25)]">
                       <span
                         className={`shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-lg ${p.tint} font-display font-bold text-sm`}
                       >
@@ -441,7 +514,7 @@ export default function Dev2MyPage() {
             </div>
 
             {/* Footer banner */}
-            <div className="mt-4 flex items-start gap-2.5 bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-2.5 text-xs text-indigo-700">
+            <div className="relative mt-4 flex items-start gap-2.5 bg-indigo-50/70 ring-1 ring-inset ring-indigo-100 rounded-xl px-4 py-2.5 text-xs text-indigo-700 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.8)]">
               <Shield size={13} strokeWidth={2.2} className="shrink-0 mt-0.5" />
               <span>키는 브라우저에만 저장되며 서버에는 전송되지 않아요.</span>
             </div>
@@ -449,14 +522,22 @@ export default function Dev2MyPage() {
 
           {/* Preferences */}
           <div
-            className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-7 animate-slide-up"
+            className="relative overflow-hidden bg-white/70 backdrop-blur-md rounded-2xl ring-1 ring-inset ring-white/60 border border-gray-200/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(49,46,129,0.25)] p-6 md:p-7 animate-slide-up transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5"
             style={{ animationFillMode: "both", animationDelay: "0.05s" }}
           >
-            <h2 className="font-display font-bold text-gray-900 text-[17px] mb-5">
+            <div
+              className="pointer-events-none absolute -top-20 -left-20 w-52 h-52 rounded-full blur-3xl opacity-50"
+              style={{
+                backgroundImage:
+                  "radial-gradient(closest-side, rgba(217,70,239,0.22), transparent 70%)"
+              }}
+              aria-hidden="true"
+            />
+            <h2 className="relative font-display font-black text-gray-900 text-[17px] mb-5 tracking-tight">
               환경 설정
             </h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div className="relative grid grid-cols-1 sm:grid-cols-2 gap-5">
               {/* 기본 언어 */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-[0.14em] text-gray-500 mb-2">
@@ -470,10 +551,10 @@ export default function Dev2MyPage() {
                         key={l}
                         type="button"
                         onClick={() => setDefaultLang(l)}
-                        className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border-2 text-sm font-semibold transition-colors ${
+                        className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold transition-[transform,background-color,box-shadow,color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.97] ${
                           active
-                            ? "border-indigo-500 bg-indigo-50/50"
-                            : "border-gray-200 bg-white hover:border-gray-300"
+                            ? "bg-indigo-50/80 ring-2 ring-inset ring-indigo-400 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_8px_20px_-14px_rgba(79,70,229,0.35)]"
+                            : "bg-white/70 ring-1 ring-inset ring-white/70 hover:bg-white hover:-translate-y-0.5"
                         }`}
                       >
                         <LangIcon language={l} size={18} />
@@ -481,7 +562,7 @@ export default function Dev2MyPage() {
                           {l === "java" ? "Java" : "Python"}
                         </span>
                         {active && (
-                          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-indigo-600 text-white">
+                          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-indigo-600 text-white shadow-[0_0_0_2px_rgba(255,255,255,0.9)]">
                             <Check size={10} strokeWidth={3} />
                           </span>
                         )}
@@ -494,14 +575,14 @@ export default function Dev2MyPage() {
               {/* 기본 AI 모델 */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-[0.14em] text-gray-500 mb-2">
-                  기본 AI 모델
+                  기본 모델
                 </label>
                 <select
                   value={defaultModel}
                   onChange={(e) => setDefaultModel(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border-2 border-gray-200 bg-white text-sm font-semibold text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-xl border-2 border-gray-200 bg-white/80 backdrop-blur-sm text-sm font-semibold text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
                 >
-                  <option>AIG Default Model</option>
+                  <option>자동 추천</option>
                   <option>Claude Sonnet 4.6</option>
                   <option>GPT-5.4</option>
                   <option>Gemini 2.5 Pro</option>
@@ -550,10 +631,10 @@ export default function Dev2MyPage() {
                           key={t}
                           type="button"
                           onClick={() => setTheme(t)}
-                          className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border-2 text-sm font-semibold transition-colors ${
+                          className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold transition-[transform,background-color,box-shadow,color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.97] ${
                             active
-                              ? "border-indigo-500 bg-indigo-50/50"
-                              : "border-gray-200 bg-white hover:border-gray-300"
+                              ? "bg-indigo-50/80 ring-2 ring-inset ring-indigo-400 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_8px_20px_-14px_rgba(79,70,229,0.35)]"
+                              : "bg-white/70 ring-1 ring-inset ring-white/70 hover:bg-white hover:-translate-y-0.5"
                           }`}
                         >
                           <Icon size={16} strokeWidth={2} />
@@ -561,7 +642,7 @@ export default function Dev2MyPage() {
                             {t === "light" ? "라이트" : "다크"}
                           </span>
                           {active && (
-                            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-indigo-600 text-white">
+                            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-indigo-600 text-white shadow-[0_0_0_2px_rgba(255,255,255,0.9)]">
                               <Check size={10} strokeWidth={3} />
                             </span>
                           )}
@@ -577,22 +658,30 @@ export default function Dev2MyPage() {
 
         {/* ── DANGER ZONE ── */}
         <section
-          className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-slide-up"
+          className="relative overflow-hidden bg-white/70 backdrop-blur-md rounded-2xl ring-1 ring-inset ring-white/60 border border-gray-200/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(190,18,60,0.18)] p-6 md:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-slide-up"
           style={{ animationFillMode: "both" }}
         >
-          <div className="min-w-0">
-            <h2 className="font-display font-bold text-gray-900 text-[17px] mb-0.5">
+          <div
+            className="pointer-events-none absolute -top-20 -right-20 w-52 h-52 rounded-full blur-3xl opacity-50"
+            style={{
+              backgroundImage:
+                "radial-gradient(closest-side, rgba(244,63,94,0.18), transparent 70%)"
+            }}
+            aria-hidden="true"
+          />
+          <div className="relative min-w-0">
+            <h2 className="font-display font-black text-gray-900 text-[17px] mb-0.5 tracking-tight">
               계정 관리
             </h2>
             <p className="text-sm text-gray-500 leading-relaxed">
               계정 데이터를 관리하거나 삭제할 수 있습니다. 이 작업은 되돌릴 수 없어요.
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="relative flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={resetMockData}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/80 ring-1 ring-inset ring-white/80 text-gray-700 text-sm font-semibold transition-[transform,background-color,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:bg-white hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_8px_20px_-14px_rgba(17,24,39,0.2)] active:scale-[0.97]"
             >
               <Database size={14} strokeWidth={2.2} />
               <span>데이터 초기화</span>
@@ -600,7 +689,7 @@ export default function Dev2MyPage() {
             <button
               type="button"
               onClick={() => addToast("프로토타입에서는 계정 삭제가 제한됩니다.", "warning")}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-rose-200 bg-white hover:bg-rose-50 text-rose-600 text-sm font-semibold transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-50/80 ring-1 ring-inset ring-rose-200 text-rose-600 text-sm font-semibold transition-[transform,background-color,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:bg-rose-50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_8px_20px_-14px_rgba(244,63,94,0.35)] active:scale-[0.97]"
             >
               <Trash2 size={14} strokeWidth={2.2} />
               <span>계정 삭제</span>
@@ -626,14 +715,16 @@ function StatChip({
   suffix?: string;
 }) {
   return (
-    <div className="bg-white/15 backdrop-blur-sm rounded-2xl px-4 py-3 min-w-[120px]">
-      <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-white/80 mb-1.5">
-        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white/20">
+    <div
+      className="relative overflow-hidden rounded-2xl px-4 py-3 min-w-[120px] bg-white/15 backdrop-blur-md ring-1 ring-inset ring-white/25 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),inset_0_-1px_0_0_rgba(0,0,0,0.15)] transition-[transform,background-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-white/20 hover:-translate-y-0.5"
+    >
+      <div className="relative flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-white/85 mb-1.5">
+        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white/25 ring-1 ring-inset ring-white/30">
           <Icon size={11} strokeWidth={2.4} />
         </span>
         <span>{label}</span>
       </div>
-      <div className="font-display font-bold text-xl tracking-tight leading-none">
+      <div className="relative font-display font-black text-xl tracking-tight leading-none">
         {value}
         {suffix && <span className="ml-1">{suffix}</span>}
       </div>
@@ -667,12 +758,14 @@ function ToggleRow({
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={`shrink-0 relative w-11 h-6 rounded-full transition-colors ${
-          checked ? "bg-indigo-600" : "bg-gray-200"
+        className={`shrink-0 relative w-11 h-6 rounded-full transition-colors duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] shadow-[inset_0_2px_4px_rgba(17,24,39,0.12)] ${
+          checked
+            ? "bg-gradient-to-br from-indigo-500 to-violet-600"
+            : "bg-gray-300/70"
         }`}
       >
         <span
-          className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all ${
+          className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-[0_2px_6px_rgba(17,24,39,0.2),inset_0_1px_0_0_rgba(255,255,255,0.9)] transition-[left,transform] duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
             checked ? "left-5" : "left-0.5"
           }`}
         />
