@@ -11,7 +11,8 @@ import {
   Search,
   X,
   ArrowRight,
-  Target
+  Target,
+  SlidersHorizontal
 } from "lucide-react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
@@ -215,7 +216,7 @@ function StatCard({
 }: {
   label: string;
   value: number;
-  suffix: string;
+  suffix?: string;
 }) {
   return (
     <div className="group relative overflow-hidden rounded-2xl bg-white border border-gray-200/80 p-4 sm:p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_8px_20px_-14px_rgba(79,70,229,0.18)] transition-[transform,box-shadow] duration-300 ease-out hover:-translate-y-1 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_10px_20px_-12px_rgba(79,70,229,0.25),0_20px_40px_-20px_rgba(17,24,39,0.15)]">
@@ -225,7 +226,7 @@ function StatCard({
           <span className="text-xl sm:text-2xl font-bold text-gray-900 tabular-nums">
             {value}
           </span>
-          <span className="text-sm font-semibold text-gray-400">{suffix}</span>
+          {suffix && <span className="text-sm font-semibold text-gray-400">{suffix}</span>}
         </div>
       </div>
     </div>
@@ -378,7 +379,8 @@ export default function Dev2ProblemsPage() {
         (status === "ALL" || p.status === status) &&
         (q === "" ||
           p.title.toLowerCase().includes(q) ||
-          p.summary.toLowerCase().includes(q))
+          p.summary.toLowerCase().includes(q) ||
+          p.category.toLowerCase().includes(q))
     );
     const sorted = [...base];
     switch (sort) {
@@ -416,6 +418,7 @@ export default function Dev2ProblemsPage() {
     setLevel("ALL");
     setCategory("ALL");
     setStatus("ALL");
+    setSort("default");
   };
 
   return (
@@ -430,6 +433,10 @@ export default function Dev2ProblemsPage() {
       <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-24 sm:pt-28 pb-12 sm:pb-16">
         {/* Hero */}
         <div className="text-center mb-8 sm:mb-10 animate-slide-up">
+          <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-white border border-indigo-100 text-indigo-700 text-sm font-semibold mb-4 sm:mb-6 shadow-sm">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-dot-pulse" />
+            <span>{filtered.length}/{stats.total || filtered.length}개 과제 · 실무 시나리오</span>
+          </div>
           <h1 className="text-3xl sm:text-5xl md:text-6xl font-display font-bold text-gray-900 tracking-tight mb-3 sm:mb-4 leading-[1.1] text-balance">
             실무 백엔드 과제를
             <br />
@@ -479,7 +486,7 @@ export default function Dev2ProblemsPage() {
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="제목이나 설명으로 검색..."
+              placeholder="제목, 설명, 유형으로 검색..."
               className="w-full bg-white/80 backdrop-blur border border-transparent rounded-2xl pl-11 pr-10 py-3 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 transition-all"
             />
             {search && (
@@ -496,8 +503,9 @@ export default function Dev2ProblemsPage() {
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <label
               htmlFor="dev2-sort"
-              className="text-sm font-semibold text-gray-700 whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-700 whitespace-nowrap"
             >
+              <SlidersHorizontal size={14} strokeWidth={2.2} className="text-gray-400" />
               정렬
             </label>
             <select

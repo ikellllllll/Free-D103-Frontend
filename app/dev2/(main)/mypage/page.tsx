@@ -45,6 +45,15 @@ const BYOK_PROVIDERS: {
 ];
 
 const BYOK_STORAGE_KEY = "aig-byok-keys-v1";
+const PREF_STORAGE_KEY = "aig-user-preferences-v1";
+
+interface UserPreferences {
+  defaultLang: "java" | "python";
+  notifyNewProblem: boolean;
+  notifyWeekly: boolean;
+  notifyTier: boolean;
+  defaultModel: string;
+}
 
 function loadByokKeys(): Partial<Record<ProviderId, string>> {
   if (typeof window === "undefined") return {};
@@ -163,6 +172,7 @@ export default function Dev2MyPage() {
   const [notifyWeekly, setNotifyWeekly] = useState(true);
   const [notifyTier, setNotifyTier] = useState(true);
   const [defaultModel, setDefaultModel] = useState("자동 추천");
+  const [prefsHydrated, setPrefsHydrated] = useState(false);
 
   /* BYOK */
   const [byokKeys, setByokKeys] = useState<Partial<Record<ProviderId, string>>>({});
@@ -171,7 +181,38 @@ export default function Dev2MyPage() {
 
   useEffect(() => {
     setByokKeys(loadByokKeys());
+    try {
+      const raw = localStorage.getItem(PREF_STORAGE_KEY);
+      if (raw) {
+        const prefs = JSON.parse(raw) as Partial<UserPreferences>;
+        if (prefs.defaultLang === "java" || prefs.defaultLang === "python") {
+          setDefaultLang(prefs.defaultLang);
+        }
+        if (typeof prefs.notifyNewProblem === "boolean") setNotifyNewProblem(prefs.notifyNewProblem);
+        if (typeof prefs.notifyWeekly === "boolean") setNotifyWeekly(prefs.notifyWeekly);
+        if (typeof prefs.notifyTier === "boolean") setNotifyTier(prefs.notifyTier);
+        if (typeof prefs.defaultModel === "string" && prefs.defaultModel.trim()) {
+          setDefaultModel(prefs.defaultModel);
+        }
+      }
+    } catch {
+      /* ignore corrupted preferences */
+    } finally {
+      setPrefsHydrated(true);
+    }
   }, []);
+
+  useEffect(() => {
+    if (!prefsHydrated) return;
+    const prefs: UserPreferences = {
+      defaultLang,
+      notifyNewProblem,
+      notifyWeekly,
+      notifyTier,
+      defaultModel
+    };
+    localStorage.setItem(PREF_STORAGE_KEY, JSON.stringify(prefs));
+  }, [defaultLang, notifyNewProblem, notifyWeekly, notifyTier, defaultModel, prefsHydrated]);
 
   const openEdit = (id: ProviderId) => {
     setEditingProvider(id);
@@ -199,6 +240,7 @@ export default function Dev2MyPage() {
     if (!window.confirm("모든 mock 데이터를 초기화할까요? 되돌릴 수 없습니다.")) return;
     localStorage.removeItem("aig-mock-db-v2");
     localStorage.removeItem(BYOK_STORAGE_KEY);
+    localStorage.removeItem(PREF_STORAGE_KEY);
     addToast("mock 데이터가 초기화되었습니다. 새로고침해 주세요.", "success");
   };
 

@@ -2037,27 +2037,107 @@ body:has(.ide-route--workspace) .page-shell > * {
 }
 
 .editor-tabbar {
-  display: flex;
-  align-items: stretch;
+  display: grid;
+  grid-template-rows: auto auto;
   min-width: 0;
   border-bottom: 1px solid var(--ide-border);
   background: var(--ide-tab-bg);
 }
 
+.editor-tabbar__row {
+  min-width: 0;
+  display: flex;
+}
+
+.editor-tabbar__row--tabs {
+  order: 2;
+  min-height: 42px;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.editor-tabbar__row--meta {
+  order: 1;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--ide-border);
+  background: var(--ide-sidebar-bg);
+}
+
+.editor-tabbar__context,
 .editor-tabbar__actions {
-  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   min-width: 0;
+}
+
+.editor-tabbar__context {
+  flex: 1 1 auto;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.editor-tabbar__actions {
+  flex: 0 0 auto;
   gap: 8px;
-  padding: 0 12px;
-  border-left: 1px solid var(--ide-border);
 }
 
 .editor-tabbar__meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--muted);
   font-size: 0.72rem;
   font-family: var(--font-mono);
+}
+
+.editor-tabbar__meta--problem {
+  max-width: min(42vw, 420px);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.editor-tabbar__metric {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  flex: 0 0 auto;
+  padding: 2px 9px;
+  border-radius: 7px;
+  border: 1px solid var(--ide-border);
+  background: var(--ide-pill-bg);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.editor-tabbar__metric--time {
+  border-color: var(--line-strong);
+  color: var(--text);
+  background: var(--accent-dim);
+}
+
+@media (max-width: 1180px) {
+  .editor-tabbar__row--meta {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding: 7px 10px;
+  }
+
+  .editor-tabbar__context {
+    flex-basis: 100%;
+  }
+
+  .editor-tabbar__actions {
+    flex-wrap: wrap;
+  }
 }
 
 .editor-tabs__select {
@@ -2079,6 +2159,8 @@ body:has(.ide-route--workspace) .page-shell > * {
   min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  scroll-behavior: smooth;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -2088,9 +2170,11 @@ body:has(.ide-route--workspace) .page-shell > * {
 }
 
 .editor-tabs__item {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  width: clamp(150px, 18vw, 250px);
   min-height: 42px;
   padding: 0 12px;
   border-right: 1px solid var(--ide-border);
@@ -9841,6 +9925,468 @@ body:has(.dev2-landing-scroll)::-webkit-scrollbar-thumb:hover {
 .stagger-children > *:nth-child(10) { animation-delay: 0.50s; }
 .stagger-children > *:nth-child(11) { animation-delay: 0.55s; }
 .stagger-children > *:nth-child(12) { animation-delay: 0.60s; }
+
+/* ─── Dev2 IDE: original UX with dev2 tone ───────────────────── */
+body:has(.dev2-root .ide-route--workspace) {
+  background: #0f1221;
+}
+
+.dev2-root .ide-route--workspace {
+  --bg: #0f1221;
+  --bg-soft: #14192b;
+  --panel: #171d31;
+  --panel-strong: #202840;
+  --line: rgba(148, 163, 184, 0.14);
+  --line-strong: rgba(139, 140, 255, 0.32);
+  --text: #eef2ff;
+  --muted: #a6b0cb;
+  --muted-2: #77829e;
+  --accent: #8b8cff;
+  --accent-strong: #6366f1;
+  --accent-dim: rgba(139, 140, 255, 0.16);
+  --teal: #5eead4;
+  --green: #34d399;
+  --amber: #fbbf24;
+  --red: #fb7185;
+  --body-bg: #0f1221;
+  --header-bg: #0f1221;
+  --surface: #171d31;
+  --surface-2: #202840;
+  --surface-3: #28324f;
+  --border: #303a59;
+  --hover: rgba(139, 140, 255, 0.12);
+  --input-bg: rgba(139, 140, 255, 0.08);
+  --chip-bg: rgba(139, 140, 255, 0.1);
+  --subtle-bg: rgba(139, 140, 255, 0.06);
+  --subtle-bg-2: rgba(139, 140, 255, 0.1);
+  --panel-highlight-bg: #202840;
+  --editor-bg: #0d1324;
+  --ide-bg: #0d1324;
+  --ide-workbench-bg: #0f1221;
+  --ide-sidebar-bg: #171d31;
+  --ide-activity-bg: #101527;
+  --ide-tab-bg: #202840;
+  --ide-tab-active-bg: #171d31;
+  --ide-border: #303a59;
+  --ide-hover-bg: rgba(139, 140, 255, 0.12);
+  --ide-pill-bg: rgba(139, 140, 255, 0.1);
+  --ide-status-bg: #4f46e5;
+  --ide-editor-bg: #0d1324;
+  --shadow-card: 0 10px 28px rgba(0, 0, 0, 0.26), 0 1px 0 rgba(255, 255, 255, 0.03);
+  --shadow-card-hover: 0 18px 42px rgba(0, 0, 0, 0.34);
+  --shadow-sm: 0 4px 14px rgba(0, 0, 0, 0.24);
+  color-scheme: dark;
+  background: var(--ide-workbench-bg);
+}
+
+html[data-theme="light"] body:has(.dev2-root .ide-route--workspace) {
+  background: #f6f7fb;
+}
+
+html[data-theme="light"] .dev2-root .ide-route--workspace {
+  --bg: #f6f7fb;
+  --bg-soft: #ffffff;
+  --panel: #ffffff;
+  --panel-strong: #eef2ff;
+  --line: rgba(15, 23, 42, 0.1);
+  --line-strong: rgba(79, 70, 229, 0.24);
+  --text: #111827;
+  --muted: #64748b;
+  --muted-2: #94a3b8;
+  --accent: #4f46e5;
+  --accent-strong: #4338ca;
+  --accent-dim: rgba(79, 70, 229, 0.1);
+  --teal: #0f766e;
+  --green: #047857;
+  --amber: #b45309;
+  --red: #e11d48;
+  --body-bg: #f6f7fb;
+  --header-bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f1f5ff;
+  --surface-3: #e6ecfb;
+  --border: #d8e0f0;
+  --hover: rgba(79, 70, 229, 0.08);
+  --input-bg: #ffffff;
+  --chip-bg: rgba(79, 70, 229, 0.08);
+  --subtle-bg: rgba(79, 70, 229, 0.04);
+  --subtle-bg-2: rgba(79, 70, 229, 0.08);
+  --panel-highlight-bg: #eef2ff;
+  --editor-bg: #ffffff;
+  --ide-bg: #ffffff;
+  --ide-workbench-bg: #f6f7fb;
+  --ide-sidebar-bg: #ffffff;
+  --ide-activity-bg: #eef2ff;
+  --ide-tab-bg: #eef2ff;
+  --ide-tab-active-bg: #ffffff;
+  --ide-border: #d8e0f0;
+  --ide-hover-bg: rgba(79, 70, 229, 0.08);
+  --ide-pill-bg: rgba(79, 70, 229, 0.08);
+  --ide-status-bg: #4f46e5;
+  --ide-editor-bg: #ffffff;
+  --shadow-card: 0 8px 24px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-card-hover: 0 14px 34px rgba(15, 23, 42, 0.12);
+  --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.08);
+  color-scheme: light;
+}
+
+.dev2-root .ide-route--workspace .activity-bar__item--active {
+  color: var(--text);
+  border-color: rgba(139, 140, 255, 0.42);
+  background:
+    linear-gradient(180deg, rgba(139, 140, 255, 0.18), rgba(94, 234, 212, 0.08)),
+    var(--ide-hover-bg);
+}
+
+.dev2-root .ide-route--workspace .activity-bar__item:hover {
+  border-color: rgba(139, 140, 255, 0.28);
+  background: var(--ide-hover-bg);
+}
+
+.dev2-root .ide-route--workspace .activity-bar__badge {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: #ffffff;
+}
+
+.dev2-root .ide-route--workspace .editor-tabs__item {
+  position: relative;
+}
+
+.dev2-root .ide-route--workspace .editor-tabs__item--active {
+  background:
+    linear-gradient(180deg, rgba(139, 140, 255, 0.08), transparent),
+    var(--ide-tab-active-bg);
+}
+
+.dev2-root .ide-route--workspace .editor-tabs__item--active::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #5eead4 0%, #6366f1 48%, #8b5cf6 100%);
+}
+
+.dev2-root .ide-route--workspace .ide-command-button--primary,
+.dev2-root .ide-route--workspace .button--primary {
+  border-color: transparent;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: #ffffff;
+  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.24);
+}
+
+.dev2-root .ide-route--workspace .ide-command-button--primary:hover,
+.dev2-root .ide-route--workspace .button--primary:hover {
+  background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%);
+}
+
+.dev2-root .ide-route--workspace .status-bar {
+  background:
+    linear-gradient(90deg, rgba(94, 234, 212, 0.14), rgba(139, 92, 246, 0.22)),
+    var(--ide-status-bg);
+}
+
+.dev2-root .ide-route--workspace .chat-bubble--user {
+  border-color: rgba(139, 140, 255, 0.32);
+  background:
+    linear-gradient(135deg, rgba(94, 234, 212, 0.08), rgba(139, 140, 255, 0.16)),
+    var(--accent-dim);
+  color: var(--text);
+}
+
+.dev2-root .ide-route--workspace .editor-host,
+.dev2-root .ide-route--workspace .editor-loading,
+.dev2-root .ide-route--workspace .monaco-editor,
+.dev2-root .ide-route--workspace .monaco-diff-editor,
+.dev2-root .ide-route--workspace .monaco-editor-background,
+.dev2-root .ide-route--workspace .monaco-editor .margin {
+  background-color: var(--ide-editor-bg) !important;
+}
+
+.dev2-root .ide-route--workspace .twb-titlebar,
+.dev2-root .ide-route--workspace .twb-col-head,
+.dev2-root .ide-route--workspace .twb-list-header,
+.dev2-root .ide-route--workspace .twb-drawer__header {
+  background:
+    linear-gradient(90deg, rgba(94, 234, 212, 0.07), rgba(139, 140, 255, 0.11)),
+    var(--surface-2);
+}
+
+.dev2-root .ide-route--workspace .twb-run-row--active,
+.dev2-root .ide-route--workspace .twb-span-row--active,
+.dev2-root .ide-route--workspace .twb-pagination__page--active {
+  border-color: rgba(139, 140, 255, 0.42);
+  background:
+    linear-gradient(135deg, rgba(94, 234, 212, 0.07), rgba(139, 140, 255, 0.16)),
+    var(--accent-dim);
+}
+
+.dev2-root .ide-route--workspace .twb-drawer {
+  box-shadow: -18px 0 42px rgba(15, 23, 42, 0.42);
+}
+
+html[data-theme="light"] .dev2-root .ide-route--workspace .chat-bubble--user {
+  color: #312e81;
+}
+
+html[data-theme="light"] .dev2-root .ide-route--workspace .twb-drawer {
+  box-shadow: -18px 0 42px rgba(15, 23, 42, 0.14);
+}
+
+/* ─── Dev2 IDE Theme Scope ────────────────────────────────────── */
+.dev2-ide-shell {
+  --dev2-ide-bg: #f6f7fb;
+  --dev2-ide-surface: #ffffff;
+  --dev2-ide-surface-2: #f3f5fa;
+  --dev2-ide-surface-3: #e9ecf4;
+  --dev2-ide-border: #e1e5ef;
+  --dev2-ide-border-strong: #cfd6e4;
+  --dev2-ide-text: #111827;
+  --dev2-ide-text-2: #334155;
+  --dev2-ide-muted: #64748b;
+  --dev2-ide-subtle: #94a3b8;
+  --dev2-ide-accent: #4f46e5;
+  --dev2-ide-accent-soft: rgba(79, 70, 229, 0.1);
+  --dev2-ide-accent-mid: rgba(79, 70, 229, 0.16);
+  --dev2-ide-terminal: #111827;
+  --dev2-ide-terminal-text: #dbeafe;
+  --dev2-ide-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
+  background: var(--dev2-ide-bg) !important;
+  color: var(--dev2-ide-text);
+  color-scheme: light;
+  transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+html[data-theme="dark"] .dev2-ide-shell,
+.dev2-ide-shell[data-theme="dark"] {
+  --dev2-ide-bg: #0f1221;
+  --dev2-ide-surface: #171b2d;
+  --dev2-ide-surface-2: #1f2539;
+  --dev2-ide-surface-3: #273049;
+  --dev2-ide-border: #2c344d;
+  --dev2-ide-border-strong: #3a4563;
+  --dev2-ide-text: #eef2ff;
+  --dev2-ide-text-2: #d6def7;
+  --dev2-ide-muted: #a6b0cb;
+  --dev2-ide-subtle: #77829e;
+  --dev2-ide-accent: #8b8cff;
+  --dev2-ide-accent-soft: rgba(139, 140, 255, 0.14);
+  --dev2-ide-accent-mid: rgba(139, 140, 255, 0.22);
+  --dev2-ide-terminal: #090d1a;
+  --dev2-ide-terminal-text: #dbeafe;
+  --dev2-ide-shadow: 0 1px 2px rgba(0, 0, 0, 0.28), 0 16px 36px rgba(0, 0, 0, 0.32);
+  color-scheme: dark;
+}
+
+.dev2-ide-body {
+  background: var(--dev2-ide-surface-2);
+  border-top: 1px solid var(--dev2-ide-border);
+}
+
+.dev2-ide-topbar {
+  background: var(--dev2-ide-surface) !important;
+  border-color: var(--dev2-ide-border) !important;
+}
+
+.dev2-ide-activity-rail,
+.dev2-ide-panel,
+.dev2-ide-main-panel,
+.dev2-ide-bottom-panel,
+.dev2-ide-ai-panel {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.dev2-ide-activity-rail {
+  border-width: 0 1px 0 0 !important;
+  border-color: var(--dev2-ide-border) !important;
+  background: var(--dev2-ide-surface) !important;
+}
+
+.dev2-ide-panel {
+  border-width: 0 1px 0 0 !important;
+  border-color: var(--dev2-ide-border) !important;
+  background: var(--dev2-ide-surface) !important;
+}
+
+.dev2-ide-main-panel {
+  border-width: 0 !important;
+  background: var(--dev2-ide-surface) !important;
+}
+
+.dev2-ide-center {
+  background: var(--dev2-ide-surface);
+}
+
+.dev2-ide-ai-panel {
+  border-width: 0 0 0 1px !important;
+  border-color: var(--dev2-ide-border) !important;
+  background: var(--dev2-ide-surface) !important;
+}
+
+.dev2-ide-bottom-panel {
+  border-width: 1px 0 0 0 !important;
+  border-color: var(--dev2-ide-border) !important;
+  background: var(--dev2-ide-surface) !important;
+}
+
+.dev2-ide-primary-tabs,
+.dev2-ide-file-tabs,
+.dev2-ide-subtoolbar,
+.dev2-ide-statusbar {
+  background: var(--dev2-ide-surface-2) !important;
+  border-color: var(--dev2-ide-border) !important;
+}
+
+.dev2-ide-primary-tabs button,
+.dev2-ide-file-tab {
+  border-color: var(--dev2-ide-border) !important;
+  box-shadow: none !important;
+}
+
+.dev2-ide-shell :is(.rounded-xl, .rounded-2xl) {
+  border-radius: 8px !important;
+}
+
+.dev2-ide-shell :is(.dev2-ide-activity-rail, .dev2-ide-panel, .dev2-ide-main-panel, .dev2-ide-bottom-panel, .dev2-ide-ai-panel) {
+  border-radius: 0 !important;
+}
+
+.dev2-ide-terminal {
+  background: var(--dev2-ide-terminal) !important;
+  color: var(--dev2-ide-terminal-text) !important;
+}
+
+.dev2-ide-shell :is(.bg-white, .bg-gray-50, .bg-gray-100, .bg-gray-50\/40, .bg-gray-50\/50) {
+  background-color: var(--dev2-ide-surface) !important;
+}
+
+.dev2-ide-shell :is(.bg-gray-50, .bg-gray-50\/40, .bg-gray-50\/50) {
+  background-color: var(--dev2-ide-surface-2) !important;
+}
+
+.dev2-ide-shell :is(.border-gray-50, .border-gray-100, .border-gray-200, .border-gray-300) {
+  border-color: var(--dev2-ide-border) !important;
+}
+
+.dev2-ide-shell :is(.text-gray-900, .text-gray-800) {
+  color: var(--dev2-ide-text) !important;
+}
+
+.dev2-ide-shell :is(.text-gray-700, .text-gray-600) {
+  color: var(--dev2-ide-text-2) !important;
+}
+
+.dev2-ide-shell :is(.text-gray-500, .text-gray-400) {
+  color: var(--dev2-ide-muted) !important;
+}
+
+.dev2-ide-shell .text-gray-300 {
+  color: var(--dev2-ide-subtle) !important;
+}
+
+.dev2-ide-shell :is(.shadow-sm, .shadow-md, .shadow-lg) {
+  box-shadow: var(--dev2-ide-shadow) !important;
+}
+
+.dev2-ide-shell :is(input, textarea, select) {
+  background-color: var(--dev2-ide-surface-2) !important;
+  border-color: var(--dev2-ide-border) !important;
+  color: var(--dev2-ide-text) !important;
+}
+
+.dev2-ide-shell :is(input, textarea)::placeholder {
+  color: var(--dev2-ide-subtle) !important;
+}
+
+.dev2-ide-shell :is(code, pre) {
+  color: inherit;
+}
+
+.dev2-ide-shell :is(.hover\:bg-gray-50:hover, .hover\:bg-gray-100:hover, .hover\:bg-gray-200:hover, .hover\:bg-white:hover) {
+  background-color: var(--dev2-ide-surface-3) !important;
+}
+
+.dev2-ide-shell :is(.bg-indigo-50, .bg-indigo-50\/40, .bg-indigo-50\/50, .bg-indigo-50\/60, .bg-indigo-50\/70, .bg-indigo-100) {
+  background-color: var(--dev2-ide-accent-soft) !important;
+}
+
+.dev2-ide-shell :is(.border-indigo-100, .border-indigo-200, .border-indigo-300) {
+  border-color: var(--dev2-ide-accent-mid) !important;
+}
+
+.dev2-ide-shell :is(.text-indigo-900, .text-indigo-700, .text-indigo-600) {
+  color: var(--dev2-ide-accent) !important;
+}
+
+.dev2-ide-shell .bg-indigo-600 {
+  background-color: #4f46e5 !important;
+}
+
+html[data-theme="dark"] .dev2-ide-shell .bg-indigo-600,
+.dev2-ide-shell[data-theme="dark"] .bg-indigo-600 {
+  background-color: #6366f1 !important;
+}
+
+html[data-theme="dark"] .dev2-ide-shell :is(.bg-green-100, .bg-teal-50, .bg-teal-100, .bg-amber-50, .bg-amber-100, .bg-rose-50, .bg-rose-100, .bg-violet-50\/50, .bg-violet-50\/60, .bg-violet-100),
+.dev2-ide-shell[data-theme="dark"] :is(.bg-green-100, .bg-teal-50, .bg-teal-100, .bg-amber-50, .bg-amber-100, .bg-rose-50, .bg-rose-100, .bg-violet-50\/50, .bg-violet-50\/60, .bg-violet-100) {
+  background-color: var(--dev2-ide-surface-2) !important;
+}
+
+html[data-theme="dark"] .dev2-ide-shell :is(.text-green-700, .text-green-600),
+.dev2-ide-shell[data-theme="dark"] :is(.text-green-700, .text-green-600) {
+  color: #6ee7b7 !important;
+}
+
+html[data-theme="dark"] .dev2-ide-shell :is(.text-teal-700, .text-teal-600),
+.dev2-ide-shell[data-theme="dark"] :is(.text-teal-700, .text-teal-600) {
+  color: #5eead4 !important;
+}
+
+html[data-theme="dark"] .dev2-ide-shell :is(.text-amber-800, .text-amber-700, .text-amber-600),
+.dev2-ide-shell[data-theme="dark"] :is(.text-amber-800, .text-amber-700, .text-amber-600) {
+  color: #fcd34d !important;
+}
+
+html[data-theme="dark"] .dev2-ide-shell :is(.text-rose-700, .text-rose-600),
+.dev2-ide-shell[data-theme="dark"] :is(.text-rose-700, .text-rose-600) {
+  color: #fda4af !important;
+}
+
+html[data-theme="dark"] .dev2-ide-shell :is(.text-violet-700, .text-violet-600),
+.dev2-ide-shell[data-theme="dark"] :is(.text-violet-700, .text-violet-600) {
+  color: #c4b5fd !important;
+}
+
+.dev2-ide-shell .monaco-editor,
+.dev2-ide-shell .monaco-diff-editor,
+.dev2-ide-shell .monaco-editor-background,
+.dev2-ide-shell .monaco-editor .margin {
+  transition: background-color 0.16s ease;
+}
+
+html[data-theme="dark"] .dev2-ide-shell .monaco-editor,
+html[data-theme="dark"] .dev2-ide-shell .monaco-diff-editor,
+html[data-theme="dark"] .dev2-ide-shell .monaco-editor-background,
+html[data-theme="dark"] .dev2-ide-shell .monaco-editor .margin,
+.dev2-ide-shell[data-theme="dark"] .monaco-editor,
+.dev2-ide-shell[data-theme="dark"] .monaco-diff-editor,
+.dev2-ide-shell[data-theme="dark"] .monaco-editor-background,
+.dev2-ide-shell[data-theme="dark"] .monaco-editor .margin {
+  background-color: #111827 !important;
+}
+
+html[data-theme="light"] .dev2-ide-shell .monaco-editor,
+html[data-theme="light"] .dev2-ide-shell .monaco-diff-editor,
+html[data-theme="light"] .dev2-ide-shell .monaco-editor-background,
+html[data-theme="light"] .dev2-ide-shell .monaco-editor .margin,
+.dev2-ide-shell[data-theme="light"] .monaco-editor,
+.dev2-ide-shell[data-theme="light"] .monaco-diff-editor,
+.dev2-ide-shell[data-theme="light"] .monaco-editor-background,
+.dev2-ide-shell[data-theme="light"] .monaco-editor .margin {
+  background-color: #ffffff !important;
+}
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {

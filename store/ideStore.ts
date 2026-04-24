@@ -15,6 +15,18 @@ export interface SelectionRange {
 export type SidebarView = "explorer" | "search" | "extensions" | "trace";
 export type BottomPanelTab = "output" | "tests" | "trace";
 
+const isSameSelectionRange = (left: SelectionRange | null, right: SelectionRange | null) => {
+  if (left === right) return true;
+  if (!left || !right) return false;
+
+  return (
+    left.startLineNumber === right.startLineNumber &&
+    left.startColumn === right.startColumn &&
+    left.endLineNumber === right.endLineNumber &&
+    left.endColumn === right.endColumn
+  );
+};
+
 interface IdeState {
   files: WorkspaceFile[];
   activePath: string | null;
@@ -61,7 +73,7 @@ interface IdeState {
   resetSession: () => void;
 }
 
-export const useIdeStore = create<IdeState>((set, get) => ({
+export const useIdeStore = create<IdeState>((set) => ({
   files: [],
   activePath: null,
   unsavedPaths: [],
@@ -101,10 +113,22 @@ export const useIdeStore = create<IdeState>((set, get) => ({
       lastSavedAt: savedAt ?? new Date().toISOString()
     })),
   setSelection: (code, range) =>
-    set({
-      selectedCode: code,
-      selectedRange: range,
-      aiMode: code ? "edit" : get().aiMode
+    set((state) => {
+      const nextAiMode = code ? "edit" : state.aiMode;
+
+      if (
+        state.selectedCode === code &&
+        isSameSelectionRange(state.selectedRange, range) &&
+        state.aiMode === nextAiMode
+      ) {
+        return state;
+      }
+
+      return {
+        selectedCode: code,
+        selectedRange: range,
+        aiMode: nextAiMode
+      };
     }),
   setEditInstruction: (value) => set({ editInstruction: value }),
   setSuggestion: (value) => set({ suggestion: value }),

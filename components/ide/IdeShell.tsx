@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -48,6 +48,8 @@ const bottomTabs: Array<{ id: BottomPanelTab; label: string }> = [
 ];
 
 const AI_REQUEST_QUOTA = 5;
+const SOLVE_TIMER_INTERVAL_MS = 1000;
+const MAX_SELECTED_CODE_CHARS = 12000;
 
 const extensionItems = [
   {
@@ -120,6 +122,33 @@ interface DiffWorkspaceTab {
 type WorkspaceTab = FileWorkspaceTab | DiffWorkspaceTab;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const areStringArraysEqual = (left: string[], right: string[]) =>
+  left.length === right.length && left.every((value, index) => value === right[index]);
+const pad2 = (value: number) => String(value).padStart(2, "0");
+const toTimestamp = (value?: string | null) => {
+  if (!value) return Date.now();
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : Date.now();
+};
+const formatSolveElapsed = (elapsedMs: number) => {
+  const totalSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (days > 0) {
+    return `${days}일 ${pad2(hours)}:${pad2(minutes)}:${pad2(seconds)}`;
+  }
+
+  if (hours > 0) {
+    return `${pad2(hours)}:${pad2(minutes)}:${pad2(seconds)}`;
+  }
+
+  return `${pad2(minutes)}:${pad2(seconds)}`;
+};
+const clampSelectionCode = (code: string) =>
+  code.length > MAX_SELECTED_CODE_CHARS ? `${code.slice(0, MAX_SELECTED_CODE_CHARS)}\n/* selection truncated */` : code;
 const getFileName = (path: string) => path.split("/").pop() ?? path;
 const getFolderPath = (path: string) => path.split("/").slice(0, -1).join("/");
 const getFileExtension = (file: Pick<WorkspaceFile, "path" | "language">) => {
@@ -368,6 +397,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const editorHostRef = useRef<HTMLDivElement | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
+  const monacoRef = useRef<any>(null);
+  const editorDisposablesRef = useRef<Array<{ dispose: () => void }>>([]);
+  const trackedModelUrisRef = useRef<Set<string>>(new Set());
+  const selectionDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [chatInput, setChatInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -381,6 +414,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const [activeWorkbenchTab, setActiveWorkbenchTab] = useState<"code" | "problem" | "trace">("code");
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [openTabPaths, setOpenTabPaths] = useState<string[]>([]);
+  const [solveNow, setSolveNow] = useState(() => Date.now());
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [explorerSections, setExplorerSections] = useState<Record<ExplorerSectionKey, boolean>>({
     project: true
@@ -442,6 +476,60 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     }
   }, []);
 
+  const updateCursorPosition = useCallback((next: { line: number; column: number }) => {
+    setCursorPosition((current) =>
+      current.line === next.line && current.column === next.column ? current : next
+    );
+  }, []);
+
+  const cleanupEditorSubscriptions = useCallback(() => {
+    if (selectionDebounceTimerRef.current) {
+      clearTimeout(selectionDebounceTimerRef.current);
+      selectionDebounceTimerRef.current = null;
+    }
+
+    editorDisposablesRef.current.forEach((disposable) => disposable.dispose());
+    editorDisposablesRef.current = [];
+  }, []);
+
+  const trackMonacoModels = useCallback((editor: any, monaco?: any) => {
+    if (monaco) {
+      monacoRef.current = monaco;
+    }
+
+    const model = editor?.getModel?.();
+    const models = model?.original || model?.modified
+      ? [model.original, model.modified]
+      : model
+        ? [model]
+        : [];
+
+    models.forEach((item) => {
+      const uri = item?.uri?.toString?.();
+      if (uri) {
+        trackedModelUrisRef.current.add(uri);
+      }
+    });
+  }, []);
+
+  const disposeTrackedMonacoModels = useCallback(() => {
+    const monaco = monacoRef.current;
+    const trackedUris = trackedModelUrisRef.current;
+
+    if (!monaco?.editor?.getModels || trackedUris.size === 0) {
+      return;
+    }
+
+    monaco.editor.getModels().forEach((model: any) => {
+      const uri = model?.uri?.toString?.();
+      if (uri && trackedUris.has(uri)) {
+        model.dispose?.();
+      }
+    });
+
+    trackedUris.clear();
+  }, []);
+
   const { messages, streaming, requestCount, loadMessages, send } = useAiChat(sessionId);
   useAutoSave(sessionId);
 
@@ -465,6 +553,16 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   }, [resetSession]);
 
   useEffect(() => {
+    return () => {
+      cleanupEditorSubscriptions();
+      disposeTrackedMonacoModels();
+      editorRef.current = null;
+      diffEditorRef.current = null;
+      monacoRef.current = null;
+    };
+  }, [cleanupEditorSubscriptions, disposeTrackedMonacoModels]);
+
+  useEffect(() => {
     if (workspace?.files?.length) {
       setWorkspace(workspace.files, workspace.files[1]?.path ?? workspace.files[0]?.path);
     }
@@ -475,6 +573,23 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       void loadMessages();
     }
   }, [loadMessages, session]);
+
+  useEffect(() => {
+    if (!session?.createdAt) {
+      return;
+    }
+
+    const syncSolveNow = () => setSolveNow(Date.now());
+    syncSolveNow();
+
+    const timerId = window.setInterval(syncSolveNow, SOLVE_TIMER_INTERVAL_MS);
+    document.addEventListener("visibilitychange", syncSolveNow);
+
+    return () => {
+      window.clearInterval(timerId);
+      document.removeEventListener("visibilitychange", syncSolveNow);
+    };
+  }, [session?.createdAt]);
 
   useEffect(() => {
     setCollapsedFolders(new Set());
@@ -681,24 +796,28 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
   useEffect(() => {
     if (!files.length) {
-      setOpenTabPaths([]);
-      setActiveTabId(null);
+      setOpenTabPaths((state) => (state.length ? [] : state));
+      setActiveTabId((state) => (state === null ? state : null));
       return;
     }
 
-    setOpenTabPaths((state) =>
-      state.filter((path) => {
+    const fallbackPath = activePath ?? files[0].path;
+
+    setOpenTabPaths((state) => {
+      const filtered = state.filter((path) => {
         if (isDiffTabId(path)) {
           const targetPath = path.slice(DIFF_TAB_PREFIX.length);
           return explorerFiles.some((file) => file.path === targetPath && file.isVirtual);
         }
 
         return files.some((file) => file.path === path) || explorerFiles.some((file) => file.path === path && file.isVirtual);
-      })
-    );
+      });
+
+      const next = activeTabId || filtered.length ? filtered : [fallbackPath];
+      return areStringArraysEqual(state, next) ? state : next;
+    });
 
     if (!activeTabId) {
-      const fallbackPath = activePath ?? files[0].path;
       setActiveTabId(fallbackPath);
     }
   }, [activePath, activeTabId, explorerFiles, files]);
@@ -819,32 +938,34 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         hour12: false
       })}`
     : "자동 저장 대기";
+  const solveElapsedLabel = formatSolveElapsed(solveNow - toTimestamp(session?.createdAt));
+  const solveTargetLabel = problem?.estimate ? `목표 ${problem.estimate}` : "목표 미정";
   const showEmptyEditor = activeWorkbenchTab === "code" && openTabs.length === 0;
   const showBottomPanel = bottomPanelOpen;
 
-  const handleMount = (editor: any) => {
+  const handleMount = (editor: any, monaco: any) => {
+    cleanupEditorSubscriptions();
     editorRef.current = editor;
+    trackMonacoModels(editor, monaco);
     const initialPosition = editor.getPosition();
 
     if (initialPosition) {
-      setCursorPosition({
+      updateCursorPosition({
         line: initialPosition.lineNumber,
         column: initialPosition.column
       });
     }
 
-    let selectionDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-
-    editor.onDidChangeCursorSelection(() => {
-      if (selectionDebounceTimer) clearTimeout(selectionDebounceTimer);
-      selectionDebounceTimer = setTimeout(() => {
+    const selectionDisposable = editor.onDidChangeCursorSelection(() => {
+      if (selectionDebounceTimerRef.current) clearTimeout(selectionDebounceTimerRef.current);
+      selectionDebounceTimerRef.current = setTimeout(() => {
         const selection = editor.getSelection();
 
         if (!selection || selection.isEmpty()) {
           const position = editor.getPosition();
 
           if (position) {
-            setCursorPosition({
+            updateCursorPosition({
               line: position.lineNumber,
               column: position.column
             });
@@ -858,7 +979,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         const model = editor.getModel();
         if (!model) return;
 
-        const code = model.getValueInRange(selection) ?? "";
+        const code = clampSelectionCode(model.getValueInRange(selection) ?? "");
         const lineCount = model.getLineCount();
         const startLine = Math.min(selection.startLineNumber, lineCount);
         const endLine = Math.min(selection.endLineNumber, lineCount);
@@ -869,22 +990,40 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           endColumn: selection.endColumn
         };
 
-        setCursorPosition({
+        updateCursorPosition({
           line: position.lineNumber,
           column: position.column
         });
         setSelection(code, range);
       }, 80);
     });
+    editorDisposablesRef.current.push(selectionDisposable);
 
     requestEditorLayout();
     syncMonacoAuxInputs();
   };
 
-  const handleDiffMount = (editor: any) => {
+  const handleDiffMount = (editor: any, monaco: any) => {
     diffEditorRef.current = editor;
+    trackMonacoModels(editor, monaco);
     requestEditorLayout();
   };
+
+  const handleTabRailWheel = useCallback((event: ReactWheelEvent<HTMLDivElement>) => {
+    const rail = event.currentTarget;
+
+    if (rail.scrollWidth <= rail.clientWidth) {
+      return;
+    }
+
+    const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+
+    if (!delta) {
+      return;
+    }
+
+    rail.scrollLeft += delta;
+  }, []);
 
   const beginResize = (mode: DragMode) => (event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -1508,72 +1647,80 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
   const renderEditorTabs = () => (
     <div className="editor-tabbar">
-      <div className="editor-tabs">
-        {openTabs.map((tab) => (
-          <div
-            key={tab.id}
-            className={
-              activeWorkbenchTab === "code" && tab.id === activeTab?.id
-                ? "editor-tabs__item editor-tabs__item--active"
-                : "editor-tabs__item"
-            }
-          >
-            <button
-              type="button"
-              className="editor-tabs__select"
-              onClick={() => {
-                if (tab.kind === "diff") {
-                  openDiffTab(tab.targetFile.path);
-                  return;
-                }
+      <div className="editor-tabbar__row editor-tabbar__row--tabs">
+        <div className="editor-tabs" onWheel={handleTabRailWheel}>
+          {openTabs.map((tab) => (
+            <div
+              key={tab.id}
+              className={
+                activeWorkbenchTab === "code" && tab.id === activeTab?.id
+                  ? "editor-tabs__item editor-tabs__item--active"
+                  : "editor-tabs__item"
+              }
+            >
+              <button
+                type="button"
+                className="editor-tabs__select"
+                onClick={() => {
+                  if (tab.kind === "diff") {
+                    openDiffTab(tab.targetFile.path);
+                    return;
+                  }
 
-                focusLine(tab.path);
-              }}
-            >
-              <span className="file-icon file-icon--tab">{tab.kind === "diff" ? "DI" : getFileToken(tab.file)}</span>
-              <span>{tab.title}</span>
-              {tab.kind === "file" && unsavedPaths.includes(tab.path) ? <span className="editor-tabs__dot" /> : null}
-            </button>
-            <button
-              type="button"
-              className="editor-tabs__close"
-              aria-label={`${tab.title} 닫기`}
-              onClick={() => handleCloseFileTab(tab.id)}
-            >
-              ×
-            </button>
-          </div>
-        ))}
+                  focusLine(tab.path);
+                }}
+              >
+                <span className="file-icon file-icon--tab">{tab.kind === "diff" ? "DI" : getFileToken(tab.file)}</span>
+                <span>{tab.title}</span>
+                {tab.kind === "file" && unsavedPaths.includes(tab.path) ? <span className="editor-tabs__dot" /> : null}
+              </button>
+              <button
+                type="button"
+                className="editor-tabs__close"
+                aria-label={`${tab.title} 닫기`}
+                onClick={() => handleCloseFileTab(tab.id)}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="editor-tabbar__actions">
-        <span className="editor-tabbar__meta">{problem?.title ?? "문제 풀이"}</span>
-        <span className="editor-tabbar__meta">{lastSavedLabel}</span>
+      <div className="editor-tabbar__row editor-tabbar__row--meta">
+        <div className="editor-tabbar__context">
+          <span className="editor-tabbar__meta editor-tabbar__meta--problem">{problem?.title ?? "문제 풀이"}</span>
+          <span className="editor-tabbar__metric editor-tabbar__metric--time">풀이 {solveElapsedLabel}</span>
+          <span className="editor-tabbar__metric">{solveTargetLabel}</span>
+          <span className="editor-tabbar__meta">{lastSavedLabel}</span>
+        </div>
 
-        {session?.language && (
-          <LangIcon language={session.language} size={13} showLabel className="ide-lang-badge" />
-        )}
+        <div className="editor-tabbar__actions">
+          {session?.language && (
+            <LangIcon language={session.language} size={13} showLabel className="ide-lang-badge" />
+          )}
 
-        {session?.aiModel && session.aiModel !== "aig-default" && (
-          <span className="ide-model-badge">{session.aiModel}</span>
-        )}
+          {session?.aiModel && session.aiModel !== "aig-default" && (
+            <span className="ide-model-badge">{session.aiModel}</span>
+          )}
 
-        <span className="editor-tabbar__divider" />
+          <span className="editor-tabbar__divider" />
 
-        <button type="button" className="ide-command-button" onClick={handleRun} disabled={runLoading}>
-          {runLoading ? "실행 중..." : "실행"}
-        </button>
-        <button type="button" className="ide-command-button" onClick={handleTest} disabled={testLoading}>
-          {testLoading ? "테스트 중..." : "테스트"}
-        </button>
-        <button
-          type="button"
-          className="ide-command-button ide-command-button--primary"
-          onClick={handleSubmit}
-          disabled={submitLoading}
-        >
-          {submitLoading ? "제출 중..." : "제출"}
-        </button>
+          <button type="button" className="ide-command-button" onClick={handleRun} disabled={runLoading}>
+            {runLoading ? "실행 중..." : "실행"}
+          </button>
+          <button type="button" className="ide-command-button" onClick={handleTest} disabled={testLoading}>
+            {testLoading ? "테스트 중..." : "테스트"}
+          </button>
+          <button
+            type="button"
+            className="ide-command-button ide-command-button--primary"
+            onClick={handleSubmit}
+            disabled={submitLoading}
+          >
+            {submitLoading ? "제출 중..." : "제출"}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -1734,7 +1881,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                           scrollBeyondLastLine: false,
                           fontFamily: "var(--font-mono)",
                           lineHeight: 22,
-                          automaticLayout: true,
+                          automaticLayout: false,
                           smoothScrolling: true,
                           stickyScroll: { enabled: false },
                           overviewRulerBorder: false,
@@ -1749,14 +1896,19 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                         language={activeFile.language}
                         value={activeFile.content}
                         onMount={handleMount}
-                        onChange={(value) => updateFileContent(activeFile.path, value ?? "")}
+                        onChange={(value) => {
+                          const nextContent = value ?? "";
+                          if (nextContent !== activeFile.content) {
+                            updateFileContent(activeFile.path, nextContent);
+                          }
+                        }}
                         options={{
                           minimap: { enabled: true, scale: 0.9, showSlider: "mouseover" },
                           fontSize: 13,
                           scrollBeyondLastLine: false,
                           fontFamily: "var(--font-mono)",
                           lineHeight: 22,
-                          automaticLayout: true,
+                          automaticLayout: false,
                           smoothScrolling: true,
                           padding: { top: 14 },
                           stickyScroll: { enabled: false },

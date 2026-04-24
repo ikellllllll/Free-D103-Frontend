@@ -59,7 +59,7 @@ export default function Dev2FeedbackReportPage({
   const { withPrefix } = useRouteScope();
   const user = useAuthStore((s) => s.user);
 
-  const { data: report, isLoading } = useQuery({
+  const { data: report, isLoading, isError } = useQuery({
     queryKey: ["report", submissionId],
     queryFn: () => mockApi.getReport(submissionId),
     refetchInterval: (q) => (q.state.data?.status === "COMPLETED" ? false : 1500)
@@ -82,12 +82,38 @@ export default function Dev2FeedbackReportPage({
     return Math.round(sum / report.scores.length);
   }, [report]);
 
+  if (isError) {
+    return (
+      <div className="max-w-2xl mx-auto px-6 pt-28 pb-20 text-center">
+        <AlertTriangle size={28} className="mx-auto text-amber-500 mb-3" />
+        <p className="text-gray-800 font-semibold mb-2">리포트를 찾을 수 없습니다.</p>
+        <p className="text-sm text-gray-500 mb-5">제출 처리 화면에서 상태를 다시 확인해 주세요.</p>
+        <Link
+          href={withPrefix(`/submissions/${submissionId}`)}
+          className="inline-flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-colors"
+        >
+          <span>제출 상태 보기</span>
+          <ArrowRight size={14} strokeWidth={2.4} />
+        </Link>
+      </div>
+    );
+  }
+
   if (isLoading || !report || report.status !== "COMPLETED") {
     return (
       <div className="max-w-2xl mx-auto px-6 pt-28 pb-20 text-center">
         <div className="inline-flex items-center space-x-2 text-gray-500">
           <Sparkles size={18} className="animate-pulse" />
           <span>리포트를 생성하는 중…</span>
+        </div>
+        <div className="mt-5">
+          <Link
+            href={withPrefix(`/submissions/${submissionId}`)}
+            className="inline-flex items-center justify-center space-x-2 px-4 py-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-semibold text-sm transition-colors"
+          >
+            <span>처리 단계 보기</span>
+            <ArrowRight size={14} strokeWidth={2.4} />
+          </Link>
         </div>
       </div>
     );

@@ -260,6 +260,46 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
                   </pre>
                 </div>
               </div>
+
+              <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+                {problem.publicCases.map((test) => (
+                  <div key={test.id} className="rounded-xl border border-gray-200 bg-gray-50/70 p-4">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <h3 className="text-sm font-bold text-gray-900">{test.name}</h3>
+                      <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                        공개
+                      </span>
+                    </div>
+                    <code className="block rounded-lg bg-white border border-gray-100 px-3 py-2 font-mono text-xs text-gray-700 whitespace-pre-wrap">
+                      {test.detail}
+                    </code>
+                    <p className="mt-2 text-xs font-semibold text-green-700">{test.result}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-5">
+                  <h3 className="font-display font-bold text-gray-900 text-[16px] mb-3">
+                    수용 기준
+                  </h3>
+                  <ul className="space-y-2">
+                    {problem.criteria.map((criterion) => (
+                      <li key={criterion} className="flex items-start gap-2.5 text-sm text-gray-700">
+                        <Check size={13} strokeWidth={3} className="mt-0.5 shrink-0 text-indigo-600" />
+                        <span className="leading-relaxed">{criterion}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="rounded-2xl border border-violet-100 bg-violet-50/60 p-5">
+                  <div className="flex items-center gap-2 font-display font-bold text-gray-900 text-[16px] mb-3">
+                    <Sparkles size={15} className="text-violet-600" />
+                    AI 활용 가이드
+                  </div>
+                  <p className="text-sm text-gray-700 leading-relaxed">{problem.aiGuide}</p>
+                </div>
+              </div>
             </section>
           </div>
 
@@ -280,6 +320,7 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
               {/* Meta rows */}
               <div className="divide-y divide-gray-100">
                 <MetaRow label="카테고리" value={problem.category} />
+                <MetaRow label="상태" value={problem.status} />
                 <MetaRow
                   label="예상 시간"
                   value={

@@ -1,8 +1,30 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { ArrowRight, Check, Play, SkipForward, Mail, Bookmark } from "lucide-react";
+import { useEffect, useMemo, useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
+import {
+  Sparkles,
+  ArrowRight,
+  Film,
+  BookOpen,
+  Lightbulb,
+  Check,
+  Play,
+  SkipForward,
+  Mail,
+  Bookmark,
+  Loader2,
+  RefreshCw,
+  ExternalLink,
+  AlertTriangle,
+  type LucideIcon
+} from "lucide-react";
 
+import type {
+  WorkshopGenerateInput,
+  WorkshopPromoteInput,
+  WorkshopState,
+  WorkshopVariantState
+} from "@/lib/workshop/types";
 import { useUiStore } from "@/store/uiStore";
 
 type MilestoneState = "done" | "current" | "planned";
@@ -12,10 +34,151 @@ const SPRING = "transition-[transform,box-shadow,background-color,border-color] 
 const GLASS =
   "bg-white/70 backdrop-blur-md border border-white/70 ring-1 ring-inset ring-white/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_10px_24px_-18px_rgba(79,70,229,0.3)]";
 
+const defaultWorkshopForm: WorkshopGenerateInput = {
+  targetPath: "/login",
+  prompt:
+    "로그인 화면을 더 업무툴답게 다듬어줘. 기능 흐름과 한국어 문구는 유지하고, A는 보수적으로, B는 더 강한 작업툴 느낌으로 정리해줘."
+};
+
+const emptyWorkshopState: WorkshopState = {
+  configured: false,
+  status: "idle",
+  currentJobId: null,
+  currentPid: null,
+  targetPath: "",
+  prompt: "",
+  runningStep: null,
+  heartbeatAt: null,
+  heartbeatLabel: null,
+  error: null,
+  selectedVariant: null,
+  startedAt: null,
+  updatedAt: new Date(0).toISOString(),
+  lastPromotionAt: null,
+  variants: [
+    {
+      id: "a",
+      title: "A안",
+      direction: "보수적으로 정돈한 버전",
+      url: "https://preview-a.158.180.89.153.sslip.io",
+      status: "idle",
+      summary: null,
+      error: null,
+      updatedAt: null
+    },
+    {
+      id: "b",
+      title: "B안",
+      direction: "업무툴 톤을 강화한 버전",
+      url: "https://preview-b.158.180.89.153.sslip.io",
+      status: "idle",
+      summary: null,
+      error: null,
+      updatedAt: null
+    }
+  ]
+};
+
+const WORKSHOP_STATUS_LABEL: Record<WorkshopState["status"], string> = {
+  idle: "대기",
+  running: "생성 중",
+  ready: "완료",
+  failed: "실패",
+  promoting: "반영 중"
+};
+
+const VARIANT_STATUS_LABEL: Record<WorkshopVariantState["status"], string> = {
+  idle: "대기",
+  queued: "대기열",
+  running: "생성 중",
+  ready: "완료",
+  failed: "실패"
+};
+
+async function readWorkshopJson<T>(input: RequestInfo, init?: RequestInit) {
+  const response = await fetch(input, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    cache: "no-store"
+  });
+  const data = (await response.json()) as T & { error?: string };
+  if (!response.ok) {
+    throw new Error(data.error ?? "워크샵 요청 처리에 실패했습니다.");
+  }
+  return data;
+}
+
+function formatWorkshopTime(value: string | null) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("ko-KR", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).format(new Date(value));
+}
+
+function formatWorkshopElapsed(value: string | null) {
+  if (!value) return "0:00";
+  const total = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
 export default function Dev2WorkshopPage() {
   const addToast = useUiStore((s) => s.addToast);
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
+  const [workshopForm, setWorkshopForm] = useState<WorkshopGenerateInput>(defaultWorkshopForm);
+  const [workshopState, setWorkshopState] = useState<WorkshopState>(emptyWorkshopState);
+  const [workshopBusy, setWorkshopBusy] = useState(false);
+  const [, setTick] = useState(0);
+
+  const isWorkshopBusy = workshopState.status === "running" || workshopState.status === "promoting";
+  const variantA = workshopState.variants.find((variant) => variant.id === "a");
+  const variantB = workshopState.variants.find((variant) => variant.id === "b");
+  const readyCount = workshopState.variants.filter((variant) => variant.status === "ready").length;
+  const currentPreviewUrl = useMemo(() => {
+    const selected = workshopState.variants.find((variant) => variant.id === workshopState.selectedVariant);
+    return selected?.url ?? variantA?.url ?? "#";
+  }, [variantA?.url, workshopState.selectedVariant, workshopState.variants]);
+
+  const loadWorkshopState = async (silent = false) => {
+    try {
+      const next = await readWorkshopJson<WorkshopState>("/api/workshop/status");
+      setWorkshopState(next);
+      setWorkshopForm((current) => {
+        if (current.targetPath.trim() || !next.targetPath) return current;
+        return { ...current, targetPath: next.targetPath, prompt: next.prompt || current.prompt };
+      });
+      if (!silent) {
+        addToast("워크샵 상태를 새로고침했습니다.", "success");
+      }
+    } catch (error) {
+      if (!silent) {
+        addToast(error instanceof Error ? error.message : "워크샵 상태를 불러오지 못했습니다.", "error");
+      }
+    }
+  };
+
+  useEffect(() => {
+    void loadWorkshopState(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!isWorkshopBusy) return;
+    const id = window.setInterval(() => {
+      void loadWorkshopState(true);
+    }, 4000);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isWorkshopBusy]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setTick((tick) => tick + 1), 1000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const handleSubscribe = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -26,6 +189,40 @@ export default function Dev2WorkshopPage() {
     setSubscribed(true);
     setEmail("");
     addToast("사전 알림 구독이 완료되었습니다.", "success");
+  };
+
+  const handleGenerate = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setWorkshopBusy(true);
+    try {
+      const next = await readWorkshopJson<WorkshopState>("/api/workshop/generate", {
+        method: "POST",
+        body: JSON.stringify(workshopForm)
+      });
+      setWorkshopState(next);
+      addToast("A·B 시안 생성이 시작되었습니다.", "success");
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : "워크샵 생성 시작 실패", "error");
+    } finally {
+      setWorkshopBusy(false);
+    }
+  };
+
+  const handlePromote = async (variant: "a" | "b") => {
+    setWorkshopBusy(true);
+    try {
+      const payload: WorkshopPromoteInput = { variant };
+      const next = await readWorkshopJson<WorkshopState>("/api/workshop/promote", {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      setWorkshopState(next);
+      addToast(`${variant.toUpperCase()}안이 현재 화면에 반영되었습니다.`, "success");
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : "시안 반영 실패", "error");
+    } finally {
+      setWorkshopBusy(false);
+    }
   };
 
   return (
@@ -137,6 +334,18 @@ export default function Dev2WorkshopPage() {
             </div>
           </div>
         </section>
+
+        <WorkshopConsoleSection
+          form={workshopForm}
+          setForm={setWorkshopForm}
+          state={workshopState}
+          readyCount={readyCount}
+          currentPreviewUrl={currentPreviewUrl}
+          busy={workshopBusy || isWorkshopBusy}
+          onRefresh={() => void loadWorkshopState()}
+          onGenerate={handleGenerate}
+          onPromote={handlePromote}
+        />
 
         {/* ── FEATURE TEASER CARDS ── */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-16">
@@ -262,6 +471,256 @@ export default function Dev2WorkshopPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+function WorkshopConsoleSection({
+  form,
+  setForm,
+  state,
+  readyCount,
+  currentPreviewUrl,
+  busy,
+  onRefresh,
+  onGenerate,
+  onPromote
+}: {
+  form: WorkshopGenerateInput;
+  setForm: Dispatch<SetStateAction<WorkshopGenerateInput>>;
+  state: WorkshopState;
+  readyCount: number;
+  currentPreviewUrl: string;
+  busy: boolean;
+  onRefresh: () => void;
+  onGenerate: (e: FormEvent<HTMLFormElement>) => void;
+  onPromote: (variant: "a" | "b") => void;
+}) {
+  const variantA = state.variants.find((variant) => variant.id === "a");
+  const variantB = state.variants.find((variant) => variant.id === "b");
+  const disabled = busy || !state.configured;
+
+  return (
+    <section className="mb-16 animate-slide-up" style={{ animationDelay: "0.12s", animationFillMode: "both" }}>
+      <div className="flex items-end justify-between gap-4 mb-5 flex-wrap">
+        <div>
+          <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500">
+            Live Workshop
+          </span>
+          <h2 className="mt-2 text-2xl md:text-3xl font-display font-bold text-gray-900 tracking-tight">
+            A/B 시안 생성과 반영
+          </h2>
+        </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-gray-700 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
+        >
+          <RefreshCw size={14} />
+          새로고침
+        </button>
+      </div>
+
+      <div className="rounded-3xl bg-white border border-gray-100 shadow-sm overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr]">
+          <form onSubmit={onGenerate} className="p-6 border-b lg:border-b-0 lg:border-r border-gray-100 bg-gray-50/60">
+            <div className="flex items-center justify-between gap-3 mb-5">
+              <div>
+                <div className="text-sm font-bold text-gray-900">생성 요청</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  상태 {WORKSHOP_STATUS_LABEL[state.status]} · 준비 {readyCount}/2
+                </div>
+              </div>
+              <span
+                className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+                  state.configured ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                }`}
+              >
+                {state.configured ? "Runtime Ready" : "Runtime 미설정"}
+              </span>
+            </div>
+
+            {!state.configured && (
+              <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs text-amber-800 leading-relaxed">
+                <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                <span>워크샵 런타임 경로가 준비되면 생성/반영 버튼이 활성화됩니다.</span>
+              </div>
+            )}
+
+            <label className="block mb-4">
+              <span className="block text-xs font-bold text-gray-500 mb-2">대상 라우트</span>
+              <input
+                value={form.targetPath}
+                onChange={(e) => setForm((current) => ({ ...current, targetPath: e.target.value }))}
+                placeholder="/login"
+                spellCheck={false}
+                className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-sm text-gray-800 outline-none focus:border-indigo-300"
+              />
+            </label>
+
+            <label className="block mb-5">
+              <span className="block text-xs font-bold text-gray-500 mb-2">수정 요청</span>
+              <textarea
+                value={form.prompt}
+                onChange={(e) => setForm((current) => ({ ...current, prompt: e.target.value }))}
+                rows={7}
+                className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-sm text-gray-800 leading-relaxed outline-none focus:border-indigo-300 resize-none"
+              />
+            </label>
+
+            <button
+              type="submit"
+              disabled={disabled}
+              className={`w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-white font-semibold transition-all ${
+                disabled ? "bg-gray-300 cursor-not-allowed" : "hover:-translate-y-0.5 shadow-lg"
+              }`}
+              style={
+                disabled
+                  ? undefined
+                  : {
+                      backgroundImage: "linear-gradient(90deg, #4F46E5, #7C3AED)",
+                      boxShadow: "0 14px 30px -12px rgba(99, 102, 241, 0.5)"
+                    }
+              }
+            >
+              {busy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+              A/B 시안 생성
+            </button>
+
+            <div className="mt-5 rounded-xl border border-gray-100 bg-white px-3.5 py-3 text-xs text-gray-500 space-y-1">
+              <div>대상: {state.targetPath || form.targetPath || "-"}</div>
+              <div>업데이트: {formatWorkshopTime(state.updatedAt)}</div>
+              {state.startedAt && <div>경과: {formatWorkshopElapsed(state.startedAt)}</div>}
+              {state.runningStep && <div>단계: {state.runningStep}</div>}
+              {state.error && <div className="text-rose-600">오류: {state.error}</div>}
+            </div>
+          </form>
+
+          <div className="p-6">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div>
+                <div className="text-sm font-bold text-gray-900">시안 미리보기</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  선택됨 {state.selectedVariant ? `${state.selectedVariant.toUpperCase()}안` : "없음"}
+                </div>
+              </div>
+              {currentPreviewUrl !== "#" && (
+                <a
+                  href={currentPreviewUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+                >
+                  열기
+                  <ExternalLink size={12} />
+                </a>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              {variantA && (
+                <WorkshopVariantCard
+                  variant={variantA}
+                  selected={state.selectedVariant === "a"}
+                  busy={busy}
+                  onPromote={onPromote}
+                />
+              )}
+              {variantB && (
+                <WorkshopVariantCard
+                  variant={variantB}
+                  selected={state.selectedVariant === "b"}
+                  busy={busy}
+                  onPromote={onPromote}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function WorkshopVariantCard({
+  variant,
+  selected,
+  busy,
+  onPromote
+}: {
+  variant: WorkshopVariantState;
+  selected: boolean;
+  busy: boolean;
+  onPromote: (variant: "a" | "b") => void;
+}) {
+  const ready = variant.status === "ready";
+  return (
+    <article
+      className={`rounded-2xl border overflow-hidden bg-white ${
+        selected ? "border-indigo-300 shadow-lg shadow-indigo-100" : "border-gray-100"
+      }`}
+    >
+      <header className="p-4 border-b border-gray-100">
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <span className="inline-flex items-center gap-2 text-sm font-bold text-gray-900">
+            <span className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 inline-flex items-center justify-center">
+              {variant.id.toUpperCase()}
+            </span>
+            {variant.title}
+          </span>
+          <span
+            className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+              ready
+                ? "bg-green-100 text-green-700"
+                : variant.status === "failed"
+                  ? "bg-rose-100 text-rose-700"
+                  : "bg-gray-100 text-gray-600"
+            }`}
+          >
+            {VARIANT_STATUS_LABEL[variant.status]}
+          </span>
+        </div>
+        <p className="text-xs text-gray-500 leading-relaxed">{variant.direction}</p>
+      </header>
+
+      <div className="h-64 bg-gray-50">
+        {ready ? (
+          <iframe
+            src={variant.url}
+            title={`${variant.title} 미리보기`}
+            className="w-full h-full bg-white"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+          />
+        ) : (
+          <div className="h-full flex items-center justify-center text-center px-6">
+            <div>
+              <div className="text-sm font-semibold text-gray-700 mb-1">
+                {variant.status === "running" || variant.status === "queued" ? "시안 생성 대기 중" : "미리보기 없음"}
+              </div>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                {variant.error ?? variant.summary ?? "생성 요청을 실행하면 이 영역에 결과가 표시됩니다."}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <footer className="p-4 flex items-center justify-between gap-3">
+        <code className="text-[11px] text-gray-400 truncate">{variant.url}</code>
+        <button
+          type="button"
+          disabled={!ready || busy}
+          onClick={() => onPromote(variant.id)}
+          className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+            ready && !busy
+              ? "bg-indigo-600 text-white hover:bg-indigo-700"
+              : "bg-gray-100 text-gray-400 cursor-not-allowed"
+          }`}
+        >
+          {busy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+          반영
+        </button>
+      </footer>
+    </article>
   );
 }
 

@@ -232,7 +232,7 @@ export default function Dev2TimelinePage({
   const [collapsed, setCollapsed] = useState(false);
   const [copiedShare, setCopiedShare] = useState(false);
 
-  const { data: timeline = [], isLoading } = useQuery({
+  const { data: timeline = [], isLoading, isError } = useQuery({
     queryKey: ["timeline", submissionId],
     queryFn: () => mockApi.getTimeline(submissionId),
     refetchInterval: (q) => (q.state.data?.length ? false : 1500)
@@ -276,13 +276,50 @@ export default function Dev2TimelinePage({
     }
   };
 
-  if (isLoading || !timeline.length) {
+  if (isLoading) {
     return (
       <div className="max-w-2xl mx-auto px-6 pt-28 pb-20 text-center">
         <div className="inline-flex items-center space-x-2 text-gray-500">
           <Loader2 size={18} className="animate-spin" />
           <span>타임라인 준비 중…</span>
         </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="max-w-2xl mx-auto px-6 pt-28 pb-20 text-center">
+        <p className="text-gray-800 font-semibold mb-2">타임라인 정보를 불러올 수 없습니다.</p>
+        <p className="text-sm text-gray-500 mb-5">리포트가 아직 생성 중이면 잠시 후 다시 확인해 주세요.</p>
+        <Link
+          href={withPrefix(`/submissions/${submissionId}/report`)}
+          className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-colors"
+        >
+          <ArrowLeft size={14} />
+          <span>리포트로 돌아가기</span>
+        </Link>
+      </div>
+    );
+  }
+
+  if (!timeline.length) {
+    return (
+      <div className="max-w-2xl mx-auto px-6 pt-28 pb-20 text-center">
+        <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 mb-4">
+          <Hash size={20} />
+        </div>
+        <p className="text-gray-800 font-semibold mb-2">표시할 Trace가 없습니다.</p>
+        <p className="text-sm text-gray-500 mb-5">
+          아직 리포트가 처리 중이거나 이 제출에 기록된 AI/도구 이벤트가 없습니다.
+        </p>
+        <Link
+          href={withPrefix(`/submissions/${submissionId}/report`)}
+          className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-semibold text-sm transition-colors"
+        >
+          <ArrowLeft size={14} />
+          <span>리포트로 돌아가기</span>
+        </Link>
       </div>
     );
   }

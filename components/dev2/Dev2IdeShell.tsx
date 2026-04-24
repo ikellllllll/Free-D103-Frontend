@@ -50,11 +50,14 @@ import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { useAiChat } from "@/hooks/useAiChat";
 import { mockApi } from "@/lib/api/mockApi";
+import { getProblemById } from "@/lib/mock-data";
 import { useIdeStore, type SelectionRange } from "@/store/ideStore";
 import { useThemeStore } from "@/store/themeStore";
 import { useUiStore } from "@/store/uiStore";
 import type { AiMessage, TraceEvent } from "@/lib/types/ai";
+import type { ProblemDetail as ProblemDetailType } from "@/lib/types/problem";
 import type { WorkspaceFile } from "@/lib/types/session";
+import type { AgentRunTrace } from "@/lib/types/trace";
 
 const MonacoEditor = dynamic(
   () => import("@monaco-editor/react").then((mod) => mod.Editor),
@@ -198,6 +201,7 @@ function languageFromFile(file: WorkspaceFile | null): string {
 export function Dev2IdeShell({ sessionId }: { sessionId: string }) {
   const { withPrefix } = useRouteScope();
   const router = useRouter();
+  const themeMode = useThemeStore((s) => s.theme);
 
   const [activeRail, setActiveRail] = useState<RailKey>("files");
   const [activeTab, setActiveTab] = useState<TabKey>("code");
@@ -249,13 +253,29 @@ export function Dev2IdeShell({ sessionId }: { sessionId: string }) {
     queryFn: () => mockApi.getSession(sessionId),
     retry: 0
   });
+  const session = sessionQuery.data;
+  const problem = useMemo(
+    () => getProblemById(session?.problemId ?? "todo-api") ?? null,
+    [session?.problemId]
+  );
+  const traces = useMemo(() => session?.traces ?? [], [session?.traces]);
+  const agentTraceQuery = useQuery({
+    queryKey: ["dev2-ide-agent-traces", sessionId],
+    queryFn: () => mockApi.getAgentTraces(sessionId),
+    enabled: activeTab === "trace" || activeRail === "trace",
+    refetchInterval: (query) => {
+      const runs = query.state.data ?? [];
+      return runs.some((run) => !["COMPLETED", "FAILED", "CANCELLED"].includes(run.status))
+        ? 1500
+        : false;
+    }
+  });
 
   useEffect(() => {
-    const session = sessionQuery.data;
     if (!session) return;
     setWorkspace(session.files, session.files[0]?.path);
     setMessages(session.messages ?? []);
-  }, [sessionQuery.data, setWorkspace, setMessages]);
+  }, [session, setWorkspace, setMessages]);
 
   useEffect(() => {
     if (sessionQuery.isError) {
@@ -472,21 +492,32 @@ export function Dev2IdeShell({ sessionId }: { sessionId: string }) {
     [sidebarWidth, aiPanelWidth, bottomPanelHeight]
   );
 
-  // Save all unsaved files
-  const handleSaveAll = useCallback(async () => {
+  const [saveLoading, setSaveLoading] = useState(false);
+
+  // Save all unsaved files. Run/test/submit call this first so mock API sees the latest buffer.
+  const handleSaveAll = useCallback(async (options?: { silent?: boolean }) => {
     const dirtyFiles = files.filter((f) => unsavedPaths.includes(f.path));
     if (!dirtyFiles.length) {
-      addToast("저장할 변경 사항이 없습니다.", "info");
-      return;
+      if (!options?.silent) {
+        addToast("저장할 변경 사항이 없습니다.", "info");
+      }
+      return true;
     }
+    setSaveLoading(true);
     try {
       await Promise.all(
         dirtyFiles.map((f) => mockApi.saveFile(sessionId, f.path, f.content))
       );
       markSaved(undefined, new Date().toISOString());
-      addToast(`${dirtyFiles.length}개 파일 저장됨`, "success");
+      if (!options?.silent) {
+        addToast(`${dirtyFiles.length}개 파일 저장됨`, "success");
+      }
+      return true;
     } catch (err) {
       addToast(err instanceof Error ? err.message : "저장 실패", "error");
+      return false;
+    } finally {
+      setSaveLoading(false);
     }
   }, [files, unsavedPaths, sessionId, markSaved, addToast]);
 
@@ -515,35 +546,45 @@ export function Dev2IdeShell({ sessionId }: { sessionId: string }) {
   const [submitLoading, setSubmitLoading] = useState(false);
 
   const handleRunTests = useCallback(async () => {
+    const saved = await handleSaveAll({ silent: true });
+    if (!saved) return;
     setTestLoading(true);
     try {
       const result = await mockApi.runTests(sessionId);
       setTestResult(result);
+      void sessionQuery.refetch();
+      void agentTraceQuery.refetch();
       addToast(`테스트 결과 ${result.passed}/${result.total} 통과`, result.failed ? "warning" : "success");
     } catch (err) {
       addToast(err instanceof Error ? err.message : "테스트 실행 실패", "error");
     } finally {
       setTestLoading(false);
     }
-  }, [sessionId, setTestResult, addToast]);
+  }, [handleSaveAll, sessionId, setTestResult, sessionQuery, agentTraceQuery, addToast]);
 
   const handleRunCode = useCallback(async () => {
+    const saved = await handleSaveAll({ silent: true });
+    if (!saved) return;
     setRunLoading(true);
     try {
       const result = await mockApi.runCode(sessionId);
       setRunResult(result);
+      void sessionQuery.refetch();
+      void agentTraceQuery.refetch();
       addToast(result.status === "COMPLETED" ? "실행 완료" : "실행 오류", result.status === "COMPLETED" ? "success" : "error");
     } catch (err) {
       addToast(err instanceof Error ? err.message : "실행 실패", "error");
     } finally {
       setRunLoading(false);
     }
-  }, [sessionId, setRunResult, addToast]);
+  }, [handleSaveAll, sessionId, setRunResult, sessionQuery, agentTraceQuery, addToast]);
 
   const handleSubmit = useCallback(async () => {
     if (unsavedPaths.length > 0) {
-      const ok = window.confirm("저장되지 않은 변경이 있습니다. 그대로 제출하시겠습니까?");
+      const ok = window.confirm("저장되지 않은 변경이 있습니다. 저장 후 제출할까요?");
       if (!ok) return;
+      const saved = await handleSaveAll({ silent: true });
+      if (!saved) return;
     }
     setSubmitLoading(true);
     try {
@@ -554,7 +595,7 @@ export function Dev2IdeShell({ sessionId }: { sessionId: string }) {
       addToast(err instanceof Error ? err.message : "제출 실패", "error");
       setSubmitLoading(false);
     }
-  }, [sessionId, unsavedPaths, router, withPrefix, addToast]);
+  }, [handleSaveAll, sessionId, unsavedPaths, router, withPrefix, addToast]);
 
   const handleSendChat = useCallback(async () => {
     const trimmed = composerValue.trim();
@@ -574,7 +615,10 @@ export function Dev2IdeShell({ sessionId }: { sessionId: string }) {
 
   if (sessionQuery.isLoading || !sessionQuery.data) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-[#FAFAFC]">
+      <div
+        className="dev2-ide-shell h-screen w-screen flex items-center justify-center"
+        data-theme={themeMode}
+      >
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <Loader2 size={16} className="animate-spin text-indigo-500" />
           세션 불러오는 중…
@@ -584,22 +628,31 @@ export function Dev2IdeShell({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#FAFAFC] overflow-hidden">
+    <div
+      className="dev2-ide-shell h-screen w-screen flex flex-col overflow-hidden"
+      data-theme={themeMode}
+    >
       <TopBar
         sessionId={sessionId}
+        problem={problem}
         withPrefix={withPrefix}
         elapsed={elapsed}
         lastSavedAt={lastSavedAt}
+        unsavedCount={unsavedPaths.length}
+        saveLoading={saveLoading}
+        runLoading={runLoading}
         testLoading={testLoading}
         submitLoading={submitLoading}
+        onSaveAll={() => void handleSaveAll()}
+        onRunCode={handleRunCode}
         onRunTests={handleRunTests}
         onSubmit={handleSubmit}
       />
 
-      <div className="flex-1 flex min-h-0 gap-2 p-2">
+      <div className="dev2-ide-body flex-1 flex min-h-0">
         <ActivityRail active={activeRail} onChange={setActiveRail} />
 
-        <div className="relative shrink-0 flex" style={{ width: sidebarWidth }}>
+        <div className="dev2-ide-sidebar relative shrink-0 flex" style={{ width: sidebarWidth }}>
           <SecondaryPanel
             railKey={activeRail}
             files={files}
@@ -607,12 +660,15 @@ export function Dev2IdeShell({ sessionId }: { sessionId: string }) {
             unsavedPaths={unsavedPaths}
             onSelect={handleOpenFile}
             onOpenDiff={handleOpenDiff}
+            problem={problem}
+            traces={traces}
+            agentRuns={agentTraceQuery.data ?? []}
             testResult={testResult}
           />
           <ResizeHandle mode="vertical" onPointerDown={beginResize("sidebar")} />
         </div>
 
-        <div className="flex-1 flex flex-col min-w-0 gap-2">
+        <div className="dev2-ide-center flex-1 flex flex-col min-w-0">
           <MainWorkspace
             activeTab={activeTab}
             onTabChange={setActiveTab}
@@ -625,14 +681,22 @@ export function Dev2IdeShell({ sessionId }: { sessionId: string }) {
               if (!isDiffTabId(id)) setActivePath(id);
             }}
             onCloseTab={handleCloseTab}
-            traces={sessionQuery.data?.traces ?? []}
+            problem={problem}
+            traces={traces}
+            agentRuns={agentTraceQuery.data ?? []}
             unsavedPaths={unsavedPaths}
             updateFileContent={updateFileContent}
             setSelection={setSelection}
-            onFormatClick={() => addToast("포맷터 연결은 곧 지원될 예정입니다.", "info")}
-            onFindClick={() => addToast("찾기는 곧 지원될 예정입니다.", "info")}
+            runLoading={runLoading}
+            testLoading={testLoading}
+            submitLoading={submitLoading}
+            onRunCode={handleRunCode}
+            onRunTests={handleRunTests}
+            onSubmit={handleSubmit}
+            onFormatClick={() => addToast("이 파일에서 사용할 수 있는 포맷터가 없습니다.", "info")}
+            onFindClick={() => addToast("에디터가 아직 준비되지 않았습니다.", "info")}
           />
-          <div className="relative" style={{ height: bottomPanelHeight }}>
+          <div className="dev2-ide-bottom-slot relative" style={{ height: bottomPanelHeight }}>
             <ResizeHandle mode="horizontal" onPointerDown={beginResize("bottom")} />
             <BottomTray
               runResult={runResult}
@@ -643,7 +707,7 @@ export function Dev2IdeShell({ sessionId }: { sessionId: string }) {
           </div>
         </div>
 
-        <div className="relative shrink-0 flex" style={{ width: aiPanelWidth }}>
+        <div className="dev2-ide-ai-slot relative shrink-0 flex" style={{ width: aiPanelWidth }}>
           <ResizeHandle mode="vertical" side="left" onPointerDown={beginResize("ai")} />
           <AiPairPanel
             aiMode={aiMode}
@@ -659,6 +723,10 @@ export function Dev2IdeShell({ sessionId }: { sessionId: string }) {
             onSend={handleSendChat}
             sessionId={sessionId}
             activeFile={activeFile}
+            onAfterMutation={() => {
+              void sessionQuery.refetch();
+              void agentTraceQuery.refetch();
+            }}
           />
         </div>
       </div>
@@ -699,26 +767,43 @@ function ResizeHandle({
 
 function TopBar({
   sessionId,
+  problem,
   withPrefix,
   elapsed,
   lastSavedAt,
+  unsavedCount,
+  saveLoading,
+  runLoading,
   testLoading,
   submitLoading,
+  onSaveAll,
+  onRunCode,
   onRunTests,
   onSubmit
 }: {
   sessionId: string;
+  problem: ProblemDetailType | null;
   withPrefix: (p: string) => string;
   elapsed: number;
   lastSavedAt: string | null;
+  unsavedCount: number;
+  saveLoading: boolean;
+  runLoading: boolean;
   testLoading: boolean;
   submitLoading: boolean;
+  onSaveAll: () => void;
+  onRunCode: () => void;
   onRunTests: () => void;
   onSubmit: () => void;
 }) {
   const shortId = sessionId.replace(/^session-/, "").slice(0, 6);
+  const busy = saveLoading || runLoading || testLoading || submitLoading;
+  const theme = useThemeStore((s) => s.theme);
+  const toggleTheme = useThemeStore((s) => s.toggleTheme);
+  const ThemeIcon = theme === "dark" ? Sun : Moon;
+
   return (
-    <header className="h-14 shrink-0 bg-white border-b border-gray-100 flex items-center px-4 gap-4">
+    <header className="dev2-ide-topbar h-14 shrink-0 bg-white border-b border-gray-100 flex items-center px-4 gap-4">
       {/* Left */}
       <div className="flex items-center gap-3 min-w-0">
         <Link
@@ -743,8 +828,8 @@ function TopBar({
           <ChevronRight size={12} className="text-gray-300" />
           <span className="text-gray-700">#{shortId || "a1b2c3"}</span>
         </nav>
-        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-700">
-          Lv 2
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-700 whitespace-nowrap">
+          Lv {problem?.level ?? "-"}
         </span>
       </div>
 
@@ -755,21 +840,57 @@ function TopBar({
             <span className="absolute inset-0 rounded-full bg-indigo-500 opacity-60 animate-ping" />
             <span className="relative w-2 h-2 rounded-full bg-indigo-500" />
           </span>
-          <span className="text-xs font-semibold text-indigo-700">상태: 풀이 중</span>
+          <span className="text-xs font-semibold text-indigo-700">
+            {problem?.title ?? "세션 로딩 중"}
+          </span>
         </div>
         <span className="text-xs font-mono text-gray-700 tabular-nums">{formatElapsed(elapsed)}</span>
-        <span className="text-xs text-gray-400">{formatRelativeSeconds(lastSavedAt)}</span>
+        <span className="text-xs text-gray-400">
+          {unsavedCount > 0 ? `${unsavedCount}개 미저장` : formatRelativeSeconds(lastSavedAt)}
+        </span>
       </div>
 
       {/* Right actions */}
       <div className="flex items-center gap-2">
         <button
           type="button"
+          onClick={onSaveAll}
+          disabled={saveLoading || unsavedCount === 0}
+          aria-busy={saveLoading}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-semibold transition-colors cursor-pointer ${
+            saveLoading || unsavedCount === 0
+              ? "border-gray-200 text-gray-400 cursor-not-allowed"
+              : "border-gray-300 text-gray-700 hover:border-indigo-300 hover:text-indigo-700 hover:bg-indigo-50"
+          }`}
+        >
+          {saveLoading ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} strokeWidth={2.4} />}
+          <span>{saveLoading ? "저장 중…" : "저장"}</span>
+        </button>
+        <button
+          type="button"
+          onClick={onRunCode}
+          disabled={busy}
+          aria-busy={runLoading}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-semibold transition-colors cursor-pointer ${
+            busy
+              ? "border-gray-200 text-gray-400 cursor-not-allowed"
+              : "border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+          }`}
+        >
+          {runLoading ? (
+            <Loader2 size={13} className="animate-spin" />
+          ) : (
+            <Play size={13} strokeWidth={2.4} fill="currentColor" />
+          )}
+          <span>{runLoading ? "실행 중…" : "실행"}</span>
+        </button>
+        <button
+          type="button"
           onClick={onRunTests}
-          disabled={testLoading}
+          disabled={busy}
           aria-busy={testLoading}
           className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border text-sm font-semibold transition-colors cursor-pointer ${
-            testLoading
+            busy
               ? "border-teal-200 text-teal-400 cursor-not-allowed opacity-70"
               : "border-teal-300 text-teal-700 hover:bg-teal-50"
           }`}
@@ -784,10 +905,10 @@ function TopBar({
         <button
           type="button"
           onClick={onSubmit}
-          disabled={submitLoading}
+          disabled={busy}
           aria-busy={submitLoading}
           className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-white text-sm font-bold transition-all shadow-sm hover:shadow-md cursor-pointer ${
-            submitLoading ? "opacity-70 cursor-not-allowed" : ""
+            busy ? "opacity-70 cursor-not-allowed" : ""
           }`}
           style={{
             backgroundImage: "linear-gradient(90deg, #4F46E5, #7C3AED)"
@@ -799,6 +920,15 @@ function TopBar({
             <Send size={13} strokeWidth={2.4} />
           )}
           <span>{submitLoading ? "제출 중…" : "제출"}</span>
+        </button>
+        <button
+          type="button"
+          title="테마 전환"
+          aria-label={theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}
+          onClick={toggleTheme}
+          className="w-8 h-8 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-700 flex items-center justify-center transition-colors cursor-pointer"
+        >
+          <ThemeIcon size={14} strokeWidth={2.2} />
         </button>
         <div className="ml-2 w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center">
           JD
@@ -829,7 +959,7 @@ function ActivityRail({
   const ThemeIcon = theme === "dark" ? Sun : Moon;
 
   return (
-    <aside className="w-14 shrink-0 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center py-3 gap-1">
+    <aside className="dev2-ide-activity-rail w-14 shrink-0 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center pt-3 pb-14 gap-1">
       {items.map((it) => {
         const isActive = it.key === active;
         const Icon = it.icon;
@@ -839,6 +969,8 @@ function ActivityRail({
             type="button"
             onClick={() => onChange(it.key)}
             title={it.label}
+            aria-label={`${it.label} 패널 열기`}
+            aria-pressed={isActive}
             className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
               isActive
                 ? "bg-indigo-600 text-white shadow-sm scale-[1.02]"
@@ -860,7 +992,8 @@ function ActivityRail({
       </button>
       <button
         type="button"
-        title="테마 전환"
+        title="사이드바 테마 전환"
+        aria-label={theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}
         onClick={toggleTheme}
         className="w-9 h-9 rounded-xl text-gray-500 hover:bg-gray-100 flex items-center justify-center transition-colors cursor-pointer"
       >
@@ -879,7 +1012,10 @@ function SecondaryPanel({
   unsavedPaths,
   onSelect,
   onOpenDiff,
-  testResult
+  testResult,
+  problem,
+  traces,
+  agentRuns
 }: {
   railKey: RailKey;
   files: WorkspaceFile[];
@@ -888,6 +1024,9 @@ function SecondaryPanel({
   onSelect: (path: string) => void;
   onOpenDiff: (path: string) => void;
   testResult: ReturnType<typeof useIdeStore.getState>["testResult"];
+  problem: ProblemDetailType | null;
+  traces: TraceEvent[];
+  agentRuns: AgentRunTrace[];
 }) {
   if (railKey === "files")
     return (
@@ -900,10 +1039,10 @@ function SecondaryPanel({
         testResult={testResult}
       />
     );
-  if (railKey === "tests") return <SidePlaceholder title="테스트 세션" />;
-  if (railKey === "problem") return <SidePlaceholder title="과제 개요" />;
-  if (railKey === "trace") return <SidePlaceholder title="Trace 세션" />;
-  return <SidePlaceholder title="AI 도우미" />;
+  if (railKey === "tests") return <TestsSidePanel testResult={testResult} />;
+  if (railKey === "problem") return <ProblemSidePanel problem={problem} />;
+  if (railKey === "trace") return <TraceSidePanel traces={traces} agentRuns={agentRuns} />;
+  return <AiSidePanel />;
 }
 
 function FilesPanel({
@@ -929,7 +1068,7 @@ function FilesPanel({
     : null;
 
   return (
-    <aside className="w-full bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col overflow-hidden">
+    <aside className="dev2-ide-panel w-full bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
         <div className="flex items-center gap-2">
@@ -1139,9 +1278,227 @@ function TreeNodeRow({
   );
 }
 
+function TestsSidePanel({
+  testResult
+}: {
+  testResult: ReturnType<typeof useIdeStore.getState>["testResult"];
+}) {
+  return (
+    <aside className="dev2-ide-panel w-full bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col overflow-hidden">
+      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+        <span className="font-display font-bold text-gray-900 text-[15px]">테스트</span>
+        {testResult && (
+          <span
+            className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+              testResult.failed === 0 ? "bg-green-100 text-green-700" : "bg-rose-100 text-rose-700"
+            }`}
+          >
+            {testResult.passed}/{testResult.total}
+          </span>
+        )}
+      </div>
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
+        {!testResult ? (
+          <div className="h-full flex items-center justify-center px-4 text-center">
+            <p className="text-xs text-gray-400">상단의 테스트 실행 버튼으로 공개 테스트를 확인할 수 있습니다.</p>
+          </div>
+        ) : (
+          testResult.results.map((test) => (
+            <div
+              key={test.id}
+              className={`rounded-xl border p-3 ${
+                test.status === "PASS" ? "border-green-100 bg-green-50/60" : "border-rose-100 bg-rose-50/60"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm text-gray-900 truncate">{test.name}</div>
+                  {test.detail && <p className="mt-1 text-xs text-gray-500 leading-relaxed">{test.detail}</p>}
+                </div>
+                <span
+                  className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                    test.status === "PASS" ? "bg-green-100 text-green-700" : "bg-rose-100 text-rose-700"
+                  }`}
+                >
+                  {test.status}
+                </span>
+              </div>
+              <div className="mt-2 text-[11px] font-mono text-gray-400">{test.time}</div>
+            </div>
+          ))
+        )}
+      </div>
+    </aside>
+  );
+}
+
+function ProblemSidePanel({ problem }: { problem: ProblemDetailType | null }) {
+  return (
+    <aside className="dev2-ide-panel w-full bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col overflow-hidden">
+      <div className="px-4 py-3 border-b border-gray-100">
+        <div className="font-display font-bold text-gray-900 text-[15px]">과제 개요</div>
+        <p className="mt-1 text-xs text-gray-500 truncate">{problem?.title ?? "과제 정보를 불러오는 중입니다."}</p>
+      </div>
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+        {problem ? (
+          <>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-bold px-2 py-1 rounded bg-indigo-100 text-indigo-700">
+                {problem.category}
+              </span>
+              <span className="text-[10px] font-bold px-2 py-1 rounded bg-amber-100 text-amber-700">
+                Lv {problem.level}
+              </span>
+              <span className="text-[10px] font-bold px-2 py-1 rounded bg-gray-100 text-gray-600">
+                {problem.status}
+              </span>
+            </div>
+            <p className="text-sm text-gray-700 leading-relaxed">{problem.summary}</p>
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+              <div className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2">
+                <Clock size={10} />
+                예상 시간
+              </div>
+              <div className="font-display font-bold text-gray-900">{problem.estimate}</div>
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-gray-900 mb-2">요구 사항</h3>
+              <ul className="space-y-2">
+                {problem.requirements.slice(0, 5).map((requirement) => (
+                  <li key={requirement} className="flex items-start gap-2 text-xs text-gray-600 leading-relaxed">
+                    <Check size={11} strokeWidth={3} className="mt-0.5 shrink-0 text-green-600" />
+                    <span>{requirement}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-gray-900 mb-2">공개 케이스</h3>
+              <div className="space-y-2">
+                {problem.publicCases.map((test) => (
+                  <div key={test.id} className="rounded-lg border border-gray-100 p-2">
+                    <div className="text-xs font-semibold text-gray-800">{test.name}</div>
+                    <div className="mt-1 font-mono text-[11px] text-gray-500">{test.detail}</div>
+                    <div className="mt-1 text-[11px] text-green-700 font-semibold">{test.result}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="h-full flex items-center justify-center text-xs text-gray-400 text-center">
+            세션에 연결된 과제를 찾지 못했습니다.
+          </div>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+function TraceSidePanel({
+  traces,
+  agentRuns
+}: {
+  traces: TraceEvent[];
+  agentRuns: AgentRunTrace[];
+}) {
+  const latestRun = agentRuns[0] ?? null;
+  const failedSpans = latestRun?.spans.filter((span) => span.status === "FAILED") ?? [];
+  return (
+    <aside className="dev2-ide-panel w-full bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col overflow-hidden">
+      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+        <span className="font-display font-bold text-gray-900 text-[15px]">Trace 세션</span>
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">
+          {latestRun ? latestRun.status : `${traces.length} events`}
+        </span>
+      </div>
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
+        {latestRun ? (
+          <>
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+              <div className="text-xs text-gray-500 mb-1">최근 Agent Run</div>
+              <div className="font-mono text-xs text-gray-900 truncate">{latestRun.agentTraceId}</div>
+              <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-gray-600">
+                <span>{latestRun.spans.length} spans</span>
+                <span>{latestRun.totalInputTokens + latestRun.totalOutputTokens} tokens</span>
+                <span>{latestRun.totalCostCredits} credits</span>
+                <span>{latestRun.durationMs ? `${(latestRun.durationMs / 1000).toFixed(1)}s` : "진행 중"}</span>
+              </div>
+            </div>
+            {latestRun.summaryText && (
+              <p className="text-sm text-gray-700 leading-relaxed">{latestRun.summaryText}</p>
+            )}
+            {latestRun.errorMessage && (
+              <div className="rounded-xl border border-rose-100 bg-rose-50 p-3 text-xs text-rose-700 leading-relaxed">
+                {latestRun.errorMessage}
+              </div>
+            )}
+            <div>
+              <h3 className="text-xs font-bold text-gray-900 mb-2">Span 상태</h3>
+              <div className="space-y-2">
+                {latestRun.spans.slice(0, 8).map((span) => (
+                  <div key={span.spanId} className="flex items-center justify-between gap-2 text-xs">
+                    <span className="font-mono text-gray-700 truncate">{span.spanName}</span>
+                    <span
+                      className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                        span.status === "FAILED"
+                          ? "bg-rose-100 text-rose-700"
+                          : span.status === "RUNNING"
+                            ? "bg-indigo-100 text-indigo-700"
+                            : "bg-green-100 text-green-700"
+                      }`}
+                    >
+                      {span.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {failedSpans.length > 0 && (
+              <div className="rounded-xl border border-amber-100 bg-amber-50 p-3">
+                <div className="text-xs font-bold text-amber-800 mb-1">확인 필요</div>
+                <p className="text-xs text-amber-700 leading-relaxed">
+                  실패 span {failedSpans.length}개가 있습니다. Trace 탭에서 상세 입력/출력을 확인하세요.
+                </p>
+              </div>
+            )}
+          </>
+        ) : traces.length > 0 ? (
+          traces.slice(-8).reverse().map((trace) => (
+            <div key={trace.id} className="rounded-xl border border-gray-100 p-3">
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <span className="font-bold text-gray-900">{trace.type}</span>
+                <span className="font-mono text-gray-400">{trace.time}</span>
+              </div>
+              <p className="mt-1 text-xs text-gray-600 leading-relaxed">{trace.summary}</p>
+            </div>
+          ))
+        ) : (
+          <div className="h-full flex items-center justify-center px-4 text-center">
+            <p className="text-xs text-gray-400">AI 요청, 실행, 테스트를 수행하면 Trace가 쌓입니다.</p>
+          </div>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+function AiSidePanel() {
+  return (
+    <aside className="dev2-ide-panel w-full bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col">
+      <div className="px-4 py-3 border-b border-gray-100">
+        <span className="font-display font-bold text-gray-900 text-[15px]">AI 도우미</span>
+      </div>
+      <div className="flex-1 flex items-center justify-center px-4 text-center">
+        <p className="text-xs text-gray-400">오른쪽 AI 페어 패널에서 채팅과 코드 제안을 사용할 수 있습니다.</p>
+      </div>
+    </aside>
+  );
+}
+
 function SidePlaceholder({ title }: { title: string }) {
   return (
-    <aside className="w-full bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col">
+    <aside className="dev2-ide-panel w-full bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col">
       <div className="px-4 py-3 border-b border-gray-100">
         <span className="font-display font-bold text-gray-900 text-[15px]">{title}</span>
       </div>
@@ -1185,10 +1542,18 @@ function MainWorkspace({
   activeTabId,
   onSelectTab,
   onCloseTab,
+  problem,
   traces,
+  agentRuns,
   unsavedPaths,
   updateFileContent,
   setSelection,
+  runLoading,
+  testLoading,
+  submitLoading,
+  onRunCode,
+  onRunTests,
+  onSubmit,
   onFormatClick,
   onFindClick
 }: {
@@ -1200,14 +1565,23 @@ function MainWorkspace({
   activeTabId: string | null;
   onSelectTab: (id: string) => void;
   onCloseTab: (id: string) => void;
+  problem: ProblemDetailType | null;
   traces: TraceEvent[];
+  agentRuns: AgentRunTrace[];
   unsavedPaths: string[];
   updateFileContent: (path: string, content: string) => void;
   setSelection: (code: string, range: SelectionRange | null) => void;
+  runLoading: boolean;
+  testLoading: boolean;
+  submitLoading: boolean;
+  onRunCode: () => void;
+  onRunTests: () => void;
+  onSubmit: () => void;
   onFormatClick: () => void;
   onFindClick: () => void;
 }) {
   const anyDirty = openTabs.some((t) => t.dirty);
+  const traceCount = agentRuns[0]?.spans.length ?? traces.length;
   const tabs: {
     key: TabKey;
     label: string;
@@ -1217,13 +1591,13 @@ function MainWorkspace({
   }[] = [
     { key: "code", label: "코드", icon: Code2, dirty: anyDirty },
     { key: "problem", label: "과제", icon: ListChecks },
-    { key: "trace", label: "Trace", icon: GitBranch, count: traces.length || undefined }
+    { key: "trace", label: "Trace", icon: GitBranch, count: traceCount || undefined }
   ];
 
   return (
-    <section className="flex-1 min-h-0 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col overflow-hidden">
+    <section className="dev2-ide-main-panel flex-1 min-h-0 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col overflow-hidden">
       {/* Top-level tab strip */}
-      <div className="flex items-end border-b border-gray-100 px-3 pt-2 gap-1">
+      <div className="dev2-ide-primary-tabs flex items-stretch border-b border-gray-100 gap-0">
         {tabs.map((t) => {
           const active = activeTab === t.key;
           const Icon = t.icon;
@@ -1232,10 +1606,12 @@ function MainWorkspace({
               key={t.key}
               type="button"
               onClick={() => onTabChange(t.key)}
-              className={`relative inline-flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-sm transition-colors cursor-pointer ${
+              aria-label={`${t.label} 탭 열기`}
+              aria-pressed={active}
+              className={`relative inline-flex h-11 items-center gap-2 px-4 rounded-none border-0 border-r border-gray-100 text-sm transition-colors cursor-pointer ${
                 active
-                  ? "bg-white text-indigo-700 font-bold"
-                  : "text-gray-500 hover:text-gray-700 font-medium"
+                  ? "bg-indigo-50 border-indigo-100 text-indigo-700 font-bold shadow-sm"
+                  : "border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-700 font-medium"
               }`}
             >
               <Icon
@@ -1266,20 +1642,21 @@ function MainWorkspace({
 
       {/* File tab strip (only on code tab) */}
       {activeTab === "code" && openTabs.length > 0 && (
-        <div className="flex items-center border-b border-gray-100 bg-gray-50/40 overflow-x-auto">
+        <div className="dev2-ide-file-tabs flex items-center border-b border-gray-100 bg-gray-50/40 overflow-x-auto">
           {openTabs.map((tab) => {
             const isActive = tab.id === activeTabId;
             const isDiff = tab.kind === "diff";
             return (
               <div
                 key={tab.id}
-                className={`group shrink-0 flex items-center gap-1.5 border-r border-gray-100 pl-3 pr-1.5 py-1.5 text-xs transition-colors ${
-                  isActive ? "bg-white text-indigo-700" : "text-gray-500 hover:bg-white hover:text-gray-700"
+                className={`dev2-ide-file-tab group shrink-0 flex items-center gap-1.5 border-r border-gray-100 pl-3 pr-1.5 py-1.5 text-xs transition-colors ${
+                  isActive ? "bg-indigo-50/70 text-indigo-700" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
                 }`}
               >
                 <button
                   type="button"
                   onClick={() => onSelectTab(tab.id)}
+                  aria-label={`${tab.title} 탭 열기`}
                   className="inline-flex items-center gap-1.5 font-mono cursor-pointer"
                 >
                   {isDiff ? (
@@ -1326,8 +1703,18 @@ function MainWorkspace({
               onFindClick={onFindClick}
             />
           ))}
-        {activeTab === "problem" && <ProblemView />}
-        {activeTab === "trace" && <TraceView traces={traces} />}
+        {activeTab === "problem" && (
+          <ProblemView
+            problem={problem}
+            runLoading={runLoading}
+            testLoading={testLoading}
+            submitLoading={submitLoading}
+            onRunCode={onRunCode}
+            onRunTests={onRunTests}
+            onSubmit={onSubmit}
+          />
+        )}
+        {activeTab === "trace" && <TraceView traces={traces} agentRuns={agentRuns} />}
       </div>
     </section>
   );
@@ -1348,7 +1735,7 @@ function DiffCodeView({
   const language = useMemo(() => languageFromFile(sourceFile), [sourceFile]);
   return (
     <>
-      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 bg-gray-50/50 gap-3">
+      <div className="dev2-ide-subtoolbar flex items-center justify-between px-4 py-2 border-b border-gray-100 bg-gray-50/50 gap-3">
         <div className="flex items-center gap-2.5 min-w-0 text-sm">
           <code className="font-mono text-gray-700 truncate">{title}</code>
           <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
@@ -1377,7 +1764,7 @@ function DiffCodeView({
           }}
         />
       </div>
-      <div className="h-6 shrink-0 flex items-center justify-between px-4 bg-gray-50 border-t border-gray-100 text-[11px] text-gray-500">
+      <div className="dev2-ide-statusbar h-6 shrink-0 flex items-center justify-between px-4 bg-gray-50 border-t border-gray-100 text-[11px] text-gray-500">
         <span>diff · {language.toUpperCase()} · 읽기 전용</span>
         <span className="text-gray-400">왼쪽: 원본 / 오른쪽: AI 제안</span>
       </div>
@@ -1449,10 +1836,34 @@ function CodeView({
     [setSelection]
   );
 
+  const runEditorAction = useCallback((actionId: string, fallback: () => void) => {
+    const editor = editorRef.current as
+      | {
+          getAction?: (id: string) => { run: () => void | Promise<void> } | null;
+          focus?: () => void;
+        }
+      | null;
+    const action = editor?.getAction?.(actionId);
+    if (!action) {
+      fallback();
+      return;
+    }
+    editor?.focus?.();
+    void action.run();
+  }, []);
+
+  const handleFormatClick = useCallback(() => {
+    runEditorAction("editor.action.formatDocument", onFormatClick);
+  }, [onFormatClick, runEditorAction]);
+
+  const handleFindClick = useCallback(() => {
+    runEditorAction("actions.find", onFindClick);
+  }, [onFindClick, runEditorAction]);
+
   return (
     <>
       {/* Sub-toolbar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 bg-gray-50/50 gap-3">
+      <div className="dev2-ide-subtoolbar flex items-center justify-between px-4 py-2 border-b border-gray-100 bg-gray-50/50 gap-3">
         <div className="flex items-center gap-2.5 min-w-0 text-sm">
           <code className="font-mono text-gray-700 truncate">
             {activeFile?.path ?? "파일을 선택하세요"}
@@ -1465,8 +1876,8 @@ function CodeView({
           <span className="text-xs text-gray-400 tabular-nums">{lineCount}줄</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <ToolbarBtn icon={SlidersHorizontal} label="정렬" onClick={onFormatClick} />
-          <ToolbarBtn icon={Search} label="찾기" onClick={onFindClick} />
+          <ToolbarBtn icon={SlidersHorizontal} label="정렬" onClick={handleFormatClick} />
+          <ToolbarBtn icon={Search} label="찾기" onClick={handleFindClick} />
           <ToolbarBtn icon={Command} label="Vim 꺼짐" muted />
         </div>
       </div>
@@ -1504,7 +1915,7 @@ function CodeView({
       </div>
 
       {/* Status bar */}
-      <div className="h-6 shrink-0 flex items-center justify-between px-4 bg-gray-50 border-t border-gray-100 text-[11px] text-gray-500">
+      <div className="dev2-ide-statusbar h-6 shrink-0 flex items-center justify-between px-4 bg-gray-50 border-t border-gray-100 text-[11px] text-gray-500">
         <span>
           Ln {cursorInfo.line}, Col {cursorInfo.column} · UTF-8 · LF · {language.toUpperCase()}
         </span>
@@ -1546,120 +1957,206 @@ function ToolbarBtn({
 
 /* ─── Problem View ─── */
 
-function ProblemView() {
-  const requirements = [
-    "이메일·비밀번호 로그인이 Access + Refresh 토큰을 반환합니다",
-    "Refresh 토큰으로 새 Access 토큰을 발급합니다",
-    "/api/me 접근에는 유효한 Access 토큰이 필요합니다",
-    "로그아웃 시 Refresh 토큰을 무효화합니다",
-    "RS256 서명을 사용하고 Refresh 토큰을 안전하게 저장합니다",
-    "유닛·통합 테스트를 함께 작성합니다"
-  ];
+function ProblemView({
+  problem,
+  runLoading,
+  testLoading,
+  submitLoading,
+  onRunCode,
+  onRunTests,
+  onSubmit
+}: {
+  problem: ProblemDetailType | null;
+  runLoading: boolean;
+  testLoading: boolean;
+  submitLoading: boolean;
+  onRunCode: () => void;
+  onRunTests: () => void;
+  onSubmit: () => void;
+}) {
+  const description = useMemo(
+    () => problem?.description.replace(/^#\s+[^\n]+\n?/, "").trim() ?? "",
+    [problem?.description]
+  );
+  const busy = runLoading || testLoading || submitLoading;
 
-  const endpoints = [
-    { method: "POST", path: "/api/auth/login", desc: "사용자 인증", auth: "없음", req: "{ email, password }", res: "{ accessToken, refreshToken }" },
-    { method: "POST", path: "/api/auth/refresh", desc: "Access 토큰 갱신", auth: "없음", req: "{ refreshToken }", res: "{ accessToken }" },
-    { method: "GET", path: "/api/me", desc: "현재 사용자 조회", auth: "Bearer", req: "—", res: "{ user }" },
-    { method: "POST", path: "/api/auth/logout", desc: "로그아웃", auth: "Bearer", req: "—", res: "{ message }" }
-  ];
+  if (!problem) {
+    return (
+      <div className="flex-1 min-h-0 flex items-center justify-center px-8 py-7 text-sm text-gray-400">
+        세션에 연결된 과제를 찾지 못했습니다.
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 min-h-0 overflow-auto px-8 py-7">
-      <div className="flex items-center gap-3 mb-4">
-        <h1 className="text-3xl font-display font-bold text-gray-900 tracking-tight">
-          JWT 인증 플로우
-        </h1>
-        <span className="text-[10px] font-bold px-2 py-1 rounded bg-indigo-100 text-indigo-700">
-          API 구현
-        </span>
-        <span className="text-[10px] font-bold px-2 py-1 rounded bg-amber-100 text-amber-700">
-          Lv 2
-        </span>
-        <button
-          type="button"
-          className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:border-indigo-300 hover:text-indigo-600 text-sm font-semibold text-gray-700 transition-colors cursor-pointer"
-        >
-          <ExternalLink size={13} strokeWidth={2.2} />
-          <span>에디터에서 열기</span>
-        </button>
+      <div className="flex items-start gap-3 mb-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <span className="text-[10px] font-bold px-2 py-1 rounded bg-indigo-100 text-indigo-700">
+              {problem.category}
+            </span>
+            <span className="text-[10px] font-bold px-2 py-1 rounded bg-amber-100 text-amber-700">
+              Lv {problem.level}
+            </span>
+            <span className="text-[10px] font-bold px-2 py-1 rounded bg-gray-100 text-gray-600">
+              {problem.status}
+            </span>
+          </div>
+          <h1 className="text-3xl font-display font-bold text-gray-900 tracking-tight">
+            {problem.title}
+          </h1>
+        </div>
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={onRunCode}
+            disabled={busy}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-semibold transition-colors cursor-pointer ${
+              busy ? "border-gray-200 text-gray-400 cursor-not-allowed" : "border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+            }`}
+          >
+            {runLoading ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} fill="currentColor" />}
+            실행
+          </button>
+          <button
+            type="button"
+            onClick={onRunTests}
+            disabled={busy}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-semibold transition-colors cursor-pointer ${
+              busy ? "border-gray-200 text-gray-400 cursor-not-allowed" : "border-teal-300 text-teal-700 hover:bg-teal-50"
+            }`}
+          >
+            {testLoading ? <Loader2 size={13} className="animate-spin" /> : <TestTube size={13} />}
+            테스트
+          </button>
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={busy}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-bold transition-colors cursor-pointer ${
+              busy ? "opacity-70 cursor-not-allowed" : "hover:bg-indigo-700"
+            }`}
+          >
+            {submitLoading ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+            제출
+          </button>
+        </div>
       </div>
 
-      <p className="text-[15px] text-gray-600 leading-relaxed mb-6 max-w-3xl">
-        REST API를 위한 JWT 기반 인증 플로우를 안전하게 구현합니다. 사용자는 로그인, 토큰 갱신,
-        프로필 조회, 로그아웃을 수행할 수 있어야 하며, 보호 엔드포인트 접근에는 유효한 Access
-        토큰이 필요합니다.
+      <p className="text-[15px] text-gray-600 leading-relaxed mb-6 max-w-3xl whitespace-pre-line">
+        {description || problem.summary}
       </p>
 
-      <h2 className="font-display font-bold text-gray-900 text-lg mb-3">요구 사항</h2>
-      <ul className="space-y-2 mb-8">
-        {requirements.map((r) => (
-          <li key={r} className="flex items-start gap-2.5 text-[15px] text-gray-700">
-            <span className="shrink-0 mt-0.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-100 text-green-600">
-              <Check size={11} strokeWidth={3} />
-            </span>
-            <span>{r}</span>
-          </li>
-        ))}
-      </ul>
-
-      <h2 className="font-display font-bold text-gray-900 text-lg mb-3">API 엔드포인트</h2>
-      <div className="rounded-xl border border-gray-200 overflow-hidden mb-8">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-[11px] uppercase tracking-wider text-gray-500">
-            <tr>
-              <th className="text-left px-3 py-2 font-semibold">메서드</th>
-              <th className="text-left px-3 py-2 font-semibold">엔드포인트</th>
-              <th className="text-left px-3 py-2 font-semibold">설명</th>
-              <th className="text-left px-3 py-2 font-semibold">인증</th>
-              <th className="text-left px-3 py-2 font-semibold">요청</th>
-              <th className="text-left px-3 py-2 font-semibold">응답</th>
-            </tr>
-          </thead>
-          <tbody>
-            {endpoints.map((e) => (
-              <tr key={e.path} className="border-t border-gray-100">
-                <td className="px-3 py-2">
-                  <span
-                    className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${
-                      e.method === "GET"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-indigo-100 text-indigo-700"
-                    }`}
-                  >
-                    {e.method}
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_280px] gap-6">
+        <div className="min-w-0 space-y-8">
+          <section>
+            <h2 className="font-display font-bold text-gray-900 text-lg mb-3">요구 사항</h2>
+            <ul className="space-y-2">
+              {problem.requirements.map((requirement) => (
+                <li key={requirement} className="flex items-start gap-2.5 text-[15px] text-gray-700">
+                  <span className="shrink-0 mt-0.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-100 text-green-600">
+                    <Check size={11} strokeWidth={3} />
                   </span>
-                </td>
-                <td className="px-3 py-2 font-mono text-xs text-gray-700">{e.path}</td>
-                <td className="px-3 py-2 text-gray-600">{e.desc}</td>
-                <td className="px-3 py-2 text-gray-500">{e.auth}</td>
-                <td className="px-3 py-2 font-mono text-[11px] text-gray-500">{e.req}</td>
-                <td className="px-3 py-2 font-mono text-[11px] text-gray-500">{e.res}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  <span>{requirement}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
 
-      <div className="flex items-start justify-between gap-4 p-5 bg-indigo-50/50 border border-indigo-100 rounded-2xl">
-        <div>
-          <h3 className="font-display font-bold text-gray-900 text-[15px] mb-2">
-            메모 & 수용 기준
-          </h3>
-          <ul className="text-sm text-gray-700 space-y-1">
-            <li>• Access 토큰 TTL: 15분, Refresh 토큰 TTL: 7일</li>
-            <li>• 매 사용 시 Refresh 토큰 회전(rotate)</li>
-            <li>• 폐기된 Refresh 토큰은 재사용 불가</li>
-            <li>• 모든 엔드포인트는 적절한 HTTP 상태 코드를 반환</li>
-            <li>• 테스트 100% 통과</li>
-          </ul>
+          <section>
+            <h2 className="font-display font-bold text-gray-900 text-lg mb-3">API 엔드포인트</h2>
+            <div className="rounded-xl border border-gray-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-[11px] uppercase tracking-wider text-gray-500">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-semibold">메서드</th>
+                    <th className="text-left px-3 py-2 font-semibold">엔드포인트</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {problem.endpoints.map((endpoint) => {
+                    const [methodCandidate, ...pathParts] = endpoint.split(" ");
+                    const method = pathParts.length > 0 ? methodCandidate : "";
+                    const path = pathParts.length > 0 ? pathParts.join(" ") : endpoint;
+                    return (
+                      <tr key={endpoint} className="border-t border-gray-100">
+                        <td className="px-3 py-2 w-24">
+                          {method ? (
+                            <span
+                              className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${
+                                method === "GET"
+                                  ? "bg-green-100 text-green-700"
+                                  : method === "DELETE"
+                                    ? "bg-rose-100 text-rose-700"
+                                    : "bg-indigo-100 text-indigo-700"
+                              }`}
+                            >
+                              {method}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 font-mono text-xs text-gray-700">{path}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section>
+            <h2 className="font-display font-bold text-gray-900 text-lg mb-3">공개 테스트 케이스</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {problem.publicCases.map((test) => (
+                <div key={test.id} className="rounded-xl border border-gray-200 bg-white p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="font-semibold text-gray-900 text-sm">{test.name}</h3>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-green-100 text-green-700">
+                      공개
+                    </span>
+                  </div>
+                  <code className="mt-3 block rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-700 whitespace-pre-wrap">
+                    {test.detail}
+                  </code>
+                  <p className="mt-2 text-xs font-semibold text-green-700">{test.result}</p>
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
-        <div className="shrink-0 text-center bg-white rounded-xl border border-indigo-100 px-5 py-3">
-          <div className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-indigo-600 mb-1">
-            <Clock size={10} />
-            예상 시간
+
+        <aside className="space-y-4">
+          <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-5">
+            <div className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-indigo-600 mb-1">
+              <Clock size={10} />
+              예상 시간
+            </div>
+            <div className="font-display font-bold text-gray-900">{problem.estimate}</div>
           </div>
-          <div className="font-display font-bold text-gray-900">90–120 분</div>
-        </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <h3 className="font-display font-bold text-gray-900 text-[15px] mb-3">
+              수용 기준
+            </h3>
+            <ul className="space-y-2">
+              {problem.criteria.map((criterion) => (
+                <li key={criterion} className="flex items-start gap-2 text-sm text-gray-700 leading-relaxed">
+                  <ListChecks size={13} className="mt-0.5 shrink-0 text-indigo-600" />
+                  <span>{criterion}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-2xl border border-violet-100 bg-violet-50/50 p-5">
+            <div className="flex items-center gap-2 font-display font-bold text-gray-900 text-[15px] mb-2">
+              <Sparkles size={14} className="text-violet-600" />
+              AI 활용 가이드
+            </div>
+            <p className="text-sm text-gray-700 leading-relaxed">{problem.aiGuide}</p>
+          </div>
+        </aside>
       </div>
     </div>
   );
@@ -1673,58 +2170,126 @@ function kindFromTraceType(t: TraceEvent["type"]): "llm" | "tool" | "patch" | "r
   return "tool";
 }
 
-function TraceView({ traces }: { traces: TraceEvent[] }) {
-  const fallbackSpans = [
-    { name: "orchestrator", kind: "root" as const, start: 0, dur: 6420 },
-    { name: "plan-next-step", kind: "llm" as const, start: 0, dur: 1210, active: true },
-    { name: "reasoning", kind: "llm" as const, start: 1210, dur: 980 },
-    { name: "list_checks", kind: "tool" as const, start: 2190, dur: 780 },
-    { name: "read_problem_brief", kind: "tool" as const, start: 2970, dur: 420 },
-    { name: "search_codebase", kind: "tool" as const, start: 3390, dur: 680 },
-    { name: "apply_patch (시도 1)", kind: "patch" as const, start: 4070, dur: 1520 },
-    { name: "run_tests", kind: "tool" as const, start: 4070, dur: 1080 },
-    { name: "apply_patch (재시도 2)", kind: "patch" as const, start: 5150, dur: 1330 },
-    { name: "run_tests", kind: "tool" as const, start: 5150, dur: 890 }
-  ];
+type TraceSpanView = {
+  id: string;
+  name: string;
+  kind: "llm" | "tool" | "patch" | "root";
+  start: number;
+  dur: number;
+  active?: boolean;
+  status?: string;
+  detail?: string;
+  meta?: string;
+};
 
-  // Build real spans from traces if available
-  const { spans, total, runId, runTime } = useMemo(() => {
-    if (!traces.length) {
-      return { spans: fallbackSpans, total: 6420, runId: "a1b2c3f4", runTime: "10:41:02 AM" };
-    }
-    const sortedTraces = [...traces].sort(
-      (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()
-    );
-    const baseMs = new Date(sortedTraces[0].time).getTime();
-    const spansFromTraces = sortedTraces.map((e, i) => {
-      const start = Math.max(0, new Date(e.time).getTime() - baseMs);
-      const nextStart =
-        i + 1 < sortedTraces.length
-          ? Math.max(start + 200, new Date(sortedTraces[i + 1].time).getTime() - baseMs)
-          : start + 900;
+function kindFromAgentSpan(span: AgentRunTrace["spans"][number]): TraceSpanView["kind"] {
+  if (span.patches.length > 0) return "patch";
+  if (span.llmCalls.length > 0) return "llm";
+  if (span.toolCalls.length > 0) return "tool";
+  return "root";
+}
+
+function formatDurationMs(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(2)}s`;
+  return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`;
+}
+
+function TraceView({
+  traces,
+  agentRuns
+}: {
+  traces: TraceEvent[];
+  agentRuns: AgentRunTrace[];
+}) {
+  const latestRun = agentRuns[0] ?? null;
+
+  const { spans, total, runId, runTime, runStatus, summary, errorMessage, tokenTotal, costCredits } =
+    useMemo(() => {
+      if (latestRun) {
+        const baseMs = new Date(latestRun.startedAt).getTime();
+        const spansFromRun: TraceSpanView[] = [...latestRun.spans]
+          .sort((a, b) => a.sequenceNo - b.sequenceNo)
+          .map((span) => {
+            const startedAt = new Date(span.startedAt).getTime();
+            const endedAt = span.endedAt ? new Date(span.endedAt).getTime() : Date.now();
+            const start = Math.max(0, startedAt - baseMs);
+            const dur = Math.max(180, span.durationMs ?? endedAt - startedAt);
+            const toolNames = span.toolCalls.map((call) => call.toolName).join(", ");
+            const llmNames = span.llmCalls.map((call) => call.modelName).join(", ");
+            const patchNames = span.patches.map((patch) => patch.filePath).join(", ");
+            return {
+              id: span.spanId,
+              name: span.spanName,
+              kind: kindFromAgentSpan(span),
+              start,
+              dur,
+              active: span.status === "RUNNING" || span.status === "PENDING",
+              status: span.status,
+              detail: patchNames || toolNames || llmNames || undefined,
+              meta:
+                span.toolCalls.length > 0
+                  ? `${span.toolCalls.length} tools`
+                  : span.llmCalls.length > 0
+                    ? `${span.llmCalls.length} llm`
+                    : span.patches.length > 0
+                      ? `${span.patches.length} patches`
+                      : undefined
+            };
+          });
+        const rawTotal =
+          latestRun.durationMs ??
+          spansFromRun.reduce((max, span) => Math.max(max, span.start + span.dur), 1000);
+        return {
+          spans: spansFromRun,
+          total: Math.max(rawTotal, 1),
+          runId: latestRun.agentTraceId.replace(/^trace-/, ""),
+          runTime: new Date(latestRun.startedAt).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit"
+          }),
+          runStatus: latestRun.status,
+          summary: latestRun.summaryText,
+          errorMessage: latestRun.errorMessage,
+          tokenTotal: latestRun.totalInputTokens + latestRun.totalOutputTokens,
+          costCredits: latestRun.totalCostCredits
+        };
+      }
+
+      let cursor = 0;
+      const spansFromEvents: TraceSpanView[] = traces.map((event, index) => {
+        const kind = kindFromTraceType(event.type);
+        const dur = kind === "llm" ? 900 : kind === "patch" ? 650 : 460;
+        const start = cursor;
+        cursor += dur + 160;
+        return {
+          id: event.id,
+          name: event.summary || event.type,
+          kind,
+          start,
+          dur,
+          active: index === traces.length - 1,
+          status: event.type,
+          detail: event.detail,
+          meta: event.time
+        };
+      });
+      const rawTotal = spansFromEvents.reduce((max, span) => Math.max(max, span.start + span.dur), 1000);
       return {
-        name: e.summary || e.type,
-        kind: kindFromTraceType(e.type),
-        start,
-        dur: Math.max(300, nextStart - start),
-        active: i === sortedTraces.length - 1,
-        detail: e.detail
+        spans: spansFromEvents,
+        total: Math.max(rawTotal, 1),
+        runId: traces[0]?.id.slice(0, 8) ?? "-",
+        runTime: traces[0]?.time ?? "-",
+        runStatus: traces.length > 0 ? "EVENTS" : "EMPTY",
+        summary: null,
+        errorMessage: null,
+        tokenTotal: 0,
+        costCredits: 0
       };
-    });
-    const rawTotal = spansFromTraces.at(-1)
-      ? spansFromTraces.at(-1)!.start + spansFromTraces.at(-1)!.dur
-      : 1000;
-    return {
-      spans: spansFromTraces,
-      total: Math.max(rawTotal, 1),
-      runId: sortedTraces[0].id.slice(0, 8),
-      runTime: new Date(sortedTraces[0].time).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit"
-      })
-    };
-  }, [traces]);
+    }, [latestRun, traces]);
+
+  const markers = [0, 0.25, 0.5, 0.75, 1];
 
   return (
     <div className="flex-1 min-h-0 overflow-auto p-5">
@@ -1737,20 +2302,40 @@ function TraceView({ traces }: { traces: TraceEvent[] }) {
         <span className="text-xs text-gray-500 tabular-nums">{runTime}</span>
         <span className="text-xs text-gray-400">·</span>
         <span className="text-xs text-gray-700 font-semibold tabular-nums">
-          {(total / 1000).toFixed(2)}초
+          {formatDurationMs(total)}
         </span>
         <span className="text-xs text-gray-400">·</span>
         <span className="text-xs text-gray-700 font-semibold tabular-nums">
           {spans.length} spans
         </span>
-        {traces.length === 0 ? (
+        {latestRun && (
+          <>
+            <span className="text-xs text-gray-400">·</span>
+            <span className="text-xs text-gray-700 font-semibold tabular-nums">
+              {tokenTotal.toLocaleString()} tokens
+            </span>
+            <span className="text-xs text-gray-400">·</span>
+            <span className="text-xs text-gray-700 font-semibold tabular-nums">
+              {costCredits} credits
+            </span>
+          </>
+        )}
+        {runStatus === "EMPTY" ? (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-bold">
-            샘플
+            대기
           </span>
-        ) : (
+        ) : runStatus === "RUNNING" || runStatus === "EVENTS" ? (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-100 text-green-700 text-xs font-bold">
             <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
             라이브
+          </span>
+        ) : (
+          <span
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
+              runStatus === "FAILED" ? "bg-rose-100 text-rose-700" : "bg-indigo-100 text-indigo-700"
+            }`}
+          >
+            {runStatus}
           </span>
         )}
         <div className="ml-auto flex items-center gap-1.5">
@@ -1759,22 +2344,38 @@ function TraceView({ traces }: { traces: TraceEvent[] }) {
         </div>
       </div>
 
+      {(summary || errorMessage) && (
+        <div
+          className={`mb-4 rounded-xl border p-4 text-sm leading-relaxed ${
+            errorMessage ? "border-rose-100 bg-rose-50 text-rose-700" : "border-indigo-100 bg-indigo-50/60 text-gray-700"
+          }`}
+        >
+          {errorMessage ?? summary}
+        </div>
+      )}
+
       {/* Waterfall */}
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
         <div className="flex items-center text-[10px] text-gray-400 font-mono border-b border-gray-100 px-3 py-2">
           <span className="w-56 shrink-0" />
           <div className="flex-1 relative h-3">
-            {[0, 1, 2, 3, 4, 5, 6].map((s) => (
+            {markers.map((marker) => (
               <span
-                key={s}
+                key={marker}
                 className="absolute top-0 tabular-nums"
-                style={{ left: `${((s * 1000) / total) * 100}%` }}
+                style={{ left: `${marker * 100}%`, transform: marker === 1 ? "translateX(-100%)" : undefined }}
               >
-                {s}s
+                {formatDurationMs(total * marker)}
               </span>
             ))}
           </div>
         </div>
+
+        {spans.length === 0 && (
+          <div className="px-5 py-12 text-center text-sm text-gray-400">
+            아직 표시할 Trace가 없습니다. AI 요청, 코드 실행, 테스트를 수행하면 여기에 기록됩니다.
+          </div>
+        )}
 
         {spans.map((s, i) => {
           const left = (s.start / total) * 100;
@@ -1787,10 +2388,10 @@ function TraceView({ traces }: { traces: TraceEvent[] }) {
                 : s.kind === "patch"
                   ? "#FCD34D"
                   : "#818CF8";
-          const active = (s as { active?: boolean }).active;
+          const active = s.active;
           return (
             <div
-              key={i}
+              key={s.id}
               className={`flex items-center text-xs px-3 py-1.5 border-b border-gray-50 last:border-b-0 ${
                 active ? "bg-indigo-50/60" : "hover:bg-gray-50"
               } transition-colors cursor-pointer`}
@@ -1809,9 +2410,23 @@ function TraceView({ traces }: { traces: TraceEvent[] }) {
                 )}
                 <span
                   className={`truncate ${active ? "text-indigo-900 font-semibold" : "text-gray-700"}`}
+                  title={s.detail}
                 >
                   {s.name}
                 </span>
+                {s.status && (
+                  <span
+                    className={`shrink-0 text-[9px] font-bold px-1 py-0.5 rounded ${
+                      s.status === "FAILED"
+                        ? "bg-rose-100 text-rose-700"
+                        : s.status === "RUNNING"
+                          ? "bg-indigo-100 text-indigo-700"
+                          : "bg-gray-100 text-gray-500"
+                    }`}
+                  >
+                    {s.status}
+                  </span>
+                )}
               </div>
               <div className="flex-1 relative h-5">
                 <div
@@ -1827,7 +2442,7 @@ function TraceView({ traces }: { traces: TraceEvent[] }) {
                   className="absolute top-0.5 h-4 flex items-center text-[10px] text-gray-500 font-mono tabular-nums"
                   style={{ left: `calc(${left + width}% + 6px)` }}
                 >
-                  {s.dur < 1000 ? `${s.dur}ms` : `${(s.dur / 1000).toFixed(2)}s`}
+                  {s.meta ? `${formatDurationMs(s.dur)} · ${s.meta}` : formatDurationMs(s.dur)}
                 </span>
               </div>
             </div>
@@ -1868,7 +2483,8 @@ function AiPairPanel({
   aiQuota,
   onSend,
   sessionId,
-  activeFile
+  activeFile,
+  onAfterMutation
 }: {
   aiMode: "chat" | "edit";
   setAiMode: (m: "chat" | "edit") => void;
@@ -1883,12 +2499,14 @@ function AiPairPanel({
   onSend: () => void;
   sessionId: string;
   activeFile: WorkspaceFile | null;
+  onAfterMutation?: () => void;
 }) {
   const addToast = useUiStore((s) => s.addToast);
   const selectedCode = useIdeStore((s) => s.selectedCode);
   const suggestion = useIdeStore((s) => s.suggestion);
   const setSuggestion = useIdeStore((s) => s.setSuggestion);
   const updateFileContent = useIdeStore((s) => s.updateFileContent);
+  const markSaved = useIdeStore((s) => s.markSaved);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -1921,12 +2539,13 @@ function AiPairPanel({
       setSuggestion(next);
       setComposerValue("");
       addToast("AI 수정 제안이 준비되었습니다.", "success");
+      onAfterMutation?.();
     } catch (err) {
       addToast(err instanceof Error ? err.message : "AI 수정 실패", "error");
     } finally {
       setEditLoading(false);
     }
-  }, [activeFile, selectedCode, composerValue, sessionId, setSuggestion, setComposerValue, addToast]);
+  }, [activeFile, selectedCode, composerValue, sessionId, setSuggestion, setComposerValue, addToast, onAfterMutation]);
 
   const handleApplySuggestion = useCallback(async () => {
     if (!activeFile || !suggestion) return;
@@ -1934,12 +2553,14 @@ function AiPairPanel({
     updateFileContent(activeFile.path, nextContent);
     try {
       await mockApi.applyAiEdit(sessionId, activeFile.path, nextContent, suggestion.summary);
+      markSaved(activeFile.path, new Date().toISOString());
       addToast("패치를 적용했습니다.", "success");
       setSuggestion(null);
+      onAfterMutation?.();
     } catch (err) {
       addToast(err instanceof Error ? err.message : "패치 적용 실패", "error");
     }
-  }, [activeFile, suggestion, updateFileContent, sessionId, addToast, setSuggestion]);
+  }, [activeFile, suggestion, updateFileContent, sessionId, markSaved, addToast, setSuggestion, onAfterMutation]);
 
   const placeholder =
     aiMode === "chat"
@@ -1949,7 +2570,7 @@ function AiPairPanel({
   const disabled = streaming || (aiMode === "edit" && editLoading);
 
   return (
-    <aside className="w-96 shrink-0 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col overflow-hidden">
+    <aside className="dev2-ide-ai-panel w-full shrink-0 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col overflow-hidden">
       {/* Header */}
       <div className="px-5 py-3 border-b border-gray-100">
         <div className="flex items-center justify-between gap-2 mb-2">
@@ -2232,7 +2853,7 @@ function BottomTray({
   ];
 
   return (
-    <section className="h-48 shrink-0 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col overflow-hidden">
+    <section className="dev2-ide-bottom-panel h-full shrink-0 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col overflow-hidden">
       <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2 gap-2">
         <div className="flex items-center gap-1">
           {tabs.map((t) => {
@@ -2284,7 +2905,7 @@ function BottomTray({
           <IconBtn icon={Trash2} label="지우기" />
         </div>
       </div>
-      <div className="flex-1 min-h-0 p-3 bg-[#0F0C2F] font-mono text-xs text-gray-200 overflow-auto">
+      <div className="dev2-ide-terminal flex-1 min-h-0 p-3 bg-[#0F0C2F] font-mono text-xs text-gray-200 overflow-auto">
         {activeTab === "terminal" && <TerminalBody runResult={runResult} />}
         {activeTab === "tests" && <TestsBody testResult={testResult} />}
         {activeTab === "problems" && <ProblemsBody testResult={testResult} />}
