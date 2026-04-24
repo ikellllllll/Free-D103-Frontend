@@ -10,7 +10,6 @@ import {
   ArrowRight,
   Sparkles,
   Clock,
-  Code2,
   Rocket,
   AlertTriangle,
   Check,
@@ -167,7 +166,7 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
   }
 
   return (
-    <div className="relative bg-gradient-to-b from-indigo-50/40 via-white to-white min-h-screen overflow-hidden">
+    <div className="relative bg-gradient-to-b from-violet-200/70 via-indigo-100/60 to-slate-100 min-h-screen overflow-hidden">
       {/* Floating orbs (mirror the problems list background) */}
       <div className="absolute top-0 left-0 right-0 h-[700px] pointer-events-none overflow-hidden">
         <div className="absolute -top-10 -left-40 w-[460px] h-[460px] rounded-full bg-indigo-400/30 blur-3xl animate-blob-1" />
@@ -185,28 +184,25 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
           <span>과제 목록</span>
         </Link>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
           {/* ── Main Column ── */}
           <div className="space-y-6">
             {/* Hero Card */}
             <section
-              className="relative bg-white rounded-2xl border border-gray-100 shadow-sm p-8 md:p-10 overflow-hidden animate-slide-up"
+              className="relative bg-white rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)] p-8 md:p-10 overflow-hidden animate-slide-up"
             >
-              {/* Soft gradient wash */}
               <div
                 className="absolute inset-0 pointer-events-none opacity-70"
                 style={{
                   backgroundImage:
-                    "linear-gradient(135deg, rgba(238, 242, 255, 0.9) 0%, rgba(250, 245, 255, 0.6) 60%, rgba(255, 255, 255, 0) 100%)"
+                    "linear-gradient(135deg, rgba(238,242,255,0.9) 0%, rgba(250,245,255,0.6) 60%, rgba(255,255,255,0) 100%)"
                 }}
               />
               <div className="relative flex items-start justify-between gap-4 mb-4">
                 <h1 className="text-3xl md:text-4xl font-display font-bold text-gray-900 tracking-tight leading-[1.15]">
                   {problem.title}
                 </h1>
-                <span
-                  className={`shrink-0 text-xs font-bold px-3 py-1.5 rounded-full ${LEVEL_STYLES[problem.level]}`}
-                >
+                <span className={`shrink-0 text-xs font-bold px-3 py-1.5 rounded-full ${LEVEL_STYLES[problem.level]}`}>
                   Lv {problem.level}
                 </span>
               </div>
@@ -215,106 +211,10 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
               </p>
             </section>
 
-            {/* Language + Model + Start Card */}
-            <section
-              className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 space-y-6 animate-slide-up"
-              style={{ animationDelay: "0.05s", animationFillMode: "both" }}
-            >
-              {/* Language */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 mb-3">
-                  Language
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {LANG_OPTIONS.map((opt) => {
-                    const active = language === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setLanguage(opt.value)}
-                        className={`flex items-center p-4 rounded-xl border-2 text-left transition-all ${
-                          active
-                            ? "border-indigo-500 bg-indigo-50/40 shadow-sm"
-                            : "border-gray-200 bg-white hover:border-indigo-200"
-                        }`}
-                      >
-                        <LangIcon language={opt.value} size={28} />
-                        <div className="flex-1 ml-3">
-                          <div className="font-semibold text-gray-900 text-[15px]">
-                            {opt.label}
-                          </div>
-                          <div className="text-xs text-gray-500 mt-0.5">{opt.desc}</div>
-                        </div>
-                        {/* Right check circle */}
-                        <span
-                          className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-all ${
-                            active
-                              ? "bg-indigo-600 text-white"
-                              : "border border-gray-300 bg-white"
-                          }`}
-                        >
-                          {active && <Check size={14} strokeWidth={3} />}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* AI Model */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 mb-3">
-                  AI Model
-                </label>
-                <ModelSelect
-                  aiModel={aiModel}
-                  setAiModel={setAiModel}
-                  byokKeys={byokKeys}
-                  open={modelMenuOpen}
-                  setOpen={setModelMenuOpen}
-                />
-
-                {needsKey && (
-                  <div className="mt-2.5 flex items-center space-x-2 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg px-3.5 py-2.5">
-                    <AlertTriangle size={14} className="shrink-0" />
-                    <span className="font-medium">
-                      선택한 Provider API 키가 필요합니다.{" "}
-                      <Link
-                        href={withPrefix("/mypage")}
-                        className="underline hover:text-amber-900"
-                      >
-                        마이페이지에서 등록
-                      </Link>
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Start button */}
-              <button
-                type="button"
-                onClick={handleStart}
-                className="group w-full flex items-center justify-center space-x-2 text-white font-semibold py-4 rounded-2xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
-                style={{
-                  backgroundImage: "linear-gradient(90deg, #4F46E5, #7C3AED)",
-                  boxShadow: "0 16px 32px -12px rgba(99, 102, 241, 0.5)"
-                }}
-              >
-                <Rocket size={16} strokeWidth={2.4} />
-                <span className="text-[15px]">풀이 시작</span>
-                <ArrowRight
-                  size={16}
-                  strokeWidth={2.4}
-                  className="group-hover:translate-x-0.5 transition-transform"
-                />
-              </button>
-            </section>
-
             {/* Problem Brief */}
             <section
-              className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 animate-slide-up"
-              style={{ animationDelay: "0.1s", animationFillMode: "both" }}
+              className="bg-white rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)] p-8 animate-slide-up"
+              style={{ animationDelay: "0.05s", animationFillMode: "both" }}
             >
               <span className="block text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 mb-2">
                 Problem Brief
@@ -322,23 +222,17 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
               <h2 className="text-xl font-display font-bold text-gray-900 mb-4">
                 Requirements
               </h2>
-
               <div className="prose-mini text-[15px] text-gray-700 leading-relaxed mb-5">
                 <Markdown>{problem.description}</Markdown>
               </div>
-
               <ul className="space-y-2 mb-6">
                 {problem.requirements.map((req) => (
-                  <li
-                    key={req}
-                    className="flex items-start space-x-2.5 text-[15px] text-gray-700"
-                  >
+                  <li key={req} className="flex items-start space-x-2.5 text-[15px] text-gray-700">
                     <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-indigo-500 mt-2.5" />
                     <span className="leading-relaxed">{req}</span>
                   </li>
                 ))}
               </ul>
-
               {/* Endpoints code block */}
               <div className="relative bg-gray-900 rounded-xl overflow-hidden">
                 <button
@@ -354,20 +248,14 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
                   )}
                 </button>
                 <div className="flex">
-                  {/* Line numbers */}
                   <div className="shrink-0 py-4 pl-4 pr-3 text-xs font-mono text-gray-600 select-none">
                     {problem.endpoints.map((_, i) => (
-                      <div key={i} className="leading-6">
-                        {i + 1}
-                      </div>
+                      <div key={i} className="leading-6">{i + 1}</div>
                     ))}
                   </div>
-                  {/* Code */}
                   <pre className="flex-1 py-4 pr-4 text-sm text-gray-100 font-mono leading-6 overflow-x-auto">
                     {problem.endpoints.map((line, i) => (
-                      <div key={i}>
-                        {highlightEndpoint(line)}
-                      </div>
+                      <div key={i}>{highlightEndpoint(line)}</div>
                     ))}
                   </pre>
                 </div>
@@ -378,32 +266,20 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
           {/* ── Side Column ── */}
           <aside className="lg:sticky lg:top-24 self-start">
             <section
-              className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 animate-slide-up"
-              style={{ animationDelay: "0.15s", animationFillMode: "both" }}
+              className="bg-white rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)] p-6 space-y-5 animate-slide-up"
+              style={{ animationDelay: "0.1s", animationFillMode: "both" }}
             >
               {/* Header */}
-              <div className="flex items-center space-x-2.5 pb-5 border-b border-gray-100">
-                <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600">
+              <div className="flex items-center space-x-2.5 pb-4 border-b border-gray-100">
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-700">
                   <Info size={16} strokeWidth={2.2} />
                 </span>
-                <span className="font-display font-bold text-gray-900 text-[17px]">
-                  과제 정보
-                </span>
+                <span className="font-display font-bold text-gray-900 text-[17px]">과제 정보</span>
               </div>
 
-              {/* Rows */}
-              <div className="py-2 divide-y divide-gray-100">
+              {/* Meta rows */}
+              <div className="divide-y divide-gray-100">
                 <MetaRow label="카테고리" value={problem.category} />
-                <MetaRow
-                  label="언어"
-                  value={
-                    <span className="inline-flex items-center space-x-1.5">
-                      <LangIcon language={language} size={14} />
-                      <span>{language === "java" ? "Java" : "Python"}</span>
-                    </span>
-                  }
-                />
-                <MetaRow label="AI 모델" value={aiModel.label} />
                 <MetaRow
                   label="예상 시간"
                   value={
@@ -416,14 +292,74 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
                 <MetaRow label="통과율" value={`${problem.passRate}%`} />
               </div>
 
-              {/* IDE button */}
+              {/* Language */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 mb-2.5">
+                  Language
+                </label>
+                <div className="flex flex-col gap-2">
+                  {LANG_OPTIONS.map((opt) => {
+                    const active = language === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setLanguage(opt.value)}
+                        className={`flex items-center gap-2.5 p-3 rounded-xl border-2 text-left transition-all ${
+                          active
+                            ? "border-indigo-500 bg-indigo-50/40 shadow-sm"
+                            : "border-gray-200 bg-white hover:border-indigo-200"
+                        }`}
+                      >
+                        <LangIcon language={opt.value} size={22} />
+                        <div className="min-w-0">
+                          <div className="font-semibold text-gray-900 text-sm">{opt.label}</div>
+                          <div className="text-[11px] text-gray-500 truncate">{opt.desc}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* AI Model */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 mb-2.5">
+                  AI Model
+                </label>
+                <ModelSelect
+                  aiModel={aiModel}
+                  setAiModel={setAiModel}
+                  byokKeys={byokKeys}
+                  open={modelMenuOpen}
+                  setOpen={setModelMenuOpen}
+                />
+                {needsKey && (
+                  <div className="mt-2.5 flex items-center space-x-2 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg px-3.5 py-2.5">
+                    <AlertTriangle size={14} className="shrink-0" />
+                    <span className="font-medium">
+                      API 키가 필요합니다.{" "}
+                      <Link href={withPrefix("/mypage")} className="underline hover:text-amber-900">
+                        마이페이지에서 등록
+                      </Link>
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Start button */}
               <button
                 type="button"
                 onClick={handleStart}
-                className="mt-5 w-full flex items-center justify-center space-x-2 bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3.5 rounded-xl transition-colors"
+                className="group w-full flex items-center justify-center space-x-2 text-white font-semibold py-4 rounded-2xl hover:-translate-y-0.5 transition-all"
+                style={{
+                  backgroundImage: "linear-gradient(90deg, #4F46E5, #7C3AED)",
+                  boxShadow: "0 16px 32px -12px rgba(99,102,241,0.5)"
+                }}
               >
-                <Code2 size={16} strokeWidth={2.2} />
-                <span>IDE로 바로 시작</span>
+                <Rocket size={16} strokeWidth={2.4} />
+                <span className="text-[15px]">풀이 시작</span>
+                <ArrowRight size={16} strokeWidth={2.4} className="group-hover:translate-x-0.5 transition-transform" />
               </button>
             </section>
           </aside>

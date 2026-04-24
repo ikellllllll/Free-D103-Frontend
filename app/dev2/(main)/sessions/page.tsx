@@ -507,7 +507,7 @@ function SessionRow({
         ? { text: "중단됨", cls: "bg-slate-100 text-slate-600 ring-slate-200" }
         : { text: "진행 중", cls: "bg-indigo-50 text-indigo-700 ring-indigo-100" };
 
-  const langTint = session.language === "java" ? "bg-orange-50" : "bg-yellow-50";
+  const langTint = "bg-gray-100";
 
   const progress = isInProgress ? progressFor(session) : 0;
 
