@@ -494,27 +494,26 @@ function TeaserCard({
         aria-hidden="true"
       />
 
-      {/* Tag pill top center */}
-      <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
-        <span
-          className={`inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${tagCls} shadow-sm`}
-        >
-          {tag}
-        </span>
-      </div>
-
-      <div className="relative flex items-baseline justify-between mb-4">
-        <span
-          className={`font-display font-bold text-2xl tracking-tight bg-gradient-to-br ${accent} bg-clip-text text-transparent`}
-        >
-          {index}
-        </span>
-        <span className="text-[10px] font-bold tabular-nums text-gray-900">
+      {/* Top row: tag + index (left) | progress % (right) */}
+      <div className="relative flex items-center justify-between mb-5">
+        <div className="flex items-center gap-2">
+          <span
+            className={`inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${tagCls}`}
+          >
+            {tag}
+          </span>
+          <span
+            className={`font-mono font-bold text-xs tabular-nums bg-gradient-to-br ${accent} bg-clip-text text-transparent`}
+          >
+            {index}
+          </span>
+        </div>
+        <span className="text-[11px] font-bold tabular-nums text-gray-900">
           {progressLabel}
         </span>
       </div>
 
-      <h3 className="relative font-display font-bold text-gray-900 text-[17px] mb-1.5 text-balance">
+      <h3 className="relative font-display font-bold text-gray-900 text-xl leading-tight mb-2 text-balance">
         {title}
       </h3>
       <p className="relative text-sm text-gray-500 leading-relaxed mb-6">{desc}</p>
@@ -540,48 +539,55 @@ function Roadmap({
 }: {
   items: { q: string; title: string; state: MilestoneState }[];
 }) {
-  return (
-    <div className={`relative rounded-2xl ${GLASS} px-6 py-8`}>
-      <div className="relative grid grid-cols-4 gap-4">
-        {/* Connecting line underlay */}
-        <div className="absolute top-[22px] left-[12.5%] right-[12.5%] flex items-center">
-          {items.slice(0, -1).map((it, i) => {
-            const nextState = items[i + 1].state;
-            const cls =
-              it.state === "done" && nextState === "done"
-                ? "bg-indigo-400"
-                : it.state === "done" && nextState === "current"
-                  ? "bg-gradient-to-r from-indigo-400 to-violet-500"
-                  : it.state === "current"
-                    ? "bg-gradient-to-r from-violet-500 to-gray-200"
-                    : "bg-gray-200";
-            return (
-              <div
-                key={i}
-                className={`flex-1 h-0.5 mx-1 ${it.state === "planned" ? "border-t-2 border-dashed border-gray-300 h-0" : cls}`}
-              />
-            );
-          })}
-        </div>
+  const segmentCls = (left: MilestoneState, right: MilestoneState) => {
+    if (left === "done" && right === "done") return "bg-indigo-400";
+    if (left === "done" && right === "current")
+      return "bg-gradient-to-r from-indigo-400 to-violet-500";
+    if (left === "current")
+      return "bg-gradient-to-r from-violet-500 to-gray-300";
+    return "bg-gray-200";
+  };
 
-        {items.map((m) => (
-          <div
-            key={m.q}
-            className="relative flex flex-col items-center text-center z-10"
-          >
-            <MilestoneDot state={m.state} />
-            <div className="mt-3 font-display font-bold text-gray-900">{m.q}</div>
-            <div
-              className={`text-xs mt-0.5 ${
-                m.state === "current"
-                  ? "text-indigo-600 font-semibold"
-                  : m.state === "done"
-                    ? "text-gray-700"
-                    : "text-gray-400"
-              }`}
-            >
-              {m.title}
+  return (
+    <div className={`relative rounded-2xl ${GLASS} px-4 sm:px-8 py-8`}>
+      {/* Dots + segments row */}
+      <div className="flex items-center">
+        {items.map((m, i) => (
+          <div key={m.q} className="contents">
+            <div className="relative flex items-center justify-center w-11 shrink-0">
+              <MilestoneDot state={m.state} />
             </div>
+            {i < items.length - 1 && (
+              <div
+                className={`flex-1 h-1 rounded-full mx-1 ${segmentCls(m.state, items[i + 1].state)}`}
+                aria-hidden="true"
+              />
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Labels row — each column aligns with its dot above */}
+      <div className="mt-4 flex items-start">
+        {items.map((m, i) => (
+          <div key={m.q} className="contents">
+            <div className="w-11 shrink-0 flex flex-col items-center text-center">
+              <div className="font-display font-bold text-gray-900 text-sm leading-tight">
+                {m.q}
+              </div>
+              <div
+                className={`text-[11px] leading-tight mt-1 whitespace-nowrap ${
+                  m.state === "current"
+                    ? "text-indigo-600 font-semibold"
+                    : m.state === "done"
+                      ? "text-gray-700"
+                      : "text-gray-400"
+                }`}
+              >
+                {m.title}
+              </div>
+            </div>
+            {i < items.length - 1 && <div className="flex-1 mx-1" aria-hidden="true" />}
           </div>
         ))}
       </div>
