@@ -74,20 +74,17 @@ jobs:
             "https://oauth2:${GITLAB_TOKEN}@lab.ssafy.com/s14-final/S14P31D103.git" \
             ../gitlab-mirror
 
-      - name: Build frontend/dev from master + rewritten history
+      - name: Replace frontend/dev with rewritten history (no merge commit)
         working-directory: ../gitlab-mirror
         run: |
-          # master를 받아와 frontend/dev 브랜치를 매번 신규로 만듦
-          git fetch origin master
-          git checkout -B frontend/dev origin/master
-
-          # 재작성된 (상위 디렉토리에 있는) repo를 로컬 remote로 추가
+          # 재작성된 repo의 main 브랜치를 그대로 frontend/dev로 설정.
+          # master와 머지하지 않음 — 머지는 팀이 GitLab에서 MR 통해 진행.
+          # 결과: frontend/dev에는 frontend/ 파일만, 봇 머지 커밋 없음,
+          #       모든 커밋이 원 작성자(이상헌/김민서/...) 이름으로 표시됨.
           git remote add rewritten "$GITHUB_WORKSPACE"
           git fetch rewritten main
-
-          # master 위에 rewritten을 머지 (unrelated histories 허용)
-          git merge rewritten/main --allow-unrelated-histories --no-ff \
-            -m "chore(sync): GitHub main → frontend/dev 자동 미러 (${GITHUB_SHA::7})"
+          git branch -f frontend/dev rewritten/main
+          git checkout frontend/dev
 
       - name: Force push frontend/dev to GitLab
         working-directory: ../gitlab-mirror
