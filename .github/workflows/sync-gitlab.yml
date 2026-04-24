@@ -1,11 +1,11 @@
-name: Sync to SSAFY GitLab (frontend/dev)
+name: Sync to SSAFY GitLab (front/dev)
 
-# GitHub main 브랜치에 push되면 자동으로 GitLab의 frontend/dev 브랜치로 미러링
+# GitHub main 브랜치에 push되면 자동으로 GitLab의 front/dev 브랜치로 미러링
 # - v0 봇 author → 김민서로 재작성
 # - Claude Co-Authored-By trailer 제거
 # - 대용량 이미지/로그 파일 히스토리에서 제거
 # - 모든 파일을 frontend/ 서브디렉토리 아래로 이동
-# - 매 실행마다 frontend/dev 브랜치를 force-push로 덮어씀 (읽기 전용 미러)
+# - 매 실행마다 front/dev 브랜치를 force-push로 덮어씀 (읽기 전용 미러)
 
 on:
   push:
@@ -74,23 +74,23 @@ jobs:
             "https://oauth2:${GITLAB_TOKEN}@lab.ssafy.com/s14-final/S14P31D103.git" \
             ../gitlab-mirror
 
-      - name: Replace frontend/dev with rewritten history (no merge commit)
+      - name: Replace front/dev with rewritten history (no merge commit)
         working-directory: ../gitlab-mirror
         run: |
-          # 재작성된 repo의 main 브랜치를 그대로 frontend/dev로 설정.
+          # 재작성된 repo의 main 브랜치를 그대로 front/dev로 설정.
           # master와 머지하지 않음 — 머지는 팀이 GitLab에서 MR 통해 진행.
-          # 결과: frontend/dev에는 frontend/ 파일만, 봇 머지 커밋 없음,
+          # 결과: front/dev에는 frontend/ 파일만, 봇 머지 커밋 없음,
           #       모든 커밋이 원 작성자(이상헌/김민서/...) 이름으로 표시됨.
           git remote add rewritten "$GITHUB_WORKSPACE"
           git fetch rewritten main
-          git branch -f frontend/dev rewritten/main
-          git checkout frontend/dev
+          git branch -f front/dev rewritten/main
+          git checkout front/dev
 
-      - name: Force push frontend/dev to GitLab
+      - name: Force push front/dev to GitLab
         working-directory: ../gitlab-mirror
         run: |
-          git push --force origin frontend/dev
-          echo "✅ GitLab frontend/dev 브랜치 동기화 완료"
+          git push --force origin front/dev
+          echo "✅ GitLab front/dev 브랜치 동기화 완료"
 
       - name: Summary
         if: always()
@@ -98,4 +98,4 @@ jobs:
           echo "### SSAFY GitLab Sync 결과" >> $GITHUB_STEP_SUMMARY
           echo "- 트리거: \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- GitHub SHA: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- GitLab 브랜치: [frontend/dev](https://lab.ssafy.com/s14-final/S14P31D103/-/tree/frontend/dev)" >> $GITHUB_STEP_SUMMARY
+          echo "- GitLab 브랜치: [front/dev](https://lab.ssafy.com/s14-final/S14P31D103/-/tree/front/dev)" >> $GITHUB_STEP_SUMMARY
