@@ -420,8 +420,10 @@ export default function Dev2HarnessPage() {
                 {/* View mode — segmented control */}
                 <div className="relative inline-flex rounded-xl bg-white/10 p-0.5 ring-1 ring-inset ring-white/20 backdrop-blur-sm shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]">
                   <span
-                    className={`absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] rounded-lg bg-gradient-to-br from-white to-indigo-50 ring-1 ring-white shadow-[0_6px_14px_-8px_rgba(124,58,237,0.5)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                      viewMode === "preview" ? "translate-x-full" : "translate-x-0"
+                    className={`absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] rounded-lg ring-1 ring-white shadow-[0_6px_14px_-8px_rgba(124,58,237,0.5)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                      viewMode === "preview"
+                        ? "translate-x-full bg-gradient-to-br from-white to-indigo-50"
+                        : "translate-x-0 bg-gradient-to-br from-yellow-50 to-amber-100"
                     }`}
                     aria-hidden="true"
                   />
@@ -430,7 +432,7 @@ export default function Dev2HarnessPage() {
                     onClick={() => setViewMode("edit")}
                     className={`relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${SPRING} ${
                       viewMode === "edit"
-                        ? "text-indigo-600 font-black"
+                        ? "text-amber-600 font-black"
                         : "text-white font-bold hover:text-white"
                     }`}
                   >

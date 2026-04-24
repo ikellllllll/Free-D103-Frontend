@@ -169,7 +169,7 @@ export default function Dev2SessionsPage() {
   );
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-50">
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-violet-200/70 via-indigo-100/60 to-slate-100">
       {/* ── Aurora / Mesh gradient background ── */}
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-[900px] overflow-hidden"
@@ -200,7 +200,7 @@ export default function Dev2SessionsPage() {
               <Search
                 size={16}
                 strokeWidth={2}
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none transition-colors group-focus-within:text-indigo-500"
+                className="absolute left-4 inset-y-0 my-auto text-gray-400 pointer-events-none transition-colors group-focus-within:text-indigo-500"
               />
               <input
                 value={query}
@@ -209,7 +209,7 @@ export default function Dev2SessionsPage() {
                   setPage(1);
                 }}
                 placeholder="세션 · 문제 · 언어 검색"
-                className="w-full pl-11 pr-4 py-3 rounded-full border border-white/70 bg-white/70 backdrop-blur-md text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100 outline-none transition-all shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_8px_20px_-14px_rgba(79,70,229,0.2)]"
+                className="w-full pl-11 pr-4 py-3 rounded-full border border-transparent bg-white/70 backdrop-blur-md text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100 outline-none transition-all shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_8px_20px_-14px_rgba(79,70,229,0.2)]"
               />
             </div>
           </div>
@@ -401,7 +401,7 @@ function StatTile({
   accent: string;
 }) {
   return (
-    <div className="group relative overflow-hidden rounded-2xl bg-white/70 backdrop-blur-md border border-white/70 ring-1 ring-inset ring-white/60 p-4 sm:p-5 transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-1 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_10px_24px_-18px_rgba(79,70,229,0.3)] hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_1px_2px_rgba(17,24,39,0.04),0_16px_36px_-18px_rgba(79,70,229,0.4)]">
+    <div className="group relative overflow-hidden rounded-2xl bg-white border border-gray-200/80 p-4 sm:p-5 transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-1 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_10px_24px_-18px_rgba(79,70,229,0.3)] hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_1px_2px_rgba(17,24,39,0.04),0_16px_36px_-18px_rgba(79,70,229,0.4)]">
       {/* Top accent wash */}
       <div
         className={`pointer-events-none absolute inset-x-0 -top-24 h-32 bg-gradient-to-b ${accent} opacity-[0.12] blur-2xl`}
@@ -513,14 +513,10 @@ function SessionRow({
 
   return (
     <article
-      className="group relative overflow-hidden rounded-2xl bg-white/80 backdrop-blur-md border border-white/80 ring-1 ring-inset ring-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_10px_24px_-18px_rgba(79,70,229,0.22)] transition-[transform,box-shadow,border-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:border-indigo-200/80 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_1px_2px_rgba(17,24,39,0.04),0_18px_36px_-18px_rgba(79,70,229,0.35)] animate-slide-up"
+      className="group relative overflow-hidden rounded-2xl bg-white border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_10px_24px_-18px_rgba(79,70,229,0.22)] transition-[transform,box-shadow,border-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:border-indigo-200/80 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_1px_2px_rgba(17,24,39,0.04),0_18px_36px_-18px_rgba(79,70,229,0.35)] animate-slide-up"
       style={{ animationDelay: `${order * 55}ms`, animationFillMode: "both" }}
     >
-      {/* Left accent bar with glow */}
-      <span
-        className={`absolute left-0 top-0 bottom-0 w-1 ${accent} transition-all duration-500 group-hover:shadow-[0_0_18px_0_currentColor]`}
-        aria-hidden="true"
-      />
+
 
       <div className="flex items-center gap-3 sm:gap-4 pl-5 pr-4 sm:pr-5 py-4">
         {/* Index + lang icon */}

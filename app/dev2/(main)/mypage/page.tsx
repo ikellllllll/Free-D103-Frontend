@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -35,12 +36,12 @@ type ProviderId = "anthropic" | "openai" | "google";
 const BYOK_PROVIDERS: {
   id: ProviderId;
   label: string;
-  logo: string; // letter mark or emoji
+  logo: string;
   tint: string;
 }[] = [
-  { id: "anthropic", label: "Anthropic Claude", logo: "A", tint: "bg-orange-100 text-orange-700" },
-  { id: "openai", label: "OpenAI", logo: "O", tint: "bg-emerald-100 text-emerald-700" },
-  { id: "google", label: "Google Gemini", logo: "G", tint: "bg-sky-100 text-sky-700" }
+  { id: "anthropic", label: "Anthropic Claude", logo: "/AI_logo/icons8-claude-ai.svg", tint: "bg-orange-50" },
+  { id: "openai", label: "OpenAI ChatGPT", logo: "/AI_logo/icons8-chatgpt.svg", tint: "bg-emerald-50" },
+  { id: "google", label: "Google Gemini", logo: "/AI_logo/icons8-gemini-ai.svg", tint: "bg-sky-50" }
 ];
 
 const BYOK_STORAGE_KEY = "aig-byok-keys-v1";
@@ -202,7 +203,7 @@ export default function Dev2MyPage() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-50">
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-violet-200/70 via-indigo-100/60 to-slate-100">
       {/* Aurora mesh background */}
       <div
         className="pointer-events-none absolute inset-0"
@@ -222,7 +223,7 @@ export default function Dev2MyPage() {
       <div
         className="pointer-events-none absolute inset-x-0 bottom-0 h-64"
         style={{
-          backgroundImage: "linear-gradient(to bottom, rgba(248,250,252,0), #f8fafc)"
+          backgroundImage: "linear-gradient(to bottom, rgba(241,245,249,0), #f1f5f9)"
         }}
         aria-hidden="true"
       />
@@ -293,7 +294,7 @@ export default function Dev2MyPage() {
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Skill radar */}
           <div
-            className="relative overflow-hidden bg-white/70 backdrop-blur-md rounded-2xl ring-1 ring-inset ring-white/60 border border-gray-200/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(49,46,129,0.25)] p-6 md:p-7 animate-slide-up transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_1px_2px_rgba(17,24,39,0.04),0_30px_60px_-28px_rgba(79,70,229,0.35)]"
+            className="relative overflow-hidden bg-white rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(49,46,129,0.25)] p-6 md:p-7 animate-slide-up transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_1px_2px_rgba(17,24,39,0.04),0_30px_60px_-28px_rgba(79,70,229,0.35)]"
             style={{ animationFillMode: "both" }}
           >
             {/* Ambient corner wash */}
@@ -336,7 +337,7 @@ export default function Dev2MyPage() {
 
           {/* Recent activity */}
           <div
-            className="relative overflow-hidden bg-white/70 backdrop-blur-md rounded-2xl ring-1 ring-inset ring-white/60 border border-gray-200/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(49,46,129,0.25)] p-6 md:p-7 animate-slide-up transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_1px_2px_rgba(17,24,39,0.04),0_30px_60px_-28px_rgba(79,70,229,0.35)]"
+            className="relative overflow-hidden bg-white rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(49,46,129,0.25)] p-6 md:p-7 animate-slide-up transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_1px_2px_rgba(17,24,39,0.04),0_30px_60px_-28px_rgba(79,70,229,0.35)]"
             style={{ animationFillMode: "both", animationDelay: "0.05s" }}
           >
             <div
@@ -361,10 +362,10 @@ export default function Dev2MyPage() {
                   return (
                     <div
                       key={row.id}
-                      className="group flex items-start gap-3 px-3 py-2.5 rounded-xl bg-white/40 ring-1 ring-inset ring-white/50 transition-[transform,background-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-white/80 hover:-translate-y-0.5"
+                      className="group flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-100 transition-[transform,background-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-white hover:-translate-y-0.5"
                     >
                       <span
-                        className={`shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-xl ${row.tint} ring-1 ring-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)]`}
+                        className="shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gray-100 ring-1 ring-gray-200 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] text-gray-900"
                       >
                         <Icon size={15} strokeWidth={2.2} />
                       </span>
@@ -399,7 +400,7 @@ export default function Dev2MyPage() {
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* API Keys */}
           <div
-            className="relative overflow-hidden bg-white/70 backdrop-blur-md rounded-2xl ring-1 ring-inset ring-white/60 border border-gray-200/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(49,46,129,0.25)] p-6 md:p-7 animate-slide-up transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5"
+            className="relative overflow-hidden bg-white rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(49,46,129,0.25)] p-6 md:p-7 animate-slide-up transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5"
             style={{ animationFillMode: "both" }}
           >
             <div
@@ -410,8 +411,8 @@ export default function Dev2MyPage() {
               }}
               aria-hidden="true"
             />
-            <div className="relative flex items-start gap-3 mb-5">
-              <span className="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 ring-1 ring-inset ring-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)]">
+            <div className="relative flex items-center gap-3 mb-5">
+              <span className="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-gray-100 text-gray-900 ring-1 ring-gray-200 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)]">
                 <Key size={16} strokeWidth={2.2} />
               </span>
               <div>
@@ -428,11 +429,11 @@ export default function Dev2MyPage() {
                 const isEditing = editingProvider === p.id;
                 return (
                   <div key={p.id}>
-                    <div className="flex items-center gap-3 p-3 rounded-xl bg-white/50 ring-1 ring-inset ring-white/60 transition-[transform,background-color,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-white/85 hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_8px_20px_-14px_rgba(79,70,229,0.25)]">
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100 transition-[transform,background-color,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-white hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_8px_20px_-14px_rgba(79,70,229,0.25)]">
                       <span
-                        className={`shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-lg ${p.tint} font-display font-bold text-sm`}
+                        className={`shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-lg ${p.tint}`}
                       >
-                        {p.logo}
+                        <Image src={p.logo} alt={p.label} width={22} height={22} />
                       </span>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-semibold text-gray-900">
@@ -522,7 +523,7 @@ export default function Dev2MyPage() {
 
           {/* Preferences */}
           <div
-            className="relative overflow-hidden bg-white/70 backdrop-blur-md rounded-2xl ring-1 ring-inset ring-white/60 border border-gray-200/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(49,46,129,0.25)] p-6 md:p-7 animate-slide-up transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5"
+            className="relative overflow-hidden bg-white rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(49,46,129,0.25)] p-6 md:p-7 animate-slide-up transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5"
             style={{ animationFillMode: "both", animationDelay: "0.05s" }}
           >
             <div
@@ -658,7 +659,7 @@ export default function Dev2MyPage() {
 
         {/* ── DANGER ZONE ── */}
         <section
-          className="relative overflow-hidden bg-white/70 backdrop-blur-md rounded-2xl ring-1 ring-inset ring-white/60 border border-gray-200/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(190,18,60,0.18)] p-6 md:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-slide-up"
+          className="relative overflow-hidden bg-white rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(190,18,60,0.18)] p-6 md:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-slide-up"
           style={{ animationFillMode: "both" }}
         >
           <div

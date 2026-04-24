@@ -209,7 +209,7 @@ export function Dev2Shell({ children }: { children: ReactNode }) {
               type="button"
               onClick={openPalette}
               title={`명령 팔레트 (${shortcutLabel})`}
-              className="group flex items-center gap-2.5 w-56 lg:w-64 h-9 pl-3 pr-2 rounded-xl bg-gray-50/80 ring-1 ring-inset ring-gray-200/80 text-sm text-gray-500 shadow-[inset_0_1px_2px_rgba(17,24,39,0.04)] hover:bg-gray-200/80 hover:ring-gray-300 hover:text-gray-800 transition-colors cursor-text"
+              className="group flex items-center gap-2.5 w-56 lg:w-64 h-9 pl-3 pr-2 rounded-xl bg-gray-100 ring-1 ring-inset ring-gray-300/80 text-sm text-gray-500 shadow-[inset_0_1px_2px_rgba(17,24,39,0.04)] hover:bg-gray-300/80 hover:ring-gray-400 hover:text-gray-800 transition-colors cursor-text"
             >
               <Search size={14} strokeWidth={2} className="shrink-0" />
               <span className="flex-1 text-left">검색…</span>

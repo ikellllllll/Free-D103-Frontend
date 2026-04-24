@@ -89,7 +89,7 @@ function FilterChip({
     <button
       type="button"
       onClick={onClick}
-      className={`px-4 sm:px-5 py-2 rounded-xl text-sm font-semibold transition-all ${
+      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
         active
           ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/30"
           : "text-gray-600 border border-gray-200 bg-white hover:border-indigo-300 hover:text-indigo-600"
@@ -100,6 +100,12 @@ function FilterChip({
   );
 }
 
+const FILTER_GROUP_COLORS: Record<string, { text: string; border: string }> = {
+  난이도: { text: "text-indigo-500", border: "border-indigo-400" },
+  유형:   { text: "text-violet-500", border: "border-violet-400" },
+  상태:   { text: "text-teal-500",   border: "border-teal-400" }
+};
+
 function FilterGroup({
   label,
   children
@@ -107,9 +113,10 @@ function FilterGroup({
   label: string;
   children: React.ReactNode;
 }) {
+  const color = FILTER_GROUP_COLORS[label] ?? { text: "text-gray-500", border: "border-gray-400" };
   return (
-    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-      <span className="text-xs sm:text-sm font-semibold text-gray-700 mr-1">
+    <div className="flex items-center gap-1.5">
+      <span className={`border-l-2 pl-1.5 text-[11px] font-extrabold uppercase tracking-wider mr-0.5 font-mono whitespace-nowrap ${color.text} ${color.border}`}>
         {label}
       </span>
       {children}
@@ -412,7 +419,7 @@ export default function Dev2ProblemsPage() {
   };
 
   return (
-    <div className="relative bg-gradient-to-b from-indigo-100/80 via-slate-100 to-slate-100 min-h-screen overflow-hidden">
+    <div className="relative bg-gradient-to-b from-violet-200/70 via-indigo-100/60 to-slate-100 min-h-screen overflow-hidden">
       {/* Floating blobs & grid */}
       <div className="absolute top-0 left-0 right-0 h-[800px] pointer-events-none overflow-hidden">
         <div className="absolute -top-10 -left-32 w-[420px] h-[420px] rounded-full bg-indigo-400/30 blur-3xl animate-blob-1" />
@@ -466,14 +473,14 @@ export default function Dev2ProblemsPage() {
             <Search
               size={16}
               strokeWidth={2.2}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+              className="absolute left-4 inset-y-0 my-auto text-gray-400 pointer-events-none"
             />
             <input
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="제목이나 설명으로 검색..."
-              className="w-full bg-white/80 backdrop-blur border border-gray-200 rounded-2xl pl-11 pr-10 py-3 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 transition-all"
+              className="w-full bg-white/80 backdrop-blur border border-transparent rounded-2xl pl-11 pr-10 py-3 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 transition-all"
             />
             {search && (
               <button
@@ -510,64 +517,34 @@ export default function Dev2ProblemsPage() {
 
         {/* Filter bar */}
         <div
-          className="flex flex-col gap-3 sm:gap-4 mb-6 sm:mb-8 p-4 sm:p-5 bg-white rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_8px_20px_-14px_rgba(79,70,229,0.15)] animate-slide-up"
+          className="flex items-center gap-x-1 mb-6 sm:mb-8 px-4 py-2.5 bg-white rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_8px_20px_-14px_rgba(79,70,229,0.15)] animate-slide-up overflow-x-auto"
           style={{ animationDelay: "0.15s", animationFillMode: "both" }}
         >
           <FilterGroup label="난이도">
-            <FilterChip active={level === "ALL"} onClick={() => setLevel("ALL")}>
-              전체
-            </FilterChip>
+            <FilterChip active={level === "ALL"} onClick={() => setLevel("ALL")}>전체</FilterChip>
             {LEVEL_OPTIONS.map((v) => (
-              <FilterChip
-                key={v}
-                active={level === v}
-                onClick={() => setLevel(v)}
-              >
+              <FilterChip key={v} active={level === v} onClick={() => setLevel(v)}>
                 Lv {v}
-                <span className="ml-1 text-[10px] opacity-70">
-                  {LEVEL_META[v].label}
-                </span>
+                <span className="ml-1 text-[10px] opacity-70">{LEVEL_META[v].label}</span>
               </FilterChip>
             ))}
           </FilterGroup>
 
-          <div className="h-px w-full bg-gray-100" />
+          <div className="w-px h-6 bg-gray-200 mx-1" />
 
           <FilterGroup label="유형">
-            <FilterChip
-              active={category === "ALL"}
-              onClick={() => setCategory("ALL")}
-            >
-              전체
-            </FilterChip>
+            <FilterChip active={category === "ALL"} onClick={() => setCategory("ALL")}>전체</FilterChip>
             {CATEGORY_OPTIONS.map((c) => (
-              <FilterChip
-                key={c}
-                active={category === c}
-                onClick={() => setCategory(c)}
-              >
-                {c}
-              </FilterChip>
+              <FilterChip key={c} active={category === c} onClick={() => setCategory(c)}>{c}</FilterChip>
             ))}
           </FilterGroup>
 
-          <div className="h-px w-full bg-gray-100" />
+          <div className="w-px h-6 bg-gray-200 mx-1" />
 
           <FilterGroup label="상태">
-            <FilterChip
-              active={status === "ALL"}
-              onClick={() => setStatus("ALL")}
-            >
-              전체
-            </FilterChip>
+            <FilterChip active={status === "ALL"} onClick={() => setStatus("ALL")}>전체</FilterChip>
             {STATUS_OPTIONS.map((s) => (
-              <FilterChip
-                key={s}
-                active={status === s}
-                onClick={() => setStatus(s)}
-              >
-                {s}
-              </FilterChip>
+              <FilterChip key={s} active={status === s} onClick={() => setStatus(s)}>{s}</FilterChip>
             ))}
           </FilterGroup>
         </div>
