@@ -234,13 +234,6 @@ export default function Dev2HarnessPage() {
         {/* ── HEADER ── */}
         <section className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 animate-slide-up">
           <div className="min-w-0">
-            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full ${GLASS} text-indigo-700 text-xs font-bold uppercase tracking-[0.14em] mb-4`}>
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="absolute inline-flex h-full w-full rounded-full bg-indigo-500 opacity-60 animate-ping" />
-                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-indigo-600" />
-              </span>
-              <span>Agent Harness</span>
-            </div>
             <h1 className="text-4xl md:text-5xl font-display font-bold text-gray-900 tracking-tight leading-[1.05] mb-3 text-balance">
               에이전트 실행 환경 관리
             </h1>

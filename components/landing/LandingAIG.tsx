@@ -310,34 +310,50 @@ export function LandingAIG() {
 
   return (
     <div className="dev2-landing-scroll w-full max-w-none bg-[#0F0F2E] font-sans">
-      {/* Section dots (right side, fixed) */}
+      {/* Section dots (right side, fixed) — adaptive to section background */}
       <div className="pointer-events-none fixed right-6 top-1/2 z-40 -translate-y-1/2 hidden md:flex flex-col items-end gap-3">
         {dots.map((id) => {
           const isActive = activeSection === id;
+          const isDarkSection =
+            activeSection === "hero" ||
+            activeSection === "showcase" ||
+            activeSection === "demo" ||
+            activeSection === "cta";
+
+          // Label color — active only
+          const labelColor = isActive
+            ? isDarkSection
+              ? "text-cyan-300"
+              : "text-indigo-600"
+            : isDarkSection
+              ? "text-white/70 group-hover:text-cyan-300"
+              : "text-gray-500 group-hover:text-indigo-500";
+
+          // Dot styles
+          const dotCls = isActive
+            ? isDarkSection
+              ? "border-cyan-300 bg-cyan-300 shadow-[0_0_0_4px_rgba(103,232,249,0.2)]"
+              : "border-indigo-600 bg-indigo-600 shadow-[0_0_0_4px_rgba(99,102,241,0.15)]"
+            : isDarkSection
+              ? "border-white/45 bg-white/45 group-hover:border-cyan-300 group-hover:bg-cyan-300"
+              : "border-gray-400 bg-gray-400 group-hover:border-indigo-400 group-hover:bg-indigo-400";
+
           return (
             <button
               key={id}
               type="button"
               onClick={() => scrollToSection(id)}
               aria-label={`${SECTION_LABELS[id]} 섹션으로 이동`}
-              className={`pointer-events-auto group flex items-center justify-end gap-2 transition-all cursor-pointer ${
-                isActive ? "text-indigo-600" : "text-gray-400 hover:text-indigo-500"
-              }`}
+              className="pointer-events-auto group flex items-center justify-end gap-2 transition-colors cursor-pointer"
             >
               <span
-                className={`text-xs font-semibold uppercase tracking-wider transition-opacity ${
-                  isActive ? "opacity-100" : "opacity-0 group-hover:opacity-70"
+                className={`text-xs font-semibold uppercase tracking-wider transition-opacity ${labelColor} ${
+                  isActive ? "opacity-100" : "opacity-0 group-hover:opacity-80"
                 }`}
               >
                 {SECTION_LABELS[id]}
               </span>
-              <span
-                className={`block w-3 h-3 rounded-full border transition-all ${
-                  isActive
-                    ? "border-indigo-600 bg-indigo-600 shadow-[0_0_0_4px_rgba(99,102,241,0.15)]"
-                    : "border-gray-400 bg-gray-400 group-hover:border-indigo-400 group-hover:bg-indigo-400"
-                }`}
-              />
+              <span className={`block w-3 h-3 rounded-full border transition-all ${dotCls}`} />
             </button>
           );
         })}
@@ -537,7 +553,7 @@ export function LandingAIG() {
             </div>
             <h2 className="text-4xl md:text-5xl font-display font-bold tracking-tight mb-4 text-slate-950">
               AI를{" "}
-              <span style={{ backgroundImage: "linear-gradient(90deg,#818CF8,#A78BFA,#67E8F9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
+              <span style={{ backgroundImage: "linear-gradient(90deg,#4338CA,#6D28D9,#0E7490)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
                 어떻게 쓰느냐
               </span>
               를<br />평가합니다
