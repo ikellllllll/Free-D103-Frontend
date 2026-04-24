@@ -242,7 +242,7 @@ export default function Dev2HarnessPage() {
               <span>Agent Harness</span>
             </div>
             <h1 className="text-4xl md:text-5xl font-display font-bold text-gray-900 tracking-tight leading-[1.05] mb-3 text-balance">
-              에이전트 실행 환경 관����
+              에이전트 실행 환경 관리
             </h1>
             <p className="text-[15px] text-gray-500 leading-relaxed max-w-2xl">
               에이전트가 세션에서 읽는 지침·행동 규칙·스킬 파일을 직접 수정합니다.
