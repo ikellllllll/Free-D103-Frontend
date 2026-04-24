@@ -361,7 +361,7 @@ export function Dev2Shell({ children }: { children: ReactNode }) {
                 <Search size={16} strokeWidth={2} className="text-gray-400 shrink-0" />
                 <input
                   autoFocus
-                  className="flex-1 text-sm text-gray-900 placeholder-gray-400 outline-none bg-transparent"
+                  className="flex-1 text-sm text-gray-900 placeholder-gray-400 bg-transparent border-0 outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 appearance-none caret-indigo-600"
                   placeholder="검색…"
                   value={paletteQuery}
                   onChange={(e) => {
