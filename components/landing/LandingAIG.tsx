@@ -537,7 +537,7 @@ export function LandingAIG() {
             </div>
             <h2 className="text-4xl md:text-5xl font-display font-bold tracking-tight mb-4 text-slate-950">
               AI를{" "}
-              <span style={{ backgroundImage: "linear-gradient(90deg,#818CF8,#A78BFA,#67E8F9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
+              <span style={{ backgroundImage: "linear-gradient(90deg,#4338CA,#6D28D9,#0E7490)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
                 어떻게 쓰느냐
               </span>
               를<br />평가합니다
