@@ -1,1 +1,1 @@
-export { default } from "@/app/(main)/submissions/[id]/timeline/page";
+export { default } from "@/app/dev2/(main)/submissions/[id]/timeline/page";

@@ -12,6 +12,8 @@ import {
   X
 } from "lucide-react";
 
+import { useAuthStore } from "@/store/authStore";
+
 const SECTION_IDS = ["hero", "showcase", "features", "workflow", "demo", "reports", "cta"] as const;
 type SectionId = (typeof SECTION_IDS)[number];
 
@@ -108,6 +110,9 @@ const SHOWCASE_STATS = [
 ];
 
 export function LandingAIG() {
+  // 로그인 유저는 "시작하기" 버튼 → /problems, 비로그인은 "로그인" → /login
+  const user = useAuthStore((s) => s.user);
+
   const sectionRefs = useRef<Record<SectionId, HTMLElement | null>>({
     hero: null,
     showcase: null,
@@ -377,7 +382,7 @@ export function LandingAIG() {
         {/* Pill nav */}
         <div className="relative z-10 pt-6 px-6">
           <nav className="mx-auto max-w-5xl flex items-center justify-between bg-white/95 backdrop-blur-md rounded-full px-5 py-2.5 shadow-xl shadow-indigo-900/30">
-            <Link href="/dev2" className="flex items-center space-x-2 font-display font-bold text-lg group cursor-pointer">
+            <Link href="/" className="flex items-center space-x-2 font-display font-bold text-lg group cursor-pointer">
               <Image src="/brand/app-icon-light.svg" alt="AIG" width={28} height={28} className="rounded-lg" />
               <span className="text-indigo-600">AIG</span>
             </Link>
@@ -388,10 +393,10 @@ export function LandingAIG() {
               <a href="#reports" onClick={handleAnchorJump("reports")} className="hover:text-indigo-600 transition-colors cursor-pointer">리포트</a>
             </div>
             <Link
-              href="/dev2/login"
+              href={user ? "/problems" : "/login"}
               className="inline-flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-full transition-colors shadow-md cursor-pointer"
             >
-              <span>로그인</span>
+              <span>{user ? "시작하기" : "로그인"}</span>
               <ArrowRight size={14} strokeWidth={2.4} />
             </Link>
           </nav>
@@ -431,7 +436,7 @@ export function LandingAIG() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
-              href="/dev2/signup"
+              href="/signup"
               className="inline-flex items-center space-x-2 bg-white text-indigo-900 hover:bg-indigo-50 font-semibold px-6 py-3.5 rounded-full transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 cursor-pointer"
             >
               <span>무료로 시작하기</span>
@@ -776,7 +781,7 @@ export function LandingAIG() {
             {/* Left — IDE window mock */}
             <div className="relative rounded-2xl overflow-hidden border border-[#2a2a2a] bg-[#0d0d0d] shadow-[0_8px_40px_rgba(0,0,0,0.7)]">
               <div className="flex items-center justify-between px-3 py-2 bg-[#1a1a1a] border-b border-[#2a2a2a]">
-                <span className="text-[11px] font-mono text-gray-500 truncate">/dev2/ide/session-e89y3kqx-mo6u209l</span>
+                <span className="text-[11px] font-mono text-gray-500 truncate">/ide/session-e89y3kqx-mo6u209l</span>
                 <div className="flex items-center">
                   <span className="flex items-center justify-center w-8 h-6 hover:bg-white/10 transition-colors cursor-default text-gray-400 hover:text-white text-xs">─</span>
                   <span className="flex items-center justify-center w-8 h-6 hover:bg-white/10 transition-colors cursor-default text-gray-400 hover:text-white text-xs">□</span>
@@ -945,7 +950,7 @@ export function LandingAIG() {
                 잘한 점과 개선할 점을 구체적인 사례로 제시합니다.
               </p>
               <Link
-                href="/dev2/signup"
+                href="/signup"
                 className="inline-flex items-center space-x-2 text-white font-semibold px-6 py-3 rounded-full transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 cursor-pointer"
                 style={{
                   backgroundImage: "linear-gradient(90deg, #4F46E5, #7C3AED)",
@@ -1081,7 +1086,7 @@ export function LandingAIG() {
           </p>
           <div className="flex justify-center">
             <Link
-              href="/dev2/signup"
+              href="/signup"
               className="inline-flex items-center space-x-2 bg-white text-indigo-900 hover:bg-indigo-50 font-semibold px-8 py-4 rounded-full transition-all shadow-2xl hover:-translate-y-0.5 cursor-pointer"
             >
               <span>AIG 시작하기</span>
@@ -1094,7 +1099,7 @@ export function LandingAIG() {
         <footer className="relative bg-[#0A0A20] text-indigo-200/80 py-10 border-t border-white/10">
           <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between gap-6">
             <div>
-              <Link href="/dev2" className="inline-flex items-center space-x-2 text-white font-display font-bold text-lg mb-2 cursor-pointer">
+              <Link href="/" className="inline-flex items-center space-x-2 text-white font-display font-bold text-lg mb-2 cursor-pointer">
                 <Image src="/brand/app-icon-light.svg" alt="AIG" width={24} height={24} className="rounded-md" />
                 <span>AIG</span>
               </Link>
@@ -1114,8 +1119,8 @@ export function LandingAIG() {
               <div>
                 <h4 className="text-white font-semibold mb-2 uppercase tracking-wider">Start</h4>
                 <ul className="space-y-1.5 list-none pl-0 m-0">
-                  <li><Link href="/dev2/login" className="hover:text-white transition-colors cursor-pointer">로그인</Link></li>
-                  <li><Link href="/dev2/signup" className="hover:text-white transition-colors cursor-pointer">회원가입</Link></li>
+                  <li><Link href="/login" className="hover:text-white transition-colors cursor-pointer">로그인</Link></li>
+                  <li><Link href="/signup" className="hover:text-white transition-colors cursor-pointer">회원가입</Link></li>
                 </ul>
               </div>
               <div>
@@ -1124,7 +1129,7 @@ export function LandingAIG() {
                   <li>D103 띠링띠링</li>
                   <li className="text-indigo-200/50">SSAFY 14기</li>
                   <li>
-                    <Link href="/dev2/terms" className="hover:text-white transition-colors cursor-pointer">
+                    <Link href="/terms" className="hover:text-white transition-colors cursor-pointer">
                       이용약관
                     </Link>
                   </li>

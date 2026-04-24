@@ -16,14 +16,14 @@ export default function Dev2TermsPage() {
       {/* Header */}
       <header className="relative z-10 px-6 py-5 flex items-center justify-between max-w-5xl mx-auto">
         <Link
-          href="/dev2"
+          href="/"
           className="inline-flex items-center space-x-2 text-white font-display font-bold text-xl group"
         >
           <Sparkles size={22} strokeWidth={2} className="group-hover:rotate-12 transition-transform" />
           <span>AIG</span>
         </Link>
         <Link
-          href="/dev2/signup"
+          href="/signup"
           className="inline-flex items-center space-x-1.5 text-sm text-indigo-200/80 hover:text-white transition-colors"
         >
           <ArrowLeft size={14} />
@@ -126,9 +126,9 @@ export default function Dev2TermsPage() {
         <div className="mt-16 pt-10 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-indigo-200/60">
           <span>© 2026 AIG · SSAFY 14기 D103 띠링띠링</span>
           <div className="flex items-center space-x-5">
-            <Link href="/dev2" className="hover:text-white transition-colors">홈으로</Link>
-            <Link href="/dev2/signup" className="hover:text-white transition-colors">회원가입</Link>
-            <Link href="/dev2/login" className="hover:text-white transition-colors">로그인</Link>
+            <Link href="/" className="hover:text-white transition-colors">홈으로</Link>
+            <Link href="/signup" className="hover:text-white transition-colors">회원가입</Link>
+            <Link href="/login" className="hover:text-white transition-colors">로그인</Link>
           </div>
         </div>
       </main>

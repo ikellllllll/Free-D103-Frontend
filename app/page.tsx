@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { LandingAIG } from "@/components/landing/LandingAIG";
 
-export default function HomePage() {
-  redirect("/login");
+export default function Dev2HomePage() {
+  return <LandingAIG />;
 }

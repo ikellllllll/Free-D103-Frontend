@@ -1,12 +1,13 @@
-import type { ReactNode } from "react";
-
 import { AuthGate } from "@/components/auth/AuthGate";
-import { Dev2Shell } from "@/components/dev2/Dev2Shell";
+import { AppSidebar } from "@/components/layout/AppSidebar";
 
-export default function Dev2MainLayout({ children }: { children: ReactNode }) {
+export default function MainLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGate>
-      <Dev2Shell>{children}</Dev2Shell>
+      <div className="app-shell">
+        <AppSidebar />
+        <main className="page-shell">{children}</main>
+      </div>
     </AuthGate>
   );
 }

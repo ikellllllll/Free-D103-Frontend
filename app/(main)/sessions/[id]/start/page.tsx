@@ -4,19 +4,20 @@ import Link from "next/link";
 import { use, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { Loader2, Code2, Clock, Sparkles, ArrowLeft } from "lucide-react";
 
-import { Card } from "@/components/common/Card";
-import { isV0ThemeTone, useDevTheme } from "@/components/dev/DevThemeContext";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
 import { getProblemById } from "@/lib/mock-data";
 
-export default function SessionStartPage({ params }: { params: Promise<{ id: string }> }) {
+export default function Dev2SessionStartPage({
+  params
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id: sessionId } = use(params);
   const router = useRouter();
-  const { currentPath, withPrefix } = useRouteScope();
-  const { themeTone } = useDevTheme();
-  const isV0 = currentPath.startsWith("/sessions/") && isV0ThemeTone(themeTone);
+  const { withPrefix } = useRouteScope();
 
   const { data: session } = useQuery({
     queryKey: ["session", sessionId],
@@ -29,139 +30,97 @@ export default function SessionStartPage({ params }: { params: Promise<{ id: str
       const timer = window.setTimeout(() => {
         router.replace(withPrefix(`/ide/${sessionId}`));
       }, 500);
-
       return () => window.clearTimeout(timer);
     }
   }, [router, session?.status, sessionId, withPrefix]);
 
   const progress = useMemo(() => {
-    if (!session) {
-      return 15;
-    }
-    if (session.status === "IN_PROGRESS") {
-      return 100;
-    }
-
+    if (!session) return 15;
+    if (session.status === "IN_PROGRESS") return 100;
     const remain = Math.max(session.readyAt - Date.now(), 0);
     return Math.max(25, Math.min(90, 100 - Math.round(remain / 30)));
   }, [session]);
 
   const problem = getProblemById(session?.problemId ?? "todo-api");
-  const languageLabel = session?.language === "python" ? "Python" : "Java";
-  const modelLabel = session?.aiModel ?? "aig-default";
-  const isReady = session?.status === "IN_PROGRESS";
-
-  if (isV0) {
-    return (
-      <div className="pvxstart">
-        <section className="pvxstart-hero">
-          <p className="pvxstart-kicker">session prepare</p>
-          <h1>{isReady ? "IDE로 이동할 준비가 끝났습니다" : "풀이 환경을 준비하고 있습니다"}</h1>
-          <p>
-            워크스페이스, 기본 파일, AI 컨텍스트를 한 번에 구성하는 중입니다.
-            준비가 끝나면 자동으로 v0 IDE 화면으로 이동합니다.
-          </p>
-        </section>
-
-        <div className="pvxstart-grid">
-          <section className="pvxstart-panel pvxstart-panel--main">
-            <div className="pvxstart-progress__head">
-              <span>{isReady ? "ready" : "building workspace"}</span>
-              <strong>{progress}%</strong>
-            </div>
-            <div className="pvxstart-progress" aria-label={`세션 준비율 ${progress}%`}>
-              <span style={{ width: `${progress}%` }} />
-            </div>
-            <ol className="pvxstart-steps">
-              <li className="is-done">
-                <span />
-                문제 컨텍스트 수집
-              </li>
-              <li className={progress >= 55 ? "is-done" : ""}>
-                <span />
-                스타터 파일 구성
-              </li>
-              <li className={isReady ? "is-done" : ""}>
-                <span />
-                IDE 연결 준비
-              </li>
-            </ol>
-          </section>
-
-          <aside className="pvxstart-panel pvxstart-panel--meta">
-            <div className="pvxstart-meta">
-              <span>과제</span>
-              <strong>{problem?.title ?? "Todo API 구현"}</strong>
-            </div>
-            <div className="pvxstart-meta">
-              <span>예상 소요</span>
-              <strong>{problem?.estimate ?? "60분"}</strong>
-            </div>
-            <div className="pvxstart-meta">
-              <span>풀이 언어</span>
-              <strong>{languageLabel}</strong>
-            </div>
-            <div className="pvxstart-meta">
-              <span>AI 모델</span>
-              <strong>{modelLabel}</strong>
-            </div>
-
-            <div className="pvxstart-actions">
-              <Link href={withPrefix(`/problems/${problem?.id ?? "todo-api"}`)} className="pvxstart-button">
-                과제로 돌아가기
-              </Link>
-              <Link href={withPrefix(`/ide/${sessionId}`)} className="pvxstart-button pvxstart-button--primary">
-                IDE 바로 열기
-              </Link>
-            </div>
-          </aside>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="narrow-shell session-start-shell">
-      <Card className="glow-card session-start-card">
-        <div className="session-start-card__head">
-          <span className="eyebrow">세션 준비</span>
-          <h1>풀이 환경을 준비하고 있습니다</h1>
-          <p className="muted-copy session-start-card__desc">
-            워크스페이스, 기본 파일, AI 컨텍스트를 불러오는 중입니다. 준비가 끝나면 IDE로 자동 이동합니다.
-          </p>
-        </div>
+    <div className="bg-gradient-to-b from-indigo-50/30 via-white to-white min-h-screen">
+      <div className="max-w-2xl mx-auto px-6 pt-28 pb-16">
+        <div className="bg-white rounded-3xl border border-gray-100 shadow-xl p-10">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 mb-4">
+              <Loader2 size={28} className="animate-spin" />
+            </div>
+            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold mb-3">
+              <Sparkles size={12} strokeWidth={2.4} />
+              <span>세션 준비</span>
+            </div>
+            <h1 className="text-2xl md:text-3xl font-display font-bold text-gray-900 tracking-tight mb-2">
+              풀이 환경을 준비하고 있습니다
+            </h1>
+            <p className="text-sm text-gray-500 leading-relaxed">
+              워크스페이스, 기본 파일, AI 문맥을 불러오는 중입니다.
+              <br />
+              준비가 끝나면 IDE로 자동 이동합니다.
+            </p>
+          </div>
 
-        <div className="session-info">
-          <div className="session-info__item">
-            <span className="session-info__label">과제</span>
-            <strong className="session-info__value">{problem?.title ?? "Todo API 구현"}</strong>
+          {/* Problem info */}
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <div className="p-4 bg-gray-50 rounded-xl">
+              <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">
+                과제
+              </div>
+              <div className="text-sm font-semibold text-gray-900 truncate">
+                {problem?.title ?? "Todo API 구현"}
+              </div>
+            </div>
+            <div className="p-4 bg-gray-50 rounded-xl">
+              <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1 flex items-center space-x-1">
+                <Clock size={10} />
+                <span>예상 소요</span>
+              </div>
+              <div className="text-sm font-semibold text-gray-900">
+                {problem?.estimate ?? "60분"}
+              </div>
+            </div>
           </div>
-          <div className="session-info__item">
-            <span className="session-info__label">예상 소요</span>
-            <strong className="session-info__value">{problem?.estimate ?? "60분"}</strong>
-          </div>
-        </div>
 
-        <div className="session-progress">
-          <div className="session-progress__head">
-            <strong>환경 준비 중</strong>
-            <span className="session-progress__pct">{progress}%</span>
+          {/* Progress */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-semibold text-gray-700">환경 준비 중</span>
+              <span className="text-sm font-bold text-indigo-600">{progress}%</span>
+            </div>
+            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              준비가 완료되면 이 페이지에서 자동으로 IDE로 이동합니다.
+            </p>
           </div>
-          <div className="progress-bar progress-bar--lg">
-            <span style={{ width: `${progress}%` }} />
-          </div>
-          <p className="session-progress__note">준비가 완료되면 이 페이지에서 자동으로 IDE로 이동합니다.</p>
-        </div>
 
-        <div className="session-start-card__actions">
-          <Link href={withPrefix(`/problems/${problem?.id ?? "todo-api"}`)} className="button">
-            과제로 돌아가기
-          </Link>
-          <Link href={withPrefix(`/ide/${sessionId}`)} className="button button--primary">
-            IDE 바로 열기
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Link
+              href={withPrefix(`/problems/${problem?.id ?? "todo-api"}`)}
+              className="flex-1 inline-flex items-center justify-center space-x-2 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-2.5 rounded-xl transition-colors text-sm"
+            >
+              <ArrowLeft size={14} />
+              <span>과제로 돌아가기</span>
+            </Link>
+            <Link
+              href={withPrefix(`/ide/${sessionId}`)}
+              className="flex-1 inline-flex items-center justify-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl transition-colors text-sm"
+            >
+              <Code2 size={14} />
+              <span>IDE 바로 열기</span>
+            </Link>
+          </div>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

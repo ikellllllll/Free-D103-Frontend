@@ -1,6 +1,6 @@
 "use client";
 
-import LoginPage from "@/app/(auth)/login/page";
+import LoginPage from "@/app/dev2/(auth)/login/page";
 import { isV0ThemeTone, useDevTheme } from "@/components/dev/DevThemeContext";
 import V0DevLoginPage from "@/components/dev/v0/V0DevLoginPage";
 

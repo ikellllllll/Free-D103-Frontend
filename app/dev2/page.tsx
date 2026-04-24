@@ -1,5 +1,6 @@
-import { LandingAIG } from "@/components/landing/LandingAIG";
+import { redirect } from "next/navigation";
 
-export default function Dev2HomePage() {
-  return <LandingAIG />;
+// 레거시 /dev2 루트 — 로그인 페이지로 안내
+export default function Dev2LegacyHome() {
+  redirect("/dev2/login");
 }
