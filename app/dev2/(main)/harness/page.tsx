@@ -287,12 +287,40 @@ export default function Dev2HarnessPage() {
         </section>
 
         {/* ── EDITOR BODY ── */}
-        <section className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5">
+        <section className="relative [perspective:1400px]">
+          {/* Ambient violet halo — matches workshop preview */}
+          <div
+            className="pointer-events-none absolute -inset-x-10 -bottom-8 h-32 rounded-full blur-3xl opacity-70"
+            style={{
+              backgroundImage:
+                "radial-gradient(closest-side, rgba(124,58,237,0.35), transparent 70%)"
+            }}
+            aria-hidden="true"
+          />
+          <div className="relative grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5">
           {/* Left: File list (glass) */}
-          <aside className={`rounded-2xl overflow-hidden self-start ${GLASS}`}>
-            <div className="flex items-center justify-between px-5 py-4 border-b border-white/60">
-              <span className="font-display font-bold text-gray-900">에이전트 파일</span>
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white/70 text-gray-700 ring-1 ring-white/80 tabular-nums">
+          <aside
+            className="rounded-2xl overflow-hidden self-start bg-white/70 backdrop-blur-md ring-1 ring-inset ring-white/60 border border-indigo-950/10 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(30,27,75,0.45),0_14px_36px_-20px_rgba(124,58,237,0.4)]"
+          >
+            <div
+              className="relative flex items-center justify-between px-5 py-4 text-white overflow-hidden"
+              style={{
+                backgroundColor: "#1E1B4B",
+                boxShadow:
+                  "inset 0 1px 0 0 rgba(255,255,255,0.1), inset 0 -1px 0 0 rgba(0,0,0,0.2)"
+              }}
+            >
+              {/* inner color wash */}
+              <div
+                className="pointer-events-none absolute inset-0 opacity-70"
+                style={{
+                  backgroundImage:
+                    "radial-gradient(120% 80% at 0% 0%, rgba(124,58,237,0.45), transparent 55%), radial-gradient(120% 80% at 100% 100%, rgba(236,72,153,0.28), transparent 60%)"
+                }}
+                aria-hidden="true"
+              />
+              <span className="relative font-display font-bold">에이전트 파일</span>
+              <span className="relative text-xs font-bold px-2 py-0.5 rounded-full bg-white/15 text-white ring-1 ring-white/25 tabular-nums backdrop-blur-sm">
                 {AGENT_FILES.length}
               </span>
             </div>
@@ -359,29 +387,44 @@ export default function Dev2HarnessPage() {
             </div>
           </aside>
 
-          {/* Right: Editor (glass) */}
-          <section className={`rounded-2xl overflow-hidden ${GLASS}`}>
-            {/* Path header */}
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/60 gap-3 flex-wrap bg-white/40 backdrop-blur-sm">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <code className="font-mono text-sm text-gray-700 font-semibold truncate">
+          {/* Right: Editor (preview-chrome) */}
+          <section className="rounded-2xl overflow-hidden bg-white/70 backdrop-blur-md ring-1 ring-inset ring-white/60 border border-indigo-950/10 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(30,27,75,0.45),0_14px_36px_-20px_rgba(124,58,237,0.4)]">
+            {/* Path header — deep indigo preview chrome */}
+            <div
+              className="relative flex items-center justify-between px-5 py-3.5 gap-3 flex-wrap text-white overflow-hidden"
+              style={{
+                backgroundColor: "#1E1B4B",
+                boxShadow:
+                  "inset 0 1px 0 0 rgba(255,255,255,0.1), inset 0 -1px 0 0 rgba(0,0,0,0.2)"
+              }}
+            >
+              <div
+                className="pointer-events-none absolute inset-0 opacity-70"
+                style={{
+                  backgroundImage:
+                    "radial-gradient(120% 80% at 0% 0%, rgba(124,58,237,0.45), transparent 55%), radial-gradient(120% 80% at 100% 100%, rgba(236,72,153,0.25), transparent 60%)"
+                }}
+                aria-hidden="true"
+              />
+              <div className="relative flex items-center gap-2.5 min-w-0">
+                <code className="font-mono text-sm text-white/90 font-semibold truncate">
                   {activeFile.path}
                 </code>
                 {dirty.has(activeId) && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full ring-1 ring-amber-200/60">
-                    <span className="w-1 h-1 rounded-full bg-amber-600" />
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-amber-400/20 text-amber-200 px-2 py-0.5 rounded-full ring-1 ring-amber-300/30 backdrop-blur-sm">
+                    <span className="w-1 h-1 rounded-full bg-amber-300" />
                     unsaved
                   </span>
                 )}
-                <span className="text-xs text-gray-400 tabular-nums">
+                <span className="text-xs text-white/50 tabular-nums">
                   {lineCount} lines
                 </span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="relative flex items-center gap-2">
                 {/* View mode — segmented control */}
-                <div className="relative inline-flex rounded-xl bg-white/70 p-0.5 ring-1 ring-inset ring-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04)]">
+                <div className="relative inline-flex rounded-xl bg-white/10 p-0.5 ring-1 ring-inset ring-white/20 backdrop-blur-sm shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]">
                   <span
-                    className={`absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] rounded-lg bg-gradient-to-br from-white to-indigo-50 ring-1 ring-white shadow-[0_6px_14px_-8px_rgba(79,70,229,0.35)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                    className={`absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] rounded-lg bg-gradient-to-br from-white to-indigo-50 ring-1 ring-white shadow-[0_6px_14px_-8px_rgba(124,58,237,0.5)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                       viewMode === "preview" ? "translate-x-full" : "translate-x-0"
                     }`}
                     aria-hidden="true"
@@ -390,7 +433,7 @@ export default function Dev2HarnessPage() {
                     type="button"
                     onClick={() => setViewMode("edit")}
                     className={`relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold ${SPRING} ${
-                      viewMode === "edit" ? "text-indigo-700" : "text-gray-500 hover:text-gray-700"
+                      viewMode === "edit" ? "text-indigo-700" : "text-white/70 hover:text-white"
                     }`}
                   >
                     <Pencil size={12} strokeWidth={2.6} />
@@ -400,7 +443,7 @@ export default function Dev2HarnessPage() {
                     type="button"
                     onClick={() => setViewMode("preview")}
                     className={`relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold ${SPRING} ${
-                      viewMode === "preview" ? "text-indigo-700" : "text-gray-500 hover:text-gray-700"
+                      viewMode === "preview" ? "text-indigo-700" : "text-white/70 hover:text-white"
                     }`}
                   >
                     <Eye size={12} strokeWidth={2.6} />
@@ -411,7 +454,7 @@ export default function Dev2HarnessPage() {
                 <button
                   type="button"
                   onClick={handleReset}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/70 ring-1 ring-inset ring-white/70 text-gray-600 text-xs font-semibold ${SPRING} hover:-translate-y-0.5 hover:bg-white hover:text-gray-800 active:translate-y-0 active:scale-[0.97]`}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 ring-1 ring-inset ring-white/20 text-white/80 text-xs font-semibold backdrop-blur-sm ${SPRING} hover:-translate-y-0.5 hover:bg-white/20 hover:text-white active:translate-y-0 active:scale-[0.97]`}
                   title="기본값으로 초기화"
                 >
                   <RotateCcw size={12} strokeWidth={2.6} />
@@ -478,6 +521,7 @@ export default function Dev2HarnessPage() {
               </div>
             )}
           </section>
+          </div>
         </section>
 
         {/* ── INFO BANNER (glass) ── */}
