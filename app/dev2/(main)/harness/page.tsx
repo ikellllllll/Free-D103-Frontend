@@ -298,9 +298,10 @@ export default function Dev2HarnessPage() {
             aria-hidden="true"
           />
           <div className="relative grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5">
-          {/* Left: File list (glass) */}
+          {/* Left: File list (IDE pane) */}
           <aside
-            className="rounded-2xl overflow-hidden self-start bg-white/70 backdrop-blur-md ring-1 ring-inset ring-white/60 border border-indigo-950/10 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(30,27,75,0.45),0_14px_36px_-20px_rgba(124,58,237,0.4)]"
+            className="rounded-2xl overflow-hidden self-start border border-indigo-950/40 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(30,27,75,0.45),0_14px_36px_-20px_rgba(124,58,237,0.4)]"
+            style={{ backgroundColor: "#0F0D2E" }}
           >
             <div
               className="relative flex items-center justify-between px-5 py-4 text-white overflow-hidden"
@@ -324,7 +325,7 @@ export default function Dev2HarnessPage() {
                 {AGENT_FILES.length}
               </span>
             </div>
-            <div className="flex flex-col gap-1.5 p-3">
+            <div className="flex flex-col gap-1 p-2">
               {AGENT_FILES.map((file) => {
                 const active = activeId === file.id;
                 const Icon = file.icon;
@@ -334,50 +335,50 @@ export default function Dev2HarnessPage() {
                     key={file.id}
                     type="button"
                     onClick={() => setActiveId(file.id)}
-                    className={`relative w-full flex items-start gap-3 px-4 py-3 text-left rounded-xl overflow-hidden ring-1 ring-inset ${SPRING}
+                    className={`relative w-full flex items-start gap-3 px-3 py-2.5 text-left rounded-lg overflow-hidden ring-1 ring-inset ${SPRING}
                       ${active
-                        ? "bg-gradient-to-r from-indigo-100 via-violet-100/80 to-indigo-50 ring-indigo-200/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_4px_12px_-6px_rgba(124,58,237,0.25)]"
-                        : "bg-indigo-50/60 ring-indigo-100/60 hover:bg-indigo-100/70 hover:ring-indigo-200/70 active:scale-[0.98]"
+                        ? "bg-indigo-500/20 ring-indigo-400/40 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_4px_12px_-6px_rgba(124,58,237,0.4)]"
+                        : "bg-white/[0.03] ring-white/5 hover:bg-white/[0.07] hover:ring-white/10 active:scale-[0.98]"
                       }`}
                   >
                     {active && (
                       <span
-                        className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-gradient-to-b from-indigo-500 to-fuchsia-500"
+                        className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-gradient-to-b from-indigo-400 to-fuchsia-400"
                         aria-hidden="true"
                       />
                     )}
                     <span
-                      className={`shrink-0 inline-flex items-center justify-center w-11 h-11 rounded-xl ${file.iconTint} ${SPRING}
-                        ring-1 ring-white/70
-                        shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_4px_12px_-6px_rgba(79,70,229,0.2)]
-                        ${active ? "scale-[1.03]" : "group-hover:scale-[1.02]"}`}
+                      className={`shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-lg ${SPRING}
+                        ring-1 ring-white/10 bg-white/[0.06]
+                        shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08)]
+                        ${active ? "text-indigo-200 scale-[1.03]" : "text-indigo-300/80"}`}
                     >
-                      <Icon size={18} strokeWidth={2.2} />
+                      <Icon size={16} strokeWidth={2.2} />
                     </span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span
                           className={`font-mono text-[13px] font-semibold truncate ${
-                            active ? "text-indigo-900" : "text-gray-900"
+                            active ? "text-white" : "text-indigo-100/90"
                           }`}
                         >
                           {file.label}
                         </span>
                         {isDirty && (
                           <span
-                            className="relative shrink-0 w-1.5 h-1.5 rounded-full bg-amber-500"
+                            className="relative shrink-0 w-1.5 h-1.5 rounded-full bg-amber-400"
                             title="저장 안 됨"
                           >
-                            <span className="absolute inset-0 rounded-full bg-amber-400 opacity-70 animate-ping" />
+                            <span className="absolute inset-0 rounded-full bg-amber-300 opacity-70 animate-ping" />
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-gray-500 mt-0.5 truncate">
+                      <div className="text-[11px] font-mono text-indigo-300/50 mt-0.5 truncate">
                         {file.summary}
                       </div>
                     </div>
                     <span
-                      className={`shrink-0 self-start mt-1 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${TAG_STYLE[file.tag]}`}
+                      className="shrink-0 self-start mt-0.5 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/5 ring-1 ring-white/10 text-indigo-200/80"
                     >
                       {file.tag}
                     </span>
@@ -387,8 +388,11 @@ export default function Dev2HarnessPage() {
             </div>
           </aside>
 
-          {/* Right: Editor (preview-chrome) */}
-          <section className="rounded-2xl overflow-hidden bg-white/70 backdrop-blur-md ring-1 ring-inset ring-white/60 border border-indigo-950/10 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(30,27,75,0.45),0_14px_36px_-20px_rgba(124,58,237,0.4)]">
+          {/* Right: Editor (IDE pane) */}
+          <section
+            className="rounded-2xl overflow-hidden border border-indigo-950/40 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(30,27,75,0.45),0_14px_36px_-20px_rgba(124,58,237,0.4)]"
+            style={{ backgroundColor: "#0F0D2E" }}
+          >
             {/* Path header — deep indigo preview chrome */}
             <div
               className="relative flex items-center justify-between px-5 py-3.5 gap-3 flex-wrap text-white overflow-hidden"
@@ -489,33 +493,34 @@ export default function Dev2HarnessPage() {
                   value={activeContent}
                   onChange={(e) => handleContentChange(e.target.value)}
                   spellCheck={false}
-                  className="w-full min-h-[520px] px-6 py-5 font-mono text-[13px] leading-6 text-gray-800 bg-white/50 backdrop-blur-sm outline-none resize-none focus:bg-white transition-colors duration-300"
+                  style={{ caretColor: "#c4b5fd" }}
+                  className="w-full min-h-[520px] px-6 py-5 font-mono text-[13px] leading-6 text-indigo-50 bg-transparent outline-none resize-none selection:bg-indigo-500/30 selection:text-white"
                 />
               </div>
             ) : (
-              <div className="px-6 py-6 min-h-[520px] bg-white/60 backdrop-blur-sm">
+              <div className="px-6 py-6 min-h-[520px]">
                 <div
-                  className="prose-mini text-[14px] text-gray-800 leading-relaxed
-                    [&_h1]:text-3xl [&_h1]:font-display [&_h1]:font-bold [&_h1]:text-gray-900 [&_h1]:mb-4 [&_h1]:mt-0 [&_h1]:tracking-tight
-                    [&_h1]:before:content-['#'] [&_h1]:before:text-indigo-400 [&_h1]:before:mr-2 [&_h1]:before:font-normal
-                    [&_h2]:text-lg [&_h2]:font-display [&_h2]:font-bold [&_h2]:text-gray-900 [&_h2]:mt-6 [&_h2]:mb-2.5
-                    [&_h2]:before:content-['##'] [&_h2]:before:text-indigo-300 [&_h2]:before:mr-2 [&_h2]:before:font-normal [&_h2]:before:text-sm
-                    [&_h3]:text-base [&_h3]:font-bold [&_h3]:text-gray-900 [&_h3]:mt-4 [&_h3]:mb-2
+                  className="prose-mini text-[14px] text-indigo-100/90 leading-relaxed
+                    [&_h1]:text-3xl [&_h1]:font-display [&_h1]:font-bold [&_h1]:text-white [&_h1]:mb-4 [&_h1]:mt-0 [&_h1]:tracking-tight
+                    [&_h1]:before:content-['#'] [&_h1]:before:text-fuchsia-400 [&_h1]:before:mr-2 [&_h1]:before:font-normal
+                    [&_h2]:text-lg [&_h2]:font-display [&_h2]:font-bold [&_h2]:text-white [&_h2]:mt-6 [&_h2]:mb-2.5
+                    [&_h2]:before:content-['##'] [&_h2]:before:text-fuchsia-400/70 [&_h2]:before:mr-2 [&_h2]:before:font-normal [&_h2]:before:text-sm
+                    [&_h3]:text-base [&_h3]:font-bold [&_h3]:text-white [&_h3]:mt-4 [&_h3]:mb-2
                     [&_p]:mb-2.5
-                    [&_ul]:list-none [&_ul]:pl-5 [&_ul]:space-y-1.5 [&_ul]:mb-3 [&_ul>li]:pl-2 [&_ul>li]:relative [&_ul>li]:before:content-[''] [&_ul>li]:before:absolute [&_ul>li]:before:left-0 [&_ul>li]:before:top-[10px] [&_ul>li]:before:w-1.5 [&_ul>li]:before:h-1.5 [&_ul>li]:before:rounded-full [&_ul>li]:before:bg-indigo-500
-                    [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:space-y-1 [&_ol]:mb-2.5
-                    [&_code]:bg-indigo-50 [&_code]:text-indigo-700 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[13px] [&_code]:font-mono
-                    [&_pre]:bg-gray-900 [&_pre]:text-gray-100 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_pre]:my-3 [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:p-0
-                    [&_a]:text-indigo-600 [&_a]:underline [&_a]:underline-offset-2 hover:[&_a]:text-indigo-700
-                    [&_blockquote]:border-l-4 [&_blockquote]:border-indigo-200 [&_blockquote]:pl-4 [&_blockquote]:py-0.5 [&_blockquote]:my-3 [&_blockquote]:text-gray-600 [&_blockquote]:italic
-                    [&_hr]:my-5 [&_hr]:border-t [&_hr]:border-gray-200
-                    [&_strong]:font-bold [&_strong]:text-gray-900
+                    [&_ul]:list-none [&_ul]:pl-5 [&_ul]:space-y-1.5 [&_ul]:mb-3 [&_ul>li]:pl-2 [&_ul>li]:relative [&_ul>li]:before:content-[''] [&_ul>li]:before:absolute [&_ul>li]:before:left-0 [&_ul>li]:before:top-[10px] [&_ul>li]:before:w-1.5 [&_ul>li]:before:h-1.5 [&_ul>li]:before:rounded-full [&_ul>li]:before:bg-indigo-400
+                    [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:space-y-1 [&_ol]:mb-2.5 [&_ol]:marker:text-indigo-300
+                    [&_code]:bg-indigo-500/15 [&_code]:text-indigo-200 [&_code]:ring-1 [&_code]:ring-inset [&_code]:ring-indigo-400/20 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[13px] [&_code]:font-mono
+                    [&_pre]:bg-black/30 [&_pre]:ring-1 [&_pre]:ring-inset [&_pre]:ring-white/10 [&_pre]:text-indigo-50 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_pre]:my-3 [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:p-0 [&_pre_code]:ring-0
+                    [&_a]:text-indigo-300 [&_a]:underline [&_a]:underline-offset-2 hover:[&_a]:text-indigo-200
+                    [&_blockquote]:border-l-4 [&_blockquote]:border-indigo-400/60 [&_blockquote]:pl-4 [&_blockquote]:py-0.5 [&_blockquote]:my-3 [&_blockquote]:text-indigo-200/70 [&_blockquote]:italic
+                    [&_hr]:my-5 [&_hr]:border-t [&_hr]:border-white/10
+                    [&_strong]:font-bold [&_strong]:text-white
                     [&_em]:italic
-                    [&_del]:line-through [&_del]:text-gray-500
-                    [&_table]:w-full [&_table]:my-3 [&_table]:border-collapse [&_table]:rounded-lg [&_table]:overflow-hidden [&_table]:border [&_table]:border-gray-200
-                    [&_th]:bg-gray-50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-gray-700 [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-wider [&_th]:border-b [&_th]:border-gray-200
-                    [&_td]:px-3 [&_td]:py-2 [&_td]:border-b [&_td]:border-gray-100 [&_tr:last-child_td]:border-b-0
-                    [&_input[type=checkbox]]:mr-2 [&_input[type=checkbox]]:accent-indigo-600
+                    [&_del]:line-through [&_del]:text-indigo-300/50
+                    [&_table]:w-full [&_table]:my-3 [&_table]:border-collapse [&_table]:rounded-lg [&_table]:overflow-hidden [&_table]:ring-1 [&_table]:ring-white/10
+                    [&_th]:bg-white/5 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-indigo-100 [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-wider [&_th]:border-b [&_th]:border-white/10
+                    [&_td]:px-3 [&_td]:py-2 [&_td]:border-b [&_td]:border-white/5 [&_tr:last-child_td]:border-b-0
+                    [&_input[type=checkbox]]:mr-2 [&_input[type=checkbox]]:accent-indigo-500
                     [&_.task-list-item]:pl-0 [&_.task-list-item]:before:content-none [&_.contains-task-list]:pl-0"
                 >
                   <Markdown remarkPlugins={[remarkGfm]}>
