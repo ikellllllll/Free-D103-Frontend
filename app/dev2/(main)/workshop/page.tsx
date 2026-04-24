@@ -56,14 +56,6 @@ export default function Dev2WorkshopPage() {
       <div className="relative max-w-5xl mx-auto px-6 pt-24 sm:pt-28 pb-16">
         {/* ── HERO ── */}
         <section className="text-center animate-slide-up">
-          <div className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full ${GLASS} text-indigo-700 text-[11px] font-bold uppercase tracking-[0.18em] mb-6`}>
-            <span className="relative inline-flex w-1.5 h-1.5">
-              <span className="absolute inset-0 rounded-full bg-indigo-500 animate-ping opacity-60" />
-              <span className="relative w-1.5 h-1.5 rounded-full bg-indigo-500" />
-            </span>
-            <span>Preview · Q2 2026</span>
-          </div>
-
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-display font-bold text-gray-900 tracking-tight leading-[1.05] mb-5 text-balance">
             공부가 아니라,
             <br />

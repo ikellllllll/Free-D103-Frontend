@@ -54,6 +54,11 @@ export function Dev2Shell({ children }: { children: ReactNode }) {
   const addToast = useUiStore((s) => s.addToast);
 
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const isMac = useMemo(() => {
+    if (typeof navigator === "undefined") return false;
+    return /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || "");
+  }, []);
+  const shortcutLabel = isMac ? "⌘K" : "Ctrl K";
   const [paletteQuery, setPaletteQuery] = useState("");
   const [paletteIndex, setPaletteIndex] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -203,13 +208,13 @@ export function Dev2Shell({ children }: { children: ReactNode }) {
             <button
               type="button"
               onClick={openPalette}
-              className="flex items-center space-x-2 px-3 py-1.5 rounded-full border border-gray-200 text-sm text-gray-500 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
-              title="명령 팔레트 (Ctrl+K)"
+              title={`명령 팔레트 (${shortcutLabel})`}
+              className="group flex items-center gap-2.5 w-56 lg:w-64 h-9 pl-3 pr-2 rounded-xl bg-gray-50/80 ring-1 ring-inset ring-gray-200/80 text-sm text-gray-500 shadow-[inset_0_1px_2px_rgba(17,24,39,0.04)] hover:bg-gray-200/80 hover:ring-gray-300 hover:text-gray-800 transition-colors cursor-text"
             >
-              <Search size={14} strokeWidth={2} />
-              <span>찾기</span>
-              <kbd className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500">
-                Ctrl K
+              <Search size={14} strokeWidth={2} className="shrink-0" />
+              <span className="flex-1 text-left">검색…</span>
+              <kbd className="hidden sm:inline-flex items-center gap-0.5 text-[10px] font-semibold text-gray-500 bg-white ring-1 ring-inset ring-gray-200 rounded-md px-1.5 py-0.5 tabular-nums shadow-[0_1px_0_0_rgba(17,24,39,0.04)]">
+                {shortcutLabel}
               </kbd>
             </button>
             <div className="relative">
@@ -346,24 +351,28 @@ export function Dev2Shell({ children }: { children: ReactNode }) {
           role="presentation"
         >
           <div
-            className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden"
+            className="w-full max-w-lg bg-white rounded-2xl shadow-2xl ring-1 ring-gray-200/70 overflow-hidden"
             role="dialog"
             aria-label="명령 팔레트"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center space-x-3 px-4 py-3 border-b border-gray-100">
-              <Search size={18} strokeWidth={2} className="text-gray-400" />
-              <input
-                autoFocus
-                className="flex-1 text-sm text-gray-900 placeholder-gray-400 outline-none bg-transparent"
-                placeholder="찾기"
-                value={paletteQuery}
-                onChange={(e) => {
-                  setPaletteQuery(e.target.value);
-                  setPaletteIndex(0);
-                }}
-              />
-              <kbd className="text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-500">esc</kbd>
+            <div className="p-3">
+              <div className="flex items-center gap-3 px-3.5 h-11 rounded-xl bg-gray-50 ring-1 ring-inset ring-gray-200/70 shadow-[inset_0_2px_4px_rgba(17,24,39,0.06),inset_0_-1px_0_0_rgba(255,255,255,0.7)] focus-within:ring-indigo-300/70 focus-within:bg-white transition-colors">
+                <Search size={16} strokeWidth={2} className="text-gray-400 shrink-0" />
+                <input
+                  autoFocus
+                  className="flex-1 text-sm text-gray-900 placeholder-gray-400 bg-transparent border-0 outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 appearance-none caret-indigo-600"
+                  placeholder="검색…"
+                  value={paletteQuery}
+                  onChange={(e) => {
+                    setPaletteQuery(e.target.value);
+                    setPaletteIndex(0);
+                  }}
+                />
+                <kbd className="text-[10px] font-semibold text-gray-500 bg-white ring-1 ring-inset ring-gray-200 rounded-md px-1.5 py-0.5 shadow-[0_1px_0_0_rgba(17,24,39,0.04)]">
+                  esc
+                </kbd>
+              </div>
             </div>
             <div className="max-h-80 overflow-y-auto py-2">
               {filteredItems.length === 0 ? (
