@@ -215,7 +215,7 @@ export default function Dev2HarnessPage() {
   const lineCount = useMemo(() => activeContent.split("\n").length, [activeContent]);
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-50">
+    <div className="relative min-h-screen overflow-hidden bg-[#EEF2FF]">
       {/* ─── Aurora / Mesh background ─── */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
         {/* Base mesh wash */}
@@ -422,7 +422,7 @@ export default function Dev2HarnessPage() {
                   <span
                     className={`absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] rounded-lg ring-1 ring-white shadow-[0_6px_14px_-8px_rgba(124,58,237,0.5)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                       viewMode === "preview"
-                        ? "translate-x-full bg-gradient-to-br from-white to-indigo-50"
+                        ? "translate-x-full bg-gradient-to-br from-yellow-50 to-amber-100"
                         : "translate-x-0 bg-gradient-to-br from-yellow-50 to-amber-100"
                     }`}
                     aria-hidden="true"
@@ -444,7 +444,7 @@ export default function Dev2HarnessPage() {
                     onClick={() => setViewMode("preview")}
                     className={`relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${SPRING} ${
                       viewMode === "preview"
-                        ? "text-indigo-600 font-black"
+                        ? "text-amber-600 font-black"
                         : "text-white font-bold hover:text-white"
                     }`}
                   >
@@ -496,9 +496,7 @@ export default function Dev2HarnessPage() {
                 <div
                   className="prose-mini text-[14px] text-indigo-100/90 leading-relaxed
                     [&_h1]:text-3xl [&_h1]:font-display [&_h1]:font-bold [&_h1]:text-white [&_h1]:mb-4 [&_h1]:mt-0 [&_h1]:tracking-tight
-                    [&_h1]:before:content-['#'] [&_h1]:before:text-fuchsia-400 [&_h1]:before:mr-2 [&_h1]:before:font-normal
                     [&_h2]:text-lg [&_h2]:font-display [&_h2]:font-bold [&_h2]:text-white [&_h2]:mt-6 [&_h2]:mb-2.5
-                    [&_h2]:before:content-['##'] [&_h2]:before:text-fuchsia-400/70 [&_h2]:before:mr-2 [&_h2]:before:font-normal [&_h2]:before:text-sm
                     [&_h3]:text-base [&_h3]:font-bold [&_h3]:text-white [&_h3]:mt-4 [&_h3]:mb-2
                     [&_p]:mb-2.5
                     [&_ul]:list-none [&_ul]:pl-5 [&_ul]:space-y-1.5 [&_ul]:mb-3 [&_ul>li]:pl-2 [&_ul>li]:relative [&_ul>li]:before:content-[''] [&_ul>li]:before:absolute [&_ul>li]:before:left-0 [&_ul>li]:before:top-[10px] [&_ul>li]:before:w-1.5 [&_ul>li]:before:h-1.5 [&_ul>li]:before:rounded-full [&_ul>li]:before:bg-indigo-400

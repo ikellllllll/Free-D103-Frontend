@@ -386,13 +386,12 @@ export function LandingAIG() {
               <a href="#features" onClick={handleAnchorJump("features")} className="hover:text-indigo-600 transition-colors cursor-pointer">기능</a>
               <a href="#workflow" onClick={handleAnchorJump("workflow")} className="hover:text-indigo-600 transition-colors cursor-pointer">워크플로</a>
               <a href="#reports" onClick={handleAnchorJump("reports")} className="hover:text-indigo-600 transition-colors cursor-pointer">리포트</a>
-              <Link href="/dev2/login" className="hover:text-indigo-600 transition-colors cursor-pointer">로그인</Link>
             </div>
             <Link
-              href="/dev2/signup"
+              href="/dev2/login"
               className="inline-flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-full transition-colors shadow-md cursor-pointer"
             >
-              <span>무료로 시작</span>
+              <span>로그인</span>
               <ArrowRight size={14} strokeWidth={2.4} />
             </Link>
           </nav>
@@ -400,11 +399,7 @@ export function LandingAIG() {
 
         {/* Hero content */}
         <div className="relative z-10 flex flex-col items-center px-6 pt-6 pb-10 text-center max-w-4xl mx-auto w-full animate-slide-up md:pt-8">
-          <div className="self-center inline-flex border-l-2 border-white/40 pl-3 text-xs font-semibold tracking-[0.12em] text-white/55 mb-3">
-            SSAFY 14기 · D103 자율 프로젝트
-          </div>
-
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-bold tracking-tight leading-[1.1] mb-4">
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-bold tracking-tight leading-[1.1] mb-3">
             AI 에이전트와 함께
             <br />
             실무 역량을 키우는
@@ -423,6 +418,10 @@ export function LandingAIG() {
               코딩 워크스페이스
             </span>
           </h1>
+
+          <div className="self-center inline-flex border-l-2 border-white/40 pl-3 text-xs font-semibold tracking-[0.12em] text-white/55 mb-4">
+            SSAFY 14기 · D103 자율 프로젝트
+          </div>
 
           <p className="text-base md:text-xl text-indigo-200/90 max-w-2xl mx-auto leading-relaxed mb-5">
             실무 과제를 풀고, 에이전트 흐름을 기록하고,
@@ -521,7 +520,7 @@ export function LandingAIG() {
                 >
                   {s.value}
                 </div>
-                <div className="text-xs text-indigo-300/50 uppercase tracking-[0.12em]">{s.label}</div>
+                <div className="text-sm font-bold text-indigo-300/80 uppercase tracking-[0.12em]">{s.label}</div>
               </div>
             ))}
           </div>
@@ -533,15 +532,14 @@ export function LandingAIG() {
         ref={setSectionRef("features")}
         data-section="features"
         id="features"
-        className="relative min-h-screen bg-[#F8FAFC] overflow-hidden flex flex-col justify-center py-20"
+        className="relative min-h-screen bg-[#EEF2FF] overflow-hidden flex flex-col justify-center py-20"
         style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
       >
-        {/* aurora background */}
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute left-[10%] top-[15%] w-[500px] h-[500px] rounded-full bg-indigo-200/50 blur-[120px]" />
-          <div className="absolute right-[8%] bottom-[15%] w-[400px] h-[400px] rounded-full bg-violet-200/45 blur-[100px]" />
-          <div className="absolute left-[45%] top-[50%] w-[300px] h-[300px] rounded-full bg-teal-100/60 blur-[90px]" />
-          <div className="absolute inset-0 bg-grid-pattern opacity-[0.035]" />
+        {/* blob decorations */}
+        <div className="pointer-events-none absolute top-0 left-0 right-0 h-full overflow-hidden">
+          <div className="absolute -top-10 -left-32 w-[420px] h-[420px] rounded-full bg-indigo-300/25 blur-3xl animate-blob-1" />
+          <div className="absolute top-[10%] -right-32 w-[420px] h-[420px] rounded-full bg-violet-300/20 blur-3xl animate-blob-2" />
+          <div className="absolute inset-0 bg-grid-pattern opacity-[0.04]" />
         </div>
 
         <div className="relative max-w-6xl mx-auto px-6 w-full">
@@ -566,7 +564,7 @@ export function LandingAIG() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
 
             {/* Chat Mode */}
-            <div className="relative min-h-[260px] rounded-3xl border border-slate-200/80 bg-white/[0.86] backdrop-blur-sm overflow-hidden group hover:bg-white transition-all duration-300 p-8 flex flex-col justify-start shadow-[0_18px_55px_-32px_rgba(15,23,42,0.35)]">
+            <div className="relative min-h-[260px] rounded-3xl border border-gray-200/80 bg-white overflow-hidden group transition-all duration-300 p-8 flex flex-col justify-start shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)] hover:-translate-y-1 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_12px_24px_-12px_rgba(79,70,229,0.25)]">
               <div>
                 <h3 className="text-3xl font-display font-bold text-slate-950 tracking-tight mb-5">Chat Mode</h3>
                 <p className="text-base text-slate-600 leading-7">AI에게 직접 질문하고 답변을 받으며 코드를 작성합니다. 프롬프트 품질이 곧 실력입니다.</p>
@@ -575,7 +573,7 @@ export function LandingAIG() {
             </div>
 
             {/* Agent Mode */}
-            <div className="relative min-h-[260px] rounded-3xl border border-slate-200/80 bg-white/[0.86] backdrop-blur-sm overflow-hidden group hover:bg-white transition-all duration-300 p-8 flex flex-col justify-start shadow-[0_18px_55px_-32px_rgba(15,23,42,0.35)]">
+            <div className="relative min-h-[260px] rounded-3xl border border-gray-200/80 bg-white overflow-hidden group transition-all duration-300 p-8 flex flex-col justify-start shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)] hover:-translate-y-1 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_12px_24px_-12px_rgba(79,70,229,0.25)]">
               <div className="min-w-0">
                 <h3 className="text-3xl font-display font-bold text-slate-950 tracking-tight mb-5">Agent Mode</h3>
                 <p className="text-base text-slate-600 leading-7">하네스를 설계하고 에이전트에게 과제를 위임합니다. 자율 실행된 에이전트의 Trace가 남습니다.</p>
@@ -584,7 +582,7 @@ export function LandingAIG() {
             </div>
 
             {/* AI 피드백 리포트 */}
-            <div className="relative min-h-[260px] rounded-3xl border border-slate-200/80 bg-white/[0.86] backdrop-blur-sm overflow-hidden group hover:bg-white transition-all duration-300 p-8 flex flex-col justify-start shadow-[0_18px_55px_-32px_rgba(15,23,42,0.35)]">
+            <div className="relative min-h-[260px] rounded-3xl border border-gray-200/80 bg-white overflow-hidden group transition-all duration-300 p-8 flex flex-col justify-start shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)] hover:-translate-y-1 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_12px_24px_-12px_rgba(79,70,229,0.25)]">
               <div className="min-w-0">
                 <h3 className="text-3xl font-display font-bold text-slate-950 tracking-tight mb-5">AI 피드백 리포트</h3>
                 <p className="text-base text-slate-600 leading-7">하네스 품질 · 실행 품질 · Trace 활용 3가지 기준으로 AI 활용 역량을 수치화합니다.</p>
@@ -601,11 +599,14 @@ export function LandingAIG() {
         ref={setSectionRef("workflow")}
         data-section="workflow"
         id="workflow"
-        className="relative min-h-screen bg-white flex flex-col justify-center py-16 overflow-hidden"
+        className="relative min-h-screen bg-[#EEF2FF] flex flex-col justify-center py-16 overflow-hidden"
         style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
       >
-        <div className="absolute top-40 right-0 w-96 h-96 rounded-full bg-indigo-100/50 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-40 left-0 w-96 h-96 rounded-full bg-violet-100/50 blur-3xl pointer-events-none" />
+        <div className="pointer-events-none absolute top-0 left-0 right-0 h-full overflow-hidden">
+          <div className="absolute -top-10 -left-32 w-[420px] h-[420px] rounded-full bg-indigo-300/25 blur-3xl animate-blob-1" />
+          <div className="absolute top-[10%] -right-32 w-[420px] h-[420px] rounded-full bg-violet-300/20 blur-3xl animate-blob-2" />
+          <div className="absolute inset-0 bg-grid-pattern opacity-[0.04]" />
+        </div>
 
         <div className="relative max-w-6xl mx-auto px-6 w-full">
           <div className="text-center mb-10">
@@ -643,8 +644,8 @@ export function LandingAIG() {
                     onClick={() => goToStep(i)}
                     className={`group w-full text-left flex items-center gap-4 px-5 py-2 rounded-2xl border transition-all cursor-pointer ${
                       active
-                        ? "bg-white border-indigo-200 shadow-[0_12px_30px_-12px_rgba(99,102,241,0.45)] -translate-y-0.5"
-                        : "bg-white/60 border-gray-100 hover:bg-white hover:border-gray-200"
+                        ? "bg-white border-indigo-200 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_12px_28px_-16px_rgba(79,70,229,0.25)] -translate-y-0.5"
+                        : "bg-white/80 border-gray-200/80 hover:bg-white hover:border-indigo-200 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04)]"
                     }`}
                   >
                     <span
@@ -724,7 +725,7 @@ export function LandingAIG() {
                   />
                 ))}
               </div>
-              <div className="relative flex-1 rounded-3xl border border-gray-200 bg-white/60 backdrop-blur p-2 shadow-2xl shadow-indigo-900/10">
+              <div className="relative flex-1 rounded-3xl border border-gray-200/80 bg-white p-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)]">
                 <div className="absolute -inset-10 -z-10 bg-gradient-to-br from-indigo-200/40 via-violet-200/30 to-teal-200/30 blur-3xl rounded-full" />
                 <div className="relative h-full rounded-2xl overflow-hidden bg-gray-100">
                   <Image
@@ -749,7 +750,7 @@ export function LandingAIG() {
         ref={setSectionRef("demo")}
         data-section="demo"
         id="demo"
-        className="relative min-h-screen bg-[#0F0F2E] text-white overflow-hidden flex flex-col justify-center py-16"
+        className="relative min-h-screen bg-[#2d2d44] text-white overflow-hidden flex flex-col justify-center py-16"
         style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
       >
         <div className="absolute inset-0 pointer-events-none">
@@ -773,19 +774,13 @@ export function LandingAIG() {
 
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-5 items-stretch">
             {/* Left — IDE window mock */}
-            <div className="relative rounded-2xl overflow-hidden border border-white/20 bg-white/[0.06] backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_8px_32px_rgba(0,0,0,0.35)]">
-              <div className="flex items-center justify-between px-3 py-2 bg-black/20 border-b border-white/10">
-                <span className="text-[11px] font-mono text-indigo-200/60 truncate">/dev2/ide/session-e89y3kqx-mo6u209l</span>
-                <div className="flex items-center gap-1">
-                  <span className="flex items-center justify-center w-7 h-5 rounded hover:bg-white/10 transition-colors cursor-default">
-                    <svg width="10" height="1" viewBox="0 0 10 1" fill="none"><rect width="10" height="1" fill="rgba(165,180,252,0.6)"/></svg>
-                  </span>
-                  <span className="flex items-center justify-center w-7 h-5 rounded hover:bg-white/10 transition-colors cursor-default">
-                    <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><rect x="0.5" y="0.5" width="8" height="8" stroke="rgba(165,180,252,0.6)" strokeWidth="1"/></svg>
-                  </span>
-                  <span className="flex items-center justify-center w-7 h-5 rounded hover:bg-rose-500/60 transition-colors cursor-default">
-                    <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><line x1="1" y1="1" x2="8" y2="8" stroke="rgba(165,180,252,0.6)" strokeWidth="1.2"/><line x1="8" y1="1" x2="1" y2="8" stroke="rgba(165,180,252,0.6)" strokeWidth="1.2"/></svg>
-                  </span>
+            <div className="relative rounded-2xl overflow-hidden border border-[#2a2a2a] bg-[#0d0d0d] shadow-[0_8px_40px_rgba(0,0,0,0.7)]">
+              <div className="flex items-center justify-between px-3 py-2 bg-[#1a1a1a] border-b border-[#2a2a2a]">
+                <span className="text-[11px] font-mono text-gray-500 truncate">/dev2/ide/session-e89y3kqx-mo6u209l</span>
+                <div className="flex items-center">
+                  <span className="flex items-center justify-center w-8 h-6 hover:bg-white/10 transition-colors cursor-default text-gray-400 hover:text-white text-xs">─</span>
+                  <span className="flex items-center justify-center w-8 h-6 hover:bg-white/10 transition-colors cursor-default text-gray-400 hover:text-white text-xs">□</span>
+                  <span className="flex items-center justify-center w-8 h-6 hover:bg-red-500 transition-colors cursor-default text-gray-400 hover:text-white text-xs rounded-tr-xl">✕</span>
                 </div>
               </div>
               <div className="relative aspect-[16/10]">
@@ -815,7 +810,7 @@ export function LandingAIG() {
                 </div>
                 {/* Mini diff card */}
                 <div
-                  className={`absolute right-3 bottom-3 w-[40%] rounded-xl border border-white/15 bg-[#1E1B4B]/90 backdrop-blur-md shadow-xl transition-all duration-500 ${
+                  className={`absolute right-3 bottom-3 w-[40%] rounded-xl border border-[#2a2a2a] bg-[#111111] shadow-xl transition-all duration-500 ${
                     ideStep >= 3 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
                   }`}
                 >
@@ -839,8 +834,8 @@ export function LandingAIG() {
             </div>
 
             {/* Right — Agent panel */}
-            <div className="rounded-2xl overflow-hidden border border-white/20 bg-white/[0.08] backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_8px_32px_rgba(0,0,0,0.3)] flex flex-col">
-              <div className="flex items-start justify-between gap-3 px-4 py-3 border-b border-white/10">
+            <div className="rounded-2xl overflow-hidden border border-[#2a2a2a] bg-[#0d0d0d] shadow-[0_8px_40px_rgba(0,0,0,0.7)] flex flex-col">
+              <div className="flex items-start justify-between gap-3 px-4 py-3 bg-[#1a1a1a] border-b border-[#2a2a2a]">
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-300 mb-1">Agent Mode</p>
                   <h3 className="text-[15px] font-bold text-white">선택한 코드에 대해 바로 묻기</h3>
@@ -855,7 +850,7 @@ export function LandingAIG() {
                 {/* User message */}
                 <div className="space-y-1">
                   <span className="inline-block text-[10px] font-mono text-indigo-300/80 uppercase tracking-wider">질문</span>
-                  <div className="rounded-xl rounded-tl-sm px-3 py-2 bg-indigo-500/15 border border-indigo-400/20 text-sm text-white leading-relaxed">
+                  <div className="rounded-xl rounded-tl-sm px-3 py-2 bg-[#2a2a3a] border border-[#3a3a4a] text-sm text-gray-200 leading-relaxed">
                     {ideStepData.question}
                   </div>
                 </div>
@@ -867,7 +862,7 @@ export function LandingAIG() {
                   }`}
                 >
                   <span className="inline-block text-[10px] font-mono text-teal-300/80 uppercase tracking-wider">에이전트</span>
-                  <div className="rounded-xl rounded-tl-sm px-3 py-2 bg-white/[0.06] border border-white/10 text-sm text-indigo-100 leading-relaxed">
+                  <div className="rounded-xl rounded-tl-sm px-3 py-2 bg-[#1e2a1e] border border-[#2a3a2a] text-sm text-green-400 leading-relaxed font-mono">
                     {ideStep === 2 ? (
                       <span className="inline-flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-teal-300 animate-bounce" style={{ animationDelay: "0ms" }} />
@@ -896,13 +891,13 @@ export function LandingAIG() {
                 </div>
               </div>
 
-              <div className="px-4 py-2 border-t border-white/10 font-mono text-[11px] text-indigo-200/60 flex items-center flex-wrap gap-x-1">
-                <span className="text-teal-300">agent@aig</span>
-                <span className="text-indigo-200/50">:</span>
-                <span className="text-indigo-300">selection</span>
-                <span className="text-indigo-200/50">$ </span>
-                <span className="text-indigo-200/80">{ideStepData.status}</span>
-                <span style={{ opacity: ideCursor ? 1 : 0 }} className="ml-0.5 text-indigo-200">|</span>
+              <div className="px-4 py-2 border-t border-[#2a2a2a] font-mono text-[11px] text-gray-500 flex items-center flex-wrap gap-x-1 bg-[#111]">
+                <span className="text-green-500">agent@aig</span>
+                <span className="text-gray-600">:</span>
+                <span className="text-blue-400">~/selection</span>
+                <span className="text-gray-600">$ </span>
+                <span className="text-gray-300">{ideStepData.status}</span>
+                <span style={{ opacity: ideCursor ? 1 : 0 }} className="ml-0.5 text-gray-300">▌</span>
               </div>
             </div>
           </div>
@@ -914,10 +909,15 @@ export function LandingAIG() {
         ref={setSectionRef("reports")}
         data-section="reports"
         id="reports"
-        className="relative min-h-screen bg-white overflow-hidden flex flex-col justify-center py-20"
+        className="relative min-h-screen bg-[#EEF2FF] overflow-hidden flex flex-col justify-center py-20"
         style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
       >
-        <div className="max-w-6xl mx-auto px-6 w-full">
+        <div className="pointer-events-none absolute top-0 left-0 right-0 h-full overflow-hidden">
+          <div className="absolute -top-10 -left-32 w-[420px] h-[420px] rounded-full bg-indigo-300/25 blur-3xl animate-blob-1" />
+          <div className="absolute top-[10%] -right-32 w-[420px] h-[420px] rounded-full bg-violet-300/20 blur-3xl animate-blob-2" />
+          <div className="absolute inset-0 bg-grid-pattern opacity-[0.04]" />
+        </div>
+        <div className="max-w-6xl mx-auto px-6 w-full relative">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div className="animate-slide-up">
               <div className="inline-flex border-l-2 border-teal-500 pl-3 text-xs font-semibold tracking-[0.12em] text-gray-400 mb-6">
@@ -959,9 +959,9 @@ export function LandingAIG() {
 
             {/* Mock score card */}
             <div className="relative animate-scale-in">
-              <div className="absolute -inset-8 bg-gradient-to-br from-indigo-200/40 via-violet-200/40 to-teal-200/40 blur-3xl rounded-full pointer-events-none" />
-              <div className="relative overflow-hidden rounded-3xl border border-gray-100 bg-white p-8 shadow-2xl">
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-indigo-50 via-violet-50/70 to-transparent" />
+              <div className="absolute -inset-4 bg-gradient-to-br from-indigo-200/20 via-violet-200/20 to-teal-200/20 blur-2xl rounded-full pointer-events-none" />
+              <div className="relative overflow-hidden rounded-3xl border border-gray-200/80 bg-white p-8 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)]">
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-indigo-50/40 to-transparent" />
 
                 <div className="relative flex items-start justify-between gap-6">
                   <div className="min-w-0">
@@ -1084,7 +1084,6 @@ export function LandingAIG() {
               href="/dev2/signup"
               className="inline-flex items-center space-x-2 bg-white text-indigo-900 hover:bg-indigo-50 font-semibold px-8 py-4 rounded-full transition-all shadow-2xl hover:-translate-y-0.5 cursor-pointer"
             >
-              <Sparkles size={18} strokeWidth={2.2} />
               <span>AIG 시작하기</span>
               <ArrowRight size={16} strokeWidth={2.4} />
             </Link>
@@ -1096,7 +1095,7 @@ export function LandingAIG() {
           <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between gap-6">
             <div>
               <Link href="/dev2" className="inline-flex items-center space-x-2 text-white font-display font-bold text-lg mb-2 cursor-pointer">
-                <Sparkles size={18} strokeWidth={2} />
+                <Image src="/brand/app-icon-light.svg" alt="AIG" width={24} height={24} className="rounded-md" />
                 <span>AIG</span>
               </Link>
               <p className="text-xs text-indigo-200/60 max-w-md leading-relaxed">

@@ -226,7 +226,7 @@ export default function Dev2WorkshopPage() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-50">
+    <div className="relative min-h-screen overflow-hidden bg-[#EEF2FF]">
       {/* ── Aurora & Mesh backdrop ── */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {/* Mesh gradient base */}

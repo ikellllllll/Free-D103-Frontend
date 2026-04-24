@@ -245,7 +245,7 @@ export default function Dev2MyPage() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-violet-200/70 via-indigo-100/60 to-slate-100">
+    <div className="relative min-h-screen overflow-hidden bg-[#EEF2FF]">
       {/* Aurora mesh background */}
       <div
         className="pointer-events-none absolute inset-0"

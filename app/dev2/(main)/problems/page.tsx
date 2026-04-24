@@ -50,27 +50,27 @@ const LEVEL_META: Record<
 > = {
   1: {
     label: "입문",
-    chipBg: "bg-emerald-50",
-    chipText: "text-emerald-700",
-    ringTrack: "stroke-emerald-100",
-    ringFill: "stroke-emerald-500",
-    barFill: "bg-emerald-500"
+    chipBg: "bg-indigo-50",
+    chipText: "text-indigo-400",
+    ringTrack: "stroke-indigo-100",
+    ringFill: "stroke-indigo-400",
+    barFill: "bg-indigo-400"
   },
   2: {
     label: "중급",
-    chipBg: "bg-amber-50",
-    chipText: "text-amber-700",
-    ringTrack: "stroke-amber-100",
-    ringFill: "stroke-amber-500",
-    barFill: "bg-amber-500"
+    chipBg: "bg-violet-50",
+    chipText: "text-violet-500",
+    ringTrack: "stroke-violet-100",
+    ringFill: "stroke-violet-500",
+    barFill: "bg-violet-500"
   },
   3: {
     label: "고급",
-    chipBg: "bg-rose-50",
-    chipText: "text-rose-700",
-    ringTrack: "stroke-rose-100",
-    ringFill: "stroke-rose-500",
-    barFill: "bg-rose-500"
+    chipBg: "bg-fuchsia-50",
+    chipText: "text-fuchsia-600",
+    ringTrack: "stroke-fuchsia-100",
+    ringFill: "stroke-fuchsia-600",
+    barFill: "bg-fuchsia-600"
   }
 };
 
@@ -101,12 +101,6 @@ function FilterChip({
   );
 }
 
-const FILTER_GROUP_COLORS: Record<string, { text: string; border: string }> = {
-  난이도: { text: "text-indigo-500", border: "border-indigo-400" },
-  유형:   { text: "text-violet-500", border: "border-violet-400" },
-  상태:   { text: "text-teal-500",   border: "border-teal-400" }
-};
-
 function FilterGroup({
   label,
   children
@@ -114,10 +108,9 @@ function FilterGroup({
   label: string;
   children: React.ReactNode;
 }) {
-  const color = FILTER_GROUP_COLORS[label] ?? { text: "text-gray-500", border: "border-gray-400" };
   return (
     <div className="flex items-center gap-1.5">
-      <span className={`border-l-2 pl-1.5 text-[11px] font-extrabold uppercase tracking-wider mr-0.5 font-mono whitespace-nowrap ${color.text} ${color.border}`}>
+      <span className="bg-gray-100 border border-gray-300 rounded-md px-2 py-1 text-[11px] font-black uppercase tracking-wider mr-0.5 font-sans whitespace-nowrap text-gray-900">
         {label}
       </span>
       {children}
@@ -422,7 +415,7 @@ export default function Dev2ProblemsPage() {
   };
 
   return (
-    <div className="relative bg-gradient-to-b from-violet-200/70 via-indigo-100/60 to-slate-100 min-h-screen overflow-hidden">
+    <div className="relative bg-[#EEF2FF] min-h-screen overflow-hidden">
       {/* Floating blobs & grid */}
       <div className="absolute top-0 left-0 right-0 h-[800px] pointer-events-none overflow-hidden">
         <div className="absolute -top-10 -left-32 w-[420px] h-[420px] rounded-full bg-indigo-400/30 blur-3xl animate-blob-1" />
@@ -433,10 +426,6 @@ export default function Dev2ProblemsPage() {
       <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-24 sm:pt-28 pb-12 sm:pb-16">
         {/* Hero */}
         <div className="text-center mb-8 sm:mb-10 animate-slide-up">
-          <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-white border border-indigo-100 text-indigo-700 text-sm font-semibold mb-4 sm:mb-6 shadow-sm">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-dot-pulse" />
-            <span>{filtered.length}/{stats.total || filtered.length}개 과제 · 실무 시나리오</span>
-          </div>
           <h1 className="text-3xl sm:text-5xl md:text-6xl font-display font-bold text-gray-900 tracking-tight mb-3 sm:mb-4 leading-[1.1] text-balance">
             실무 백엔드 과제를
             <br />
@@ -525,36 +514,38 @@ export default function Dev2ProblemsPage() {
 
         {/* Filter bar */}
         <div
-          className="flex items-center gap-x-1 mb-6 sm:mb-8 px-4 py-2.5 bg-white rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_8px_20px_-14px_rgba(79,70,229,0.15)] animate-slide-up overflow-x-auto"
+          className="flex items-center gap-x-2 mb-6 sm:mb-8 animate-slide-up overflow-x-auto"
           style={{ animationDelay: "0.15s", animationFillMode: "both" }}
         >
-          <FilterGroup label="난이도">
-            <FilterChip active={level === "ALL"} onClick={() => setLevel("ALL")}>전체</FilterChip>
-            {LEVEL_OPTIONS.map((v) => (
-              <FilterChip key={v} active={level === v} onClick={() => setLevel(v)}>
-                Lv {v}
-                <span className="ml-1 text-[10px] opacity-70">{LEVEL_META[v].label}</span>
-              </FilterChip>
-            ))}
-          </FilterGroup>
+          <div className="flex items-center gap-1.5 px-3 py-2 bg-white rounded-xl border border-gray-200 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_4px_12px_-6px_rgba(79,70,229,0.12)]">
+            <FilterGroup label="난이도">
+              <FilterChip active={level === "ALL"} onClick={() => setLevel("ALL")}>전체</FilterChip>
+              {LEVEL_OPTIONS.map((v) => (
+                <FilterChip key={v} active={level === v} onClick={() => setLevel(v)}>
+                  Lv {v}
+                  <span className="ml-1 text-[10px] opacity-70">{LEVEL_META[v].label}</span>
+                </FilterChip>
+              ))}
+            </FilterGroup>
+          </div>
 
-          <div className="w-px h-6 bg-gray-200 mx-1" />
+          <div className="flex items-center gap-1.5 px-3 py-2 bg-white rounded-xl border border-gray-200 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_4px_12px_-6px_rgba(79,70,229,0.12)]">
+            <FilterGroup label="유형">
+              <FilterChip active={category === "ALL"} onClick={() => setCategory("ALL")}>전체</FilterChip>
+              {CATEGORY_OPTIONS.map((c) => (
+                <FilterChip key={c} active={category === c} onClick={() => setCategory(c)}>{c}</FilterChip>
+              ))}
+            </FilterGroup>
+          </div>
 
-          <FilterGroup label="유형">
-            <FilterChip active={category === "ALL"} onClick={() => setCategory("ALL")}>전체</FilterChip>
-            {CATEGORY_OPTIONS.map((c) => (
-              <FilterChip key={c} active={category === c} onClick={() => setCategory(c)}>{c}</FilterChip>
-            ))}
-          </FilterGroup>
-
-          <div className="w-px h-6 bg-gray-200 mx-1" />
-
-          <FilterGroup label="상태">
-            <FilterChip active={status === "ALL"} onClick={() => setStatus("ALL")}>전체</FilterChip>
-            {STATUS_OPTIONS.map((s) => (
-              <FilterChip key={s} active={status === s} onClick={() => setStatus(s)}>{s}</FilterChip>
-            ))}
-          </FilterGroup>
+          <div className="flex items-center gap-1.5 px-3 py-2 bg-white rounded-xl border border-gray-200 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_4px_12px_-6px_rgba(79,70,229,0.12)]">
+            <FilterGroup label="상태">
+              <FilterChip active={status === "ALL"} onClick={() => setStatus("ALL")}>전체</FilterChip>
+              {STATUS_OPTIONS.map((s) => (
+                <FilterChip key={s} active={status === s} onClick={() => setStatus(s)}>{s}</FilterChip>
+              ))}
+            </FilterGroup>
+          </div>
         </div>
 
         {/* Result count */}
