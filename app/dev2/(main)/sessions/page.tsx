@@ -5,14 +5,9 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Search,
-  TrendingUp,
-  Loader2,
-  Star,
-  Clock,
   ChevronRight,
   ChevronLeft,
-  ChevronDown,
-  BookOpen
+  ChevronDown
 } from "lucide-react";
 
 import { LangIcon } from "@/components/common/LangIcon";
@@ -34,9 +29,9 @@ const FILTER_LABELS: Record<Filter, string> = {
 };
 
 const LEVEL_STYLES: Record<1 | 2 | 3, string> = {
-  1: "bg-green-100 text-green-700",
-  2: "bg-amber-100 text-amber-700",
-  3: "bg-rose-100 text-rose-700"
+  1: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+  2: "bg-amber-50 text-amber-700 ring-amber-100",
+  3: "bg-rose-50 text-rose-700 ring-rose-100"
 };
 
 /* ─── Helpers ─── */
@@ -68,7 +63,6 @@ function computeState(s: SessionListItem): ComputedState {
     return "done";
   }
   if (s.status === "IN_PROGRESS") {
-    // "Abandoned" = started > 30 days ago, still in progress
     const started = new Date(s.startedAt).getTime();
     const ageDays = (Date.now() - started) / (1000 * 60 * 60 * 24);
     if (ageDays > 30) return "abandoned";
@@ -80,16 +74,9 @@ function computeState(s: SessionListItem): ComputedState {
 /** Synthetic progress percentage for in-progress sessions */
 function progressFor(s: SessionListItem): number {
   const h = hashInt(s.sessionId);
-  // 20..85 range, anchored by ai request count
   const base = 20 + Math.min(65, s.aiRequestCount * 8);
   const jitter = h % 20;
   return Math.max(15, Math.min(90, base + jitter - 10));
-}
-
-function modelLabel(s: SessionListItem): string {
-  // We don't have model directly on list item; use category-ish derived label fallback.
-  // Real data would expose a 'modelLabel'; here we infer "AIG Default Model".
-  return "AIG Default Model";
 }
 
 /* ─── Page ─── */
@@ -113,7 +100,8 @@ export default function Dev2SessionsPage() {
   const stats = useMemo(() => {
     const now = Date.now();
     const WEEK = 7 * 24 * 60 * 60 * 1000;
-    const isThisWeek = (iso: string | null) => iso && now - new Date(iso).getTime() < WEEK;
+    const isThisWeek = (iso: string | null) =>
+      iso && now - new Date(iso).getTime() < WEEK;
 
     const done = sessions.filter((s) => computeState(s) === "done");
     const inProg = sessions.filter((s) => computeState(s) === "in_progress");
@@ -125,7 +113,6 @@ export default function Dev2SessionsPage() {
             withScore.reduce((a, s) => a + (s.score ?? 0), 0) / withScore.length
           );
 
-    // Synthesize total time from aiRequestCount + session count
     const totalMinutes = sessions.reduce(
       (a, s) => a + 18 + s.aiRequestCount * 6,
       0
@@ -182,40 +169,47 @@ export default function Dev2SessionsPage() {
   );
 
   return (
-    <div className="relative bg-gradient-to-b from-indigo-50/30 via-white to-white min-h-screen overflow-hidden">
-      {/* Floating orbs */}
-      <div className="absolute top-0 left-0 right-0 h-[700px] pointer-events-none overflow-hidden">
-        <div className="absolute -top-10 -left-40 w-[460px] h-[460px] rounded-full bg-indigo-400/25 blur-3xl animate-blob-1" />
-        <div className="absolute top-[10%] -right-40 w-[460px] h-[460px] rounded-full bg-purple-400/25 blur-3xl animate-blob-2" />
-        <div className="absolute inset-0 bg-grid-pattern opacity-25" />
+    <div className="relative min-h-screen overflow-hidden bg-slate-50">
+      {/* ── Aurora / Mesh gradient background ── */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-[900px] overflow-hidden"
+        aria-hidden="true"
+      >
+        <div className="absolute -top-24 -left-24 w-[560px] h-[560px] rounded-full bg-indigo-400/25 blur-[120px] animate-blob-1" />
+        <div className="absolute top-[8%] right-[-8rem] w-[520px] h-[520px] rounded-full bg-fuchsia-400/20 blur-[120px] animate-blob-2" />
+        <div className="absolute inset-0 bg-grid-pattern opacity-[0.18]" />
+        {/* Soft fade to page background so content sits on a calm surface */}
+        <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-b from-transparent to-slate-50" />
       </div>
 
-      <div className="relative max-w-6xl mx-auto px-6 pt-28 pb-16 space-y-6">
+      <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-24 sm:pt-28 pb-16 space-y-6 sm:space-y-7">
         {/* ── HEADER ── */}
         <section className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
           <div className="flex-1 min-w-0">
-            <div className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white border border-indigo-100 text-indigo-700 text-xs font-semibold mb-5 shadow-sm">
-              <span>📚</span>
-              <span>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/70 backdrop-blur-md ring-1 ring-inset ring-white/60 border border-indigo-100/80 text-indigo-700 text-xs font-semibold mb-5 shadow-[0_1px_2px_rgba(17,24,39,0.04),0_8px_24px_-14px_rgba(79,70,229,0.25)]">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-indigo-500 opacity-60 animate-ping" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-indigo-600" />
+              </span>
+              <span className="tabular-nums">
                 {sessions.length}개 세션 · {stats.completed}개 완료
               </span>
             </div>
-            <h1 className="text-4xl md:text-5xl font-display font-bold text-gray-900 tracking-tight leading-[1.1] mb-3">
+            <h1 className="text-4xl md:text-5xl font-display font-bold text-gray-900 tracking-tight leading-[1.1] mb-3 text-balance">
               내 세션 기록
             </h1>
             <p className="text-[15px] text-gray-500 leading-relaxed max-w-xl">
-              모든 풀이 기록을 한 번에 — 완료된 건 다시 복기하고, 진행 중인 건 이어서
-              풀어요.
+              모든 풀이 기록을 한 번에 — 완료된 건 다시 복기하고, 진행 중인 건 이어서 풀어요.
             </p>
           </div>
 
           {/* Search */}
           <div className="md:w-[360px] shrink-0">
-            <div className="relative">
+            <div className="relative group">
               <Search
                 size={16}
                 strokeWidth={2}
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none transition-colors group-focus-within:text-indigo-500"
               />
               <input
                 value={query}
@@ -223,70 +217,62 @@ export default function Dev2SessionsPage() {
                   setQuery(e.target.value);
                   setPage(1);
                 }}
-                placeholder="Search sessions, problems, or tags..."
-                className="w-full pl-11 pr-4 py-3 rounded-full border border-gray-200 bg-white text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all shadow-sm"
+                placeholder="세션 · 문제 · 언어 검색"
+                className="w-full pl-11 pr-4 py-3 rounded-full border border-white/70 bg-white/70 backdrop-blur-md text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100 outline-none transition-all shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_8px_20px_-14px_rgba(79,70,229,0.2)]"
               />
             </div>
           </div>
         </section>
 
         {/* ── STATS STRIP ── */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard
-            label="COMPLETED"
+        <section className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          <StatTile
+            label="완료"
             value={String(stats.completed)}
-            delta={`+${stats.completedDelta} this week`}
-            valueColor="text-green-600"
-            icon={TrendingUp}
-            iconBg="bg-green-100 text-green-600"
+            accent="from-violet-500 to-indigo-600"
           />
-          <StatCard
-            label="IN PROGRESS"
+          <StatTile
+            label="진행 중"
             value={String(stats.inProgress)}
-            delta={`+${stats.inProgDelta} this week`}
-            valueColor="text-indigo-600"
-            icon={Loader2}
-            iconBg="bg-indigo-100 text-indigo-600"
+            accent="from-indigo-500 to-sky-500"
           />
-          <StatCard
-            label="AVG SCORE"
-            value={String(stats.avgScore || "—")}
-            delta={`+${stats.avgDelta} vs last week`}
-            valueColor="text-violet-600"
-            icon={Star}
-            iconBg="bg-violet-100 text-violet-600"
+          <StatTile
+            label="평균 점수"
+            value={stats.avgScore ? String(stats.avgScore) : "—"}
+            accent="from-fuchsia-500 to-violet-600"
           />
-          <StatCard
-            label="TOTAL TIME"
+          <StatTile
+            label="총 학습 시간"
             value={stats.totalTime}
-            delta={`+${stats.timeDelta} vs last week`}
-            valueColor="text-teal-600"
-            icon={Clock}
-            iconBg="bg-teal-100 text-teal-600"
+            accent="from-sky-500 to-indigo-500"
           />
         </section>
 
         {/* ── FILTER BAR ── */}
-        <section className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <span className="text-sm font-semibold text-gray-700 mr-1">상태</span>
-            {(["all", "done", "in_progress", "failed"] as Filter[]).map((f) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => {
-                  setFilter(f);
-                  setPage(1);
-                }}
-                className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
-                  filter === f
-                    ? "bg-indigo-600 text-white shadow-sm"
-                    : "text-gray-600 border border-gray-200 bg-white hover:border-indigo-300 hover:text-indigo-600"
-                }`}
-              >
-                {FILTER_LABELS[f]}
-              </button>
-            ))}
+        <section className="relative rounded-2xl bg-white/70 backdrop-blur-md border border-white/70 ring-1 ring-inset ring-white/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_10px_24px_-18px_rgba(79,70,229,0.25)] px-4 sm:px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-bold uppercase tracking-[0.14em] text-gray-500 mr-1">
+              상태
+            </span>
+            <div className="relative inline-flex p-1 rounded-full bg-slate-100/80 ring-1 ring-inset ring-slate-200/60">
+              {(["all", "done", "in_progress", "failed"] as Filter[]).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => {
+                    setFilter(f);
+                    setPage(1);
+                  }}
+                  className={`relative px-3.5 sm:px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                    filter === f
+                      ? "bg-white text-indigo-700 shadow-[0_1px_2px_rgba(17,24,39,0.06),0_6px_16px_-8px_rgba(79,70,229,0.35)]"
+                      : "text-gray-500 hover:text-gray-800"
+                  }`}
+                >
+                  {FILTER_LABELS[f]}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Sort dropdown */}
@@ -294,7 +280,7 @@ export default function Dev2SessionsPage() {
             <button
               type="button"
               onClick={() => setSortOpen((v) => !v)}
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:border-indigo-300"
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-gray-200 bg-white text-sm font-semibold text-gray-700 transition-all duration-200 hover:border-indigo-300 hover:text-indigo-700 active:scale-[0.97]"
             >
               <span>
                 {sortMode === "recent"
@@ -306,7 +292,7 @@ export default function Dev2SessionsPage() {
               <ChevronDown
                 size={14}
                 strokeWidth={2}
-                className={`transition-transform ${sortOpen ? "rotate-180" : ""}`}
+                className={`transition-transform duration-300 ${sortOpen ? "rotate-180" : ""}`}
               />
             </button>
             {sortOpen && (
@@ -316,7 +302,7 @@ export default function Dev2SessionsPage() {
                   onClick={() => setSortOpen(false)}
                   aria-hidden
                 />
-                <div className="absolute right-0 top-full mt-2 w-40 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 z-30">
+                <div className="absolute right-0 top-full mt-2 w-40 rounded-xl bg-white/90 backdrop-blur-md border border-gray-200 shadow-[0_10px_30px_-10px_rgba(17,24,39,0.25)] py-1.5 z-30 origin-top-right animate-slide-up">
                   {(["recent", "score", "level"] as const).map((m) => (
                     <button
                       key={m}
@@ -346,7 +332,7 @@ export default function Dev2SessionsPage() {
             {Array.from({ length: 4 }).map((_, i) => (
               <div
                 key={i}
-                className="rounded-2xl border border-gray-100 h-[88px] skeleton-shimmer"
+                className="rounded-2xl border border-white/70 bg-white/60 backdrop-blur-md h-[96px] skeleton-shimmer"
               />
             ))}
           </div>
@@ -360,6 +346,7 @@ export default function Dev2SessionsPage() {
                 session={s}
                 index={(currentPage - 1) * PAGE_SIZE + i + 1}
                 withPrefix={withPrefix}
+                order={i}
               />
             ))}
           </section>
@@ -386,9 +373,9 @@ export default function Dev2SessionsPage() {
                   key={p}
                   type="button"
                   onClick={() => setPage(p)}
-                  className={`min-w-[40px] h-10 px-3 rounded-full text-sm font-semibold transition-colors ${
+                  className={`min-w-[40px] h-10 px-3 rounded-full text-sm font-semibold transition-all duration-200 active:scale-[0.96] ${
                     p === currentPage
-                      ? "bg-indigo-600 text-white shadow-sm"
+                      ? "bg-indigo-600 text-white shadow-[0_4px_14px_-4px_rgba(79,70,229,0.55)]"
                       : "text-gray-600 border border-gray-200 bg-white hover:border-indigo-300 hover:text-indigo-600"
                   }`}
                 >
@@ -411,44 +398,75 @@ export default function Dev2SessionsPage() {
   );
 }
 
-/* ─── StatCard ─── */
+/* ─── StatTile (refined glassmorphism) ─── */
 
-function StatCard({
+function StatTile({
   label,
   value,
-  delta,
-  valueColor,
-  icon: Icon,
-  iconBg
+  accent
 }: {
   label: string;
   value: string;
-  delta: string;
-  valueColor: string;
-  icon: typeof Star;
-  iconBg: string;
+  accent: string;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 animate-slide-up">
-      <div className="flex items-start justify-between mb-3">
-        <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-500">
-          {label}
-        </span>
-        <span
-          className={`inline-flex items-center justify-center w-9 h-9 rounded-full ${iconBg}`}
-        >
-          <Icon size={16} strokeWidth={2.2} />
-        </span>
-      </div>
+    <div className="group relative overflow-hidden rounded-2xl bg-white/70 backdrop-blur-md border border-white/70 ring-1 ring-inset ring-white/60 p-4 sm:p-5 transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-1 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_10px_24px_-18px_rgba(79,70,229,0.3)] hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_1px_2px_rgba(17,24,39,0.04),0_16px_36px_-18px_rgba(79,70,229,0.4)]">
+      {/* Top accent wash */}
       <div
-        className={`text-4xl font-display font-bold tracking-tight leading-none mb-3 ${valueColor}`}
-      >
+        className={`pointer-events-none absolute inset-x-0 -top-24 h-32 bg-gradient-to-b ${accent} opacity-[0.12] blur-2xl`}
+        aria-hidden="true"
+      />
+      <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-500">
+        {label}
+      </span>
+      <div className="mt-2 text-3xl sm:text-[2.35rem] font-display font-bold leading-none tracking-tight text-gray-900 tabular-nums">
         {value}
       </div>
-      <div className="text-xs text-green-600 font-semibold inline-flex items-center gap-1">
-        <TrendingUp size={11} strokeWidth={2.4} />
-        <span>{delta}</span>
-      </div>
+    </div>
+  );
+}
+
+/* ─── ScoreRing (spatial gauge) ─── */
+
+function ScoreRing({
+  value,
+  tone
+}: {
+  value: number;
+  tone: "done" | "failed";
+}) {
+  const radius = 18;
+  const circ = 2 * Math.PI * radius;
+  const pct = Math.max(0, Math.min(100, value)) / 100;
+  const offset = circ * (1 - pct);
+  const track = "stroke-slate-100";
+  const fill = tone === "done" ? "stroke-violet-600" : "stroke-rose-500";
+  const text = tone === "done" ? "text-violet-700" : "text-rose-600";
+  return (
+    <div className="relative inline-flex items-center justify-center w-12 h-12 shrink-0">
+      <svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true">
+        <circle cx="24" cy="24" r={radius} fill="none" strokeWidth="4" className={track} />
+        <circle
+          cx="24"
+          cy="24"
+          r={radius}
+          fill="none"
+          strokeWidth="4"
+          strokeLinecap="round"
+          className={fill}
+          style={{
+            strokeDasharray: circ,
+            strokeDashoffset: offset,
+            transform: "rotate(-90deg)",
+            transformOrigin: "24px 24px",
+            transition:
+              "stroke-dashoffset 900ms cubic-bezier(0.22, 1, 0.36, 1)"
+          }}
+        />
+      </svg>
+      <span className={`absolute text-[13px] font-bold tabular-nums ${text}`}>
+        {value}
+      </span>
     </div>
   );
 }
@@ -458,11 +476,13 @@ function StatCard({
 function SessionRow({
   session,
   index,
-  withPrefix
+  withPrefix,
+  order
 }: {
   session: SessionListItem;
   index: number;
   withPrefix: (path: string) => string;
+  order: number;
 }) {
   const state = computeState(session);
   const isDone = state === "done";
@@ -470,49 +490,55 @@ function SessionRow({
   const isInProgress = state === "in_progress";
   const isAbandoned = state === "abandoned";
 
-  const href = isDone || isFailed
-    ? session.submissionId
-      ? withPrefix(`/submissions/${session.submissionId}/report`)
-      : "#"
-    : withPrefix(`/ide/${session.sessionId}`);
+  const href =
+    isDone || isFailed
+      ? session.submissionId
+        ? withPrefix(`/submissions/${session.submissionId}/report`)
+        : "#"
+      : withPrefix(`/ide/${session.sessionId}`);
 
-  const accentColor = isDone
-    ? "bg-green-500"
+  const accent = isDone
+    ? "bg-violet-600"
     : isFailed
       ? "bg-rose-500"
       : isAbandoned
-        ? "bg-gray-300"
+        ? "bg-slate-300"
         : "bg-indigo-500";
 
   const statusPill = isDone
-    ? { text: "완료", cls: "bg-green-100 text-green-700" }
+    ? {
+        text: "완료",
+        cls: "bg-violet-600 text-white ring-violet-700/40 shadow-sm shadow-violet-600/30"
+      }
     : isFailed
-      ? { text: "실패", cls: "bg-rose-100 text-rose-700" }
+      ? { text: "실패", cls: "bg-rose-50 text-rose-700 ring-rose-100" }
       : isAbandoned
-        ? { text: "중단됨", cls: "bg-gray-100 text-gray-600" }
-        : { text: "진행 중", cls: "bg-indigo-100 text-indigo-700" };
+        ? { text: "중단됨", cls: "bg-slate-100 text-slate-600 ring-slate-200" }
+        : { text: "진행 중", cls: "bg-indigo-50 text-indigo-700 ring-indigo-100" };
 
-  const langTint =
-    session.language === "java" ? "bg-orange-50" : "bg-yellow-50";
+  const langTint = session.language === "java" ? "bg-orange-50" : "bg-yellow-50";
 
   const progress = isInProgress ? progressFor(session) : 0;
 
   return (
     <article
-      className="relative bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all overflow-hidden animate-slide-up"
-      style={{ animationFillMode: "both" }}
+      className="group relative overflow-hidden rounded-2xl bg-white/80 backdrop-blur-md border border-white/80 ring-1 ring-inset ring-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_10px_24px_-18px_rgba(79,70,229,0.22)] transition-[transform,box-shadow,border-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:border-indigo-200/80 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_1px_2px_rgba(17,24,39,0.04),0_18px_36px_-18px_rgba(79,70,229,0.35)] animate-slide-up"
+      style={{ animationDelay: `${order * 55}ms`, animationFillMode: "both" }}
     >
-      {/* Left accent bar */}
-      <span className={`absolute left-0 top-0 bottom-0 w-1 ${accentColor}`} />
+      {/* Left accent bar with glow */}
+      <span
+        className={`absolute left-0 top-0 bottom-0 w-1 ${accent} transition-all duration-500 group-hover:shadow-[0_0_18px_0_currentColor]`}
+        aria-hidden="true"
+      />
 
-      <div className="flex items-center gap-4 pl-5 pr-5 py-4">
+      <div className="flex items-center gap-3 sm:gap-4 pl-5 pr-4 sm:pr-5 py-4">
         {/* Index + lang icon */}
         <div className="shrink-0 flex items-center gap-2.5">
-          <span className="font-mono font-bold text-gray-400 text-sm tabular-nums min-w-[32px]">
+          <span className="hidden sm:inline-flex font-mono font-bold text-gray-400 text-sm tabular-nums min-w-[28px]">
             #{String(index).padStart(2, "0")}
           </span>
           <span
-            className={`inline-flex items-center justify-center w-10 h-10 rounded-lg ${langTint}`}
+            className={`inline-flex items-center justify-center w-10 h-10 rounded-xl ${langTint} ring-1 ring-inset ring-black/5`}
           >
             <LangIcon language={session.language} size={22} />
           </span>
@@ -525,50 +551,51 @@ function SessionRow({
               {session.problemTitle}
             </h3>
             <span
-              className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded ${LEVEL_STYLES[session.problemLevel]}`}
+              className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded ring-1 ${LEVEL_STYLES[session.problemLevel]}`}
             >
               Lv {session.problemLevel}
             </span>
           </div>
           <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-xs text-gray-500">
-            <span className="font-medium">{modelLabel(session)}</span>
-            <span className="text-gray-300">·</span>
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-50/80 text-indigo-700 font-semibold ring-1 ring-inset ring-indigo-100">
+              {session.problemCategory}
+            </span>
             <span className="tabular-nums">{formatDate(session.startedAt)}</span>
-            <span className="text-gray-300">·</span>
-            <span>{session.language === "java" ? "Java" : "Python"}</span>
+            <span className="text-gray-300 hidden sm:inline">·</span>
+            <span className="hidden sm:inline">
+              {session.language === "java" ? "Java" : "Python"}
+            </span>
           </div>
         </div>
 
         {/* Right cluster */}
-        <div className="shrink-0 flex items-center gap-5">
-          {/* Progress (in-progress) OR Score (submitted) */}
+        <div className="shrink-0 flex items-center gap-3 sm:gap-5">
+          {/* Progress or Score */}
           {isInProgress ? (
             <div className="hidden md:flex flex-col items-end gap-1.5 w-36">
               <span className="text-xs font-bold text-gray-700 tabular-nums">
                 {progress}%
               </span>
-              <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div className="relative w-full h-2 bg-slate-100 rounded-full overflow-hidden ring-1 ring-inset ring-slate-200/70">
                 <div
-                  className="h-full rounded-full"
+                  className="h-full rounded-full transition-[width] duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
                   style={{
                     width: `${progress}%`,
-                    backgroundImage: "linear-gradient(90deg, #4F46E5, #7C3AED)"
+                    backgroundImage:
+                      "linear-gradient(90deg, #4F46E5 0%, #7C3AED 55%, #D946EF 100%)",
+                    boxShadow:
+                      "0 0 10px 0 rgba(124, 58, 237, 0.45), inset 0 1px 0 0 rgba(255,255,255,0.4)"
                   }}
                 />
               </div>
             </div>
           ) : (isDone || isFailed) && session.score != null ? (
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-display font-bold text-gray-900 tabular-nums">
-                {session.score}
-              </span>
-              <span className="text-sm text-gray-400 font-semibold">/100</span>
-            </div>
+            <ScoreRing value={session.score} tone={isDone ? "done" : "failed"} />
           ) : null}
 
           {/* Status pill */}
           <span
-            className={`shrink-0 inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full ${statusPill.cls}`}
+            className={`shrink-0 inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full ring-1 ${statusPill.cls}`}
           >
             {isInProgress && (
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-dot-pulse" />
@@ -584,12 +611,14 @@ function SessionRow({
           ) : (
             <Link
               href={href}
-              className="inline-flex items-center gap-1 text-sm text-gray-700 hover:text-indigo-600 font-semibold transition-colors"
+              className="group/cta hidden sm:inline-flex items-center gap-1 text-sm text-gray-700 hover:text-indigo-700 font-semibold transition-colors"
             >
-              <span>
-                {isDone || isFailed ? "리포트 보기" : "이어서 풀기"}
-              </span>
-              <ChevronRight size={14} strokeWidth={2.4} />
+              <span>{isDone || isFailed ? "리포트 보기" : "이어서 풀기"}</span>
+              <ChevronRight
+                size={14}
+                strokeWidth={2.4}
+                className="transition-transform duration-300 group-hover/cta:translate-x-0.5"
+              />
             </Link>
           )}
         </div>
@@ -613,15 +642,18 @@ function EmptyState({ query, filter }: { query: string; filter: Filter }) {
           : "아직 풀이 기록이 없어요.";
 
   return (
-    <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-gray-200 rounded-2xl bg-white">
-      <span className="text-4xl mb-3">📭</span>
-      <p className="text-sm text-gray-500 mb-5">{desc}</p>
+    <div className="relative overflow-hidden flex flex-col items-center justify-center py-16 rounded-2xl bg-white/70 backdrop-blur-md border border-white/70 ring-1 ring-inset ring-white/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_10px_24px_-18px_rgba(79,70,229,0.25)]">
+      <div
+        className="pointer-events-none absolute -top-20 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full bg-indigo-400/20 blur-[90px]"
+        aria-hidden="true"
+      />
+      <p className="relative text-sm text-gray-600 mb-5">{desc}</p>
       <Link
         href={withPrefix("/problems")}
-        className="inline-flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+        className="relative inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-all duration-200 active:scale-[0.97] shadow-[0_1px_2px_rgba(17,24,39,0.1),0_10px_24px_-10px_rgba(79,70,229,0.6)]"
       >
-        <BookOpen size={14} />
         <span>과제 목록 보기</span>
+        <ChevronRight size={14} strokeWidth={2.4} />
       </Link>
     </div>
   );
@@ -641,7 +673,7 @@ function PageButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 h-10 px-4 rounded-full text-sm font-semibold transition-colors ${
+      className={`inline-flex items-center gap-1.5 h-10 px-4 rounded-full text-sm font-semibold transition-all duration-200 active:scale-[0.96] ${
         disabled
           ? "text-gray-300 border border-gray-100 bg-white cursor-not-allowed"
           : "text-gray-600 border border-gray-200 bg-white hover:border-indigo-300 hover:text-indigo-600"
