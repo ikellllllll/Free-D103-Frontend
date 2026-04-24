@@ -346,40 +346,43 @@ export function Dev2Shell({ children }: { children: ReactNode }) {
       {/* ── Command Palette ── */}
       {paletteOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-start justify-center pt-24 px-4"
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-[4px] flex items-start justify-center px-4"
+          style={{ paddingTop: "14vh" }}
           onClick={closePalette}
           role="presentation"
         >
           <div
-            className="w-full max-w-lg bg-white rounded-2xl shadow-2xl ring-1 ring-gray-200/70 overflow-hidden"
+            className="w-full max-w-[580px] bg-white rounded-[14px] overflow-hidden"
+            style={{ boxShadow: "0 24px 80px rgba(0,0,0,0.28), 0 2px 8px rgba(0,0,0,0.08), 0 0 0 1px rgba(17,24,39,0.08)" }}
             role="dialog"
             aria-label="명령 팔레트"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-3">
-              <div className="flex items-center gap-3 px-3.5 h-11 rounded-xl bg-gray-50 ring-1 ring-inset ring-gray-200/70 shadow-[inset_0_2px_4px_rgba(17,24,39,0.06),inset_0_-1px_0_0_rgba(255,255,255,0.7)] focus-within:ring-indigo-300/70 focus-within:bg-white transition-colors">
-                <Search size={16} strokeWidth={2} className="text-gray-400 shrink-0" />
-                <input
-                  autoFocus
-                  className="flex-1 text-sm text-gray-900 placeholder-gray-400 bg-transparent border-0 outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 appearance-none caret-indigo-600"
-                  placeholder="검색…"
-                  value={paletteQuery}
-                  onChange={(e) => {
-                    setPaletteQuery(e.target.value);
-                    setPaletteIndex(0);
-                  }}
-                />
-                <kbd className="text-[10px] font-semibold text-gray-500 bg-white ring-1 ring-inset ring-gray-200 rounded-md px-1.5 py-0.5 shadow-[0_1px_0_0_rgba(17,24,39,0.04)]">
-                  esc
-                </kbd>
-              </div>
+            {/* Head */}
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
+              <Search size={16} strokeWidth={2.5} className="text-gray-600 shrink-0" />
+              <input
+                autoFocus
+                className="flex-1 text-[0.92rem] text-gray-900 placeholder-gray-400 bg-transparent border-0 outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 appearance-none caret-indigo-600"
+                placeholder="검색…"
+                value={paletteQuery}
+                onChange={(e) => {
+                  setPaletteQuery(e.target.value);
+                  setPaletteIndex(0);
+                }}
+              />
+              <kbd className="text-[10px] font-mono font-bold text-gray-600 bg-gray-100 border border-gray-300 rounded px-1.5 py-0.5">
+                esc
+              </kbd>
             </div>
-            <div className="max-h-80 overflow-y-auto py-2">
+            {/* List */}
+            <div className="max-h-[60vh] overflow-y-auto p-1.5">
               {filteredItems.length === 0 ? (
-                <div className="px-4 py-6 text-center text-sm text-gray-400">결과 없음</div>
+                <div className="px-4 py-6 text-center text-[0.82rem] font-mono text-gray-400">결과 없음</div>
               ) : (
                 filteredItems.map((item, i) => {
                   const Icon = item.icon;
+                  const isNav = !!item.href;
                   return (
                     <button
                       type="button"
@@ -393,14 +396,22 @@ export function Dev2Shell({ children }: { children: ReactNode }) {
                           item.action();
                         }
                       }}
-                      className={`w-full flex items-center space-x-3 px-4 py-2.5 text-sm text-left transition-colors ${
+                      className={`w-full grid items-center gap-3 px-3 py-2.5 rounded-[7px] text-left transition-colors duration-100 ${
                         i === paletteIndex
                           ? "bg-indigo-50 text-indigo-700"
                           : "text-gray-700 hover:bg-gray-50"
                       }`}
+                      style={{ gridTemplateColumns: "auto 1fr auto" }}
                     >
-                      <Icon size={16} strokeWidth={2} className={i === paletteIndex ? "text-indigo-600" : "text-gray-400"} />
-                      <span className="flex-1">{item.label}</span>
+                      <Icon size={16} strokeWidth={2.5} className={i === paletteIndex ? "text-indigo-500" : "text-gray-600"} />
+                      <span className="text-[0.92rem] font-semibold">{item.label}</span>
+                      <span className={`text-[0.66rem] font-mono font-bold uppercase tracking-[0.08em] px-1.5 py-0.5 rounded border ${
+                        i === paletteIndex
+                          ? "text-indigo-500 border-indigo-300 bg-indigo-50"
+                          : "text-gray-500 border-gray-300 bg-white"
+                      }`}>
+                        {isNav ? "page" : "action"}
+                      </span>
                     </button>
                   );
                 })

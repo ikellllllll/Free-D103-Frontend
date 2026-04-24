@@ -297,15 +297,6 @@ export default function Dev2MyPage() {
             className="relative overflow-hidden bg-white rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(49,46,129,0.25)] p-6 md:p-7 animate-slide-up transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_1px_2px_rgba(17,24,39,0.04),0_30px_60px_-28px_rgba(79,70,229,0.35)]"
             style={{ animationFillMode: "both" }}
           >
-            {/* Ambient corner wash */}
-            <div
-              className="pointer-events-none absolute -top-20 -right-20 w-52 h-52 rounded-full blur-3xl opacity-60"
-              style={{
-                backgroundImage:
-                  "radial-gradient(closest-side, rgba(167,139,250,0.35), transparent 70%)"
-              }}
-              aria-hidden="true"
-            />
             <div className="relative mb-4 flex items-baseline justify-between gap-3">
               <div>
                 <h2 className="font-display font-black text-gray-900 text-[17px] tracking-tight">
@@ -340,14 +331,6 @@ export default function Dev2MyPage() {
             className="relative overflow-hidden bg-white rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(49,46,129,0.25)] p-6 md:p-7 animate-slide-up transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_1px_2px_rgba(17,24,39,0.04),0_30px_60px_-28px_rgba(79,70,229,0.35)]"
             style={{ animationFillMode: "both", animationDelay: "0.05s" }}
           >
-            <div
-              className="pointer-events-none absolute -top-20 -left-20 w-52 h-52 rounded-full blur-3xl opacity-50"
-              style={{
-                backgroundImage:
-                  "radial-gradient(closest-side, rgba(99,102,241,0.3), transparent 70%)"
-              }}
-              aria-hidden="true"
-            />
             <h2 className="relative font-display font-black text-gray-900 text-[17px] mb-4 tracking-tight">
               최근 활동
             </h2>
@@ -403,14 +386,6 @@ export default function Dev2MyPage() {
             className="relative overflow-hidden bg-white rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(49,46,129,0.25)] p-6 md:p-7 animate-slide-up transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5"
             style={{ animationFillMode: "both" }}
           >
-            <div
-              className="pointer-events-none absolute -top-20 -right-20 w-52 h-52 rounded-full blur-3xl opacity-50"
-              style={{
-                backgroundImage:
-                  "radial-gradient(closest-side, rgba(99,102,241,0.3), transparent 70%)"
-              }}
-              aria-hidden="true"
-            />
             <div className="relative flex items-center gap-3 mb-5">
               <span className="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-gray-100 text-gray-900 ring-1 ring-gray-200 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)]">
                 <Key size={16} strokeWidth={2.2} />
@@ -526,14 +501,6 @@ export default function Dev2MyPage() {
             className="relative overflow-hidden bg-white rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(49,46,129,0.25)] p-6 md:p-7 animate-slide-up transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5"
             style={{ animationFillMode: "both", animationDelay: "0.05s" }}
           >
-            <div
-              className="pointer-events-none absolute -top-20 -left-20 w-52 h-52 rounded-full blur-3xl opacity-50"
-              style={{
-                backgroundImage:
-                  "radial-gradient(closest-side, rgba(217,70,239,0.22), transparent 70%)"
-              }}
-              aria-hidden="true"
-            />
             <h2 className="relative font-display font-black text-gray-900 text-[17px] mb-5 tracking-tight">
               환경 설정
             </h2>
@@ -563,9 +530,7 @@ export default function Dev2MyPage() {
                           {l === "java" ? "Java" : "Python"}
                         </span>
                         {active && (
-                          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-indigo-600 text-white shadow-[0_0_0_2px_rgba(255,255,255,0.9)]">
-                            <Check size={10} strokeWidth={3} />
-                          </span>
+                          <Check size={14} strokeWidth={2.8} className="text-indigo-600" />
                         )}
                       </button>
                     );
@@ -643,9 +608,7 @@ export default function Dev2MyPage() {
                             {t === "light" ? "라이트" : "다크"}
                           </span>
                           {active && (
-                            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-indigo-600 text-white shadow-[0_0_0_2px_rgba(255,255,255,0.9)]">
-                              <Check size={10} strokeWidth={3} />
-                            </span>
+                            <Check size={14} strokeWidth={2.8} className="text-indigo-600" />
                           )}
                         </button>
                       );
@@ -662,14 +625,6 @@ export default function Dev2MyPage() {
           className="relative overflow-hidden bg-white rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(190,18,60,0.18)] p-6 md:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-slide-up"
           style={{ animationFillMode: "both" }}
         >
-          <div
-            className="pointer-events-none absolute -top-20 -right-20 w-52 h-52 rounded-full blur-3xl opacity-50"
-            style={{
-              backgroundImage:
-                "radial-gradient(closest-side, rgba(244,63,94,0.18), transparent 70%)"
-            }}
-            aria-hidden="true"
-          />
           <div className="relative min-w-0">
             <h2 className="font-display font-black text-gray-900 text-[17px] mb-0.5 tracking-tight">
               계정 관리
