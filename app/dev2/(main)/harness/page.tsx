@@ -242,7 +242,7 @@ export default function Dev2HarnessPage() {
               <span>Agent Harness</span>
             </div>
             <h1 className="text-4xl md:text-5xl font-display font-bold text-gray-900 tracking-tight leading-[1.05] mb-3 text-balance">
-              에이전트 실행 환경 관리
+              에이전트 실행 환경 관��
             </h1>
             <p className="text-[15px] text-gray-500 leading-relaxed max-w-2xl">
               에이전트가 세션에서 읽는 지침·행동 규칙·스킬 파일을 직접 수정합니다.
@@ -324,7 +324,7 @@ export default function Dev2HarnessPage() {
                 {AGENT_FILES.length}
               </span>
             </div>
-            <div className="py-2">
+            <div className="flex flex-col gap-1.5 p-3">
               {AGENT_FILES.map((file) => {
                 const active = activeId === file.id;
                 const Icon = file.icon;
@@ -334,10 +334,10 @@ export default function Dev2HarnessPage() {
                     key={file.id}
                     type="button"
                     onClick={() => setActiveId(file.id)}
-                    className={`relative w-full flex items-start gap-3 px-5 py-3 text-left ${SPRING}
+                    className={`relative w-full flex items-start gap-3 px-4 py-3 text-left rounded-xl overflow-hidden ring-1 ring-inset ${SPRING}
                       ${active
-                        ? "bg-gradient-to-r from-indigo-50 via-violet-50 to-white"
-                        : "hover:bg-white/60 active:scale-[0.995]"
+                        ? "bg-gradient-to-r from-indigo-100 via-violet-100/80 to-indigo-50 ring-indigo-200/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_4px_12px_-6px_rgba(124,58,237,0.25)]"
+                        : "bg-indigo-50/60 ring-indigo-100/60 hover:bg-indigo-100/70 hover:ring-indigo-200/70 active:scale-[0.98]"
                       }`}
                   >
                     {active && (
@@ -432,21 +432,25 @@ export default function Dev2HarnessPage() {
                   <button
                     type="button"
                     onClick={() => setViewMode("edit")}
-                    className={`relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold ${SPRING} ${
-                      viewMode === "edit" ? "text-indigo-700" : "text-white/70 hover:text-white"
+                    className={`relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${SPRING} ${
+                      viewMode === "edit"
+                        ? "text-violet-900 font-black drop-shadow-sm"
+                        : "text-white font-bold hover:text-white"
                     }`}
                   >
-                    <Pencil size={12} strokeWidth={2.6} />
+                    <Pencil size={12} strokeWidth={viewMode === "edit" ? 3 : 2.6} />
                     <span>편집</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setViewMode("preview")}
-                    className={`relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold ${SPRING} ${
-                      viewMode === "preview" ? "text-indigo-700" : "text-white/70 hover:text-white"
+                    className={`relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${SPRING} ${
+                      viewMode === "preview"
+                        ? "text-violet-900 font-black drop-shadow-sm"
+                        : "text-white font-bold hover:text-white"
                     }`}
                   >
-                    <Eye size={12} strokeWidth={2.6} />
+                    <Eye size={12} strokeWidth={viewMode === "preview" ? 3 : 2.6} />
                     <span>미리보기</span>
                   </button>
                 </div>
