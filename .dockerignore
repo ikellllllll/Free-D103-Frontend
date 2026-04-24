@@ -1,0 +1,61 @@
+# Dependencies — 빌드 시 다시 설치
+node_modules
+.pnp
+.pnp.js
+
+# Build outputs — 컨테이너 안에서 다시 빌드
+.next
+out
+build
+dist
+
+# Testing
+coverage
+
+# Env / secrets — 서버의 환경변수로 주입
+.env
+.env*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Editor / IDE
+.vscode
+.idea
+.DS_Store
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Docker / deploy
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Claude / 로컬 개발 도구
+.claude
+.playwright-mcp
+
+# CI / scripts 로컬 전용
+.github
+
+# Next.js 캐시
+.next/cache
+
+# Temp
+tmp
+temp
+
+# README / 문서 (이미지 포함 시 공간 낭비)
+# README.md — 주석 처리: 있어도 문제 없음

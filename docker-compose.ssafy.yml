@@ -1,0 +1,41 @@
+# SSAFY 서버(k14d103.p.ssafy.io) 전용 compose 파일
+# 기존 aiground-backend, aiground-postgres, aiground-redis 가 붙어있는
+# backend_old_default 네트워크에 프론트엔드를 합류시킵니다.
+#
+# 사용:
+#   docker compose -f docker-compose.ssafy.yml build
+#   docker compose -f docker-compose.ssafy.yml up -d
+#   docker compose -f docker-compose.ssafy.yml logs -f frontend
+#   docker compose -f docker-compose.ssafy.yml down
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: aiground-frontend:latest
+    container_name: aiground-frontend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      # 컨테이너 내부에서 backend 호출 시:
+      #   http://aiground-backend:8080  (backend_old_default 네트워크 경유)
+    ports:
+      # localhost만 바인드 — nginx가 외부 노출 담당
+      - "127.0.0.1:3000:3000"
+    networks:
+      - backend_old_default
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+networks:
+  # 기존 외부 네트워크 그대로 사용 (생성하지 않음)
+  backend_old_default:
+    external: true
