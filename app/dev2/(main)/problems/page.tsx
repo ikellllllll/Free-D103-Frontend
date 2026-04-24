@@ -423,10 +423,6 @@ export default function Dev2ProblemsPage() {
       <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-24 sm:pt-28 pb-12 sm:pb-16">
         {/* Hero */}
         <div className="text-center mb-8 sm:mb-10 animate-slide-up">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/80 backdrop-blur border border-indigo-100 text-indigo-700 text-xs sm:text-sm font-semibold mb-5 sm:mb-6 shadow-sm">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-dot-pulse" />
-            <span>{all.length}개 과제 · 실무 시나리오</span>
-          </div>
           <h1 className="text-3xl sm:text-5xl md:text-6xl font-display font-bold text-gray-900 tracking-tight mb-3 sm:mb-4 leading-[1.1] text-balance">
             실무 백엔드 과제를
             <br />

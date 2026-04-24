@@ -186,15 +186,6 @@ export default function Dev2SessionsPage() {
         {/* ── HEADER ── */}
         <section className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
           <div className="flex-1 min-w-0">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/70 backdrop-blur-md ring-1 ring-inset ring-white/60 border border-indigo-100/80 text-indigo-700 text-xs font-semibold mb-5 shadow-[0_1px_2px_rgba(17,24,39,0.04),0_8px_24px_-14px_rgba(79,70,229,0.25)]">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="absolute inline-flex h-full w-full rounded-full bg-indigo-500 opacity-60 animate-ping" />
-                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-indigo-600" />
-              </span>
-              <span className="tabular-nums">
-                {sessions.length}개 세션 · {stats.completed}개 완료
-              </span>
-            </div>
             <h1 className="text-4xl md:text-5xl font-display font-bold text-gray-900 tracking-tight leading-[1.1] mb-3 text-balance">
               내 세션 기록
             </h1>
