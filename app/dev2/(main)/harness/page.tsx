@@ -437,8 +437,8 @@ export default function Dev2HarnessPage() {
                     onClick={() => setViewMode("edit")}
                     className={`relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${SPRING} ${
                       viewMode === "edit"
-                        ? "text-violet-900 font-black drop-shadow-sm"
-                        : "text-white font-bold hover:text-white"
+                        ? "text-indigo-600 font-black"
+                        : "text-indigo-50 font-bold hover:text-white"
                     }`}
                   >
                     <Pencil size={12} strokeWidth={viewMode === "edit" ? 3 : 2.6} />
@@ -449,8 +449,8 @@ export default function Dev2HarnessPage() {
                     onClick={() => setViewMode("preview")}
                     className={`relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${SPRING} ${
                       viewMode === "preview"
-                        ? "text-violet-900 font-black drop-shadow-sm"
-                        : "text-white font-bold hover:text-white"
+                        ? "text-indigo-600 font-black"
+                        : "text-indigo-50 font-bold hover:text-white"
                     }`}
                   >
                     <Eye size={12} strokeWidth={viewMode === "preview" ? 3 : 2.6} />
