@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -22,6 +23,7 @@ import {
 import { LangIcon } from "@/components/common/LangIcon";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
+import { problemApi } from "@/lib/api/problemApi";
 import type { ProblemLanguage } from "@/lib/types/session";
 import { useAuthStore } from "@/store/authStore";
 import { useUiStore } from "@/store/uiStore";
@@ -87,7 +89,7 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
 
   const { data: problem, isLoading, isError } = useQuery({
     queryKey: ["problem", problemId],
-    queryFn: () => mockApi.getProblemDetail(problemId)
+    queryFn: () => problemApi.getProblemDetail(problemId)
   });
 
   useEffect(() => {
@@ -102,7 +104,35 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
   const needsKey =
     aiModel.provider !== "default" && !byokKeys[aiModel.provider];
 
-  const endpointsText = useMemo(() => problem?.endpoints.join("\n") ?? "", [problem]);
+  const { parsedEndpoints, beforeDescription, afterDescription } = useMemo(() => {
+    if (!problem?.description) return { parsedEndpoints: [], beforeDescription: "", afterDescription: "" };
+
+    const lines = problem.description.split("\n");
+    const endpointLines: string[] = [];
+    let firstIdx = -1;
+    let lastIdx = -1;
+
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(/^-\s+`((?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+[^`]+)`/);
+      if (m) {
+        if (firstIdx === -1) firstIdx = i;
+        lastIdx = i;
+        endpointLines.push(m[1].trim());
+      }
+    }
+
+    if (firstIdx === -1) {
+      return { parsedEndpoints: [], beforeDescription: problem.description, afterDescription: "" };
+    }
+
+    return {
+      parsedEndpoints: endpointLines,
+      beforeDescription: lines.slice(0, firstIdx).join("\n").trim(),
+      afterDescription: lines.slice(lastIdx + 1).join("\n").trim()
+    };
+  }, [problem?.description]);
+
+  const endpointsText = useMemo(() => parsedEndpoints.join("\n"), [parsedEndpoints]);
 
   const handleCopy = async () => {
     if (!endpointsText) return;
@@ -222,44 +252,44 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
               <h2 className="text-xl font-display font-bold text-gray-900 mb-4">
                 Requirements
               </h2>
-              <div className="prose-mini text-[15px] text-gray-700 leading-relaxed mb-5">
-                <Markdown>{problem.description}</Markdown>
-              </div>
-              <ul className="space-y-2 mb-6">
-                {problem.requirements.map((req) => (
-                  <li key={req} className="flex items-start space-x-2.5 text-[15px] text-gray-700">
-                    <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-indigo-500 mt-2.5" />
-                    <span className="leading-relaxed">{req}</span>
-                  </li>
-                ))}
-              </ul>
-              {/* Endpoints code block */}
-              <div className="relative bg-gray-900 rounded-xl overflow-hidden">
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  className="absolute top-3 right-3 p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-colors"
-                  aria-label="복사"
-                >
-                  {copied ? (
-                    <CheckIcon size={14} strokeWidth={2.4} className="text-green-400" />
-                  ) : (
-                    <Copy size={14} strokeWidth={2} />
-                  )}
-                </button>
-                <div className="flex">
-                  <div className="shrink-0 py-4 pl-4 pr-3 text-xs font-mono text-gray-600 select-none">
-                    {problem.endpoints.map((_, i) => (
-                      <div key={i} className="leading-6">{i + 1}</div>
-                    ))}
-                  </div>
-                  <pre className="flex-1 py-4 pr-4 text-sm text-gray-100 font-mono leading-6 overflow-x-auto">
-                    {problem.endpoints.map((line, i) => (
-                      <div key={i}>{highlightEndpoint(line)}</div>
-                    ))}
-                  </pre>
+              {beforeDescription && (
+                <div className="prose-mini text-[15px] text-gray-700 leading-relaxed mb-5">
+                  <Markdown components={markdownComponents}>{beforeDescription}</Markdown>
                 </div>
-              </div>
+              )}
+              {parsedEndpoints.length > 0 && (
+                <div className="relative bg-gray-900 rounded-xl overflow-hidden mb-5">
+                  <button
+                    type="button"
+                    onClick={handleCopy}
+                    className="absolute top-3 right-3 p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-colors"
+                    aria-label="복사"
+                  >
+                    {copied ? (
+                      <CheckIcon size={14} strokeWidth={2.4} className="text-green-400" />
+                    ) : (
+                      <Copy size={14} strokeWidth={2} />
+                    )}
+                  </button>
+                  <div className="flex">
+                    <div className="shrink-0 py-4 pl-4 pr-3 text-xs font-mono text-gray-600 select-none">
+                      {parsedEndpoints.map((_, i) => (
+                        <div key={i} className="leading-6">{i + 1}</div>
+                      ))}
+                    </div>
+                    <pre className="flex-1 py-4 pr-4 text-sm text-gray-100 font-mono leading-6 overflow-x-auto">
+                      {parsedEndpoints.map((line, i) => (
+                        <div key={i}>{highlightEndpoint(line)}</div>
+                      ))}
+                    </pre>
+                  </div>
+                </div>
+              )}
+              {afterDescription && (
+                <div className="prose-mini text-[15px] text-gray-700 leading-relaxed mb-5">
+                  <Markdown components={markdownComponents}>{afterDescription}</Markdown>
+                </div>
+              )}
 
               <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
                 {problem.publicCases.map((test) => (
@@ -278,28 +308,6 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
                 ))}
               </div>
 
-              <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-5">
-                  <h3 className="font-display font-bold text-gray-900 text-[16px] mb-3">
-                    수용 기준
-                  </h3>
-                  <ul className="space-y-2">
-                    {problem.criteria.map((criterion) => (
-                      <li key={criterion} className="flex items-start gap-2.5 text-sm text-gray-700">
-                        <Check size={13} strokeWidth={3} className="mt-0.5 shrink-0 text-indigo-600" />
-                        <span className="leading-relaxed">{criterion}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="rounded-2xl border border-violet-100 bg-violet-50/60 p-5">
-                  <div className="flex items-center gap-2 font-display font-bold text-gray-900 text-[16px] mb-3">
-                    <Sparkles size={15} className="text-violet-600" />
-                    AI 활용 가이드
-                  </div>
-                  <p className="text-sm text-gray-700 leading-relaxed">{problem.aiGuide}</p>
-                </div>
-              </div>
             </section>
           </div>
 
@@ -573,6 +581,66 @@ function ModelRow({
     </button>
   );
 }
+
+/* Fenced code block used inside Markdown (JSON response examples etc.) */
+function FencedCode({ language, code }: { language?: string; code: string }) {
+  const [isCopied, setIsCopied] = useState(false);
+  const lines = code.trimEnd().split("\n");
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(code.trimEnd());
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 1500);
+    } catch { /* noop */ }
+  };
+
+  return (
+    <div className="relative bg-gray-900 rounded-xl overflow-hidden my-4">
+      {language && (
+        <div className="px-4 pt-3 pb-0 text-[10px] font-mono font-bold uppercase tracking-widest text-gray-500 select-none">
+          {language}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="absolute top-3 right-3 p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-colors"
+        aria-label="복사"
+      >
+        {isCopied ? (
+          <CheckIcon size={14} strokeWidth={2.4} className="text-green-400" />
+        ) : (
+          <Copy size={14} strokeWidth={2} />
+        )}
+      </button>
+      <div className="flex">
+        <div className="shrink-0 py-4 pl-4 pr-3 text-xs font-mono text-gray-600 select-none">
+          {lines.map((_, i) => (
+            <div key={i} className="leading-6">{i + 1}</div>
+          ))}
+        </div>
+        <pre className="flex-1 py-4 pr-4 text-sm text-gray-100 font-mono leading-6 overflow-x-auto">
+          {lines.map((line, i) => (
+            <div key={i}>{line}</div>
+          ))}
+        </pre>
+      </div>
+    </div>
+  );
+}
+
+export const markdownComponents = {
+  pre({ children }: { children?: React.ReactNode }) {
+    const child = Array.isArray(children) ? children[0] : children;
+    if (!child || typeof child !== "object") return <pre>{children}</pre>;
+    const el = child as React.ReactElement<{ className?: string; children?: React.ReactNode }>;
+    const className = el.props.className ?? "";
+    const match = /language-(\w+)/.exec(className);
+    const code = String(el.props.children ?? "").replace(/\n$/, "");
+    return <FencedCode language={match?.[1]} code={code} />;
+  }
+};
 
 /* Endpoint highlighting — color the HTTP verb */
 function highlightEndpoint(line: string) {
