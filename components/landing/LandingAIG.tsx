@@ -436,7 +436,7 @@ export function LandingAIG() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
-              href="/signup"
+              href={user ? "/problems" : "/login"}
               className="inline-flex items-center space-x-2 bg-white text-indigo-900 hover:bg-indigo-50 font-semibold px-6 py-3.5 rounded-full transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 cursor-pointer"
             >
               <span>무료로 시작하기</span>
@@ -1086,7 +1086,7 @@ export function LandingAIG() {
           </p>
           <div className="flex justify-center">
             <Link
-              href="/signup"
+              href={user ? "/problems" : "/login"}
               className="inline-flex items-center space-x-2 bg-white text-indigo-900 hover:bg-indigo-50 font-semibold px-8 py-4 rounded-full transition-all shadow-2xl hover:-translate-y-0.5 cursor-pointer"
             >
               <span>AIG 시작하기</span>

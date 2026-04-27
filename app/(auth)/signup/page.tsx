@@ -6,32 +6,91 @@ import { useState, type FormEvent } from "react";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
-import { mockApi } from "@/lib/api/mockApi";
+import { authApi, buildUserFromToken } from "@/lib/api/authApi";
 import { useAuthStore } from "@/store/authStore";
 import { useUiStore } from "@/store/uiStore";
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function getPasswordStrength(pw: string): { level: 0 | 1 | 2 | 3; label: string; color: string } {
+  if (pw.length === 0) return { level: 0, label: "", color: "" };
+  if (pw.length < 8) return { level: 1, label: "약함", color: "bg-red-400" };
+  const checks = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/].filter((r) => r.test(pw)).length;
+  if (checks >= 3) return { level: 3, label: "강함", color: "bg-green-500" };
+  return { level: 2, label: "보통", color: "bg-yellow-400" };
+}
 
 export default function Dev2SignupPage() {
   const router = useRouter();
   const { withPrefix } = useRouteScope();
   const signIn = useAuthStore((s) => s.signIn);
   const addToast = useUiStore((s) => s.addToast);
-  const [name, setName] = useState("홍길동");
-  const [email, setEmail] = useState("new-user@email.com");
-  const [password, setPassword] = useState("password");
-  const [confirmPassword, setConfirmPassword] = useState("password");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [emailChecked, setEmailChecked] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+
+  const strength = getPasswordStrength(password);
+
+  const handleEmailBlur = async () => {
+    if (!EMAIL_REGEX.test(email)) return;
+    try {
+      const available = await authApi.checkEmailAvailability(email);
+      if (!available) {
+        setEmailError("이미 사용 중인 이메일입니다.");
+        setEmailChecked(false);
+      } else {
+        setEmailError("");
+        setEmailChecked(true);
+      }
+    } catch {
+      // 확인 실패 시 서버 에러로 처리
+    }
+  };
 
   const handleSignup = async () => {
-    if (password !== confirmPassword) {
-      addToast("비밀번호가 일치하지 않습니다.", "warning");
+    setEmailError("");
+    setPasswordError("");
+
+    if (!name.trim()) {
+      addToast("이름을 입력해주세요.", "warning");
       return;
     }
+    if (!EMAIL_REGEX.test(email)) {
+      setEmailError("올바른 이메일 형식이 아닙니다.");
+      return;
+    }
+    if (!emailChecked) {
+      setEmailError("이메일 중복 확인이 필요합니다.");
+      return;
+    }
+    if (password.length < 8) {
+      setPasswordError("비밀번호는 8자 이상이어야 합니다.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setPasswordError("비밀번호가 일치하지 않습니다.");
+      return;
+    }
+
     setLoading(true);
     try {
-      const user = await mockApi.signup({ name, email, password });
-      signIn(user);
+      const signupData = await authApi.signup(email, password, name);
+      const tokens = await authApi.login(email, password);
+      const user = buildUserFromToken(tokens.accessToken, {
+        id: String(signupData.userId),
+        name: signupData.nickname,
+        email: signupData.email,
+        provider: "LOCAL",
+        createdAt: new Date().toISOString()
+      });
+      signIn(user, tokens);
       addToast("계정이 생성되었습니다.", "success");
       router.push(withPrefix("/problems"));
     } catch (error) {
@@ -70,37 +129,59 @@ export default function Dev2SignupPage() {
             />
           </Field>
 
-          <Field label="이메일">
-            <input
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="auth-input"
-            />
-          </Field>
-
-          <Field label="비밀번호">
-            <div className="relative">
+          <div>
+            <Field label="이메일">
               <input
-                type={showPassword ? "text" : "password"}
-                autoComplete="new-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="안전한 비밀번호를 설정하세요"
-                className="auth-input pr-10"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setEmailError(""); setEmailChecked(false); }}
+              onBlur={() => { void handleEmailBlur(); }}
+                placeholder="you@example.com"
+                className={`auth-input${emailError ? " !border-red-400" : ""}`}
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                aria-label="비밀번호 표시"
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-          </Field>
+            </Field>
+            {emailError && <p className="text-xs text-red-500 mt-1 ml-0.5">{emailError}</p>}
+          </div>
+
+          <div>
+            <Field label="비밀번호">
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); setPasswordError(""); }}
+                  placeholder="8자 이상 입력하세요"
+                  className={`auth-input pr-10${passwordError ? " !border-red-400" : ""}`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 inset-y-0 flex items-center text-gray-400 hover:text-gray-600"
+                  aria-label="비밀번호 표시"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </Field>
+            {strength.level > 0 && (
+              <div className="mt-1.5 space-y-1">
+                <div className="flex gap-1">
+                  {[1, 2, 3].map((n) => (
+                    <div
+                      key={n}
+                      className={`h-1 flex-1 rounded-full transition-colors ${strength.level >= n ? strength.color : "bg-gray-200"}`}
+                    />
+                  ))}
+                </div>
+                <p className={`text-xs ml-0.5 ${strength.level === 1 ? "text-red-500" : strength.level === 2 ? "text-yellow-600" : "text-green-600"}`}>
+                  비밀번호 강도: {strength.label}
+                </p>
+              </div>
+            )}
+            {passwordError && <p className="text-xs text-red-500 mt-1 ml-0.5">{passwordError}</p>}
+          </div>
 
           <Field label="비밀번호 확인">
             <div className="relative">
@@ -115,7 +196,7 @@ export default function Dev2SignupPage() {
               <button
                 type="button"
                 onClick={() => setShowConfirm((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 inset-y-0 flex items-center text-gray-400 hover:text-gray-600"
                 aria-label="비밀번호 확인 표시"
               >
                 {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}

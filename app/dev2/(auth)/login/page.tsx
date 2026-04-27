@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
-import { mockApi } from "@/lib/api/mockApi";
+import { authApi, buildUserFromToken } from "@/lib/api/authApi";
 import { useAuthStore } from "@/store/authStore";
 import { useUiStore } from "@/store/uiStore";
 
@@ -21,8 +21,9 @@ export default function LoginPage() {
   const handleLogin = async () => {
     setLoading(true);
     try {
-      const user = await mockApi.login({ email, password });
-      signIn(user);
+      const tokens = await authApi.login(email, password);
+      const user = buildUserFromToken(tokens.accessToken, { email });
+      signIn(user, tokens);
       addToast("로그인되었습니다.", "success");
       router.push(withPrefix("/problems"));
     } catch (error) {

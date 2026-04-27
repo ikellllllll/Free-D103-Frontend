@@ -23,7 +23,7 @@ import { BrandLogo } from "@/components/brand/BrandLogo";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { THEME_OPTIONS, isV0ThemeTone, useDevTheme, type V3ThemeTone } from "@/components/dev/DevThemeContext";
 import { DevShell as V0DevShell } from "@/components/dev/v0/V0DevShell";
-import { mockApi } from "@/lib/api/mockApi";
+import { authApi } from "@/lib/api/authApi";
 import { useAuthStore } from "@/store/authStore";
 import { useThemeStore } from "@/store/themeStore";
 import { useUiStore } from "@/store/uiStore";
@@ -114,7 +114,10 @@ function StandardDevShell({ children }: { children: ReactNode }) {
   const fullBleed = isFullBleedSurface(pathname);
 
   const handleLogout = async () => {
-    await mockApi.logout();
+    const { tokens } = useAuthStore.getState();
+    if (tokens?.refreshToken) {
+      try { await authApi.logout(tokens.refreshToken); } catch { /* 서버 오류여도 로컬 로그아웃 진행 */ }
+    }
     signOut();
     addToast("로그아웃되었습니다.", "success");
     router.replace(withPrefix("/login"));

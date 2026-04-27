@@ -7,7 +7,7 @@ import { useState, type FormEvent } from "react";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
-import { mockApi } from "@/lib/api/mockApi";
+import { authApi, buildUserFromToken } from "@/lib/api/authApi";
 import { useAuthStore } from "@/store/authStore";
 import { useUiStore } from "@/store/uiStore";
 
@@ -16,16 +16,17 @@ export default function Dev2LoginPage() {
   const { withPrefix } = useRouteScope();
   const signIn = useAuthStore((s) => s.signIn);
   const addToast = useUiStore((s) => s.addToast);
-  const [email, setEmail] = useState("user@email.com");
-  const [password, setPassword] = useState("password");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
     setLoading(true);
     try {
-      const user = await mockApi.login({ email, password });
-      signIn(user);
+      const tokens = await authApi.login(email, password);
+      const user = buildUserFromToken(tokens.accessToken, { email });
+      signIn(user, tokens);
       addToast("로그인되었습니다.", "success");
       router.push(withPrefix("/problems"));
     } catch (error) {
