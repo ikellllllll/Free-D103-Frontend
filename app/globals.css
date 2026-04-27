@@ -7917,6 +7917,51 @@ body:has(.v3-root) .page-shell {
   color: var(--v3-mint);
   margin: 0;
 }
+.v3-hero__line {
+  display: block;
+}
+.v3-hero__line--spotlight {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3em;
+  flex-wrap: wrap;
+}
+.v3-hero__line-word {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  min-width: 6.3em;
+  padding-inline: 0.08em 0.18em;
+}
+.v3-hero__line-word-base,
+.v3-hero__line-word-echo {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+}
+.v3-hero__line-word-base {
+  color: var(--v3-glow);
+  animation: v3HeroWordIn 420ms ease;
+}
+.v3-hero__line-word-echo {
+  background: linear-gradient(135deg, var(--v3-sage) 0%, var(--v3-teal) 62%, var(--v3-accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  transform: translateX(0.16em);
+  opacity: 0.34;
+  filter: blur(0.7px);
+}
+@keyframes v3HeroWordIn {
+  0% {
+    opacity: 0;
+    transform: translateY(0.18em);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 .v3-hero__accent {
   background: linear-gradient(135deg, var(--v3-glow) 0%, var(--v3-mint) 26%, var(--v3-sage) 55%, var(--v3-teal) 82%, var(--v3-accent) 100%);
   -webkit-background-clip: text;
@@ -9853,6 +9898,37 @@ body:has(.dev2-landing-scroll)::-webkit-scrollbar-thumb:hover {
   backdrop-filter: blur(12px);
   background: rgba(255, 255, 255, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.hero-typewriter-inline {
+  display: inline-flex;
+  align-items: baseline;
+  min-width: 5.8em;
+  color: #ffffff;
+  text-shadow: 0 0 16px rgba(191, 219, 254, 0.14);
+}
+
+.hero-typewriter-inline__text {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.hero-typewriter-inline__caret {
+  width: 0.06em;
+  height: 0.92em;
+  margin-left: 0.04em;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  animation: heroCaretBlink 0.95s steps(1, end) infinite;
+}
+
+@keyframes heroCaretBlink {
+  0%, 46% {
+    opacity: 1;
+  }
+  50%, 100% {
+    opacity: 0;
+  }
 }
 
 /* Animated gradient text (shimmer on hover) */

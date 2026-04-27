@@ -109,9 +109,24 @@ const SHOWCASE_STATS = [
   { value: "14기", label: "SSAFY" }
 ];
 
+const HERO_TYPING_LINES = [
+  "AI 에이전트와 함께",
+  "실무 역량을 키우는",
+  "코딩 워크스페이스"
+] as const;
+
+const HERO_TYPEWRITER_WORDS = [
+  "실무 역량을 키우는",
+  "문제 해결을 키우는",
+  "AI 활용을 키우는"
+] as const;
+
 export function LandingAIG() {
   // 로그인 유저는 "시작하기" 버튼 → /problems, 비로그인은 "로그인" → /login
   const user = useAuthStore((s) => s.user);
+  const [heroLineIndex, setHeroLineIndex] = useState(0);
+  const [heroTypedText, setHeroTypedText] = useState("");
+  const [heroDeleting, setHeroDeleting] = useState(false);
 
   const sectionRefs = useRef<Record<SectionId, HTMLElement | null>>({
     hero: null,
@@ -172,6 +187,32 @@ export function LandingAIG() {
     const t = window.setInterval(() => setIdeCursor((p) => !p), 500);
     return () => window.clearInterval(t);
   }, []);
+
+  useEffect(() => {
+    const current = HERO_TYPEWRITER_WORDS[heroLineIndex];
+    let timeout: number;
+
+    if (!heroDeleting && heroTypedText.length < current.length) {
+      timeout = window.setTimeout(() => {
+        setHeroTypedText(current.slice(0, heroTypedText.length + 1));
+      }, 108);
+    } else if (!heroDeleting && heroTypedText.length === current.length) {
+      timeout = window.setTimeout(() => {
+        setHeroDeleting(true);
+      }, 1350);
+    } else if (heroDeleting && heroTypedText.length > 0) {
+      timeout = window.setTimeout(() => {
+        setHeroTypedText(current.slice(0, heroTypedText.length - 1));
+      }, 58);
+    } else {
+      timeout = window.setTimeout(() => {
+        setHeroDeleting(false);
+        setHeroLineIndex((heroLineIndex + 1) % HERO_TYPEWRITER_WORDS.length);
+      }, 180);
+    }
+
+    return () => window.clearTimeout(timeout);
+  }, [heroDeleting, heroLineIndex, heroTypedText]);
 
   const setSectionRef = useCallback(
     (id: SectionId) => (node: HTMLElement | null) => {
@@ -405,23 +446,14 @@ export function LandingAIG() {
         {/* Hero content */}
         <div className="relative z-10 flex flex-col items-center px-6 pt-6 pb-10 text-center max-w-4xl mx-auto w-full animate-slide-up md:pt-8">
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-bold tracking-tight leading-[1.1] mb-3">
-            AI 에이전트와 함께
-            <br />
-            실무 역량을 키우는
-            <br />
-            <span
-              className="bg-gradient-animate"
-              style={{
-                backgroundImage: "linear-gradient(90deg, #A5B4FC, #99F6E4, #C4B5FD, #A5B4FC)",
-                backgroundSize: "200% 200%",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-                color: "transparent"
-              }}
-            >
-              코딩 워크스페이스
+            <span className="block">AI 에이전트와</span>
+            <span className="block">
+              <span className="hero-typewriter-inline" aria-live="polite">
+                <span className="hero-typewriter-inline__text">{heroTypedText}</span>
+                <span className="hero-typewriter-inline__caret" aria-hidden="true" />
+              </span>
             </span>
+            <span className="block">코딩 워크스페이스</span>
           </h1>
 
           <div className="self-center inline-flex border-l-2 border-white/40 pl-3 text-xs font-semibold tracking-[0.12em] text-white/55 mb-4">

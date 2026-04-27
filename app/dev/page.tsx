@@ -85,6 +85,13 @@ const STATS = [
   { value: "14기", label: "SSAFY" },
 ];
 
+const HERO_ROTATING_LINES = [
+  "실무 역량을",
+  "문제 해결을",
+  "AI 활용을",
+  "협업 감각을",
+] as const;
+
 const IDE_STEPS = [
   {
     label: "코드 선택",
@@ -167,6 +174,7 @@ function V3ThemeLogo({ height = 30 }: { height?: number }) {
 export default function LandingV3() {
   const [activeStep, setActiveStep] = useState(0);
   const [transitioning, setTransitioning] = useState(false);
+  const [heroLineIndex, setHeroLineIndex] = useState(0);
   const [ideStep, setIdeStep] = useState(0);
   const [ideCursor, setIdeCursor] = useState(true);
   const { themeTone, setThemeTone: updateThemeTone } = useDevTheme();
@@ -200,6 +208,13 @@ export default function LandingV3() {
 
   useEffect(() => {
     const t = setInterval(() => setIdeCursor((p) => !p), 500);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setHeroLineIndex((p) => (p + 1) % HERO_ROTATING_LINES.length);
+    }, 1400);
     return () => clearInterval(t);
   }, []);
 
@@ -306,6 +321,8 @@ export default function LandingV3() {
 
   const step = WORKFLOW[activeStep];
   const ideStepData = IDE_STEPS[ideStep];
+  const heroLine = HERO_ROTATING_LINES[heroLineIndex];
+  const heroPrevLine = HERO_ROTATING_LINES[(heroLineIndex + HERO_ROTATING_LINES.length - 1) % HERO_ROTATING_LINES.length];
 
   return (
     <div className="v3-root" data-v3-theme={themeTone}>
@@ -454,9 +471,16 @@ export default function LandingV3() {
               SSAFY 14기 자율 프로젝트
             </span>
             <h1 className="v3-hero__title">
-              AI 에이전트와 함께<br />
-              실무 역량을 키우는<br />
-              <span className="v3-hero__accent">코딩 워크스페이스</span>
+              <span className="v3-hero__line">AI 에이전트와 함께</span>
+              <span className="v3-hero__line v3-hero__line--spotlight">
+                <span className="v3-hero__line-word" aria-live="polite">
+                  <span key={heroLine} className="v3-hero__line-word-base">{heroLine}</span>
+                  <span key={`${heroLine}-echo`} className="v3-hero__line-word-echo" aria-hidden="true">{heroPrevLine}</span>
+                </span>
+              </span>
+              <span className="v3-hero__line">
+                키우는 <span className="v3-hero__accent">코딩 워크스페이스</span>
+              </span>
             </h1>
             <p className="v3-hero__sub">
               실무 과제를 풀고, 에이전트 흐름을 기록하고,<br />
