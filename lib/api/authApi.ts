@@ -34,11 +34,11 @@ interface JwtPayload {
 
 // 인증 불필요 요청용 기본 클라이언트
 const api = ky.create({
-  prefix: BASE_URL,
+  prefixUrl: BASE_URL,
   retry: 0,
   hooks: {
     beforeError: [
-      async ({ error }) => {
+      async (error) => {
         if (isHTTPError(error)) {
           try {
             const body = await error.response.clone().json() as { errorMessage?: string };
@@ -54,11 +54,11 @@ const api = ky.create({
 // 인증 필요 요청용 클라이언트 — 401 시 자동 토큰 갱신 후 재시도
 export function createAuthClient(): KyInstance {
   return ky.create({
-    prefix: BASE_URL,
+    prefixUrl: BASE_URL,
     retry: 0,
     hooks: {
       beforeRequest: [
-        ({ request }) => {
+        (request) => {
           const { tokens } = useAuthStore.getState();
           if (tokens?.accessToken) {
             request.headers.set("Authorization", `Bearer ${tokens.accessToken}`);
@@ -66,8 +66,8 @@ export function createAuthClient(): KyInstance {
         }
       ],
       afterResponse: [
-        async ({ request, options, response, retryCount }) => {
-          if (response.status !== 401 || retryCount > 0) return response;
+        async (request, options, response) => {
+          if (response.status !== 401 || request.headers.get("X-Auth-Retry")) return response;
 
           const { tokens, setTokens, signOut } = useAuthStore.getState();
           if (!tokens?.refreshToken) {
@@ -85,6 +85,7 @@ export function createAuthClient(): KyInstance {
 
             const newHeaders = new Headers(request.headers);
             newHeaders.set("Authorization", `Bearer ${refreshRes.data.accessToken}`);
+            newHeaders.set("X-Auth-Retry", "1");
             return ky(new Request(request, { headers: newHeaders }), options);
           } catch {
             signOut();
@@ -93,7 +94,7 @@ export function createAuthClient(): KyInstance {
         }
       ],
       beforeError: [
-        async ({ error }) => {
+        async (error) => {
           if (isHTTPError(error)) {
             try {
               const body = await error.response.clone().json() as { errorMessage?: string };
