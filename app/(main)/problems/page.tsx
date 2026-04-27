@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
-import { mockApi } from "@/lib/api/mockApi";
+import { problemApi } from "@/lib/api/problemApi";
 import type {
   ProblemCategory,
   ProblemLevel,
@@ -358,7 +358,7 @@ export default function Dev2ProblemsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["problems"],
-    queryFn: () => mockApi.getProblems()
+    queryFn: () => problemApi.getProblems()
   });
 
   const all = data ?? [];
