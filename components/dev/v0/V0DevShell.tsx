@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -13,7 +13,6 @@ import {
   ChevronLeft,
   BookOpen,
   History,
-  Wrench,
   User as UserIcon,
   Command,
   type LucideIcon,
@@ -45,14 +44,12 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { href: "/problems", label: "과제 목록", icon: BookOpen, shortcut: "P" },
   { href: "/sessions", label: "풀이 기록", icon: History, shortcut: "S" },
-  { href: "/workshop", label: "워크숍", icon: Wrench, shortcut: "W" },
   { href: "/mypage", label: "마이페이지", icon: UserIcon, shortcut: "M" },
 ];
 
 const SURFACE_TITLES: Record<string, string> = {
   "/problems": "problems",
   "/sessions": "sessions",
-  "/workshop": "workshop",
   "/harness": "harness",
   "/mypage": "mypage",
   "/submissions": "submissions",

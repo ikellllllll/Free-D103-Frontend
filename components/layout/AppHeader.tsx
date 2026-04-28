@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -13,7 +13,6 @@ import { useUiStore } from "@/store/uiStore";
 
 const navItems = [
   { href: "/problems", label: "과제" },
-  { href: "/workshop", label: "워크숍" },
   { href: "/mypage", label: "마이페이지" }
 ];
 

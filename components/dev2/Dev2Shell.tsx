@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -7,7 +7,6 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   BookOpen,
   History,
-  FlaskConical,
   TestTube,
   User,
   Sun,
@@ -30,7 +29,6 @@ type NavItem = { href: string; icon: LucideIcon; label: string };
 const NAV_ITEMS: NavItem[] = [
   { href: "/problems", icon: BookOpen, label: "과제 목록" },
   { href: "/sessions", icon: History, label: "풀이 기록" },
-  { href: "/workshop", icon: FlaskConical, label: "워크숍" },
   { href: "/harness", icon: TestTube, label: "하네스" },
   { href: "/mypage", icon: User, label: "마이페이지" }
 ];

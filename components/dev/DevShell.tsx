@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -7,7 +7,6 @@ import {
   BookOpen,
   History,
   User,
-  FlaskConical,
   TestTube,
   Sun,
   Moon,
@@ -39,7 +38,6 @@ type PaletteItem = {
 const NAV_ITEMS: { href: string; icon: LucideIcon; label: string }[] = [
   { href: "/problems", icon: BookOpen, label: "과제 목록" },
   { href: "/sessions", icon: History, label: "풀이 기록" },
-  { href: "/workshop", icon: FlaskConical, label: "워크숍" },
   { href: "/harness", icon: TestTube, label: "하네스" },
   { href: "/mypage", icon: User, label: "마이페이지" }
 ];
@@ -47,7 +45,6 @@ const NAV_ITEMS: { href: string; icon: LucideIcon; label: string }[] = [
 const SURFACE_TITLES: Record<string, string> = {
   "/problems": "problems",
   "/sessions": "sessions",
-  "/workshop": "workshop",
   "/harness": "harness",
   "/mypage": "mypage",
   "/submissions": "submissions",
