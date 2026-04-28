@@ -1,11 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Sun, Moon } from "lucide-react";
+import { Sun, Moon, Copy, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import Markdown from "react-markdown";
 
 import { Badge } from "@/components/common/Badge";
 import { Card } from "@/components/common/Card";
@@ -37,11 +38,11 @@ const MonacoDiffEditor = dynamic(() => import("@monaco-editor/react").then((mod)
   loading: () => <div className="editor-loading">Diff 에디터를 불러오는 중...</div>
 });
 
-const activityItems: Array<{ id: SidebarView; short: string; label: string; description: string }> = [
-  { id: "explorer",   short: "EX", label: "탐색기",      description: "파일 트리" },
-  { id: "search",     short: "SR", label: "검색",        description: "파일명과 코드 검색" },
-  { id: "trace",      short: "TR", label: "Trace",       description: "에이전트 실행 기록" },
-  { id: "extensions", short: "XT", label: "확장",        description: "설치된 워크벤치 도구" }
+const activityItems: Array<{ id: SidebarView; icon: string; label: string; description: string }> = [
+  { id: "explorer",   icon: "codicon-files",      label: "탐색기",      description: "파일 트리" },
+  { id: "search",     icon: "codicon-search",     label: "검색",        description: "파일명과 코드 검색" },
+  { id: "trace",      icon: "codicon-pulse",      label: "Trace",       description: "에이전트 실행 기록" },
+  { id: "extensions", icon: "codicon-extensions", label: "확장",        description: "설치된 워크벤치 도구" }
 ];
 
 const bottomTabs: Array<{ id: BottomPanelTab; label: string }> = [
@@ -163,6 +164,97 @@ const DIFF_TAB_PREFIX = "diff:";
 const isDiffTabId = (value: string) => value.startsWith(DIFF_TAB_PREFIX);
 const createDiffTabId = (path: string) => `${DIFF_TAB_PREFIX}${path}`;
 const getWorktreeSourcePath = (path: string) => path.replace(/^\.worktree\//, "src/");
+const ENDPOINT_LINE_REGEX = /^-\s+`((?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+[^`]+)`/;
+
+function ProblemBriefCodeBlock({ language, code }: { language?: string; code: string }) {
+  const [isCopied, setIsCopied] = useState(false);
+  const lines = code.trimEnd().split("\n");
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(code.trimEnd());
+      setIsCopied(true);
+      window.setTimeout(() => setIsCopied(false), 1500);
+    } catch {
+      // noop
+    }
+  };
+
+  return (
+    <div className="relative bg-gray-900 rounded-xl overflow-hidden my-4">
+      {language ? (
+        <div className="px-4 pt-3 pb-0 text-[10px] font-mono font-bold uppercase tracking-widest text-gray-500 select-none">
+          {language}
+        </div>
+      ) : null}
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="absolute top-3 right-3 p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-colors"
+        aria-label="복사"
+      >
+        {isCopied ? <Check size={14} strokeWidth={2.4} className="text-green-400" /> : <Copy size={14} strokeWidth={2} />}
+      </button>
+      <div className="flex">
+        <div className="shrink-0 py-4 pl-4 pr-3 text-xs font-mono text-gray-600 select-none">
+          {lines.map((_, index) => (
+            <div key={index} className="leading-6">
+              {index + 1}
+            </div>
+          ))}
+        </div>
+        <pre className="flex-1 py-4 pr-4 text-sm text-gray-100 font-mono leading-6 overflow-x-auto">
+          {lines.map((line, index) => (
+            <div key={index}>{line}</div>
+          ))}
+        </pre>
+      </div>
+    </div>
+  );
+}
+
+const problemBriefMarkdownComponents = {
+  pre({ children }: { children?: React.ReactNode }) {
+    const child = Array.isArray(children) ? children[0] : children;
+    if (!child || typeof child !== "object") {
+      return <pre>{children}</pre>;
+    }
+
+    const element = child as React.ReactElement<{ className?: string; children?: React.ReactNode }>;
+    const className = element.props.className ?? "";
+    const match = /language-(\w+)/.exec(className);
+    const code = String(element.props.children ?? "").replace(/\n$/, "");
+
+    return <ProblemBriefCodeBlock language={match?.[1]} code={code} />;
+  }
+};
+
+function renderHighlightedEndpoint(line: string) {
+  const match = line.match(/^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+(.*)$/);
+  if (!match) {
+    return <span>{line}</span>;
+  }
+
+  const [, verb, rest] = match;
+  const verbColor =
+    verb === "GET"
+      ? "text-green-400"
+      : verb === "POST"
+        ? "text-blue-400"
+        : verb === "PUT" || verb === "PATCH"
+          ? "text-amber-400"
+          : verb === "DELETE"
+            ? "text-rose-400"
+            : "text-gray-300";
+
+  return (
+    <>
+      <span className={`${verbColor} font-bold`}>{verb}</span>
+      <span className="text-gray-100"> {rest}</span>
+    </>
+  );
+}
+
 const getMaxSidebarWidth = (viewportWidth: number) => {
   if (viewportWidth <= 0) {
     return 280;
@@ -203,39 +295,144 @@ const getMaxBottomPanelHeight = (viewportHeight: number) => {
   return clamp(Math.round(viewportHeight * 0.3), 168, 360);
 };
 
-const getFileToken = (file: Pick<WorkspaceFile, "path" | "language">) => {
-  const extension = file.path.split(".").pop()?.toLowerCase();
+const getFolderIconSpec = (folderName: string, folderPath: string | null, isOpen: boolean) => {
+  const normalized = folderName.toLowerCase();
+  const isPackageFolder =
+    folderName.includes(".") &&
+    typeof folderPath === "string" &&
+    (folderPath.includes("/java/") || folderPath.endsWith("/java") || folderPath.includes("/kotlin/"));
 
-  if (extension === "java") {
-    return "JV";
+  if (isPackageFolder) {
+    return {
+      iconClass: "codicon codicon-symbol-namespace",
+      kind: "package"
+    };
   }
 
-  if (extension === "py") {
-    return "PY";
+  if (normalized === "java" || normalized === "src" || normalized === "main" || normalized === "test") {
+    return {
+      iconClass: isOpen ? "codicon codicon-folder-opened" : "codicon codicon-folder",
+      kind: "source"
+    };
+  }
+
+  if (normalized === "resources" || normalized === "static" || normalized === "templates") {
+    return {
+      iconClass: isOpen ? "codicon codicon-folder-opened" : "codicon codicon-folder",
+      kind: "resources"
+    };
+  }
+
+  return {
+    iconClass: isOpen ? "codicon codicon-folder-opened" : "codicon codicon-folder",
+    kind: "default"
+  };
+};
+
+const getFileIconSpec = (file: Pick<WorkspaceFile, "path" | "language">) => {
+  const fileName = getFileName(file.path).toLowerCase();
+  const extension = fileName.includes(".") ? fileName.split(".").pop()?.toLowerCase() : "";
+
+  if (extension === "java") {
+    return { iconClass: "codicon codicon-symbol-class", kind: "java" };
+  }
+
+  if (
+    fileName === "application.properties" ||
+    extension === "properties" ||
+    extension === "yml" ||
+    extension === "yaml"
+  ) {
+    return { iconClass: "codicon codicon-settings-gear", kind: "config" };
+  }
+
+  if (
+    fileName === "build.gradle" ||
+    fileName === "settings.gradle" ||
+    fileName === "gradlew" ||
+    fileName === "gradlew.bat" ||
+    extension === "gradle"
+  ) {
+    return { iconClass: "codicon codicon-gear", kind: "gradle" };
+  }
+
+  if (fileName === ".gitignore") {
+    return { iconClass: "codicon codicon-source-control", kind: "git" };
   }
 
   if (extension === "md") {
-    return "MD";
+    return { iconClass: "codicon codicon-book", kind: "docs" };
   }
 
   if (extension === "json") {
-    return "{}";
+    return { iconClass: "codicon codicon-file-code", kind: "json" };
   }
 
-  if (extension === "yml" || extension === "yaml") {
-    return "YM";
+  if (
+    extension === "ts" ||
+    extension === "tsx" ||
+    extension === "js" ||
+    extension === "jsx" ||
+    extension === "py" ||
+    extension === "sql" ||
+    extension === "xml" ||
+    extension === "html" ||
+    extension === "css" ||
+    extension === "scss"
+  ) {
+    return { iconClass: "codicon codicon-file-code", kind: "code" };
   }
 
-  if (extension === "ts") {
-    return "TS";
-  }
-
-  if (extension === "js") {
-    return "JS";
-  }
-
-  return file.language.slice(0, 2).toUpperCase();
+  return { iconClass: "codicon codicon-file", kind: "default" };
 };
+
+const compressJavaPackageFolders = (nodes: TreeNode[], insideJavaRoot = false): TreeNode[] =>
+  nodes.map((node) => {
+    if (node.kind === "file") {
+      return node;
+    }
+
+    const nodePath = node.path ?? "";
+    const isJavaRoot = nodePath === "src/main/java" || nodePath === "src/test/java" || nodePath.endsWith("/java");
+    const nextInsideJavaRoot = insideJavaRoot || isJavaRoot;
+
+    let mergedName = node.name;
+    let mergedKey = node.key;
+    let mergedPath = node.path;
+    let mergedChildren = node.children;
+
+    if (nextInsideJavaRoot) {
+      while (
+        mergedChildren.length === 1 &&
+        mergedChildren[0]?.kind === "folder" &&
+        mergedChildren[0].children.every((child) => child.kind === "folder" || child.kind === "file")
+      ) {
+        const onlyChild = mergedChildren[0];
+        const childHasOnlyFolderDescendants = onlyChild.children.filter((child) => child.kind === "folder").length <= 1;
+
+        mergedName = `${mergedName}.${onlyChild.name}`;
+        mergedKey = onlyChild.key;
+        mergedPath = onlyChild.path;
+        mergedChildren = onlyChild.children;
+
+        if (!childHasOnlyFolderDescendants) {
+          break;
+        }
+
+        if (onlyChild.children.some((child) => child.kind === "file")) {
+          break;
+        }
+      }
+    }
+
+    return {
+      ...node,
+      key: mergedKey,
+      name: mergedName,
+      path: mergedPath,
+      children: compressJavaPackageFolders(mergedChildren, nextInsideJavaRoot)
+    };
+  });
 
 const buildExplorerFiles = (files: WorkspaceFile[]): ExplorerFile[] => {
   const sourceFiles = files.map((file) => ({
@@ -346,7 +543,7 @@ const buildFileTree = (files: ExplorerFile[]) => {
         children: sortNodes(node.children)
       }));
 
-  return sortNodes(root.children);
+  return compressJavaPackageFolders(sortNodes(root.children));
 };
 
 export function IdeShell({ sessionId }: { sessionId: string }) {
@@ -923,8 +1120,59 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const aiQuotaLabel = `${Math.min(requestTotal, AI_REQUEST_QUOTA)}/${AI_REQUEST_QUOTA}`;
   const agentSnapshotLabel = `v0.${agentSnapshotVersion}`;
   const dirtyCount = unsavedPaths.length;
-  const problemRequirementsCount = problem?.requirements.length ?? 0;
-  const problemCasesCount = problem?.publicCases.length ?? 0;
+  const parsedProblemBrief = useMemo(() => {
+    if (!problem?.description) {
+      return { beforeDescription: "", afterDescription: "", parsedEndpoints: [] as string[] };
+    }
+
+    const lines = problem.description.split("\n");
+    const parsedEndpoints: string[] = [];
+    let firstEndpointIndex = -1;
+    let lastEndpointIndex = -1;
+
+    lines.forEach((line, index) => {
+      const match = line.match(ENDPOINT_LINE_REGEX);
+      if (!match) {
+        return;
+      }
+
+      if (firstEndpointIndex === -1) {
+        firstEndpointIndex = index;
+      }
+
+      lastEndpointIndex = index;
+      parsedEndpoints.push(match[1].trim());
+    });
+
+    if (firstEndpointIndex === -1) {
+      return {
+        beforeDescription: problem.description.trim(),
+        afterDescription: "",
+        parsedEndpoints
+      };
+    }
+
+    return {
+      beforeDescription: lines.slice(0, firstEndpointIndex).join("\n").trim(),
+      afterDescription: lines.slice(lastEndpointIndex + 1).join("\n").trim(),
+      parsedEndpoints
+    };
+  }, [problem?.description]);
+  const resolvedProblemEndpoints = parsedProblemBrief.parsedEndpoints.length
+    ? parsedProblemBrief.parsedEndpoints
+    : (problem?.endpoints ?? []);
+  const resolvedProblemRequirements = problem?.requirements?.length
+    ? problem.requirements
+    : [];
+  const resolvedProblemCases = problem?.publicCases?.length
+    ? problem.publicCases
+    : [];
+  const resolvedProblemCriteria = problem?.criteria?.length
+    ? problem.criteria
+    : [];
+  const problemRequirementsCount = resolvedProblemRequirements.length;
+  const problemCasesCount = resolvedProblemCases.length;
+  const problemEndpointCount = resolvedProblemEndpoints.length;
   const breadcrumbParts =
     activeWorkbenchTab === "problem"
       ? ["problem", problem?.title ?? "brief"]
@@ -1290,30 +1538,39 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const renderTreeNodes = (nodes: TreeNode[], depth = 0): Array<JSX.Element> =>
     nodes.flatMap((node, index) => {
       const isLast = index === nodes.length - 1;
-      const treeGuideLeft = `${8 + depth * 14}px`;
+      const treeGuideLeft = `${8 + depth * 11}px`;
       const treeGuideBottom = isLast ? "50%" : "-4px";
 
       if (node.kind === "folder") {
         const collapsed = collapsedFolders.has(node.key);
+        const folderIcon = getFolderIconSpec(node.name, node.path, !collapsed);
         return [
-          <button
-            key={node.key}
-            type="button"
-            className={"tree-folder" + (collapsed ? " tree-folder--closed" : " tree-folder--open")}
-            aria-expanded={!collapsed}
-            style={{
-              ["--tree-depth" as string]: depth,
-              ["--tree-guide-left" as string]: treeGuideLeft,
-              ["--tree-guide-bottom" as string]: treeGuideBottom,
-              paddingLeft: `${12 + depth * 14}px`
-            }}
-            onClick={() => toggleFolder(node.key)}
-          >
-            <span className="tree-row__twistie">{collapsed ? ">" : "v"}</span>
-            <span className="tree-folder__icon" aria-hidden />
-            <span className="tree-row__folder">{node.name}</span>
-          </button>,
-          ...(collapsed ? [] : renderTreeNodes(node.children, depth + 1))
+          <div key={node.key} className={"tree-branch" + (collapsed ? " tree-branch--closed" : " tree-branch--open")}>
+            <button
+              type="button"
+              className={"tree-folder" + (collapsed ? " tree-folder--closed" : " tree-folder--open")}
+              aria-expanded={!collapsed}
+              style={{
+                ["--tree-depth" as string]: depth,
+                ["--tree-guide-left" as string]: treeGuideLeft,
+                ["--tree-guide-bottom" as string]: treeGuideBottom,
+                paddingLeft: `${10 + depth * 11}px`
+              }}
+              onClick={() => toggleFolder(node.key)}
+            >
+              <span
+                className={"tree-row__twistie codicon " + (collapsed ? "codicon-chevron-right" : "codicon-chevron-down")}
+                aria-hidden
+              />
+              <span
+                className={"tree-folder__icon " + folderIcon.iconClass}
+                data-folder-kind={folderIcon.kind}
+                aria-hidden
+              />
+              <span className="tree-row__folder">{node.name}</span>
+            </button>
+            {!collapsed ? <div className="tree-branch__children">{renderTreeNodes(node.children, depth + 1)}</div> : null}
+          </div>
         ];
       }
 
@@ -1328,6 +1585,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         const isActiveVirtual = isWorktree
           ? activeTabId === createDiffTabId(file.path)
           : activeTabId === file.path;
+        const fileIcon = getFileIconSpec(file);
         return [
           <button
             key={node.key}
@@ -1341,12 +1599,17 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               ["--tree-depth" as string]: depth,
               ["--tree-guide-left" as string]: treeGuideLeft,
               ["--tree-guide-bottom" as string]: treeGuideBottom,
-              paddingLeft: `${18 + depth * 14}px`
+              paddingLeft: `${14 + depth * 11}px`
             }}
             onClick={() => isWorktree ? openDiffTab(file.path) : focusLine(file.path)}
           >
             <span className="tree-row__main">
-              <span className="file-icon" data-file-ext={getFileExtension(file)}>{getFileToken(file)}</span>
+              <span
+                className={"file-icon " + fileIcon.iconClass}
+                data-file-ext={getFileExtension(file)}
+                data-file-kind={fileIcon.kind}
+                aria-hidden
+              />
               <span className="tree-row__label">{node.name}</span>
             </span>
             {file.badge ? <span className="tree-row__badge">{file.badge}</span> : null}
@@ -1354,6 +1617,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         ];
       }
 
+      const fileIcon = getFileIconSpec(file);
       return [
         <button
           key={node.key}
@@ -1363,12 +1627,17 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             ["--tree-depth" as string]: depth,
             ["--tree-guide-left" as string]: treeGuideLeft,
             ["--tree-guide-bottom" as string]: treeGuideBottom,
-            paddingLeft: `${18 + depth * 14}px`
+            paddingLeft: `${14 + depth * 11}px`
           }}
           onClick={() => focusLine(file.path)}
         >
           <span className="tree-row__main">
-            <span className="file-icon" data-file-ext={getFileExtension(file)}>{getFileToken(file)}</span>
+            <span
+              className={"file-icon " + fileIcon.iconClass}
+              data-file-ext={getFileExtension(file)}
+              data-file-kind={fileIcon.kind}
+              aria-hidden
+            />
             <span className="tree-row__label">{node.name}</span>
           </span>
           {unsavedPaths.includes(file.path) ? <span className="file-row__dot" /> : null}
@@ -1471,8 +1740,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           {explorerSections.project ? (
             <div className="tree-root">
               <div className="tree-folder tree-folder--root">
-                <span className="tree-row__twistie">v</span>
-                <span className="tree-folder__icon" aria-hidden />
+                <span className="tree-row__twistie codicon codicon-chevron-down" aria-hidden />
+                <span className="tree-folder__icon codicon codicon-folder-opened" data-folder-kind="source" aria-hidden />
                 <span className="tree-row__folder">{session?.problemId ?? "workspace"}</span>
               </div>
               <div className="tree-root__children">{renderTreeNodes(fileTree, 1)}</div>
@@ -1596,7 +1865,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             <ul className="problem-list">
               <li>요구사항 {problemRequirementsCount}개</li>
               <li>공개 테스트 {problemCasesCount}개</li>
-              <li>엔드포인트 {problem.endpoints.length}개</li>
+              <li>엔드포인트 {problemEndpointCount}개</li>
               <li>현재 세션 AI quota {aiQuotaLabel}</li>
             </ul>
           </div>
@@ -1604,55 +1873,87 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
         <div className="problem-workspace__main">
           <section className="problem-card problem-card--feature">
-            <strong>핵심 요구사항</strong>
-            <ul className="problem-list">
-              {problem.requirements.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
+            <div className="markdown-block problem-workspace__markdown">
+              {parsedProblemBrief.beforeDescription ? (
+                <Markdown components={problemBriefMarkdownComponents}>{parsedProblemBrief.beforeDescription}</Markdown>
+              ) : (
+                <p className="muted-copy">문제 설명이 아직 등록되지 않았습니다.</p>
+              )}
+            </div>
+            {resolvedProblemEndpoints.length ? (
+              <div className="relative bg-gray-900 rounded-xl overflow-hidden">
+                <div className="flex">
+                  <div className="shrink-0 py-4 pl-4 pr-3 text-xs font-mono text-gray-600 select-none">
+                    {resolvedProblemEndpoints.map((_, index) => (
+                      <div key={index} className="leading-6">
+                        {index + 1}
+                      </div>
+                    ))}
+                  </div>
+                  <pre className="flex-1 py-4 pr-4 text-sm text-gray-100 font-mono leading-6 overflow-x-auto">
+                    {resolvedProblemEndpoints.map((endpoint) => (
+                      <div key={endpoint}>{renderHighlightedEndpoint(endpoint)}</div>
+                    ))}
+                  </pre>
+                </div>
+              </div>
+            ) : (
+              <p className="muted-copy">엔드포인트 정보가 아직 등록되지 않았습니다.</p>
+            )}
+            {parsedProblemBrief.afterDescription ? (
+              <div className="markdown-block problem-workspace__markdown">
+                <Markdown components={problemBriefMarkdownComponents}>{parsedProblemBrief.afterDescription}</Markdown>
+              </div>
+            ) : null}
           </section>
 
-          <section className="problem-card problem-card--feature">
-            <strong>API 엔드포인트</strong>
-            <div className="problem-endpoints">
-              {problem.endpoints.map((endpoint) => (
-                <code key={endpoint} className="problem-endpoint">
-                  {endpoint}
-                </code>
-              ))}
-            </div>
-          </section>
+          {resolvedProblemRequirements.length ? (
+            <section className="problem-card problem-card--feature">
+              <strong>핵심 요구사항</strong>
+              <ul className="problem-list">
+                {resolvedProblemRequirements.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
         </div>
 
         <aside className="problem-workspace__aside">
-          <section className="problem-card">
-            <strong>공개 테스트</strong>
-            <div className="problem-cases">
-              {problem.publicCases.map((testCase) => (
-                <div key={testCase.id} className="problem-case">
-                  <div className="problem-case__head">
-                    <span>{testCase.name}</span>
-                    <Badge tone="teal">{testCase.result}</Badge>
+          {resolvedProblemCases.length ? (
+            <section className="problem-card">
+              <strong>공개 테스트</strong>
+              <div className="problem-cases">
+                {resolvedProblemCases.map((testCase) => (
+                  <div key={testCase.id} className="problem-case">
+                    <div className="problem-case__head">
+                      <span>{testCase.name}</span>
+                      <Badge tone="teal">{testCase.result}</Badge>
+                    </div>
+                    <small>{testCase.detail}</small>
                   </div>
-                  <small>{testCase.detail}</small>
-                </div>
-              ))}
-            </div>
-          </section>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
-          <section className="problem-card">
-            <strong>평가 기준</strong>
-            <ul className="problem-list">
-              {problem.criteria.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </section>
+          {resolvedProblemCriteria.length ? (
+            <section className="problem-card">
+              <strong>평가 기준</strong>
+              <ul className="problem-list">
+                {resolvedProblemCriteria.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
 
-          <section className="problem-card">
-            <strong>AI 활용 팁</strong>
-            <p className="muted-copy">{problem.aiGuide}</p>
-          </section>
+          {problem.aiGuide ? (
+            <section className="problem-card">
+              <strong>AI 활용 팁</strong>
+              <p className="muted-copy">{problem.aiGuide}</p>
+            </section>
+          ) : null}
         </aside>
       </div>
     );
@@ -1683,7 +1984,15 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   focusLine(tab.path);
                 }}
               >
-                <span className="file-icon file-icon--tab">{tab.kind === "diff" ? "DI" : getFileToken(tab.file)}</span>
+                {tab.kind === "diff" ? (
+                  <span className="file-icon file-icon--tab codicon codicon-diff" data-file-kind="git" aria-hidden />
+                ) : (
+                  <span
+                    className={"file-icon file-icon--tab " + getFileIconSpec(tab.file).iconClass}
+                    data-file-kind={getFileIconSpec(tab.file).kind}
+                    aria-hidden
+                  />
+                )}
                 <span>{tab.title}</span>
                 {tab.kind === "file" && unsavedPaths.includes(tab.path) ? <span className="editor-tabs__dot" /> : null}
               </button>
@@ -1763,7 +2072,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               title="문제"
               onClick={handleOpenProblemTab}
             >
-              <span className="activity-bar__label">PR</span>
+              <span className="activity-bar__label activity-bar__icon-wrap">
+                <span className="codicon codicon-book activity-bar__icon" aria-hidden="true" />
+              </span>
               <span className="activity-bar__badge">{problemRequirementsCount}</span>
             </button>
 
@@ -1780,7 +2091,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   title={item.label}
                   onClick={() => setActiveWorkbenchTab("trace")}
                 >
-                  <span className="activity-bar__label">{item.short}</span>
+                  <span className="activity-bar__label activity-bar__icon-wrap">
+                    <span className={`codicon ${item.icon} activity-bar__icon`} aria-hidden="true" />
+                  </span>
                   {activityMeta[item.id] ? <span className="activity-bar__badge">{activityMeta[item.id]}</span> : null}
                 </button>
               ) : (
@@ -1795,7 +2108,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   title={item.label}
                   onClick={() => handleActivityClick(item.id)}
                 >
-                  <span className="activity-bar__label">{item.short}</span>
+                  <span className="activity-bar__label activity-bar__icon-wrap">
+                    <span className={`codicon ${item.icon} activity-bar__icon`} aria-hidden="true" />
+                  </span>
                   {activityMeta[item.id] ? <span className="activity-bar__badge">{activityMeta[item.id]}</span> : null}
                 </button>
               )
@@ -1807,7 +2122,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               title="콘솔"
               onClick={handleToggleBottomPanel}
             >
-              <span className="activity-bar__label">{">_"}</span>
+              <span className="activity-bar__label activity-bar__icon-wrap">
+                <span className="codicon codicon-terminal activity-bar__icon" aria-hidden="true" />
+              </span>
               {activityMeta.output ? <span className="activity-bar__badge">{activityMeta.output}</span> : null}
             </button>
 
@@ -1817,7 +2134,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               title="AI 보조 패널"
               onClick={handleToggleAiPanel}
             >
-              <span className="activity-bar__label">AI</span>
+              <span className="activity-bar__label activity-bar__icon-wrap">
+                <span className="codicon codicon-hubot activity-bar__icon" aria-hidden="true" />
+              </span>
               {activityMeta.ai ? <span className="activity-bar__badge">{activityMeta.ai}</span> : null}
             </button>
           </div>
@@ -1829,7 +2148,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               onClick={toggleTheme}
             >
               {theme === "dark" ? <Sun size={14} strokeWidth={1.8} /> : <Moon size={14} strokeWidth={1.8} />}
-              <span className="activity-bar__label">{theme === "dark" ? "라이트" : "다크"}</span>
+              <span className="sr-only">{theme === "dark" ? "라이트 모드" : "다크 모드"}</span>
             </button>
           </div>
         </aside>

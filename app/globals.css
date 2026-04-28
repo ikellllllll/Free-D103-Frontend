@@ -1533,8 +1533,12 @@ body:has(.ide-route--workspace) .page-shell > * {
 
 .activity-bar__item {
   position: relative;
-  min-height: 36px;
-  padding: 8px 4px;
+  width: 40px;
+  min-height: 40px;
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 8px;
   border: 1px solid transparent;
   color: var(--muted);
@@ -1550,6 +1554,22 @@ body:has(.ide-route--workspace) .page-shell > * {
   justify-content: center;
   min-width: 16px;
   line-height: 1;
+}
+
+.activity-bar__icon-wrap {
+  width: 24px;
+  height: 24px;
+}
+
+.activity-bar__icon {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+.activity-bar__icon.codicon[class*="codicon-"] {
+  font: normal normal 700 24px/1 codicon;
+  width: 24px;
+  height: 24px;
 }
 
 .activity-bar__badge {
@@ -1575,6 +1595,32 @@ body:has(.ide-route--workspace) .page-shell > * {
   color: var(--text);
   background: var(--ide-hover-bg);
   border-color: var(--ide-border);
+}
+
+.activity-bar__item--active {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 2px 5px rgba(15, 23, 42, 0.24);
+}
+
+.activity-bar__item:active {
+  transform: translateY(1px) scale(0.985);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 2px 6px rgba(15, 23, 42, 0.28);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .ide-shell__sidebar,
@@ -1724,12 +1770,17 @@ body:has(.ide-route--workspace) .page-shell > * {
   font-size: 0.84rem;
 }
 
+.tree-row {
+  font-family: var(--font-sans);
+  font-size: 0.83rem;
+}
+
 .file-row__main,
 .tree-row__main {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .file-row__copy {
@@ -1751,24 +1802,21 @@ body:has(.ide-route--workspace) .page-shell > * {
 }
 
 .file-icon {
-  width: 24px;
-  height: 24px;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 6px;
-  border: 1px solid var(--ide-border);
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-2);
+  font-size: 16px;
+  line-height: 1;
   flex: 0 0 auto;
 }
 
 .file-icon--tab {
-  width: 20px;
-  height: 20px;
-  font-size: 0.62rem;
+  width: 15px;
+  height: 15px;
+  font-size: 15px;
 }
 
 .file-row__dot,
@@ -1846,18 +1894,35 @@ body:has(.ide-route--workspace) .page-shell > * {
   gap: 2px;
 }
 
+.tree-branch {
+  display: grid;
+  gap: 2px;
+}
+
+.tree-branch__children {
+  display: grid;
+  gap: 2px;
+  margin-left: 8px;
+  padding: 2px 0 2px 5px;
+  border-left: 1px solid color-mix(in srgb, var(--ide-border) 68%, transparent);
+}
+
+.tree-branch--open > .tree-folder {
+  color: var(--text);
+}
+
 .tree-folder {
   appearance: none;
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-height: 28px;
   border: 0;
   background: transparent;
   color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-family: var(--font-sans);
+  font-size: 0.83rem;
   text-align: left;
   cursor: pointer;
 }
@@ -1870,16 +1935,76 @@ body:has(.ide-route--workspace) .page-shell > * {
 
 .tree-row__twistie {
   width: 12px;
+  height: 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--muted-2);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.tree-folder__icon {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #6ea8ff;
+  font-size: 16px;
+  line-height: 1;
+  flex: 0 0 auto;
 }
 
 .tree-row__folder {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.tree-folder--open > .tree-row__folder,
+.tree-folder--root .tree-row__folder {
+  color: var(--text);
+}
+
+.tree-folder__icon[data-folder-kind="resources"] {
+  color: #8fd28f;
+}
+
+.tree-folder__icon[data-folder-kind="source"] {
+  color: #76a9ff;
+}
+
+.tree-folder__icon[data-folder-kind="package"] {
+  color: #84b6ff;
+}
+
+.file-icon[data-file-kind="java"] {
+  color: #6ea8ff;
+}
+
+.file-icon[data-file-kind="config"] {
+  color: #8fd28f;
+}
+
+.file-icon[data-file-kind="gradle"] {
+  color: #b49cff;
+}
+
+.file-icon[data-file-kind="docs"] {
+  color: #7fd7ff;
+}
+
+.file-icon[data-file-kind="git"] {
+  color: #f08962;
+}
+
+.file-icon[data-file-kind="json"] {
+  color: #f6c177;
+}
+
+.file-icon[data-file-kind="code"] {
+  color: #9fb4d9;
 }
 
 .outline-row {
@@ -2420,7 +2545,20 @@ body:has(.ide-route--workspace) .page-shell > * {
 
 .problem-card--primary {
   gap: 14px;
-  background: linear-gradient(180deg, rgba(217, 119, 87, 0.08), rgba(255, 255, 255, 0.02));
+  border-color: color-mix(in srgb, var(--accent) 22%, var(--ide-border));
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--accent) 12%, transparent),
+      color-mix(in srgb, var(--teal) 8%, transparent) 54%,
+      rgba(255, 255, 255, 0.02)
+    );
+}
+
+.problem-card--primary .eyebrow {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--line-strong));
+  color: color-mix(in srgb, var(--accent) 40%, white 60%);
 }
 
 .problem-card--feature {
@@ -2708,8 +2846,25 @@ body:has(.ide-route--workspace) .page-shell > * {
 }
 
 .ai-tabs .chip--active {
-  background: var(--accent);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--accent) 84%, white 16%) 0%,
+      color-mix(in srgb, var(--teal) 72%, var(--accent) 28%) 100%
+    );
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
   color: #fff;
+  box-shadow: 0 10px 20px -12px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.ai-tabs .chip--active:hover {
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--accent-strong) 84%, white 16%) 0%,
+      color-mix(in srgb, var(--teal) 70%, var(--accent-strong) 30%) 100%
+    );
+  border-color: color-mix(in srgb, var(--accent-strong) 44%, transparent);
 }
 
 .ai-panel {
@@ -4000,8 +4155,9 @@ html[data-theme="light"] .toast { background: var(--panel-strong); }
   }
 
   .activity-bar__item {
-    min-height: 34px;
-    padding: 7px 2px;
+    width: 38px;
+    min-height: 38px;
+    padding: 3px;
     font-size: 0.68rem;
   }
 
