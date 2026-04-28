@@ -1567,7 +1567,7 @@ body:has(.ide-route--workspace) .page-shell > * {
 }
 
 .activity-bar__icon.codicon[class*="codicon-"] {
-  font: normal normal 700 24px/1 codicon;
+  font: normal normal 400 24px/1 codicon;
   width: 24px;
   height: 24px;
 }
@@ -1642,12 +1642,12 @@ body:has(.ide-route--workspace) .page-shell > * {
 
 .ide-shell__sidebar {
   grid-template-rows: auto minmax(0, 1fr);
-  border-right: 1px solid var(--ide-border);
+  border-right: 0;
 }
 
 .ide-shell__ai {
   grid-template-rows: auto auto minmax(0, 1fr);
-  border-left: 1px solid var(--ide-border);
+  border-left: 0;
 }
 
 .sidebar-header {
@@ -1703,6 +1703,8 @@ body:has(.ide-route--workspace) .page-shell > * {
   align-content: start;
   gap: 18px;
   padding: 14px;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted) 42%, transparent) transparent;
 }
 
 .sidebar-summary {
@@ -1941,6 +1943,91 @@ body:has(.ide-route--workspace) .page-shell > * {
   cursor: default;
 }
 
+.tree-folder--create-target {
+  background: var(--accent-dim);
+  border-color: rgba(59, 124, 255, 0.22);
+  color: var(--text);
+}
+
+.tree-folder--context-target,
+.tree-row--context-target {
+  background: var(--accent-dim);
+  border-color: rgba(59, 124, 255, 0.22);
+  color: var(--text);
+}
+
+.tree-folder--drop-target {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--ide-border));
+  color: var(--text);
+}
+
+.tree-create-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 2px 8px 2px 0;
+}
+
+.tree-create-row--root {
+  padding-top: 2px;
+}
+
+.tree-create-row__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 5px;
+  border: 1px solid var(--ide-border);
+  background: var(--panel);
+  color: var(--text);
+  outline: none;
+  font-size: 0.82rem;
+  font-family: var(--font-sans);
+}
+
+.tree-row .tree-create-row__input,
+.tree-folder .tree-create-row__input {
+  max-width: 100%;
+}
+
+.tree-create-row__input:focus {
+  border-color: var(--accent);
+}
+
+.explorer-context-menu {
+  position: fixed;
+  z-index: 120;
+  min-width: 148px;
+  display: grid;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid var(--ide-border);
+  background: var(--panel-strong);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.explorer-context-menu__item {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 6px;
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+}
+
+.explorer-context-menu__item:hover {
+  background: var(--ide-hover-bg);
+}
+
 .tree-row__twistie {
   width: 12px;
   height: 12px;
@@ -2062,43 +2149,80 @@ body:has(.ide-route--workspace) .page-shell > * {
   background: transparent;
   touch-action: none;
   z-index: 3;
+  overflow: visible;
+  --pane-resizer-line: color-mix(in srgb, var(--ide-border) 82%, transparent);
+  --pane-resizer-line-hover: color-mix(in srgb, var(--accent) 68%, white 12%);
+  --pane-resizer-glow: color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 .pane-resizer--vertical {
-  width: 8px;
+  width: 2px;
   cursor: col-resize;
 }
 
 .pane-resizer--horizontal {
-  height: 8px;
+  height: 2px;
   cursor: row-resize;
 }
 
+/* 투명한 확장 클릭 영역 — 시각적으로는 보이지 않고 드래그만 쉽게 */
+.pane-resizer--vertical::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -5px;
+  right: -5px;
+  background: transparent;
+  cursor: col-resize;
+}
+
+.pane-resizer--horizontal::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -5px;
+  bottom: -5px;
+  background: transparent;
+  cursor: row-resize;
+}
+
+/* 시각적 선 */
 .pane-resizer::after {
   content: "";
   position: absolute;
-  background: rgba(59, 124, 255, 0.12);
-  transition: background var(--transition-fast);
+  background: var(--pane-resizer-line);
+  transition:
+    background-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    opacity var(--transition-fast);
+  opacity: 0.95;
+  border-radius: 999px;
 }
 
 .pane-resizer--vertical::after {
   top: 0;
   bottom: 0;
-  left: 50%;
+  left: 0;
   width: 2px;
-  transform: translateX(-50%);
 }
 
 .pane-resizer--horizontal::after {
   left: 0;
   right: 0;
-  top: 50%;
+  top: 0;
   height: 2px;
-  transform: translateY(-50%);
 }
 
 .pane-resizer:hover::after {
-  background: rgba(59, 124, 255, 0.42);
+  background: var(--pane-resizer-line-hover);
+  opacity: 1;
+}
+
+.pane-resizer:active::after {
+  background: var(--pane-resizer-line-hover);
+  opacity: 1;
 }
 
 .ide-shell__main {
@@ -2144,6 +2268,19 @@ body:has(.ide-route--workspace) .page-shell > * {
 .ide-command-button--primary {
   border-color: rgba(217, 119, 87, 0.32);
   background: var(--accent-dim);
+}
+
+.ide-command-button--danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-color: transparent;
+  color: #f87171;
+}
+
+.ide-command-button--danger:hover {
+  background: rgba(248, 113, 113, 0.12);
+  border-color: transparent;
 }
 
 /* ─── IDE language badge (display only) ──────────────────────── */
@@ -2762,7 +2899,7 @@ html[data-theme="light"] .problem-brief-codeblock__content .text-slate-200 {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
-  border-top: 1px solid var(--ide-border);
+  border-top: 0;
   background: var(--ide-sidebar-bg);
 }
 
@@ -2813,6 +2950,33 @@ html[data-theme="light"] .problem-brief-codeblock__content .text-slate-200 {
   align-content: start;
   gap: 14px;
   padding: 14px;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted) 42%, transparent) transparent;
+}
+
+.sidebar-section::-webkit-scrollbar,
+.bottom-panel__body::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.sidebar-section::-webkit-scrollbar-track,
+.bottom-panel__body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-section::-webkit-scrollbar-thumb,
+.bottom-panel__body::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--muted) 34%, transparent);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+.sidebar-section:hover::-webkit-scrollbar-thumb,
+.bottom-panel__body:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--muted) 52%, transparent);
+  background-clip: padding-box;
 }
 
 .output-grid {
