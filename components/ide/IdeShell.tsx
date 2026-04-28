@@ -16,6 +16,8 @@ import { TraceWorkbench } from "@/components/ide/TraceWorkbench";
 import { useAiChat } from "@/hooks/useAiChat";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { mockApi } from "@/lib/api/mockApi";
+import { problemApi } from "@/lib/api/problemApi";
+import { isBackendProblemId, isBackendSessionId, sessionApi } from "@/lib/api/sessionApi";
 import { getProblemById } from "@/lib/mock-data";
 import type { TraceEvent } from "@/lib/types/ai";
 import type { WorkspaceFile } from "@/lib/types/session";
@@ -428,8 +430,14 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   });
   const { data: workspace } = useQuery({
     queryKey: ["workspace", sessionId],
-    queryFn: () => mockApi.getWorkspace(sessionId),
+    queryFn: () => (isBackendSessionId(sessionId) ? sessionApi.getWorkspace(sessionId) : mockApi.getWorkspace(sessionId)),
     enabled: !!session
+  });
+  const isApiProblem = isBackendProblemId(session?.problemId ?? "");
+  const { data: apiProblem } = useQuery({
+    queryKey: ["problem", session?.problemId],
+    queryFn: () => problemApi.getProblemDetail(session!.problemId),
+    enabled: !!session?.problemId && isApiProblem
   });
 
   const maxSidebarWidth = getMaxSidebarWidth(viewportSize.width);
@@ -732,7 +740,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     };
   }, [maxAiPanelWidth, maxBottomPanelHeight, maxSidebarWidth, setAiPanelWidth, setBottomPanelHeight, setSidebarWidth]);
 
-  const problem = useMemo(() => getProblemById(session?.problemId ?? "todo-api"), [session?.problemId]);
+  const problem = useMemo(
+    () => apiProblem ?? getProblemById(session?.problemId ?? "todo-api"),
+    [apiProblem, session?.problemId]
+  );
   const traces = useMemo(() => session?.traces ?? [], [session?.traces]);
   const explorerFiles = useMemo(() => buildExplorerFiles(files), [files]);
   const fileTree = useMemo(() => buildFileTree(explorerFiles), [explorerFiles]);

@@ -18,7 +18,7 @@ import type { AiEditSuggestion, AiMessage, TraceEvent } from "@/lib/types/ai";
 import type { AuthUser, LoginInput, SignupInput } from "@/lib/types/auth";
 import type { ProblemDetail, ProblemSummary } from "@/lib/types/problem";
 import type { FeedbackReport } from "@/lib/types/report";
-import type { ProblemLanguage, RunResult, SessionListItem, SolveSession, Submission, TestRunResult } from "@/lib/types/session";
+import type { ProblemLanguage, RunResult, SessionListItem, SolveSession, Submission, TestRunResult, WorkspaceFile } from "@/lib/types/session";
 
 interface MockDb {
   users: AuthUser[];
@@ -344,6 +344,24 @@ export const mockApi = {
     return clone(session);
   },
 
+  async registerExternalSession(session: SolveSession) {
+    const db = readDb();
+    const nextSession = {
+      ...session,
+      files: normalizeWorkspaceFiles(session.files)
+    };
+    const index = db.sessions.findIndex((item) => item.id === session.id);
+
+    if (index >= 0) {
+      db.sessions[index] = nextSession;
+    } else {
+      db.sessions.push(nextSession);
+    }
+
+    writeDb(db);
+    return clone(nextSession);
+  },
+
   async getSession(sessionId: string) {
     await delay(160);
     return clone(getSessionOrThrow(readDb(), sessionId));
@@ -363,6 +381,15 @@ export const mockApi = {
   async getWorkspace(sessionId: string) {
     await delay(160);
     const session = getSessionOrThrow(readDb(), sessionId);
+    return { workspaceId: session.workspaceId, files: clone(session.files) };
+  },
+
+  async syncExternalWorkspace(sessionId: string, files: WorkspaceFile[]) {
+    const db = readDb();
+    const session = getSessionOrThrow(db, sessionId);
+    session.files = normalizeWorkspaceFiles(files);
+    session.lastSavedAt = new Date().toISOString();
+    writeDb(db);
     return { workspaceId: session.workspaceId, files: clone(session.files) };
   },
 

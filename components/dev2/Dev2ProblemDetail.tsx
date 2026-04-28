@@ -24,6 +24,7 @@ import { LangIcon } from "@/components/common/LangIcon";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
 import { problemApi } from "@/lib/api/problemApi";
+import { isBackendProblemId, sessionApi } from "@/lib/api/sessionApi";
 import type { ProblemLanguage } from "@/lib/types/session";
 import { useAuthStore } from "@/store/authStore";
 import { useUiStore } from "@/store/uiStore";
@@ -153,13 +154,9 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
     }
 
     try {
-      const session = await mockApi.createSession(
-        problemId,
-        user.id,
-        language,
-        aiModel.id,
-        aiModel.provider
-      );
+      const session = isBackendProblemId(problemId)
+        ? await sessionApi.startSession(problemId, user.id, language, aiModel.id, aiModel.provider)
+        : await mockApi.createSession(problemId, user.id, language, aiModel.id, aiModel.provider);
       addToast("풀이 세션이 생성되었습니다.", "success");
       router.push(withPrefix(`/sessions/${session.id}/start`));
     } catch (error) {

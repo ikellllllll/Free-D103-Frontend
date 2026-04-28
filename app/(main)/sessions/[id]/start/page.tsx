@@ -8,6 +8,8 @@ import { Loader2, Code2, Clock, Sparkles, ArrowLeft } from "lucide-react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
+import { isBackendProblemId } from "@/lib/api/sessionApi";
+import { problemApi } from "@/lib/api/problemApi";
 import { getProblemById } from "@/lib/mock-data";
 
 export default function Dev2SessionStartPage({
@@ -23,6 +25,12 @@ export default function Dev2SessionStartPage({
     queryKey: ["session", sessionId],
     queryFn: () => mockApi.getSession(sessionId),
     refetchInterval: (query) => (query.state.data?.status === "IN_PROGRESS" ? false : 500)
+  });
+  const isApiProblem = isBackendProblemId(session?.problemId ?? "");
+  const { data: apiProblem } = useQuery({
+    queryKey: ["problem", session?.problemId],
+    queryFn: () => problemApi.getProblemDetail(session!.problemId),
+    enabled: !!session?.problemId && isApiProblem
   });
 
   useEffect(() => {
@@ -41,7 +49,7 @@ export default function Dev2SessionStartPage({
     return Math.max(25, Math.min(90, 100 - Math.round(remain / 30)));
   }, [session]);
 
-  const problem = getProblemById(session?.problemId ?? "todo-api");
+  const problem = apiProblem ?? getProblemById(session?.problemId ?? "todo-api");
 
   return (
     <div className="bg-gradient-to-b from-indigo-50/30 via-white to-white min-h-screen">
