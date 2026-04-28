@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { Sun, Moon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
@@ -393,6 +394,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const setBottomPanelTab = useIdeStore((state) => state.setBottomPanelTab);
   const setBottomPanelHeight = useIdeStore((state) => state.setBottomPanelHeight);
   const theme = useThemeStore((state) => state.theme);
+  const toggleTheme = useThemeStore((state) => state.toggleTheme);
 
   const editorRef = useRef<any>(null);
   const diffEditorRef = useRef<any>(null);
@@ -1817,6 +1819,17 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             >
               <span className="activity-bar__label">AI</span>
               {activityMeta.ai ? <span className="activity-bar__badge">{activityMeta.ai}</span> : null}
+            </button>
+          </div>
+          <div className="activity-bar__group" style={{ marginTop: "auto" }}>
+            <button
+              type="button"
+              className="activity-bar__item"
+              title={theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}
+              onClick={toggleTheme}
+            >
+              {theme === "dark" ? <Sun size={14} strokeWidth={1.8} /> : <Moon size={14} strokeWidth={1.8} />}
+              <span className="activity-bar__label">{theme === "dark" ? "라이트" : "다크"}</span>
             </button>
           </div>
         </aside>
