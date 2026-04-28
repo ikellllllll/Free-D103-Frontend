@@ -40,6 +40,15 @@ interface GetFileContentResponse {
   content?: string | null;
 }
 
+type SessionFileNodeType = "FILE" | "DIRECTORY";
+
+interface CreateFileRequest {
+  path: string;
+  nodeType: SessionFileNodeType;
+  content?: string | null;
+  language?: string | null;
+}
+
 type AgentTraceListPayload =
   | AgentRunTrace[]
   | {
@@ -67,8 +76,32 @@ const inferLanguageFromPath = (path: string): string => {
   return "plaintext";
 };
 
+const toSessionFileLanguage = (path: string): string | null => {
+  const lower = path.toLowerCase();
+  const fileName = getFileName(path).toLowerCase();
+  const extension = fileName.includes(".") ? fileName.split(".").pop()?.toLowerCase() ?? null : null;
+
+  if (!extension) {
+    return null;
+  }
+
+  switch (extension) {
+    case "md":
+      return "md";
+    case "yml":
+    case "yaml":
+      return "yml";
+    case "properties":
+      return "properties";
+    default:
+      return extension;
+  }
+};
+
 const normalizeWorktreePath = (path: string) =>
   path.startsWith(WORKTREE_PREFIX) ? path : `${WORKTREE_PREFIX}${path}`;
+const getFileName = (path: string) => path.split("/").pop() ?? path;
+const getFolderPath = (path: string) => path.split("/").slice(0, -1).join("/") || null;
 
 const buildExternalSession = (
   payload: StartSessionResponse,
@@ -274,6 +307,37 @@ export const sessionApi = {
     return mockApi.syncExternalWorkspace(sessionId, files);
   },
 
+  async createFile(sessionId: string, input: CreateFileRequest) {
+    const resolvedLanguage =
+      input.nodeType === "DIRECTORY"
+        ? null
+        : input.language ?? toSessionFileLanguage(input.path) ?? inferLanguageFromPath(input.path);
+    const resolvedContent = input.nodeType === "DIRECTORY" ? null : input.content ?? "";
+
+    await authClient.post(`api/v1/sessions/${sessionId}/files`, {
+      json: {
+        path: input.path,
+        name: getFileName(input.path),
+        nodeType: input.nodeType,
+        language: resolvedLanguage,
+        content: resolvedContent
+      }
+    });
+
+    const workspace = await this.getWorkspace(sessionId);
+
+    if (input.nodeType === "FILE") {
+      await mockApi.syncExternalFileContent(
+        sessionId,
+        input.path,
+        resolvedContent ?? "",
+        resolvedLanguage ?? inferLanguageFromPath(input.path)
+      );
+    }
+
+    return workspace;
+  },
+
   async getFileContent(sessionId: string, path: string) {
     const fileId = externalFileIdBySession.get(sessionId)?.get(path);
     if (!fileId) {
@@ -299,7 +363,12 @@ export const sessionApi = {
   },
 
   async getAgentTraces(sessionId: string) {
-    const res = await authClient.get(`api/v1/sessions/${sessionId}/traces`)
+    const res = await authClient.get(`api/v1/sessions/${sessionId}/traces`, {
+      searchParams: {
+        page: 1,
+        size: 10
+      }
+    })
       .json<ApiResponse<AgentTraceListPayload>>();
 
     const runs = normalizeAgentRuns(res.data);

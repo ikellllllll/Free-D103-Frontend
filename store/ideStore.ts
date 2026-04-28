@@ -49,6 +49,9 @@ interface IdeState {
   bottomPanelTab: BottomPanelTab;
   bottomPanelHeight: number;
   setWorkspace: (files: WorkspaceFile[], activePath?: string) => void;
+  createWorkspaceFile: (file: WorkspaceFile, activate?: boolean) => void;
+  renameWorkspaceFile: (fromPath: string, toPath: string) => void;
+  removeWorkspaceFile: (path: string) => void;
   setActivePath: (path: string) => void;
   updateFileContent: (path: string, content: string) => void;
   hydrateFileContent: (path: string, content: string, language?: string) => void;
@@ -100,6 +103,29 @@ export const useIdeStore = create<IdeState>((set) => ({
       files,
       activePath: activePath ?? files[0]?.path ?? null
     }),
+  createWorkspaceFile: (file, activate) =>
+    set((state) => {
+      if (state.files.some((item) => item.path === file.path)) {
+        return activate ? { activePath: file.path } : state;
+      }
+
+      return {
+        files: [...state.files, file],
+        activePath: activate ? file.path : state.activePath ?? file.path
+      };
+    }),
+  renameWorkspaceFile: (fromPath, toPath) =>
+    set((state) => ({
+      files: state.files.map((file) => (file.path === fromPath ? { ...file, path: toPath } : file)),
+      activePath: state.activePath === fromPath ? toPath : state.activePath,
+      unsavedPaths: state.unsavedPaths.map((path) => (path === fromPath ? toPath : path))
+    })),
+  removeWorkspaceFile: (path) =>
+    set((state) => ({
+      files: state.files.filter((file) => file.path !== path),
+      activePath: state.activePath === path ? state.files.find((file) => file.path !== path)?.path ?? null : state.activePath,
+      unsavedPaths: state.unsavedPaths.filter((item) => item !== path)
+    })),
   setActivePath: (path) => set({ activePath: path }),
   updateFileContent: (path, content) =>
     set((state) => ({

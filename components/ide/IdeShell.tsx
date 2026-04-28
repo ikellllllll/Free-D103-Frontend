@@ -1,9 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Sun, Moon, Copy, Check } from "lucide-react";
+import { Sun, Moon, Copy, Check, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
-import type { DragEvent as ReactDragEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
+import type { DragEvent as ReactDragEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Markdown from "react-markdown";
@@ -105,6 +105,27 @@ interface ExplorerFile extends WorkspaceFile {
   badge?: string;
 }
 
+interface ExplorerContextMenuState {
+  x: number;
+  y: number;
+  parentPath: string | null;
+  targetPath: string | null;
+  targetKind: "root" | "folder" | "file";
+}
+
+interface ExplorerCreateDraft {
+  kind: "file" | "folder";
+  parentPath: string | null;
+  value: string;
+}
+
+interface ExplorerRenameDraft {
+  targetPath: string;
+  targetKind: "folder" | "file";
+  parentPath: string | null;
+  value: string;
+}
+
 interface FileWorkspaceTab {
   id: string;
   kind: "file";
@@ -181,6 +202,55 @@ const isDiffTabId = (value: string) => value.startsWith(DIFF_TAB_PREFIX);
 const createDiffTabId = (path: string) => `${DIFF_TAB_PREFIX}${path}`;
 const getWorktreeSourcePath = (path: string) => path.replace(/^\.worktree\//, "src/");
 const ENDPOINT_LINE_REGEX = /^-\s+`((?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+[^`]+)`/;
+const inferLanguageFromPath = (path: string) => {
+  const lower = path.toLowerCase();
+  const extension = lower.includes(".") ? lower.split(".").pop() : "";
+
+  switch (extension) {
+    case "java":
+      return "java";
+    case "kt":
+      return "kotlin";
+    case "js":
+      return "javascript";
+    case "jsx":
+      return "javascript";
+    case "ts":
+      return "typescript";
+    case "tsx":
+      return "typescript";
+    case "json":
+      return "json";
+    case "yml":
+    case "yaml":
+      return "yaml";
+    case "md":
+      return "markdown";
+    case "xml":
+      return "xml";
+    case "html":
+      return "html";
+    case "css":
+      return "css";
+    case "scss":
+      return "scss";
+    case "sql":
+      return "sql";
+    case "properties":
+      return "properties";
+    default:
+      return "plaintext";
+  }
+};
+const replacePathPrefix = (path: string, fromPrefix: string, toPrefix: string) =>
+  path === fromPrefix ? toPrefix : path.startsWith(`${fromPrefix}/`) ? `${toPrefix}${path.slice(fromPrefix.length)}` : path;
+const appendLocalFolder = (folders: string[], folderPath: string | null) => {
+  if (!folderPath || folders.includes(folderPath)) {
+    return folders;
+  }
+
+  return [...folders, folderPath];
+};
 
 function ProblemBriefCodeBlock({ language, code }: { language?: string; code: string }) {
   const [isCopied, setIsCopied] = useState(false);
@@ -485,7 +555,7 @@ const buildExplorerFiles = (files: WorkspaceFile[]): ExplorerFile[] => {
   return [...sourceFiles, ...agentSupportFiles];
 };
 
-const buildFileTree = (files: ExplorerFile[]) => {
+const buildFileTree = (files: ExplorerFile[], extraFolders: string[] = []) => {
   const root: TreeNode = {
     key: "root",
     name: "root",
@@ -514,6 +584,31 @@ const buildFileTree = (files: ExplorerFile[]) => {
         });
         return;
       }
+
+      let folder = current.children.find((node) => node.kind === "folder" && node.name === segment);
+
+      if (!folder) {
+        folder = {
+          key: currentPath,
+          name: segment,
+          path: currentPath,
+          kind: "folder",
+          children: []
+        };
+        current.children.push(folder);
+      }
+
+      current = folder;
+    });
+  });
+
+  extraFolders.forEach((folderPath) => {
+    const segments = folderPath.split("/").filter(Boolean);
+    let current = root;
+    let currentPath = "";
+
+    segments.forEach((segment) => {
+      currentPath = currentPath ? `${currentPath}/${segment}` : segment;
 
       let folder = current.children.find((node) => node.kind === "folder" && node.name === segment);
 
@@ -574,6 +669,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const files = useIdeStore((state) => state.files);
   const unsavedPaths = useIdeStore((state) => state.unsavedPaths);
   const setActivePath = useIdeStore((state) => state.setActivePath);
+  const createWorkspaceFile = useIdeStore((state) => state.createWorkspaceFile);
+  const renameWorkspaceFile = useIdeStore((state) => state.renameWorkspaceFile);
+  const removeWorkspaceFile = useIdeStore((state) => state.removeWorkspaceFile);
   const hydrateFileContent = useIdeStore((state) => state.hydrateFileContent);
   const updateFileContent = useIdeStore((state) => state.updateFileContent);
   const selectedCode = useIdeStore((state) => state.selectedCode);
@@ -635,6 +733,12 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const [openTabPaths, setOpenTabPaths] = useState<string[]>([]);
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
   const [tabDropHint, setTabDropHint] = useState<{ targetId: string; position: "before" | "after" } | null>(null);
+  const [explorerContextMenu, setExplorerContextMenu] = useState<ExplorerContextMenuState | null>(null);
+  const [explorerCreateDraft, setExplorerCreateDraft] = useState<ExplorerCreateDraft | null>(null);
+  const [explorerRenameDraft, setExplorerRenameDraft] = useState<ExplorerRenameDraft | null>(null);
+  const [localFolders, setLocalFolders] = useState<string[]>([]);
+  const [draggedExplorerPath, setDraggedExplorerPath] = useState<string | null>(null);
+  const [folderDropTargetPath, setFolderDropTargetPath] = useState<string | null>(null);
   const [solveNow, setSolveNow] = useState(() => Date.now());
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [explorerSections, setExplorerSections] = useState<Record<ExplorerSectionKey, boolean>>({
@@ -1003,7 +1107,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   );
   const traces = useMemo(() => session?.traces ?? [], [session?.traces]);
   const explorerFiles = useMemo(() => buildExplorerFiles(files), [files]);
-  const fileTree = useMemo(() => buildFileTree(explorerFiles), [explorerFiles]);
+  const fileTree = useMemo(() => buildFileTree(explorerFiles, localFolders), [explorerFiles, localFolders]);
   const openTabs = useMemo(
     () =>
       openTabPaths
@@ -1061,6 +1165,29 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
     return files.find((file) => file.path === activePath) ?? files[0] ?? null;
   }, [activePath, activeTab, files]);
+
+  useEffect(() => {
+    const handleDismissExplorerMenu = () => {
+      setExplorerContextMenu(null);
+    };
+
+    window.addEventListener("click", handleDismissExplorerMenu);
+    window.addEventListener("resize", handleDismissExplorerMenu);
+
+    return () => {
+      window.removeEventListener("click", handleDismissExplorerMenu);
+      window.removeEventListener("resize", handleDismissExplorerMenu);
+    };
+  }, []);
+
+  useEffect(() => {
+    setExplorerContextMenu(null);
+    setExplorerCreateDraft(null);
+    setExplorerRenameDraft(null);
+    setLocalFolders([]);
+    setDraggedExplorerPath(null);
+    setFolderDropTargetPath(null);
+  }, [sessionId]);
 
   useEffect(() => {
     if (!files.length) {
@@ -1446,6 +1573,277 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     setActiveWorkbenchTab("problem");
   };
 
+  const handleIdeContextMenu = useCallback((event: ReactMouseEvent<HTMLElement>) => {
+    event.preventDefault();
+  }, []);
+
+  const openExplorerContextMenu = useCallback(
+    (
+      event: ReactMouseEvent<HTMLElement>,
+      target: { parentPath: string | null; targetPath: string | null; targetKind: "root" | "folder" | "file" }
+    ) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setExplorerContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        parentPath: target.parentPath,
+        targetPath: target.targetPath,
+        targetKind: target.targetKind
+      });
+    },
+    []
+  );
+
+  const beginExplorerCreate = useCallback(
+    (kind: "file" | "folder", parentPath: string | null) => {
+      setExplorerContextMenu(null);
+      setExplorerCreateDraft({ kind, parentPath, value: "" });
+
+      if (parentPath) {
+        setCollapsedFolders((prev) => {
+          if (!prev.has(parentPath)) {
+            return prev;
+          }
+
+          const next = new Set(prev);
+          next.delete(parentPath);
+          return next;
+        });
+      }
+    },
+    []
+  );
+
+  const cancelExplorerCreate = useCallback(() => {
+    setExplorerCreateDraft(null);
+  }, []);
+
+  const beginExplorerRename = useCallback(() => {
+    if (!explorerContextMenu?.targetPath || explorerContextMenu.targetKind === "root") {
+      return;
+    }
+
+    setExplorerContextMenu(null);
+    setExplorerRenameDraft({
+      targetPath: explorerContextMenu.targetPath,
+      targetKind: explorerContextMenu.targetKind,
+      parentPath:
+        explorerContextMenu.targetKind === "folder"
+          ? getFolderPath(explorerContextMenu.targetPath) || null
+          : explorerContextMenu.parentPath,
+      value: getFileName(explorerContextMenu.targetPath)
+    });
+  }, [explorerContextMenu]);
+
+  const cancelExplorerRename = useCallback(() => {
+    setExplorerRenameDraft(null);
+  }, []);
+
+  const commitExplorerCreate = useCallback(async () => {
+    if (!explorerCreateDraft) {
+      return;
+    }
+
+    const rawName = explorerCreateDraft.value.trim().replace(/^\/+|\/+$/g, "");
+    if (!rawName) {
+      setExplorerCreateDraft(null);
+      return;
+    }
+
+    const nextPath = explorerCreateDraft.parentPath ? `${explorerCreateDraft.parentPath}/${rawName}` : rawName;
+
+    if (explorerCreateDraft.kind === "folder") {
+      setLocalFolders((state) => (state.includes(nextPath) ? state : [...state, nextPath]));
+      setExplorerCreateDraft(null);
+      addToast(`폴더 '${rawName}' 생성 준비 완료`, "success");
+      return;
+    }
+
+    if (files.some((file) => file.path === nextPath)) {
+      addToast("같은 이름의 파일이 이미 있습니다.", "warning");
+      return;
+    }
+
+    const nextLanguage = inferLanguageFromPath(nextPath);
+
+    if (isBackendSessionId(sessionId)) {
+      try {
+        const workspaceResult = await sessionApi.createFile(sessionId, {
+          path: nextPath,
+          nodeType: "FILE",
+          language: nextLanguage,
+          content: ""
+        });
+
+        setWorkspace(workspaceResult.files, nextPath);
+        setOpenTabPaths((state) => (state.includes(nextPath) ? state : [...state, nextPath]));
+        setActiveTabId(nextPath);
+        setActivePath(nextPath);
+        setExplorerCreateDraft(null);
+        void queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
+        void queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
+        addToast(`파일 '${rawName}'을 생성했어요.`, "success");
+        return;
+      } catch (error) {
+        addToast(error instanceof Error ? error.message : "파일 생성에 실패했습니다.", "error");
+        return;
+      }
+    }
+
+    createWorkspaceFile(
+      {
+        path: nextPath,
+        language: nextLanguage,
+        content: ""
+      },
+      true
+    );
+    setOpenTabPaths((state) => (state.includes(nextPath) ? state : [...state, nextPath]));
+    setActiveTabId(nextPath);
+    setActivePath(nextPath);
+    setExplorerCreateDraft(null);
+    addToast(`파일 '${rawName}' 생성 준비 완료`, "success");
+  }, [addToast, createWorkspaceFile, explorerCreateDraft, files, queryClient, sessionId, setActivePath, setWorkspace]);
+
+  const commitExplorerRename = useCallback(() => {
+    if (!explorerRenameDraft) {
+      return;
+    }
+
+    const rawName = explorerRenameDraft.value.trim().replace(/^\/+|\/+$/g, "");
+    if (!rawName) {
+      setExplorerRenameDraft(null);
+      return;
+    }
+
+    const nextPath = explorerRenameDraft.parentPath ? `${explorerRenameDraft.parentPath}/${rawName}` : rawName;
+
+    if (nextPath === explorerRenameDraft.targetPath) {
+      setExplorerRenameDraft(null);
+      return;
+    }
+
+    if (explorerRenameDraft.targetKind === "file") {
+      if (files.some((file) => file.path === nextPath)) {
+        addToast("같은 이름의 파일이 이미 있습니다.", "warning");
+        return;
+      }
+
+      setLocalFolders((state) => appendLocalFolder(state, getFolderPath(explorerRenameDraft.targetPath) || null));
+      renameWorkspaceFile(explorerRenameDraft.targetPath, nextPath);
+      setOpenTabPaths((state) => state.map((path) => (path === explorerRenameDraft.targetPath ? nextPath : path)));
+      setActiveTabId((state) => (state === explorerRenameDraft.targetPath ? nextPath : state));
+      setExplorerRenameDraft(null);
+      addToast(`파일 이름을 '${rawName}'로 변경했어요.`, "success");
+      return;
+    }
+
+    if (
+      localFolders.some(
+        (folder) => folder !== explorerRenameDraft.targetPath && (folder === nextPath || folder.startsWith(`${nextPath}/`))
+      )
+    ) {
+      addToast("같은 이름의 폴더가 이미 있습니다.", "warning");
+      return;
+    }
+
+    setLocalFolders((state) => state.map((folder) => replacePathPrefix(folder, explorerRenameDraft.targetPath, nextPath)));
+    files
+      .filter((file) => file.path.startsWith(`${explorerRenameDraft.targetPath}/`))
+      .forEach((file) => {
+        renameWorkspaceFile(file.path, replacePathPrefix(file.path, explorerRenameDraft.targetPath, nextPath));
+      });
+    setOpenTabPaths((state) => state.map((path) => replacePathPrefix(path, explorerRenameDraft.targetPath, nextPath)));
+    setActiveTabId((state) => (state ? replacePathPrefix(state, explorerRenameDraft.targetPath, nextPath) : state));
+    setExplorerRenameDraft(null);
+    addToast(`폴더 이름을 '${rawName}'로 변경했어요.`, "success");
+  }, [addToast, explorerRenameDraft, files, localFolders, renameWorkspaceFile]);
+
+  const handleExplorerDelete = useCallback(() => {
+    if (!explorerContextMenu?.targetPath || explorerContextMenu.targetKind === "root") {
+      return;
+    }
+
+    const targetPath = explorerContextMenu.targetPath;
+    const targetKind = explorerContextMenu.targetKind;
+    setExplorerContextMenu(null);
+
+    if (targetKind === "file") {
+      setLocalFolders((state) => appendLocalFolder(state, getFolderPath(targetPath) || null));
+      removeWorkspaceFile(targetPath);
+      setOpenTabPaths((state) => state.filter((path) => path !== targetPath));
+      setActiveTabId((state) => (state === targetPath ? null : state));
+      addToast(`파일 '${getFileName(targetPath)}'을 삭제했어요.`, "success");
+      return;
+    }
+
+    setLocalFolders((state) => state.filter((folder) => folder !== targetPath && !folder.startsWith(`${targetPath}/`)));
+    files
+      .filter((file) => file.path.startsWith(`${targetPath}/`))
+      .forEach((file) => removeWorkspaceFile(file.path));
+    setOpenTabPaths((state) => state.filter((path) => !path.startsWith(`${targetPath}/`)));
+    setActiveTabId((state) => (state && state.startsWith(`${targetPath}/`) ? null : state));
+    addToast(`폴더 '${getFileName(targetPath)}'을 삭제했어요.`, "success");
+  }, [addToast, explorerContextMenu, files, removeWorkspaceFile]);
+
+  const handleExplorerFileDragStart = useCallback((event: ReactDragEvent<HTMLElement>, path: string) => {
+    event.stopPropagation();
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", path);
+    setDraggedExplorerPath(path);
+    setFolderDropTargetPath(null);
+  }, []);
+
+  const handleExplorerFolderDragOver = useCallback(
+    (event: ReactDragEvent<HTMLElement>, targetFolderPath: string) => {
+      const sourcePath = draggedExplorerPath || event.dataTransfer.getData("text/plain");
+      if (!sourcePath || sourcePath === targetFolderPath || getFolderPath(sourcePath) === targetFolderPath) {
+        return;
+      }
+
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      setFolderDropTargetPath((current) => (current === targetFolderPath ? current : targetFolderPath));
+    },
+    [draggedExplorerPath]
+  );
+
+  const clearExplorerDragState = useCallback(() => {
+    setDraggedExplorerPath(null);
+    setFolderDropTargetPath(null);
+  }, []);
+
+  const handleExplorerFolderDrop = useCallback(
+    (event: ReactDragEvent<HTMLElement>, targetFolderPath: string) => {
+      event.preventDefault();
+      const sourcePath = draggedExplorerPath || event.dataTransfer.getData("text/plain");
+      clearExplorerDragState();
+
+      if (!sourcePath || getFolderPath(sourcePath) === targetFolderPath) {
+        return;
+      }
+
+      const file = files.find((item) => item.path === sourcePath);
+      if (!file) {
+        return;
+      }
+
+      const nextPath = `${targetFolderPath}/${getFileName(sourcePath)}`;
+      if (files.some((item) => item.path === nextPath)) {
+        addToast("같은 이름의 파일이 이미 있어 이동할 수 없어요.", "warning");
+        return;
+      }
+
+      setLocalFolders((state) => appendLocalFolder(state, getFolderPath(sourcePath) || null));
+      renameWorkspaceFile(sourcePath, nextPath);
+      setOpenTabPaths((state) => state.map((path) => (path === sourcePath ? nextPath : path)));
+      setActiveTabId((state) => (state === sourcePath ? nextPath : state));
+      addToast(`파일을 '${getFileName(targetFolderPath)}' 폴더로 이동했어요.`, "success");
+    },
+    [addToast, clearExplorerDragState, draggedExplorerPath, files, renameWorkspaceFile]
+  );
+
   const handleCloseFileTab = (tabId: string) => {
     setOpenTabPaths((state) => {
       const currentIndex = state.indexOf(tabId);
@@ -1665,11 +2063,21 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       if (node.kind === "folder") {
         const collapsed = collapsedFolders.has(node.key);
         const folderIcon = getFolderIconSpec(node.name, node.path, !collapsed);
+        const isCreateTarget = explorerCreateDraft?.parentPath === node.path;
+        const isContextTarget = explorerContextMenu?.targetKind === "folder" && explorerContextMenu.targetPath === node.path;
+        const isRenameTarget = explorerRenameDraft?.targetKind === "folder" && explorerRenameDraft.targetPath === node.path;
+        const isDropTarget = folderDropTargetPath === node.path;
         return [
           <div key={node.key} className={"tree-branch" + (collapsed ? " tree-branch--closed" : " tree-branch--open")}>
             <button
               type="button"
-              className={"tree-folder" + (collapsed ? " tree-folder--closed" : " tree-folder--open")}
+              className={
+                "tree-folder" +
+                (collapsed ? " tree-folder--closed" : " tree-folder--open") +
+                (isCreateTarget ? " tree-folder--create-target" : "") +
+                (isContextTarget ? " tree-folder--context-target" : "") +
+                (isDropTarget ? " tree-folder--drop-target" : "")
+              }
               aria-expanded={!collapsed}
               style={{
                 ["--tree-depth" as string]: depth,
@@ -1678,6 +2086,16 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                 paddingLeft: `${7 + depth * 7}px`
               }}
               onClick={() => toggleFolder(node.key)}
+              onDragOver={(event) => handleExplorerFolderDragOver(event, node.path ?? "")}
+              onDrop={(event) => handleExplorerFolderDrop(event, node.path ?? "")}
+              onDragLeave={() => setFolderDropTargetPath((current) => (current === node.path ? null : current))}
+              onContextMenu={(event) =>
+                openExplorerContextMenu(event, {
+                  parentPath: node.path,
+                  targetPath: node.path,
+                  targetKind: "folder"
+                })
+              }
             >
               <span
                 className={"tree-row__twistie codicon " + (collapsed ? "codicon-chevron-right" : "codicon-chevron-down")}
@@ -1688,9 +2106,73 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                 data-folder-kind={folderIcon.kind}
                 aria-hidden
               />
-              <span className="tree-row__folder">{node.name}</span>
+              {isRenameTarget ? (
+                <input
+                  autoFocus
+                  className="tree-create-row__input"
+                  value={explorerRenameDraft.value}
+                  onChange={(event) =>
+                    setExplorerRenameDraft((state) => (state ? { ...state, value: event.target.value } : state))
+                  }
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitExplorerRename();
+                    }
+
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      cancelExplorerRename();
+                    }
+                  }}
+                  onBlur={cancelExplorerRename}
+                  onClick={(event) => event.stopPropagation()}
+                />
+              ) : (
+                <span className="tree-row__folder">{node.name}</span>
+              )}
             </button>
-            {!collapsed ? <div className="tree-branch__children">{renderTreeNodes(node.children, depth + 1)}</div> : null}
+            {!collapsed ? (
+              <div className="tree-branch__children">
+                {explorerCreateDraft?.parentPath === node.path ? (
+                  <div
+                    className="tree-create-row"
+                    style={{ paddingLeft: `${9 + (depth + 1) * 7}px` }}
+                  >
+                    <span
+                      className={
+                        explorerCreateDraft.kind === "folder"
+                          ? "tree-folder__icon codicon codicon-new-folder"
+                          : "file-icon codicon codicon-new-file"
+                      }
+                      aria-hidden
+                    />
+                    <input
+                      autoFocus
+                      className="tree-create-row__input"
+                      value={explorerCreateDraft.value}
+                      placeholder={explorerCreateDraft.kind === "folder" ? "폴더 이름" : "파일 이름"}
+                      onChange={(event) =>
+                        setExplorerCreateDraft((state) => (state ? { ...state, value: event.target.value } : state))
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          commitExplorerCreate();
+                        }
+
+                        if (event.key === "Escape") {
+                          event.preventDefault();
+                          cancelExplorerCreate();
+                        }
+                      }}
+                      onBlur={cancelExplorerCreate}
+                    />
+                  </div>
+                ) : null}
+                {renderTreeNodes(node.children, depth + 1)}
+              </div>
+            ) : null}
           </div>
         ];
       }
@@ -1706,6 +2188,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         const isActiveVirtual = isWorktree
           ? activeTabId === createDiffTabId(file.path)
           : activeTabId === file.path;
+        const isContextTarget = explorerContextMenu?.targetKind === "file" && explorerContextMenu.targetPath === file.path;
         const fileIcon = getFileIconSpec(file);
         return [
           <button
@@ -1713,8 +2196,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             type="button"
             className={
               isActiveVirtual
-                ? "tree-row tree-row--file tree-row--virtual tree-row--active"
-                : "tree-row tree-row--file tree-row--virtual"
+                ? "tree-row tree-row--file tree-row--virtual tree-row--active" + (isContextTarget ? " tree-row--context-target" : "")
+                : "tree-row tree-row--file tree-row--virtual" + (isContextTarget ? " tree-row--context-target" : "")
             }
             style={{
               ["--tree-depth" as string]: depth,
@@ -1723,6 +2206,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               paddingLeft: `${9 + depth * 7}px`
             }}
             onClick={() => isWorktree ? openDiffTab(file.path) : focusLine(file.path)}
+            onContextMenu={(event) =>
+              openExplorerContextMenu(event, {
+                parentPath: getFolderPath(file.path) || null,
+                targetPath: file.path,
+                targetKind: "file"
+              })
+            }
           >
             <span className="tree-row__main">
               <span
@@ -1739,18 +2229,34 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       }
 
       const fileIcon = getFileIconSpec(file);
+      const isContextTarget = explorerContextMenu?.targetKind === "file" && explorerContextMenu.targetPath === file.path;
+      const isRenameTarget = explorerRenameDraft?.targetKind === "file" && explorerRenameDraft.targetPath === file.path;
       return [
         <button
           key={node.key}
           type="button"
-          className={file.path === activePath ? "tree-row tree-row--file tree-row--active" : "tree-row tree-row--file"}
+          className={
+            file.path === activePath
+              ? "tree-row tree-row--file tree-row--active" + (isContextTarget ? " tree-row--context-target" : "")
+              : "tree-row tree-row--file" + (isContextTarget ? " tree-row--context-target" : "")
+          }
           style={{
             ["--tree-depth" as string]: depth,
             ["--tree-guide-left" as string]: treeGuideLeft,
             ["--tree-guide-bottom" as string]: treeGuideBottom,
             paddingLeft: `${9 + depth * 7}px`
           }}
+          draggable
+          onDragStart={(event) => handleExplorerFileDragStart(event, file.path)}
+          onDragEnd={clearExplorerDragState}
           onClick={() => focusLine(file.path)}
+          onContextMenu={(event) =>
+            openExplorerContextMenu(event, {
+              parentPath: getFolderPath(file.path) || null,
+              targetPath: file.path,
+              targetKind: "file"
+            })
+          }
         >
           <span className="tree-row__main">
             <span
@@ -1759,7 +2265,31 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               data-file-kind={fileIcon.kind}
               aria-hidden
             />
-            <span className="tree-row__label">{node.name}</span>
+            {isRenameTarget ? (
+              <input
+                autoFocus
+                className="tree-create-row__input"
+                value={explorerRenameDraft.value}
+                onChange={(event) =>
+                  setExplorerRenameDraft((state) => (state ? { ...state, value: event.target.value } : state))
+                }
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    commitExplorerRename();
+                  }
+
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    cancelExplorerRename();
+                  }
+                }}
+                onBlur={cancelExplorerRename}
+                onClick={(event) => event.stopPropagation()}
+              />
+            ) : (
+              <span className="tree-row__label">{node.name}</span>
+            )}
           </span>
           {unsavedPaths.includes(file.path) ? <span className="file-row__dot" /> : null}
         </button>
@@ -1860,15 +2390,99 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           {renderSectionToggle("project", "EXPLORER", problem?.title ?? session?.workspaceId)}
           {explorerSections.project ? (
             <div className="tree-root">
-              <div className="tree-folder tree-folder--root">
+              <div
+                className={
+                  "tree-folder tree-folder--root" +
+                  (explorerCreateDraft?.parentPath === null ? " tree-folder--create-target" : "") +
+                  (explorerContextMenu?.targetKind === "root" ? " tree-folder--context-target" : "")
+                }
+                onContextMenu={(event) =>
+                  openExplorerContextMenu(event, {
+                    parentPath: null,
+                    targetPath: null,
+                    targetKind: "root"
+                  })
+                }
+              >
                 <span className="tree-row__twistie codicon codicon-chevron-down" aria-hidden />
                 <span className="tree-folder__icon codicon codicon-folder-opened" data-folder-kind="source" aria-hidden />
                 <span className="tree-row__folder">{session?.problemId ?? "workspace"}</span>
               </div>
-              <div className="tree-root__children">{renderTreeNodes(fileTree, 1)}</div>
+              <div className="tree-root__children">
+                {explorerCreateDraft?.parentPath === null ? (
+                  <div className="tree-create-row tree-create-row--root" style={{ paddingLeft: "16px" }}>
+                    <span
+                      className={
+                        explorerCreateDraft.kind === "folder"
+                          ? "tree-folder__icon codicon codicon-new-folder"
+                          : "file-icon codicon codicon-new-file"
+                      }
+                      aria-hidden
+                    />
+                    <input
+                      autoFocus
+                      className="tree-create-row__input"
+                      value={explorerCreateDraft.value}
+                      placeholder={explorerCreateDraft.kind === "folder" ? "폴더 이름" : "파일 이름"}
+                      onChange={(event) =>
+                        setExplorerCreateDraft((state) => (state ? { ...state, value: event.target.value } : state))
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          commitExplorerCreate();
+                        }
+
+                        if (event.key === "Escape") {
+                          event.preventDefault();
+                          cancelExplorerCreate();
+                        }
+                      }}
+                      onBlur={cancelExplorerCreate}
+                    />
+                  </div>
+                ) : null}
+                {renderTreeNodes(fileTree, 1)}
+              </div>
             </div>
           ) : null}
         </div>
+        {explorerContextMenu ? (
+          <div
+            className="explorer-context-menu"
+            style={{ left: explorerContextMenu.x, top: explorerContextMenu.y }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="explorer-context-menu__item"
+              onClick={() => beginExplorerCreate("file", explorerContextMenu.parentPath)}
+            >
+              <span className="codicon codicon-new-file" aria-hidden />
+              <span>새 파일</span>
+            </button>
+            <button
+              type="button"
+              className="explorer-context-menu__item"
+              onClick={() => beginExplorerCreate("folder", explorerContextMenu.parentPath)}
+            >
+              <span className="codicon codicon-new-folder" aria-hidden />
+              <span>새 폴더</span>
+            </button>
+            {explorerContextMenu.targetKind !== "root" ? (
+              <button type="button" className="explorer-context-menu__item" onClick={beginExplorerRename}>
+                <span className="codicon codicon-edit" aria-hidden />
+                <span>이름 바꾸기</span>
+              </button>
+            ) : null}
+            {explorerContextMenu.targetKind !== "root" ? (
+              <button type="button" className="explorer-context-menu__item" onClick={handleExplorerDelete}>
+                <span className="codicon codicon-trash" aria-hidden />
+                <span>삭제</span>
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     );
   };
@@ -1976,6 +2590,14 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                 disabled={submitLoading}
               >
                 {submitLoading ? "제출 중..." : "제출"}
+              </button>
+              <button
+                type="button"
+                className="ide-command-button ide-command-button--danger"
+                onClick={() => router.push(withPrefix("/problems"))}
+              >
+                <LogOut size={13} strokeWidth={2} />
+                종료
               </button>
             </div>
           </div>
@@ -2176,6 +2798,14 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           >
             {submitLoading ? "제출 중..." : "제출"}
           </button>
+          <button
+            type="button"
+            className="ide-command-button ide-command-button--danger"
+            onClick={() => router.push(withPrefix("/problems"))}
+          >
+            <LogOut size={13} strokeWidth={2} />
+            종료
+          </button>
         </div>
       </div>
     </div>
@@ -2196,6 +2826,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     <div
       className={"ide-route ide-route--workspace" + (isV0 ? " ide-route--v0" : "")}
       data-v0-ide={isV0 ? themeTone : undefined}
+      onContextMenu={handleIdeContextMenu}
     >
       <section className="ide-shell ide-shell--workbench">
         <aside className="activity-bar">
