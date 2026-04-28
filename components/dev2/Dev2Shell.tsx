@@ -222,45 +222,70 @@ export function Dev2Shell({ children }: { children: ReactNode }) {
               <button
                 type="button"
                 onClick={() => setUserMenuOpen((v) => !v)}
-                className="flex items-center space-x-2 pl-2 pr-3 py-1 rounded-full text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                className={`w-9 h-9 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-bold transition-all ${
+                  userMenuOpen ? "ring-2 ring-gray-600 ring-offset-1" : "hover:ring-2 hover:ring-gray-400 hover:ring-offset-1"
+                }`}
                 aria-haspopup="menu"
                 aria-expanded={userMenuOpen}
               >
-                <span className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-semibold">
-                  {user?.name?.slice(0, 1)?.toUpperCase() ?? "U"}
-                </span>
-                <span>{user?.name ?? "사용자"}</span>
+                {user?.name?.slice(0, 1)?.toUpperCase() ?? "U"}
               </button>
+
               {userMenuOpen && (
                 <div
-                  className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50"
+                  className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-[0_8px_32px_-8px_rgba(17,24,39,0.18),0_2px_8px_rgba(17,24,39,0.06)] border border-gray-100 overflow-hidden z-50"
                   role="menu"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {hydrated && (
+                  {/* User info */}
+                  <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
+                      {user?.name?.slice(0, 1)?.toUpperCase() ?? "U"}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-gray-900 truncate">{user?.name ?? "사용자"}</div>
+                      <div className="text-xs text-gray-400 truncate">{user?.email ?? ""}</div>
+                    </div>
+                  </div>
+
+                  <div className="py-1">
+                    {hydrated && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => { toggleTheme(); setUserMenuOpen(false); }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          {theme === "dark" ? <Sun size={15} strokeWidth={1.8} /> : <Moon size={15} strokeWidth={1.8} />}
+                          <span>{theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const { setTheme } = useThemeStore.getState();
+                            setTheme(theme === "mono" ? "light" : "mono");
+                            setUserMenuOpen(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                            <circle cx="7.5" cy="7.5" r="6.5" stroke="currentColor" strokeWidth="1.4" />
+                            <path d="M7.5 1a6.5 6.5 0 0 1 0 13V1z" fill="currentColor" />
+                          </svg>
+                          <span>{theme === "mono" ? "컬러 모드로 전환" : "흑백 모드로 전환"}</span>
+                        </button>
+                      </>
+                    )}
+                    <div className="my-1 h-px bg-gray-100" />
                     <button
                       type="button"
-                      onClick={() => {
-                        toggleTheme();
-                        setUserMenuOpen(false);
-                      }}
-                      className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      onClick={() => { setUserMenuOpen(false); void handleLogout(); }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
                     >
-                      {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-                      <span>{theme === "dark" ? "라이트 모드" : "다크 모드"}</span>
+                      <LogOut size={15} strokeWidth={1.8} />
+                      <span>로그아웃</span>
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setUserMenuOpen(false);
-                      void handleLogout();
-                    }}
-                    className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                  >
-                    <LogOut size={16} />
-                    <span>로그아웃</span>
-                  </button>
+                  </div>
                 </div>
               )}
             </div>

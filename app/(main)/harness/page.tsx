@@ -8,13 +8,14 @@ import {
   FlaskConical,
   ScrollText,
   Wrench,
-  Check,
   RotateCcw,
   Save,
   Eye,
   Pencil,
-  AlertTriangle,
   Info,
+  ChevronDown,
+  ChevronRight,
+  FolderOpen,
   type LucideIcon
 } from "lucide-react";
 
@@ -133,9 +134,6 @@ const TAG_STYLE: Record<AgentFile["tag"], string> = {
 
 const STORAGE_KEY = "aig-harness-files-v1";
 
-/* Shared spring easing used across hover/active states */
-const SPRING = "transition-[transform,box-shadow,background-color,color,border-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]";
-
 /* Glass surface preset (Glassmorphism 2.0) */
 const GLASS =
   "bg-white/70 backdrop-blur-md border border-white/70 ring-1 ring-inset ring-white/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_32px_-18px_rgba(79,70,229,0.25)]";
@@ -162,6 +160,13 @@ export default function Dev2HarnessPage() {
   const [dirty, setDirty] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<"edit" | "preview">("edit");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const lineNumbersRef = useRef<HTMLDivElement>(null);
+
+  const handleEditorScroll = (e: React.UIEvent<HTMLTextAreaElement>) => {
+    if (lineNumbersRef.current) {
+      lineNumbersRef.current.scrollTop = e.currentTarget.scrollTop;
+    }
+  };
 
   /* Load from localStorage */
   useEffect(() => {
@@ -243,285 +248,331 @@ export default function Dev2HarnessPage() {
             </p>
           </div>
 
-          {/* Save-all pill */}
-          <div className="flex items-center gap-3 shrink-0">
-            <div
-              className={`inline-flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-bold ${GLASS} ${SPRING} ${
-                totalDirty > 0 ? "text-amber-700" : "text-emerald-700"
-              }`}
-            >
-              {totalDirty > 0 ? (
-                <>
-                  <AlertTriangle size={14} strokeWidth={2.6} />
-                  <span className="tabular-nums">{totalDirty}개 미저장</span>
-                </>
-              ) : (
-                <>
-                  <Check size={14} strokeWidth={2.8} />
-                  <span>모두 저장됨</span>
-                </>
-              )}
-            </div>
-            {totalDirty > 0 && (
-              <button
-                type="button"
-                onClick={handleSaveAll}
-                className={`inline-flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold text-white ${SPRING}
-                  bg-gradient-to-br from-indigo-500 via-violet-600 to-fuchsia-600
-                  shadow-[0_10px_24px_-10px_rgba(79,70,229,0.55),inset_0_1px_0_0_rgba(255,255,255,0.35)]
-                  hover:-translate-y-0.5 hover:shadow-[0_18px_36px_-14px_rgba(79,70,229,0.6),inset_0_1px_0_0_rgba(255,255,255,0.45)]
-                  active:translate-y-0 active:scale-[0.98]`}
-              >
-                <Save size={16} strokeWidth={2.6} />
-                <span>전체 저장</span>
-              </button>
-            )}
-          </div>
+          <div className="shrink-0" />
         </section>
 
-        {/* ── EDITOR BODY ── */}
-        <section className="relative [perspective:1400px]">
-          {/* Ambient violet halo — matches workshop preview */}
+        {/* ── EDITOR BODY (VS Code style) ── */}
+        <section className="relative">
           <div
-            className="pointer-events-none absolute -inset-x-10 -bottom-8 h-32 rounded-full blur-3xl opacity-70"
-            style={{
-              backgroundImage:
-                "radial-gradient(closest-side, rgba(124,58,237,0.35), transparent 70%)"
-            }}
-            aria-hidden="true"
-          />
-          <div className="relative grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5">
-          {/* Left: File list (IDE pane) */}
-          <aside
-            className="rounded-2xl overflow-hidden self-start shadow-[0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(30,27,75,0.55),0_14px_36px_-20px_rgba(124,58,237,0.45)]"
-            style={{ backgroundColor: "#0F0D2E" }}
+            className="rounded-xl overflow-hidden border border-[#3c3c3c] shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)]"
+            style={{ backgroundColor: "#1e1e1e" }}
           >
+            {/* Window titlebar — VS Code on Windows style */}
             <div
-              className="relative flex items-center justify-between px-5 py-4 text-white overflow-hidden"
-              style={{
-                backgroundColor: "#1E1B4B",
-                boxShadow:
-                  "inset 0 1px 0 0 rgba(255,255,255,0.1), inset 0 -1px 0 0 rgba(0,0,0,0.2)"
-              }}
+              className="flex items-center h-8 border-b border-[#252526] select-none"
+              style={{ backgroundColor: "#323233" }}
             >
-              {/* inner color wash */}
-              <div
-                className="pointer-events-none absolute inset-0 opacity-70"
-                style={{
-                  backgroundImage:
-                    "radial-gradient(120% 80% at 0% 0%, rgba(124,58,237,0.45), transparent 55%), radial-gradient(120% 80% at 100% 100%, rgba(236,72,153,0.28), transparent 60%)"
-                }}
-                aria-hidden="true"
-              />
-              <span className="relative font-display font-bold">에이전트 파일</span>
-              <span className="relative text-xs font-bold px-2 py-0.5 rounded-full bg-white/15 text-white ring-1 ring-white/25 tabular-nums backdrop-blur-sm">
-                {AGENT_FILES.length}
-              </span>
-            </div>
-            <div className="flex flex-col gap-1 p-2">
-              {AGENT_FILES.map((file) => {
-                const active = activeId === file.id;
-                const Icon = file.icon;
-                const isDirty = dirty.has(file.id);
-                return (
+              {/* Center: title + save status */}
+              <div className="flex-1 flex items-center justify-center gap-2 min-w-0 px-4">
+                <span className="text-[12px] text-[#8d8d8d] font-mono truncate">
+                  {activeFile.path}
+                </span>
+                {totalDirty > 0 && (
+                  <span className="text-[11px] text-amber-400 shrink-0">●</span>
+                )}
+              </div>
+
+              {/* Right: save + Windows-style controls */}
+              <div className="flex items-stretch h-full shrink-0">
+                {totalDirty > 0 && (
                   <button
-                    key={file.id}
                     type="button"
-                    onClick={() => setActiveId(file.id)}
-                    className={`relative w-full flex items-start gap-3 px-3 py-2.5 text-left rounded-lg overflow-hidden ring-1 ring-inset ${SPRING}
-                      ${active
-                        ? "bg-indigo-400/25 ring-indigo-300/50 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_4px_12px_-6px_rgba(124,58,237,0.45)]"
-                        : "bg-white/[0.08] ring-white/10 hover:bg-white/[0.14] hover:ring-white/20 active:scale-[0.98]"
-                      }`}
+                    onClick={handleSaveAll}
+                    className="flex items-center gap-1 px-3 h-full text-[11px] text-amber-300 hover:bg-amber-400/20 transition-colors font-mono"
                   >
-                    {active && (
-                      <span
-                        className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-gradient-to-b from-indigo-300 to-fuchsia-300"
-                        aria-hidden="true"
-                      />
-                    )}
-                    <span
-                      className={`shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-lg ${SPRING}
-                        ring-1 ring-white/20 bg-white/[0.12]
-                        shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15)]
-                        ${active ? "text-white scale-[1.03]" : "text-indigo-100"}`}
-                    >
-                      <Icon size={16} strokeWidth={2.2} />
+                    <Save size={10} strokeWidth={2.5} />
+                    {totalDirty}개 저장
+                  </button>
+                )}
+                {/* Minimize — horizontal line */}
+                <button
+                  type="button"
+                  aria-label="최소화"
+                  className="flex items-center justify-center w-11 h-full hover:bg-white/10 transition-colors"
+                >
+                  <svg width="10" height="1" viewBox="0 0 10 1" fill="none">
+                    <rect width="10" height="1" fill="#cccccc" />
+                  </svg>
+                </button>
+                {/* Restore — square outline */}
+                <button
+                  type="button"
+                  aria-label="최대화"
+                  className="flex items-center justify-center w-11 h-full hover:bg-white/10 transition-colors"
+                >
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <rect x="0.5" y="0.5" width="9" height="9" stroke="#cccccc" strokeWidth="1" />
+                  </svg>
+                </button>
+                {/* Close — X */}
+                <button
+                  type="button"
+                  aria-label="닫기"
+                  className="flex items-center justify-center w-11 h-full hover:bg-[#e81123] transition-colors group"
+                >
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <path d="M1 1l8 8M9 1L1 9" stroke="#cccccc" strokeWidth="1.2" strokeLinecap="round" className="group-hover:stroke-white" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex" style={{ minHeight: "560px" }}>
+              {/* ── Explorer sidebar ── */}
+              <div
+                className="w-52 shrink-0 flex flex-col border-r border-[#3c3c3c]"
+                style={{ backgroundColor: "#252526" }}
+              >
+                {/* Explorer header */}
+                <div className="flex items-center justify-between px-3 py-2 border-b border-[#3c3c3c]">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#bbbbbb]">
+                    Explorer
+                  </span>
+                  <span className="text-[10px] text-[#6c6c6c] font-mono tabular-nums">
+                    {AGENT_FILES.length} files
+                  </span>
+                </div>
+
+                {/* Workspace folder */}
+                <div className="py-1">
+                  {/* Folder row */}
+                  <div className="flex items-center gap-1 px-2 py-1 text-[#cccccc] select-none">
+                    <ChevronDown size={13} className="text-[#858585] shrink-0" />
+                    <FolderOpen size={13} className="text-[#dcb862] shrink-0" />
+                    <span className="text-[11px] font-bold uppercase tracking-wide ml-0.5 text-[#bbbbbb]">
+                      agent
                     </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`font-mono text-[13px] font-semibold truncate ${
-                            active ? "text-white" : "text-white/95"
-                          }`}
-                        >
-                          {file.label}
-                        </span>
+                  </div>
+
+                  {/* File rows */}
+                  {AGENT_FILES.map((file) => {
+                    const active = activeId === file.id;
+                    const isDirty = dirty.has(file.id);
+                    const Icon = file.icon;
+                    const tagColors: Record<AgentFile["tag"], string> = {
+                      main: "text-indigo-400",
+                      meta: "text-[#858585]",
+                      temp: "text-amber-400"
+                    };
+                    return (
+                      <button
+                        key={file.id}
+                        type="button"
+                        onClick={() => setActiveId(file.id)}
+                        className={`w-full flex items-center gap-2 pl-7 pr-3 py-[5px] text-left text-[13px] font-mono transition-colors ${
+                          active
+                            ? "bg-[#094771] text-white"
+                            : "text-[#cccccc] hover:bg-[rgba(255,255,255,0.07)]"
+                        }`}
+                      >
+                        <Icon
+                          size={14}
+                          strokeWidth={1.8}
+                          className={`shrink-0 ${active ? "text-indigo-300" : tagColors[file.tag]}`}
+                        />
+                        <span className="flex-1 truncate">{file.label}</span>
                         {isDirty && (
                           <span
-                            className="relative shrink-0 w-1.5 h-1.5 rounded-full bg-amber-400"
+                            className="w-2 h-2 rounded-full bg-amber-400 shrink-0"
                             title="저장 안 됨"
-                          >
-                            <span className="absolute inset-0 rounded-full bg-amber-300 opacity-70 animate-ping" />
-                          </span>
+                          />
                         )}
-                      </div>
-                      <div className="text-[11px] font-mono text-indigo-200/75 mt-0.5 truncate">
-                        {file.summary}
-                      </div>
-                    </div>
-                    <span
-                      className="shrink-0 self-start mt-0.5 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/15 ring-1 ring-white/20 text-white/90"
-                    >
-                      {file.tag}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </aside>
+                      </button>
+                    );
+                  })}
+                </div>
 
-          {/* Right: Editor (IDE pane) */}
-          <section
-            className="rounded-2xl overflow-hidden shadow-[0_1px_2px_rgba(17,24,39,0.04),0_22px_48px_-24px_rgba(30,27,75,0.55),0_14px_36px_-20px_rgba(124,58,237,0.45)]"
-            style={{ backgroundColor: "#0F0D2E" }}
-          >
-            {/* Path header — seamless with body */}
-            <div
-              className="relative flex items-center justify-between px-5 py-3.5 gap-3 flex-wrap text-white overflow-hidden"
-              style={{
-                backgroundImage:
-                  "linear-gradient(to bottom, #1E1B4B 0%, #0F0D2E 100%)"
-              }}
-            >
-              <div
-                className="pointer-events-none absolute inset-0 opacity-60"
-                style={{
-                  backgroundImage:
-                    "radial-gradient(120% 80% at 0% 0%, rgba(124,58,237,0.45), transparent 55%), radial-gradient(120% 80% at 100% 100%, rgba(236,72,153,0.2), transparent 60%)"
-                }}
-                aria-hidden="true"
-              />
-              <div className="relative flex items-center gap-2.5 min-w-0">
-                <code className="font-mono text-sm text-white/90 font-semibold truncate">
-                  {activeFile.path}
-                </code>
-                {dirty.has(activeId) && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-amber-400/20 text-amber-200 px-2 py-0.5 rounded-full ring-1 ring-amber-300/30 backdrop-blur-sm">
-                    <span className="w-1 h-1 rounded-full bg-amber-300" />
-                    unsaved
-                  </span>
-                )}
-                <span className="text-xs text-white/50 tabular-nums">
-                  {lineCount} lines
-                </span>
-              </div>
-              <div className="relative flex items-center gap-2">
-                {/* View mode — segmented control */}
-                <div className="relative inline-flex rounded-xl bg-white/10 p-0.5 ring-1 ring-inset ring-white/20 backdrop-blur-sm shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]">
+                {/* File summary at bottom */}
+                <div className="mt-auto border-t border-[#3c3c3c] p-3">
+                  <div className="text-[11px] text-[#6c6c6c] font-mono mb-1 uppercase tracking-wider">
+                    선택됨
+                  </div>
+                  <div className="text-[11px] text-[#858585] leading-relaxed">
+                    {activeFile.summary}
+                  </div>
                   <span
-                    className={`absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] rounded-lg ring-1 ring-white shadow-[0_6px_14px_-8px_rgba(124,58,237,0.5)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                      viewMode === "preview"
-                        ? "translate-x-full bg-gradient-to-br from-yellow-50 to-amber-100"
-                        : "translate-x-0 bg-gradient-to-br from-yellow-50 to-amber-100"
-                    }`}
-                    aria-hidden="true"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("edit")}
-                    className={`relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${SPRING} ${
-                      viewMode === "edit"
-                        ? "text-amber-600 font-black"
-                        : "text-white font-bold hover:text-white"
-                    }`}
+                    className={`inline-block mt-2 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${TAG_STYLE[activeFile.tag]}`}
                   >
-                    <Pencil size={12} strokeWidth={viewMode === "edit" ? 3 : 2.6} />
-                    <span>편집</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("preview")}
-                    className={`relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${SPRING} ${
-                      viewMode === "preview"
-                        ? "text-amber-600 font-black"
-                        : "text-white font-bold hover:text-white"
-                    }`}
-                  >
-                    <Eye size={12} strokeWidth={viewMode === "preview" ? 3 : 2.6} />
-                    <span>미리보기</span>
-                  </button>
+                    {activeFile.tag}
+                  </span>
+                </div>
+              </div>
+
+              {/* ── Editor panel ── */}
+              <div className="flex-1 flex flex-col min-w-0" style={{ backgroundColor: "#1e1e1e" }}>
+                {/* Tab bar */}
+                <div
+                  className="flex items-stretch border-b border-[#252526]"
+                  style={{ backgroundColor: "#2d2d2d" }}
+                >
+                  {AGENT_FILES.map((file) => {
+                    const active = activeId === file.id;
+                    const isDirty = dirty.has(file.id);
+                    return (
+                      <button
+                        key={file.id}
+                        type="button"
+                        onClick={() => setActiveId(file.id)}
+                        className={`relative flex items-center gap-2 px-4 py-2 text-[12px] font-mono whitespace-nowrap border-r border-[#252526] transition-colors ${
+                          active
+                            ? "bg-[#1e1e1e] text-[#cccccc]"
+                            : "text-[#858585] hover:bg-[#2a2a2a] hover:text-[#cccccc]"
+                        }`}
+                      >
+                        {/* Active top border */}
+                        {active && (
+                          <span className="absolute inset-x-0 top-0 h-[2px] bg-indigo-500" />
+                        )}
+                        <span>{file.label}</span>
+                        {isDirty && (
+                          <span className="w-2 h-2 rounded-full bg-[#cccccc] opacity-80 shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
+
+                  {/* Actions pushed to right */}
+                  <div className="ml-auto flex items-center gap-1 px-3 shrink-0">
+                    <div className="flex items-center rounded overflow-hidden ring-1 ring-[#3c3c3c]">
+                      <button
+                        type="button"
+                        onClick={() => setViewMode("edit")}
+                        title="편집 모드"
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] transition-colors ${
+                          viewMode === "edit"
+                            ? "bg-indigo-600 text-white"
+                            : "bg-[#2d2d2d] text-[#858585] hover:text-[#cccccc]"
+                        }`}
+                      >
+                        <Pencil size={11} strokeWidth={2.4} />
+                        편집
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setViewMode("preview")}
+                        title="미리보기"
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] transition-colors border-l border-[#3c3c3c] ${
+                          viewMode === "preview"
+                            ? "bg-indigo-600 text-white"
+                            : "bg-[#2d2d2d] text-[#858585] hover:text-[#cccccc]"
+                        }`}
+                      >
+                        <Eye size={11} strokeWidth={2.4} />
+                        미리보기
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleReset}
+                      title="기본값으로 초기화"
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded text-[11px] text-[#858585] hover:text-[#cccccc] hover:bg-white/10 transition-colors"
+                    >
+                      <RotateCcw size={11} strokeWidth={2.4} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveActive}
+                      disabled={!dirty.has(activeId)}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[11px] font-semibold text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                    >
+                      <Save size={11} strokeWidth={2.5} />
+                      저장
+                    </button>
+                  </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 ring-1 ring-inset ring-white/20 text-white/80 text-xs font-semibold backdrop-blur-sm ${SPRING} hover:-translate-y-0.5 hover:bg-white/20 hover:text-white active:translate-y-0 active:scale-[0.97]`}
-                  title="기본값으로 초기화"
+                {/* Breadcrumb */}
+                <div
+                  className="flex items-center gap-1 px-4 py-1.5 text-[11px] font-mono text-[#858585] border-b border-[#3c3c3c]"
+                  style={{ backgroundColor: "#1e1e1e" }}
                 >
-                  <RotateCcw size={12} strokeWidth={2.6} />
-                  <span>초기화</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveActive}
-                  disabled={!dirty.has(activeId)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white text-xs font-bold ${SPRING}
-                    bg-gradient-to-br from-indigo-500 via-violet-600 to-fuchsia-600
-                    shadow-[0_8px_18px_-10px_rgba(79,70,229,0.55),inset_0_1px_0_0_rgba(255,255,255,0.35)]
-                    hover:-translate-y-0.5 hover:shadow-[0_14px_28px_-12px_rgba(79,70,229,0.6),inset_0_1px_0_0_rgba(255,255,255,0.45)]
-                    active:translate-y-0 active:scale-[0.97]
-                    disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none disabled:bg-none disabled:bg-gray-300`}
+                  <span>agent</span>
+                  <ChevronRight size={11} className="text-[#6c6c6c]" />
+                  <span className="text-[#cccccc]">{activeFile.label}</span>
+                  {dirty.has(activeId) && (
+                    <>
+                      <span className="mx-2 text-[#3c3c3c]">·</span>
+                      <span className="text-amber-400">수정됨</span>
+                    </>
+                  )}
+                </div>
+
+                {/* Editor body */}
+                {viewMode === "edit" ? (
+                  <div className="flex flex-1 overflow-hidden" style={{ minHeight: "460px" }}>
+                    {/* Line numbers */}
+                    <div
+                      ref={lineNumbersRef}
+                      className="overflow-hidden select-none shrink-0 text-right pt-4 pb-4 pr-3 font-mono text-[13px] text-[#858585] leading-6"
+                      style={{ backgroundColor: "#1e1e1e", minWidth: "48px" }}
+                    >
+                      {activeContent.split("\n").map((_, i) => (
+                        <div key={i} style={{ lineHeight: "24px" }}>
+                          {i + 1}
+                        </div>
+                      ))}
+                    </div>
+                    {/* Code textarea */}
+                    <textarea
+                      ref={textareaRef}
+                      value={activeContent}
+                      onChange={(e) => handleContentChange(e.target.value)}
+                      onScroll={handleEditorScroll}
+                      spellCheck={false}
+                      style={{
+                        caretColor: "#aeafad",
+                        lineHeight: "24px",
+                        backgroundColor: "#1e1e1e"
+                      }}
+                      className="flex-1 text-[#d4d4d4] font-mono text-[13px] outline-none border-0 resize-none pt-4 pb-4 pr-6 overflow-y-auto selection:bg-[#094771] selection:text-white"
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className="flex-1 px-10 py-6 overflow-auto"
+                    style={{ minHeight: "460px", backgroundColor: "#1e1e1e" }}
+                  >
+                    <div
+                      className="text-[14px] text-[#d4d4d4] leading-relaxed
+                        [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-white [&_h1]:mb-4 [&_h1]:mt-0 [&_h1]:pb-2 [&_h1]:border-b [&_h1]:border-[#3c3c3c]
+                        [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-white [&_h2]:mt-6 [&_h2]:mb-2.5
+                        [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-[#cccccc] [&_h3]:mt-4 [&_h3]:mb-2
+                        [&_p]:mb-3 [&_p]:text-[#cccccc]
+                        [&_ul]:pl-5 [&_ul]:space-y-1.5 [&_ul]:mb-3 [&_ul>li]:list-disc [&_ul>li]:marker:text-indigo-400
+                        [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:space-y-1 [&_ol]:mb-3 [&_ol]:marker:text-[#858585]
+                        [&_code]:bg-[#2d2d2d] [&_code]:text-[#ce9178] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[13px] [&_code]:font-mono [&_code]:ring-1 [&_code]:ring-[#3c3c3c]
+                        [&_pre]:bg-[#2d2d2d] [&_pre]:text-[#d4d4d4] [&_pre]:p-4 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:my-3 [&_pre]:ring-1 [&_pre]:ring-[#3c3c3c] [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:p-0 [&_pre_code]:ring-0
+                        [&_blockquote]:border-l-4 [&_blockquote]:border-indigo-500 [&_blockquote]:pl-4 [&_blockquote]:py-0.5 [&_blockquote]:my-3 [&_blockquote]:text-[#858585] [&_blockquote]:italic
+                        [&_hr]:my-5 [&_hr]:border-t [&_hr]:border-[#3c3c3c]
+                        [&_strong]:font-bold [&_strong]:text-white
+                        [&_a]:text-indigo-400 [&_a]:underline [&_a]:underline-offset-2"
+                    >
+                      <Markdown remarkPlugins={[remarkGfm]}>
+                        {activeContent || "*내용이 비어있습니다*"}
+                      </Markdown>
+                    </div>
+                  </div>
+                )}
+
+                {/* Status bar */}
+                <div
+                  className="flex items-center justify-between px-4 h-6 text-white text-[11px] font-mono shrink-0"
+                  style={{ backgroundColor: "#0078d4" }}
                 >
-                  <Save size={12} strokeWidth={2.6} />
-                  <span>저장</span>
-                </button>
+                  <div className="flex items-center gap-4">
+                    <span>Markdown</span>
+                    <span className="text-blue-200">{activeFile.path}</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    {dirty.has(activeId) && (
+                      <span className="text-amber-300">● 저장 안 됨</span>
+                    )}
+                    <span>Ln 1 — {lineCount} lines</span>
+                    <span>UTF-8</span>
+                  </div>
+                </div>
               </div>
             </div>
-
-            {/* Body */}
-            {viewMode === "edit" ? (
-              <div className="relative">
-                <textarea
-                  ref={textareaRef}
-                  value={activeContent}
-                  onChange={(e) => handleContentChange(e.target.value)}
-                  spellCheck={false}
-                  style={{ caretColor: "#c4b5fd" }}
-                  className="w-full min-h-[520px] px-6 py-5 font-mono text-[13px] leading-6 text-indigo-50 bg-transparent outline-none resize-none selection:bg-indigo-500/30 selection:text-white"
-                />
-              </div>
-            ) : (
-              <div className="px-6 py-6 min-h-[520px]">
-                <div
-                  className="prose-mini text-[14px] text-indigo-100/90 leading-relaxed
-                    [&_h1]:text-3xl [&_h1]:font-display [&_h1]:font-bold [&_h1]:text-white [&_h1]:mb-4 [&_h1]:mt-0 [&_h1]:tracking-tight
-                    [&_h2]:text-lg [&_h2]:font-display [&_h2]:font-bold [&_h2]:text-white [&_h2]:mt-6 [&_h2]:mb-2.5
-                    [&_h3]:text-base [&_h3]:font-bold [&_h3]:text-white [&_h3]:mt-4 [&_h3]:mb-2
-                    [&_p]:mb-2.5
-                    [&_ul]:list-none [&_ul]:pl-5 [&_ul]:space-y-1.5 [&_ul]:mb-3 [&_ul>li]:pl-2 [&_ul>li]:relative [&_ul>li]:before:content-[''] [&_ul>li]:before:absolute [&_ul>li]:before:left-0 [&_ul>li]:before:top-[10px] [&_ul>li]:before:w-1.5 [&_ul>li]:before:h-1.5 [&_ul>li]:before:rounded-full [&_ul>li]:before:bg-indigo-400
-                    [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:space-y-1 [&_ol]:mb-2.5 [&_ol]:marker:text-indigo-300
-                    [&_code]:bg-indigo-500/15 [&_code]:text-indigo-200 [&_code]:ring-1 [&_code]:ring-inset [&_code]:ring-indigo-400/20 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[13px] [&_code]:font-mono
-                    [&_pre]:bg-black/30 [&_pre]:ring-1 [&_pre]:ring-inset [&_pre]:ring-white/10 [&_pre]:text-indigo-50 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_pre]:my-3 [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:p-0 [&_pre_code]:ring-0
-                    [&_a]:text-indigo-300 [&_a]:underline [&_a]:underline-offset-2 hover:[&_a]:text-indigo-200
-                    [&_blockquote]:border-l-4 [&_blockquote]:border-indigo-400/60 [&_blockquote]:pl-4 [&_blockquote]:py-0.5 [&_blockquote]:my-3 [&_blockquote]:text-indigo-200/70 [&_blockquote]:italic
-                    [&_hr]:my-5 [&_hr]:border-t [&_hr]:border-white/10
-                    [&_strong]:font-bold [&_strong]:text-white
-                    [&_em]:italic
-                    [&_del]:line-through [&_del]:text-indigo-300/50
-                    [&_table]:w-full [&_table]:my-3 [&_table]:border-collapse [&_table]:rounded-lg [&_table]:overflow-hidden [&_table]:ring-1 [&_table]:ring-white/10
-                    [&_th]:bg-white/5 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-indigo-100 [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-wider [&_th]:border-b [&_th]:border-white/10
-                    [&_td]:px-3 [&_td]:py-2 [&_td]:border-b [&_td]:border-white/5 [&_tr:last-child_td]:border-b-0
-                    [&_input[type=checkbox]]:mr-2 [&_input[type=checkbox]]:accent-indigo-500
-                    [&_.task-list-item]:pl-0 [&_.task-list-item]:before:content-none [&_.contains-task-list]:pl-0"
-                >
-                  <Markdown remarkPlugins={[remarkGfm]}>
-                    {activeContent || "*내용이 비어있습니다*"}
-                  </Markdown>
-                </div>
-              </div>
-            )}
-          </section>
           </div>
         </section>
 

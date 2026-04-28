@@ -359,29 +359,9 @@ export function LandingAIG() {
       <div className="pointer-events-none fixed right-6 top-1/2 z-40 -translate-y-1/2 hidden md:flex flex-col items-end gap-3">
         {dots.map((id) => {
           const isActive = activeSection === id;
-          const isDarkSection =
-            activeSection === "hero" ||
-            activeSection === "showcase" ||
-            activeSection === "demo" ||
-            activeSection === "cta";
-
-          // Label color — active only
-          const labelColor = isActive
-            ? isDarkSection
-              ? "text-cyan-300"
-              : "text-indigo-600"
-            : isDarkSection
-              ? "text-white/70 group-hover:text-cyan-300"
-              : "text-gray-500 group-hover:text-indigo-500";
-
-          // Dot styles
           const dotCls = isActive
-            ? isDarkSection
-              ? "border-cyan-300 bg-cyan-300 shadow-[0_0_0_4px_rgba(103,232,249,0.2)]"
-              : "border-indigo-600 bg-indigo-600 shadow-[0_0_0_4px_rgba(99,102,241,0.15)]"
-            : isDarkSection
-              ? "border-white/45 bg-white/45 group-hover:border-cyan-300 group-hover:bg-cyan-300"
-              : "border-gray-400 bg-gray-400 group-hover:border-indigo-400 group-hover:bg-indigo-400";
+            ? "border-cyan-300 bg-cyan-300 shadow-[0_0_0_4px_rgba(103,232,249,0.2)]"
+            : "border-white/40 bg-white/40 group-hover:border-cyan-300 group-hover:bg-cyan-300";
 
           return (
             <button
@@ -391,13 +371,6 @@ export function LandingAIG() {
               aria-label={`${SECTION_LABELS[id]} 섹션으로 이동`}
               className="pointer-events-auto group flex items-center justify-end gap-2 transition-colors cursor-pointer"
             >
-              <span
-                className={`text-xs font-semibold uppercase tracking-wider transition-opacity ${labelColor} ${
-                  isActive ? "opacity-100" : "opacity-0 group-hover:opacity-80"
-                }`}
-              >
-                {SECTION_LABELS[id]}
-              </span>
               <span className={`block w-3 h-3 rounded-full border transition-all ${dotCls}`} />
             </button>
           );
@@ -582,9 +555,6 @@ export function LandingAIG() {
         <div className="relative max-w-6xl mx-auto px-6 w-full">
           {/* heading */}
           <div className="mb-12">
-            <div className="inline-block border-l-2 border-indigo-500 pl-3 text-xs font-semibold tracking-[0.12em] text-indigo-600 mb-4">
-              CORE FEATURES
-            </div>
             <h2 className="text-4xl md:text-5xl font-display font-bold tracking-tight mb-4 text-slate-950">
               AI를{" "}
               <span style={{ backgroundImage: "linear-gradient(90deg,#4338CA,#6D28D9,#0E7490)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
@@ -647,9 +617,6 @@ export function LandingAIG() {
 
         <div className="relative max-w-6xl mx-auto px-6 w-full">
           <div className="text-center mb-10">
-            <div className="inline-flex border-l-2 border-indigo-400 pl-3 text-xs font-semibold tracking-[0.12em] text-gray-400 mb-4">
-              실제 워크플로
-            </div>
             <h2 className="text-3xl md:text-5xl font-display font-bold text-gray-900 tracking-tight mb-3">
               세션 시작부터 리포트까지
               <br />
@@ -957,9 +924,6 @@ export function LandingAIG() {
         <div className="max-w-6xl mx-auto px-6 w-full relative">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div className="animate-slide-up">
-              <div className="inline-flex border-l-2 border-teal-500 pl-3 text-xs font-semibold tracking-[0.12em] text-gray-400 mb-6">
-                FEEDBACK REPORT
-              </div>
               <h2 className="text-4xl md:text-5xl font-display font-bold text-gray-900 tracking-tight leading-tight mb-6">
                 내가 AI를
                 <br />

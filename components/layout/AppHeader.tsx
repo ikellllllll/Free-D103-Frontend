@@ -1,14 +1,15 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { Sun, Moon, LogOut } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand/BrandLogo";
-
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
-import { ThemeToggle } from "@/components/system/ThemeToggle";
 import { authApi } from "@/lib/api/authApi";
 import { useAuthStore } from "@/store/authStore";
+import { useThemeStore } from "@/store/themeStore";
 import { useUiStore } from "@/store/uiStore";
 
 const navItems = [
@@ -22,8 +23,25 @@ export function AppHeader() {
   const user = useAuthStore((state) => state.user);
   const signOut = useAuthStore((state) => state.signOut);
   const addToast = useUiStore((state) => state.addToast);
+  const theme = useThemeStore((state) => state.theme);
+  const hydrated = useThemeStore((state) => state.hydrated);
+  const toggleTheme = useThemeStore((state) => state.toggleTheme);
+
+  const [open, setOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   const handleLogout = async () => {
+    setOpen(false);
     const { tokens } = useAuthStore.getState();
     if (tokens?.refreshToken) {
       try { await authApi.logout(tokens.refreshToken); } catch { /* 서버 오류여도 로컬 로그아웃 진행 */ }
@@ -32,6 +50,10 @@ export function AppHeader() {
     addToast("로그아웃되었습니다.", "success");
     router.replace(withPrefix("/login"));
   };
+
+  const initials = (user?.name ?? "U").slice(0, 1).toUpperCase();
+  const name = user?.name ?? "사용자";
+  const email = user?.email ?? "세션 없음";
 
   return (
     <header className="app-header">
@@ -60,21 +82,136 @@ export function AppHeader() {
         </nav>
 
         <div className="app-header__actions">
-          <ThemeToggle inline />
-
-          <div className="profile-pill">
-            <span className="profile-pill__avatar">{user?.name?.slice(0, 1) ?? "U"}</span>
-            <div>
-              <strong style={{ fontSize: "0.88rem" }}>{user?.name ?? "사용자"}</strong>
-              <span style={{ fontSize: "0.76rem" }}>{user?.email ?? "세션 없음"}</span>
-            </div>
+          {/* Avatar button + dropdown */}
+          <div ref={dropdownRef} style={{ position: "relative" }}>
             <button
-              className="button button--ghost"
-              onClick={handleLogout}
-              style={{ fontSize: "0.82rem", padding: "4px 10px" }}
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              aria-label="계정 메뉴"
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: "50%",
+                background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                color: "#fff",
+                fontWeight: 700,
+                fontSize: "0.9rem",
+                border: open ? "2px solid rgba(99,102,241,0.6)" : "2px solid transparent",
+                boxShadow: open ? "0 0 0 3px rgba(99,102,241,0.18)" : "none",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "box-shadow 0.2s, border-color 0.2s",
+                flexShrink: 0
+              }}
             >
-              로그아웃
+              {initials}
             </button>
+
+            {open && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 8px)",
+                  right: 0,
+                  minWidth: 220,
+                  background: "var(--surface-1, #fff)",
+                  border: "1px solid var(--line, rgba(0,0,0,0.08))",
+                  borderRadius: 14,
+                  boxShadow: "0 8px 32px -8px rgba(17,24,39,0.18), 0 2px 8px rgba(17,24,39,0.06)",
+                  zIndex: 200,
+                  overflow: "hidden"
+                }}
+              >
+                {/* User info */}
+                <div style={{ padding: "14px 16px 12px", borderBottom: "1px solid var(--line, rgba(0,0,0,0.08))" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{
+                      width: 32, height: 32, borderRadius: "50%",
+                      background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                      color: "#fff", fontWeight: 700, fontSize: "0.82rem",
+                      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
+                    }}>
+                      {initials}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--text-1, #111827)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {name}
+                      </div>
+                      <div style={{ fontSize: "0.74rem", color: "var(--text-3, #9ca3af)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {email}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Theme toggle */}
+                {hydrated && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={toggleTheme}
+                      style={{
+                        width: "100%", display: "flex", alignItems: "center", gap: 10,
+                        padding: "10px 16px", background: "none", border: "none",
+                        cursor: "pointer", fontSize: "0.86rem", color: "var(--text-2, #374151)",
+                        fontWeight: 500, transition: "background 0.15s"
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--hover, rgba(0,0,0,0.04))")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                    >
+                      {theme === "dark"
+                        ? <Sun size={15} strokeWidth={1.8} />
+                        : <Moon size={15} strokeWidth={1.8} />}
+                      <span>{theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const { setTheme } = useThemeStore.getState();
+                        setTheme(theme === "mono" ? "light" : "mono");
+                      }}
+                      style={{
+                        width: "100%", display: "flex", alignItems: "center", gap: 10,
+                        padding: "10px 16px", background: "none", border: "none",
+                        cursor: "pointer", fontSize: "0.86rem", color: "var(--text-2, #374151)",
+                        fontWeight: 500, transition: "background 0.15s"
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--hover, rgba(0,0,0,0.04))")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                    >
+                      {/* Half-filled circle icon for B&W */}
+                      <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                        <circle cx="7.5" cy="7.5" r="6.5" stroke="currentColor" strokeWidth="1.4" />
+                        <path d="M7.5 1a6.5 6.5 0 0 1 0 13V1z" fill="currentColor" />
+                      </svg>
+                      <span>{theme === "mono" ? "컬러 모드로 전환" : "흑백 모드로 전환"}</span>
+                    </button>
+                  </>
+                )}
+
+                {/* Divider */}
+                <div style={{ height: 1, background: "var(--line, rgba(0,0,0,0.08))", margin: "2px 0" }} />
+
+                {/* Logout */}
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  style={{
+                    width: "100%", display: "flex", alignItems: "center", gap: 10,
+                    padding: "10px 16px", background: "none", border: "none",
+                    cursor: "pointer", fontSize: "0.86rem", color: "#ef4444",
+                    fontWeight: 500, transition: "background 0.15s"
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(239,68,68,0.06)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                >
+                  <LogOut size={15} strokeWidth={1.8} />
+                  <span>로그아웃</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 
-export type ThemeMode = "dark" | "light";
+export type ThemeMode = "dark" | "light" | "mono";
 
 const STORAGE_KEY = "aig-theme-mode";
 const LEGACY_STORAGE_KEY = "ait-theme-mode";
@@ -16,22 +16,15 @@ interface ThemeState {
 }
 
 const applyTheme = (theme: ThemeMode) => {
-  if (typeof document === "undefined") {
-    return;
-  }
-
+  if (typeof document === "undefined") return;
   document.documentElement.dataset.theme = theme;
 };
 
 const resolveInitialTheme = (): ThemeMode => {
-  if (typeof window === "undefined") {
-    return "dark";
-  }
+  if (typeof window === "undefined") return "dark";
 
   const stored = window.localStorage.getItem(STORAGE_KEY) ?? window.localStorage.getItem(LEGACY_STORAGE_KEY);
-  if (stored === "light" || stored === "dark") {
-    return stored;
-  }
+  if (stored === "light" || stored === "dark" || stored === "mono") return stored;
 
   return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
 };
@@ -48,7 +41,6 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     if (typeof window !== "undefined") {
       window.localStorage.setItem(STORAGE_KEY, theme);
     }
-
     applyTheme(theme);
     set({ theme });
   },

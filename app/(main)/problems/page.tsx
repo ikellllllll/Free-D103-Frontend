@@ -553,14 +553,7 @@ export default function Dev2ProblemsPage() {
           className="flex items-center justify-between mb-4 sm:mb-5 animate-fade-in"
           style={{ animationDelay: "0.2s", animationFillMode: "both" }}
         >
-          <div className="flex items-center gap-2 text-sm">
-            <Target size={14} strokeWidth={2.2} className="text-indigo-500" />
-            <span className="font-semibold text-gray-900">
-              {filtered.length}
-            </span>
-            <span className="text-gray-400">/ {all.length}</span>
-            <span className="text-gray-500 font-medium">개 과제</span>
-          </div>
+          <div />
           {filtersActive && (
             <button
               type="button"
