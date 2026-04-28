@@ -77,7 +77,7 @@ export function ProblemList() {
       </div>
 
       {/* ── Filter row ── */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+      <div className="problem-list-toolbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div className="filter-row">
           <button className={level === "ALL" ? "chip chip--active" : "chip"} onClick={() => setLevel("ALL")}>전체</button>
           {([1, 2, 3] as const).map((v) => (

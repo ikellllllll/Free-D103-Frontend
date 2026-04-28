@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
@@ -20,7 +20,7 @@ function getPasswordStrength(pw: string): { level: 0 | 1 | 2 | 3; label: string;
   return { level: 2, label: "보통", color: "bg-yellow-400" };
 }
 
-export default function Dev2SignupPage() {
+export default function SignupPage() {
   const router = useRouter();
   const { withPrefix } = useRouteScope();
   const signIn = useAuthStore((s) => s.signIn);
@@ -50,7 +50,7 @@ export default function Dev2SignupPage() {
         setEmailChecked(true);
       }
     } catch {
-      // 확인 실패 시 서버 에러로 처리
+      // 서버 에러는 제출 시점에 다시 처리
     }
   };
 
@@ -59,7 +59,7 @@ export default function Dev2SignupPage() {
     setPasswordError("");
 
     if (!name.trim()) {
-      addToast("이름을 입력해주세요.", "warning");
+      addToast("이름을 입력해 주세요.", "warning");
       return;
     }
     if (!EMAIL_REGEX.test(email)) {
@@ -109,13 +109,13 @@ export default function Dev2SignupPage() {
   };
 
   return (
-    <div className="w-full max-w-md animate-scale-in">
-      <div className="bg-white rounded-3xl shadow-2xl p-8">
+    <div className="login-v0-lite w-full max-w-md animate-scale-in">
+      <div className="login-v0-lite__card bg-white rounded-3xl p-8">
         <h1 className="text-center text-2xl md:text-3xl font-display font-bold text-gray-900 tracking-tight mb-2">
           AI 워크스페이스 시작하기
         </h1>
-        <p className="text-center text-sm text-gray-500 mb-5">
-          몇 초만에 계정을 만들고 바로 첫 과제를 시작하세요.
+        <p className="login-v0-lite__intro text-center text-sm text-gray-500 mb-5">
+          몇 초만에 계정을 만들고 바로 첫 과제를 시작해 보세요.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -124,8 +124,8 @@ export default function Dev2SignupPage() {
               autoComplete="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="이름을 입력하세요"
-              className="auth-input"
+              placeholder="이름을 입력해 주세요"
+              className="auth-input login-v0-lite__input"
             />
           </Field>
 
@@ -135,10 +135,16 @@ export default function Dev2SignupPage() {
                 type="email"
                 autoComplete="email"
                 value={email}
-                onChange={(e) => { setEmail(e.target.value); setEmailError(""); setEmailChecked(false); }}
-              onBlur={() => { void handleEmailBlur(); }}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setEmailError("");
+                  setEmailChecked(false);
+                }}
+                onBlur={() => {
+                  void handleEmailBlur();
+                }}
                 placeholder="you@example.com"
-                className={`auth-input${emailError ? " !border-red-400" : ""}`}
+                className={`auth-input login-v0-lite__input${emailError ? " !border-red-400" : ""}`}
               />
             </Field>
             {emailError && <p className="text-xs text-red-500 mt-1 ml-0.5">{emailError}</p>}
@@ -151,14 +157,17 @@ export default function Dev2SignupPage() {
                   type={showPassword ? "text" : "password"}
                   autoComplete="new-password"
                   value={password}
-                  onChange={(e) => { setPassword(e.target.value); setPasswordError(""); }}
-                  placeholder="8자 이상 입력하세요"
-                  className={`auth-input pr-10${passwordError ? " !border-red-400" : ""}`}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setPasswordError("");
+                  }}
+                  placeholder="8자 이상 입력해 주세요"
+                  className={`auth-input login-v0-lite__input pr-10${passwordError ? " !border-red-400" : ""}`}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 inset-y-0 flex items-center text-gray-400 hover:text-gray-600"
+                  className="login-v0-lite__peek absolute right-3 inset-y-0 flex items-center"
                   aria-label="비밀번호 표시"
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -175,7 +184,15 @@ export default function Dev2SignupPage() {
                     />
                   ))}
                 </div>
-                <p className={`text-xs ml-0.5 ${strength.level === 1 ? "text-red-500" : strength.level === 2 ? "text-yellow-600" : "text-green-600"}`}>
+                <p
+                  className={`text-xs ml-0.5 ${
+                    strength.level === 1
+                      ? "text-red-500"
+                      : strength.level === 2
+                        ? "text-yellow-600"
+                        : "text-green-600"
+                  }`}
+                >
                   비밀번호 강도: {strength.label}
                 </p>
               </div>
@@ -190,13 +207,13 @@ export default function Dev2SignupPage() {
                 autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="다시 한 번 입력하세요"
-                className="auth-input pr-10"
+                placeholder="다시 한 번 입력해 주세요"
+                className="auth-input login-v0-lite__input pr-10"
               />
               <button
                 type="button"
                 onClick={() => setShowConfirm((v) => !v)}
-                className="absolute right-3 inset-y-0 flex items-center text-gray-400 hover:text-gray-600"
+                className="login-v0-lite__peek absolute right-3 inset-y-0 flex items-center"
                 aria-label="비밀번호 확인 표시"
               >
                 {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -207,21 +224,21 @@ export default function Dev2SignupPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center space-x-2 text-white font-semibold py-3 rounded-2xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed mt-1"
+            className="login-v0-lite__submit w-full flex items-center justify-center space-x-2 text-white font-semibold py-3 rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed mt-1"
             style={{
               backgroundImage: "linear-gradient(90deg, #4F46E5, #7C3AED)",
               boxShadow: "0 12px 28px -10px rgba(99, 102, 241, 0.5)"
             }}
           >
-            <span>{loading ? "생성 중…" : "계정 만들기"}</span>
+            <span>{loading ? "생성 중..." : "계정 만들기"}</span>
             {!loading && <ArrowRight size={16} strokeWidth={2.4} />}
           </button>
 
           <p className="text-center text-xs text-gray-500 pt-1">
             계속하면{" "}
             <Link
-              href="/terms"
-              className="text-indigo-600 font-semibold hover:text-indigo-700"
+              href={withPrefix("/terms")}
+              className="login-v0-lite__text-link font-semibold"
             >
               이용약관
             </Link>
@@ -232,8 +249,8 @@ export default function Dev2SignupPage() {
         <p className="text-center text-sm text-gray-500 mt-8">
           이미 계정이 있나요?{" "}
           <Link
-            href="/login"
-            className="text-indigo-600 font-semibold hover:text-indigo-700"
+            href={withPrefix("/login")}
+            className="login-v0-lite__text-link font-semibold"
           >
             로그인
           </Link>
@@ -243,10 +260,12 @@ export default function Dev2SignupPage() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="block">
-      <span className="block text-sm font-semibold text-gray-800 mb-1.5">{label}</span>
+    <label className="login-v0-lite__field block">
+      <span className="login-v0-lite__field-label block text-sm font-semibold text-gray-800 mb-1.5">
+        {label}
+      </span>
       {children}
     </label>
   );
