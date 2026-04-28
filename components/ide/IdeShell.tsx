@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { Sun, Moon, Copy, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
-import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
+import type { DragEvent as ReactDragEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Markdown from "react-markdown";
@@ -126,6 +126,22 @@ interface DiffWorkspaceTab {
 type WorkspaceTab = FileWorkspaceTab | DiffWorkspaceTab;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const reorderItems = (items: string[], fromId: string, toId: string, position: "before" | "after") => {
+  if (fromId === toId) {
+    return items;
+  }
+
+  const next = items.filter((item) => item !== fromId);
+  const targetIndex = next.indexOf(toId);
+
+  if (targetIndex < 0) {
+    return items;
+  }
+
+  const insertIndex = position === "after" ? targetIndex + 1 : targetIndex;
+  next.splice(insertIndex, 0, fromId);
+  return next;
+};
 const areStringArraysEqual = (left: string[], right: string[]) =>
   left.length === right.length && left.every((value, index) => value === right[index]);
 const pad2 = (value: number) => String(value).padStart(2, "0");
@@ -181,29 +197,29 @@ function ProblemBriefCodeBlock({ language, code }: { language?: string; code: st
   };
 
   return (
-    <div className="relative bg-gray-900 rounded-xl overflow-hidden my-4">
+    <div className="problem-brief-codeblock">
       {language ? (
-        <div className="px-4 pt-3 pb-0 text-[10px] font-mono font-bold uppercase tracking-widest text-gray-500 select-none">
+        <div className="problem-brief-codeblock__lang">
           {language}
         </div>
       ) : null}
       <button
         type="button"
         onClick={handleCopy}
-        className="absolute top-3 right-3 p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-colors"
+        className="problem-brief-codeblock__copy"
         aria-label="복사"
       >
-        {isCopied ? <Check size={14} strokeWidth={2.4} className="text-green-400" /> : <Copy size={14} strokeWidth={2} />}
+        {isCopied ? <Check size={14} strokeWidth={2.4} className="problem-brief-codeblock__copied" /> : <Copy size={14} strokeWidth={2} />}
       </button>
-      <div className="flex">
-        <div className="shrink-0 py-4 pl-4 pr-3 text-xs font-mono text-gray-600 select-none">
+      <div className="problem-brief-codeblock__body">
+        <div className="problem-brief-codeblock__lines">
           {lines.map((_, index) => (
-            <div key={index} className="leading-6">
+            <div key={index} className="problem-brief-codeblock__line">
               {index + 1}
             </div>
           ))}
         </div>
-        <pre className="flex-1 py-4 pr-4 text-sm text-gray-100 font-mono leading-6 overflow-x-auto">
+        <pre className="problem-brief-codeblock__content">
           {lines.map((line, index) => (
             <div key={index}>{line}</div>
           ))}
@@ -250,7 +266,7 @@ function renderHighlightedEndpoint(line: string) {
   return (
     <>
       <span className={`${verbColor} font-bold`}>{verb}</span>
-      <span className="text-gray-100"> {rest}</span>
+      <span className="text-slate-200"> {rest}</span>
     </>
   );
 }
@@ -558,6 +574,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const files = useIdeStore((state) => state.files);
   const unsavedPaths = useIdeStore((state) => state.unsavedPaths);
   const setActivePath = useIdeStore((state) => state.setActivePath);
+  const hydrateFileContent = useIdeStore((state) => state.hydrateFileContent);
   const updateFileContent = useIdeStore((state) => state.updateFileContent);
   const selectedCode = useIdeStore((state) => state.selectedCode);
   const selectedRange = useIdeStore((state) => state.selectedRange);
@@ -602,6 +619,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const editorDisposablesRef = useRef<Array<{ dispose: () => void }>>([]);
   const trackedModelUrisRef = useRef<Set<string>>(new Set());
   const selectionDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadedBackendFilesRef = useRef<Set<string>>(new Set());
 
   const [chatInput, setChatInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -615,6 +633,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const [activeWorkbenchTab, setActiveWorkbenchTab] = useState<"code" | "problem" | "trace">("code");
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [openTabPaths, setOpenTabPaths] = useState<string[]>([]);
+  const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
+  const [tabDropHint, setTabDropHint] = useState<{ targetId: string; position: "before" | "after" } | null>(null);
   const [solveNow, setSolveNow] = useState(() => Date.now());
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [explorerSections, setExplorerSections] = useState<Record<ExplorerSectionKey, boolean>>({
@@ -760,6 +780,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   }, [resetSession]);
 
   useEffect(() => {
+    loadedBackendFilesRef.current.clear();
+  }, [sessionId]);
+
+  useEffect(() => {
     return () => {
       cleanupEditorSubscriptions();
       disposeTrackedMonacoModels();
@@ -774,6 +798,40 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       setWorkspace(workspace.files, workspace.files[1]?.path ?? workspace.files[0]?.path);
     }
   }, [setWorkspace, workspace]);
+
+  const ensureBackendFileContent = useCallback(
+    async (path: string) => {
+      if (!isBackendSessionId(sessionId)) {
+        return;
+      }
+
+      const currentFile = useIdeStore.getState().files.find((file) => file.path === path);
+      if (!currentFile) {
+        return;
+      }
+
+      if (loadedBackendFilesRef.current.has(path)) {
+        return;
+      }
+
+      if (currentFile.content.trim().length > 0) {
+        loadedBackendFilesRef.current.add(path);
+        return;
+      }
+
+      loadedBackendFilesRef.current.add(path);
+
+      try {
+        const payload = await sessionApi.getFileContent(sessionId, path);
+        if (payload) {
+          hydrateFileContent(path, payload.content, payload.language);
+        }
+      } catch {
+        loadedBackendFilesRef.current.delete(path);
+      }
+    },
+    [hydrateFileContent, sessionId]
+  );
 
   useEffect(() => {
     if (session) {
@@ -1062,6 +1120,18 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       setAiMode("chat");
     }
   }, [activePath, activeTab, setActivePath, setAiMode, setSelection, setSuggestion]);
+
+  useEffect(() => {
+    if (!activeFile?.path) {
+      return;
+    }
+
+    if (activeTab?.kind === "diff") {
+      return;
+    }
+
+    void ensureBackendFileContent(activeFile.path);
+  }, [activeFile?.path, activeTab?.kind, ensureBackendFileContent]);
 
   const searchMatches = useMemo(() => {
     const keyword = searchQuery.trim().toLowerCase();
@@ -1397,6 +1467,57 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     });
   };
 
+  const clearTabDragState = useCallback(() => {
+    setDraggedTabId(null);
+    setTabDropHint(null);
+  }, []);
+
+  const handleTabDragStart = useCallback((event: ReactDragEvent<HTMLDivElement>, tabId: string) => {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", tabId);
+    setDraggedTabId(tabId);
+    setTabDropHint(null);
+  }, []);
+
+  const handleTabDragOver = useCallback(
+    (event: ReactDragEvent<HTMLDivElement>, targetId: string) => {
+      if (!draggedTabId || draggedTabId === targetId) {
+        return;
+      }
+
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+
+      const bounds = event.currentTarget.getBoundingClientRect();
+      const position = event.clientX - bounds.left > bounds.width / 2 ? "after" : "before";
+
+      setTabDropHint((current) =>
+        current?.targetId === targetId && current.position === position ? current : { targetId, position }
+      );
+    },
+    [draggedTabId]
+  );
+
+  const handleTabDrop = useCallback(
+    (event: ReactDragEvent<HTMLDivElement>, targetId: string) => {
+      event.preventDefault();
+
+      const sourceId = draggedTabId || event.dataTransfer.getData("text/plain");
+      if (!sourceId || sourceId === targetId || !tabDropHint || tabDropHint.targetId !== targetId) {
+        clearTabDragState();
+        return;
+      }
+
+      setOpenTabPaths((state) => reorderItems(state, sourceId, targetId, tabDropHint.position));
+      clearTabDragState();
+    },
+    [clearTabDragState, draggedTabId, tabDropHint]
+  );
+
+  const handleTabDragEnd = useCallback(() => {
+    clearTabDragState();
+  }, [clearTabDragState]);
+
   const handleRequestEdit = async () => {
     if (!selectedCode) {
       addToast("먼저 에디터에서 코드를 선택하세요.", "warning");
@@ -1538,7 +1659,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const renderTreeNodes = (nodes: TreeNode[], depth = 0): Array<JSX.Element> =>
     nodes.flatMap((node, index) => {
       const isLast = index === nodes.length - 1;
-      const treeGuideLeft = `${8 + depth * 11}px`;
+      const treeGuideLeft = `${6 + depth * 7}px`;
       const treeGuideBottom = isLast ? "50%" : "-4px";
 
       if (node.kind === "folder") {
@@ -1554,7 +1675,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                 ["--tree-depth" as string]: depth,
                 ["--tree-guide-left" as string]: treeGuideLeft,
                 ["--tree-guide-bottom" as string]: treeGuideBottom,
-                paddingLeft: `${10 + depth * 11}px`
+                paddingLeft: `${7 + depth * 7}px`
               }}
               onClick={() => toggleFolder(node.key)}
             >
@@ -1599,7 +1720,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               ["--tree-depth" as string]: depth,
               ["--tree-guide-left" as string]: treeGuideLeft,
               ["--tree-guide-bottom" as string]: treeGuideBottom,
-              paddingLeft: `${14 + depth * 11}px`
+              paddingLeft: `${9 + depth * 7}px`
             }}
             onClick={() => isWorktree ? openDiffTab(file.path) : focusLine(file.path)}
           >
@@ -1627,7 +1748,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             ["--tree-depth" as string]: depth,
             ["--tree-guide-left" as string]: treeGuideLeft,
             ["--tree-guide-bottom" as string]: treeGuideBottom,
-            paddingLeft: `${14 + depth * 11}px`
+            paddingLeft: `${9 + depth * 7}px`
           }}
           onClick={() => focusLine(file.path)}
         >
@@ -1830,7 +1951,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       <div className="problem-workspace">
         <aside className="problem-workspace__rail">
           <div className="problem-card problem-card--primary">
-            <span className="eyebrow">문제 브리프</span>
             <h2>{problem.title}</h2>
             <p className="muted-copy">{problem.summary}</p>
 
@@ -1881,16 +2001,16 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               )}
             </div>
             {resolvedProblemEndpoints.length ? (
-              <div className="relative bg-gray-900 rounded-xl overflow-hidden">
-                <div className="flex">
-                  <div className="shrink-0 py-4 pl-4 pr-3 text-xs font-mono text-gray-600 select-none">
+              <div className="problem-brief-codeblock problem-brief-codeblock--endpoints">
+                <div className="problem-brief-codeblock__body">
+                  <div className="problem-brief-codeblock__lines">
                     {resolvedProblemEndpoints.map((_, index) => (
-                      <div key={index} className="leading-6">
+                      <div key={index} className="problem-brief-codeblock__line">
                         {index + 1}
                       </div>
                     ))}
                   </div>
-                  <pre className="flex-1 py-4 pr-4 text-sm text-gray-100 font-mono leading-6 overflow-x-auto">
+                  <pre className="problem-brief-codeblock__content">
                     {resolvedProblemEndpoints.map((endpoint) => (
                       <div key={endpoint}>{renderHighlightedEndpoint(endpoint)}</div>
                     ))}
@@ -1967,10 +2087,24 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             <div
               key={tab.id}
               className={
-                activeWorkbenchTab === "code" && tab.id === activeTab?.id
-                  ? "editor-tabs__item editor-tabs__item--active"
-                  : "editor-tabs__item"
+                [
+                  "editor-tabs__item",
+                  activeWorkbenchTab === "code" && tab.id === activeTab?.id ? "editor-tabs__item--active" : "",
+                  draggedTabId === tab.id ? "editor-tabs__item--dragging" : "",
+                  tabDropHint?.targetId === tab.id
+                    ? tabDropHint.position === "before"
+                      ? "editor-tabs__item--drop-before"
+                      : "editor-tabs__item--drop-after"
+                    : ""
+                ]
+                  .filter(Boolean)
+                  .join(" ")
               }
+              draggable
+              onDragStart={(event) => handleTabDragStart(event, tab.id)}
+              onDragOver={(event) => handleTabDragOver(event, tab.id)}
+              onDrop={(event) => handleTabDrop(event, tab.id)}
+              onDragEnd={handleTabDragEnd}
             >
               <button
                 type="button"

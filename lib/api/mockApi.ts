@@ -393,6 +393,43 @@ export const mockApi = {
     return { workspaceId: session.workspaceId, files: clone(session.files) };
   },
 
+  async syncExternalFileContent(sessionId: string, path: string, content: string, language?: string) {
+    const db = readDb();
+    const session = getSessionOrThrow(db, sessionId);
+    const hasTarget = session.files.some((file) => file.path === path);
+
+    session.files = hasTarget
+      ? session.files.map((file) =>
+          file.path === path
+            ? {
+                ...file,
+                content,
+                language: language ?? file.language
+              }
+            : file
+        )
+      : normalizeWorkspaceFiles([
+          ...session.files,
+          {
+            path,
+            content,
+            language: language ?? "plaintext"
+          }
+        ]);
+
+    session.lastSavedAt = new Date().toISOString();
+    writeDb(db);
+    return clone(session.files.find((file) => file.path === path) ?? null);
+  },
+
+  async syncExternalTraces(sessionId: string, traces: TraceEvent[]) {
+    const db = readDb();
+    const session = getSessionOrThrow(db, sessionId);
+    session.traces = clone(traces);
+    writeDb(db);
+    return clone(session.traces);
+  },
+
   async saveFile(sessionId: string, path: string, content: string) {
     await delay(180);
     const db = readDb();

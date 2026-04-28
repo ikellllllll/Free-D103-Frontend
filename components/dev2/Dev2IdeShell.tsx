@@ -50,6 +50,7 @@ import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { useAiChat } from "@/hooks/useAiChat";
 import { mockApi } from "@/lib/api/mockApi";
+import { isBackendSessionId, sessionApi } from "@/lib/api/sessionApi";
 import { getProblemById } from "@/lib/mock-data";
 import { useIdeStore, type SelectionRange } from "@/store/ideStore";
 import { useThemeStore } from "@/store/themeStore";
@@ -261,7 +262,7 @@ export function Dev2IdeShell({ sessionId }: { sessionId: string }) {
   const traces = useMemo(() => session?.traces ?? [], [session?.traces]);
   const agentTraceQuery = useQuery({
     queryKey: ["dev2-ide-agent-traces", sessionId],
-    queryFn: () => mockApi.getAgentTraces(sessionId),
+    queryFn: () => (isBackendSessionId(sessionId) ? sessionApi.getAgentTraces(sessionId) : mockApi.getAgentTraces(sessionId)),
     enabled: activeTab === "trace" || activeRail === "trace",
     refetchInterval: (query) => {
       const runs = query.state.data ?? [];

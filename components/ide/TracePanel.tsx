@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { mockApi } from "@/lib/api/mockApi";
+import { isBackendSessionId, sessionApi } from "@/lib/api/sessionApi";
 import type { AgentRunTrace, AgentSpan } from "@/lib/types/trace";
 
 const STATUS_DOT: Record<string, string> = {
@@ -143,7 +144,7 @@ function RunCard({ run, defaultOpen }: { run: AgentRunTrace; defaultOpen?: boole
 export function TracePanel({ sessionId }: { sessionId: string }) {
   const { data: runs = [], isLoading } = useQuery({
     queryKey: ["agentTraces", sessionId],
-    queryFn: () => mockApi.getAgentTraces(sessionId),
+    queryFn: () => (isBackendSessionId(sessionId) ? sessionApi.getAgentTraces(sessionId) : mockApi.getAgentTraces(sessionId)),
     refetchInterval: 10000
   });
 

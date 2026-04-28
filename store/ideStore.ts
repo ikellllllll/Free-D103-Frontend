@@ -51,6 +51,7 @@ interface IdeState {
   setWorkspace: (files: WorkspaceFile[], activePath?: string) => void;
   setActivePath: (path: string) => void;
   updateFileContent: (path: string, content: string) => void;
+  hydrateFileContent: (path: string, content: string, language?: string) => void;
   markSaved: (path?: string, savedAt?: string) => void;
   setSelection: (code: string, range: SelectionRange | null) => void;
   setEditInstruction: (value: string) => void;
@@ -106,6 +107,18 @@ export const useIdeStore = create<IdeState>((set) => ({
       unsavedPaths: state.unsavedPaths.includes(path)
         ? state.unsavedPaths
         : [...state.unsavedPaths, path]
+    })),
+  hydrateFileContent: (path, content, language) =>
+    set((state) => ({
+      files: state.files.map((file) =>
+        file.path === path
+          ? {
+              ...file,
+              content,
+              language: language ?? file.language
+            }
+          : file
+      )
     })),
   markSaved: (path, savedAt) =>
     set((state) => ({

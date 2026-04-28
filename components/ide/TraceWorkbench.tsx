@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { mockApi } from "@/lib/api/mockApi";
+import { isBackendSessionId, sessionApi } from "@/lib/api/sessionApi";
 import type { AgentRunTrace, AgentSpan } from "@/lib/types/trace";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -509,7 +510,7 @@ export function TraceWorkbench({ sessionId, onClose }: { sessionId: string; onCl
 
   const { data: runs = [], isLoading } = useQuery({
     queryKey: ["agentTraces", sessionId],
-    queryFn:  () => mockApi.getAgentTraces(sessionId),
+    queryFn:  () => (isBackendSessionId(sessionId) ? sessionApi.getAgentTraces(sessionId) : mockApi.getAgentTraces(sessionId)),
     staleTime: 30_000,
     refetchInterval: (query) => {
       // 완료/실패/취소된 Trace만 있으면 폴링 중단, 진행 중인 Trace가 있으면 5초 폴링
