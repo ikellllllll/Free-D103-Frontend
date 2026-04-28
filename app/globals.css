@@ -10003,11 +10003,11 @@ body:has(.dev2-landing-scroll)::-webkit-scrollbar-thumb:hover {
 .stagger-children > *:nth-child(12) { animation-delay: 0.60s; }
 
 /* ─── Dev2 IDE: original UX with dev2 tone ───────────────────── */
-body:has(.dev2-root .ide-route--workspace) {
+body:has(.ide-theme-blue .ide-route--workspace) {
   background: #0f1221;
 }
 
-.dev2-root .ide-route--workspace {
+.ide-theme-blue .ide-route--workspace {
   --bg: #0f1221;
   --bg-soft: #14192b;
   --panel: #171d31;
@@ -10055,11 +10055,11 @@ body:has(.dev2-root .ide-route--workspace) {
   background: var(--ide-workbench-bg);
 }
 
-html[data-theme="light"] body:has(.dev2-root .ide-route--workspace) {
+html[data-theme="light"] body:has(.ide-theme-blue .ide-route--workspace) {
   background: #f6f7fb;
 }
 
-html[data-theme="light"] .dev2-root .ide-route--workspace {
+html[data-theme="light"] .ide-theme-blue .ide-route--workspace {
   --bg: #f6f7fb;
   --bg-soft: #ffffff;
   --panel: #ffffff;
@@ -10106,7 +10106,7 @@ html[data-theme="light"] .dev2-root .ide-route--workspace {
   color-scheme: light;
 }
 
-.dev2-root .ide-route--workspace .activity-bar__item--active {
+.ide-theme-blue .ide-route--workspace .activity-bar__item--active {
   color: var(--text);
   border-color: rgba(139, 140, 255, 0.42);
   background:
@@ -10114,27 +10114,27 @@ html[data-theme="light"] .dev2-root .ide-route--workspace {
     var(--ide-hover-bg);
 }
 
-.dev2-root .ide-route--workspace .activity-bar__item:hover {
+.ide-theme-blue .ide-route--workspace .activity-bar__item:hover {
   border-color: rgba(139, 140, 255, 0.28);
   background: var(--ide-hover-bg);
 }
 
-.dev2-root .ide-route--workspace .activity-bar__badge {
+.ide-theme-blue .ide-route--workspace .activity-bar__badge {
   background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   color: #ffffff;
 }
 
-.dev2-root .ide-route--workspace .editor-tabs__item {
+.ide-theme-blue .ide-route--workspace .editor-tabs__item {
   position: relative;
 }
 
-.dev2-root .ide-route--workspace .editor-tabs__item--active {
+.ide-theme-blue .ide-route--workspace .editor-tabs__item--active {
   background:
     linear-gradient(180deg, rgba(139, 140, 255, 0.08), transparent),
     var(--ide-tab-active-bg);
 }
 
-.dev2-root .ide-route--workspace .editor-tabs__item--active::after {
+.ide-theme-blue .ide-route--workspace .editor-tabs__item--active::after {
   content: "";
   position: absolute;
   right: 0;
@@ -10144,26 +10144,26 @@ html[data-theme="light"] .dev2-root .ide-route--workspace {
   background: linear-gradient(90deg, #5eead4 0%, #6366f1 48%, #8b5cf6 100%);
 }
 
-.dev2-root .ide-route--workspace .ide-command-button--primary,
-.dev2-root .ide-route--workspace .button--primary {
+.ide-theme-blue .ide-route--workspace .ide-command-button--primary,
+.ide-theme-blue .ide-route--workspace .button--primary {
   border-color: transparent;
   background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
   color: #ffffff;
   box-shadow: 0 8px 20px rgba(79, 70, 229, 0.24);
 }
 
-.dev2-root .ide-route--workspace .ide-command-button--primary:hover,
-.dev2-root .ide-route--workspace .button--primary:hover {
+.ide-theme-blue .ide-route--workspace .ide-command-button--primary:hover,
+.ide-theme-blue .ide-route--workspace .button--primary:hover {
   background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%);
 }
 
-.dev2-root .ide-route--workspace .status-bar {
+.ide-theme-blue .ide-route--workspace .status-bar {
   background:
     linear-gradient(90deg, rgba(94, 234, 212, 0.14), rgba(139, 92, 246, 0.22)),
     var(--ide-status-bg);
 }
 
-.dev2-root .ide-route--workspace .chat-bubble--user {
+.ide-theme-blue .ide-route--workspace .chat-bubble--user {
   border-color: rgba(139, 140, 255, 0.32);
   background:
     linear-gradient(135deg, rgba(94, 234, 212, 0.08), rgba(139, 140, 255, 0.16)),
@@ -10171,42 +10171,42 @@ html[data-theme="light"] .dev2-root .ide-route--workspace {
   color: var(--text);
 }
 
-.dev2-root .ide-route--workspace .editor-host,
-.dev2-root .ide-route--workspace .editor-loading,
-.dev2-root .ide-route--workspace .monaco-editor,
-.dev2-root .ide-route--workspace .monaco-diff-editor,
-.dev2-root .ide-route--workspace .monaco-editor-background,
-.dev2-root .ide-route--workspace .monaco-editor .margin {
+.ide-theme-blue .ide-route--workspace .editor-host,
+.ide-theme-blue .ide-route--workspace .editor-loading,
+.ide-theme-blue .ide-route--workspace .monaco-editor,
+.ide-theme-blue .ide-route--workspace .monaco-diff-editor,
+.ide-theme-blue .ide-route--workspace .monaco-editor-background,
+.ide-theme-blue .ide-route--workspace .monaco-editor .margin {
   background-color: var(--ide-editor-bg) !important;
 }
 
-.dev2-root .ide-route--workspace .twb-titlebar,
-.dev2-root .ide-route--workspace .twb-col-head,
-.dev2-root .ide-route--workspace .twb-list-header,
-.dev2-root .ide-route--workspace .twb-drawer__header {
+.ide-theme-blue .ide-route--workspace .twb-titlebar,
+.ide-theme-blue .ide-route--workspace .twb-col-head,
+.ide-theme-blue .ide-route--workspace .twb-list-header,
+.ide-theme-blue .ide-route--workspace .twb-drawer__header {
   background:
     linear-gradient(90deg, rgba(94, 234, 212, 0.07), rgba(139, 140, 255, 0.11)),
     var(--surface-2);
 }
 
-.dev2-root .ide-route--workspace .twb-run-row--active,
-.dev2-root .ide-route--workspace .twb-span-row--active,
-.dev2-root .ide-route--workspace .twb-pagination__page--active {
+.ide-theme-blue .ide-route--workspace .twb-run-row--active,
+.ide-theme-blue .ide-route--workspace .twb-span-row--active,
+.ide-theme-blue .ide-route--workspace .twb-pagination__page--active {
   border-color: rgba(139, 140, 255, 0.42);
   background:
     linear-gradient(135deg, rgba(94, 234, 212, 0.07), rgba(139, 140, 255, 0.16)),
     var(--accent-dim);
 }
 
-.dev2-root .ide-route--workspace .twb-drawer {
+.ide-theme-blue .ide-route--workspace .twb-drawer {
   box-shadow: -18px 0 42px rgba(15, 23, 42, 0.42);
 }
 
-html[data-theme="light"] .dev2-root .ide-route--workspace .chat-bubble--user {
+html[data-theme="light"] .ide-theme-blue .ide-route--workspace .chat-bubble--user {
   color: #312e81;
 }
 
-html[data-theme="light"] .dev2-root .ide-route--workspace .twb-drawer {
+html[data-theme="light"] .ide-theme-blue .ide-route--workspace .twb-drawer {
   box-shadow: -18px 0 42px rgba(15, 23, 42, 0.14);
 }
 
