@@ -5,6 +5,7 @@ import { Sun, Moon, Copy, Check, LogOut, Play, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { DragEvent as ReactDragEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
+import { flushSync } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Markdown from "react-markdown";
 
@@ -726,6 +727,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const trackedModelUrisRef = useRef<Set<string>>(new Set());
   const selectionDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedBackendFilesRef = useRef<Set<string>>(new Set());
+  const allowNextPopStateRef = useRef(false);
+  const isDirtyRef = useRef(false);
+  const savedBackTargetRef = useRef<string | null>(null);
+  const routerRef = useRef(router);
 
   const [chatInput, setChatInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -1645,7 +1650,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
       setSaving(true);
       try {
-        await Promise.all(
+        const results = await Promise.allSettled(
           targetFiles.map((file) =>
             isBackendSessionId(sessionId)
               ? sessionApi.saveFile(sessionId, {
@@ -1656,14 +1661,36 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               : mockApi.saveFile(sessionId, file.path, file.content)
           )
         );
-        targetFiles.forEach((file) => {
-          markSaved(file.path, new Date().toISOString());
+
+        const savedAt = new Date().toISOString();
+        const failedFiles: Array<{ name: string; reason: string }> = [];
+
+        results.forEach((result, i) => {
+          const file = targetFiles[i];
+          if (result.status === "fulfilled") {
+            markSaved(file.path, savedAt);
+          } else {
+            failedFiles.push({
+              name: file.path.split("/").pop() ?? file.path,
+              reason: result.reason instanceof Error ? result.reason.message : "저장 실패"
+            });
+          }
         });
+
+        if (failedFiles.length > 0) {
+          const names = failedFiles.map((f) => f.name).join(", ");
+          const detail = failedFiles.length === 1 ? ` — ${failedFiles[0].reason}` : "";
+          addToast(
+            failedFiles.length === 1
+              ? `저장 실패: ${names}${detail}`
+              : `${failedFiles.length}개 파일 저장 실패: ${names}`,
+            "error"
+          );
+          return false;
+        }
+
         refreshSession();
         return true;
-      } catch (error) {
-        addToast(error instanceof Error ? error.message : "저장에 실패했습니다.", "error");
-        return false;
       } finally {
         setSaving(false);
       }
@@ -2138,17 +2165,18 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       return;
     }
 
+    setSavePromptOpen(false);
+    setSavePromptAction(null);
+
     if (savePromptAction.type === "close-tab") {
       discardFileChanges(savePromptAction.path);
       closeTabImmediate(savePromptAction.tabId);
     } else if (savePromptAction.type === "navigate") {
+      savedBackTargetRef.current = null;
       router.push(savePromptAction.href);
     } else {
       await executeRun();
     }
-
-    setSavePromptOpen(false);
-    setSavePromptAction(null);
   }, [closeTabImmediate, discardFileChanges, executeRun, router, savePromptAction, saving]);
 
   const handleSavePromptSave = useCallback(async () => {
@@ -2162,16 +2190,17 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       return;
     }
 
+    setSavePromptOpen(false);
+    setSavePromptAction(null);
+
     if (savePromptAction.type === "close-tab") {
       closeTabImmediate(savePromptAction.tabId);
     } else if (savePromptAction.type === "navigate") {
+      savedBackTargetRef.current = null;
       router.push(savePromptAction.href);
     } else {
       await executeRun();
     }
-
-    setSavePromptOpen(false);
-    setSavePromptAction(null);
   }, [closeTabImmediate, executeRun, router, savePaths, savePromptAction, saving, unsavedPaths]);
 
   useEffect(() => {
@@ -2284,6 +2313,69 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [unsavedPaths.length]);
+
+  // Keep refs in sync so the persistent popstate handler always sees current values
+  useEffect(() => {
+    routerRef.current = router;
+  }, [router]);
+
+  useEffect(() => {
+    isDirtyRef.current = unsavedPaths.length > 0;
+    if (!unsavedPaths.length) {
+      savedBackTargetRef.current = null;
+    }
+  }, [unsavedPaths.length]);
+
+  // Register popstate guard ONCE on mount. Uses refs so it never needs re-registration.
+  useEffect(() => {
+    const ideHref = window.location.pathname + window.location.search + window.location.hash;
+
+    const showModal = (target: string) => {
+      // flushSync forces React to render the modal synchronously before any
+      // concurrent re-render (e.g. from Next.js router) can reset the state.
+      flushSync(() => {
+        setSavePromptAction({ type: "navigate", href: target });
+        setSavePromptOpen(true);
+      });
+      // Belt-and-suspenders: if Next.js already started navigating despite
+      // stopImmediatePropagation, replace back to the IDE page to cancel it.
+      routerRef.current.replace(ideHref as any);
+    };
+
+    const handlePopState = (e: PopStateEvent) => {
+      if (!isDirtyRef.current) {
+        return;
+      }
+
+      if (allowNextPopStateRef.current) {
+        allowNextPopStateRef.current = false;
+        return;
+      }
+
+      const targetHref = window.location.pathname + window.location.search + window.location.hash;
+
+      if (targetHref === ideHref) {
+        // Back from a guard entry to the original ide entry (same URL).
+        // Re-push guard so no extra press is ever needed.
+        if (savedBackTargetRef.current) {
+          e.stopImmediatePropagation();
+          window.history.pushState(null, "", ideHref);
+          showModal(savedBackTargetRef.current);
+        }
+        return;
+      }
+
+      // New back/forward navigation: block, restore URL, show modal.
+      e.stopImmediatePropagation();
+      window.history.pushState(null, "", ideHref);
+      savedBackTargetRef.current = targetHref;
+      showModal(targetHref);
+    };
+
+    window.addEventListener("popstate", handlePopState, true);
+    return () => window.removeEventListener("popstate", handlePopState, true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleTest = async () => {
     setTestLoading(true);
