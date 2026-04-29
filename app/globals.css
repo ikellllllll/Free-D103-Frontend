@@ -1709,6 +1709,7 @@ body:has(.ide-route--workspace) .page-shell > * {
 }
 
 .sidebar-section {
+  position: relative;
   min-height: 0;
   overflow: auto;
   display: grid;
@@ -1716,7 +1717,7 @@ body:has(.ide-route--workspace) .page-shell > * {
   gap: 18px;
   padding: 14px;
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--muted) 42%, transparent) transparent;
+  scrollbar-color: transparent transparent;
 }
 
 .sidebar-summary {
@@ -2956,6 +2957,7 @@ html[data-theme="light"] .problem-brief-codeblock__content .text-slate-200 {
 }
 
 .bottom-panel__body {
+  position: relative;
   min-height: 0;
   overflow: auto;
   display: grid;
@@ -2963,13 +2965,13 @@ html[data-theme="light"] .problem-brief-codeblock__content .text-slate-200 {
   gap: 14px;
   padding: 14px;
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--muted) 42%, transparent) transparent;
+  scrollbar-color: transparent transparent;
 }
 
 .sidebar-section::-webkit-scrollbar,
 .bottom-panel__body::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 .sidebar-section::-webkit-scrollbar-track,
@@ -2979,16 +2981,31 @@ html[data-theme="light"] .problem-brief-codeblock__content .text-slate-200 {
 
 .sidebar-section::-webkit-scrollbar-thumb,
 .bottom-panel__body::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--muted) 34%, transparent);
-  border: 3px solid transparent;
-  border-radius: 999px;
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: 3px;
   background-clip: padding-box;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.sidebar-section:hover,
+.sidebar-section:focus-within,
+.bottom-panel__body:hover,
+.bottom-panel__body:focus-within {
+  scrollbar-color: color-mix(in srgb, var(--muted) 46%, transparent) transparent;
 }
 
 .sidebar-section:hover::-webkit-scrollbar-thumb,
-.bottom-panel__body:hover::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--muted) 52%, transparent);
+.sidebar-section:focus-within::-webkit-scrollbar-thumb,
+.bottom-panel__body:hover::-webkit-scrollbar-thumb,
+.bottom-panel__body:focus-within::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--muted) 42%, transparent);
   background-clip: padding-box;
+}
+
+.sidebar-section::-webkit-scrollbar-thumb:hover,
+.bottom-panel__body::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text) 38%, transparent);
 }
 
 .output-grid {

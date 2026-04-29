@@ -4,7 +4,7 @@ import Link from "next/link";
 import { use, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Code2, Clock, Sparkles, ArrowLeft } from "lucide-react";
+import { Loader2, Code2, Clock, ArrowLeft } from "lucide-react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
@@ -12,7 +12,7 @@ import { isBackendProblemId } from "@/lib/api/sessionApi";
 import { problemApi } from "@/lib/api/problemApi";
 import { getProblemById } from "@/lib/mock-data";
 
-export default function Dev2SessionStartPage({
+export default function SessionStartPage({
   params
 }: {
   params: Promise<{ id: string }>;
@@ -59,12 +59,8 @@ export default function Dev2SessionStartPage({
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 mb-4">
               <Loader2 size={28} className="animate-spin" />
             </div>
-            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold mb-3">
-              <Sparkles size={12} strokeWidth={2.4} />
-              <span>세션 준비</span>
-            </div>
             <h1 className="text-2xl md:text-3xl font-display font-bold text-gray-900 tracking-tight mb-2">
-              풀이 환경을 준비하고 있습니다
+              세션 환경을 준비하고 있습니다
             </h1>
             <p className="text-sm text-gray-500 leading-relaxed">
               워크스페이스, 기본 파일, AI 문맥을 불러오는 중입니다.
@@ -73,7 +69,6 @@ export default function Dev2SessionStartPage({
             </p>
           </div>
 
-          {/* Problem info */}
           <div className="grid grid-cols-2 gap-3 mb-6">
             <div className="p-4 bg-gray-50 rounded-xl">
               <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">
@@ -94,7 +89,6 @@ export default function Dev2SessionStartPage({
             </div>
           </div>
 
-          {/* Progress */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-semibold text-gray-700">환경 준비 중</span>

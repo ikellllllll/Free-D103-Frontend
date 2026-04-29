@@ -64,7 +64,7 @@ export default function SessionStartPage({ params }: { params: Promise<{ id: str
       <div className="pvxstart">
         <section className="pvxstart-hero">
           <p className="pvxstart-kicker">session prepare</p>
-          <h1>{isReady ? "IDE로 이동할 준비가 끝났습니다" : "풀이 환경을 준비하고 있습니다"}</h1>
+          <h1>{isReady ? "IDE로 이동할 준비가 완료되었습니다" : "세션 환경을 준비하고 있습니다"}</h1>
           <p>
             워크스페이스, 기본 파일, AI 컨텍스트를 한 번에 구성하는 중입니다.
             준비가 끝나면 자동으로 v0 IDE 화면으로 이동합니다.
@@ -87,7 +87,7 @@ export default function SessionStartPage({ params }: { params: Promise<{ id: str
               </li>
               <li className={progress >= 55 ? "is-done" : ""}>
                 <span />
-                스타터 파일 구성
+                스텁 파일 구성
               </li>
               <li className={isReady ? "is-done" : ""}>
                 <span />
@@ -106,7 +106,7 @@ export default function SessionStartPage({ params }: { params: Promise<{ id: str
               <strong>{problem?.estimate ?? "60분"}</strong>
             </div>
             <div className="pvxstart-meta">
-              <span>풀이 언어</span>
+              <span>기본 언어</span>
               <strong>{languageLabel}</strong>
             </div>
             <div className="pvxstart-meta">
@@ -132,8 +132,7 @@ export default function SessionStartPage({ params }: { params: Promise<{ id: str
     <div className="narrow-shell session-start-shell">
       <Card className="glow-card session-start-card">
         <div className="session-start-card__head">
-          <span className="eyebrow">세션 준비</span>
-          <h1>풀이 환경을 준비하고 있습니다</h1>
+          <h1>세션 환경을 준비하고 있습니다</h1>
           <p className="muted-copy session-start-card__desc">
             워크스페이스, 기본 파일, AI 컨텍스트를 불러오는 중입니다. 준비가 끝나면 IDE로 자동 이동합니다.
           </p>
