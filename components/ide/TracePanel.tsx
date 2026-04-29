@@ -36,7 +36,11 @@ function fmtTokens(n: number) {
 
 function SpanRow({ span }: { span: AgentSpan }) {
   const [open, setOpen] = useState(false);
-  const hasChildren = span.toolCalls.length + span.llmCalls.length + span.patches.length > 0;
+  const hasChildren =
+    (span.toolCallCount ?? span.toolCalls.length) +
+      (span.llmCallCount ?? span.llmCalls.length) +
+      span.patches.length >
+    0;
 
   return (
     <div className="trace-span">
@@ -142,9 +146,12 @@ function RunCard({ run, defaultOpen }: { run: AgentRunTrace; defaultOpen?: boole
 }
 
 export function TracePanel({ sessionId }: { sessionId: string }) {
-  const { data: runs = [], isLoading } = useQuery({
+  const { data: runs = [], isLoading } = useQuery<AgentRunTrace[]>({
     queryKey: ["agentTraces", sessionId],
-    queryFn: () => (isBackendSessionId(sessionId) ? sessionApi.getAgentTraces(sessionId) : mockApi.getAgentTraces(sessionId)),
+    queryFn: async (): Promise<AgentRunTrace[]> =>
+      isBackendSessionId(sessionId)
+        ? sessionApi.getAgentTraces(sessionId)
+        : mockApi.getAgentTraces(sessionId),
     refetchInterval: 10000
   });
 

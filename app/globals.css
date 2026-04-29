@@ -1857,6 +1857,84 @@ body:has(.ide-route--workspace) .page-shell > * {
   margin-left: 4px;
 }
 
+.assistant-changes-card {
+  display: grid;
+  gap: 10px;
+}
+
+.assistant-changes__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.assistant-changes__head .muted-copy,
+.assistant-changes__summary {
+  margin: 4px 0 0;
+}
+
+.assistant-changes__list {
+  display: grid;
+  gap: 6px;
+}
+
+.assistant-change-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--ide-border) 82%, var(--accent) 18%);
+  background: color-mix(in srgb, var(--ide-surface) 88%, var(--accent-soft) 12%);
+  border-radius: 12px;
+  padding: 10px 12px;
+  text-align: left;
+  transition: border-color 140ms ease, background-color 140ms ease, transform 140ms ease;
+}
+
+.assistant-change-row:hover {
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--ide-border) 48%);
+  background: color-mix(in srgb, var(--ide-surface) 78%, var(--accent-soft) 22%);
+  transform: translateY(-1px);
+}
+
+.assistant-change-row__main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.assistant-change-row__main strong,
+.assistant-change-row__main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assistant-change-row__main small {
+  color: var(--muted);
+}
+
+.assistant-change-row__stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.assistant-change-row__add {
+  color: #22c55e;
+  font-weight: 700;
+}
+
+.assistant-change-row__del {
+  color: #ef4444;
+  font-weight: 700;
+}
+
 .file-row--active,
 .tree-row--active,
 .search-result:hover {
@@ -2097,6 +2175,10 @@ body:has(.ide-route--workspace) .page-shell > * {
 
 .tree-folder__icon[data-folder-kind="package"] {
   color: #84b6ff;
+}
+
+.tree-folder__icon[data-folder-kind="worktree"] {
+  color: #9d8cff;
 }
 
 .file-icon[data-file-kind="java"] {

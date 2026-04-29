@@ -38,6 +38,16 @@ export interface AgentSpan {
   startedAt: string;
   endedAt: string | null;
   durationMs: number | null;
+  latencyMs?: number | null;
+  interactionCount?: number;
+  toolCallCount?: number;
+  llmCallCount?: number;
+  isSelected?: boolean;
+  tokenUsage?: {
+    inputTokens: number;
+    outputTokens: number;
+  } | null;
+  primaryModel?: string | null;
   toolCalls: AgentToolCall[];
   llmCalls: AgentLlmCall[];
   patches: AgentPatch[];
@@ -47,14 +57,17 @@ export interface AgentSpan {
 
 export interface AgentRunTrace {
   agentTraceId: string;
+  problemSessionId?: string;
   status: TraceRunStatus;
   startedAt: string;
   endedAt: string | null;
   durationMs: number | null;
   outcome: string | null;
+  headline?: string | null;
   totalInputTokens: number;
   totalOutputTokens: number;
   totalCostCredits: number;
+  totalSpanCount?: number;
   summaryText: string | null;
   errorMessage: string | null;
   spans: AgentSpan[];

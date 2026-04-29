@@ -260,9 +260,12 @@ export function Dev2IdeShell({ sessionId }: { sessionId: string }) {
     [session?.problemId]
   );
   const traces = useMemo(() => session?.traces ?? [], [session?.traces]);
-  const agentTraceQuery = useQuery({
+  const agentTraceQuery = useQuery<AgentRunTrace[]>({
     queryKey: ["dev2-ide-agent-traces", sessionId],
-    queryFn: () => (isBackendSessionId(sessionId) ? sessionApi.getAgentTraces(sessionId) : mockApi.getAgentTraces(sessionId)),
+    queryFn: async (): Promise<AgentRunTrace[]> =>
+      isBackendSessionId(sessionId)
+        ? sessionApi.getAgentTraces(sessionId)
+        : mockApi.getAgentTraces(sessionId),
     enabled: activeTab === "trace" || activeRail === "trace",
     refetchInterval: (query) => {
       const runs = query.state.data ?? [];

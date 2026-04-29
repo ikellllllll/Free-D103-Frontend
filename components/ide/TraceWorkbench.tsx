@@ -363,7 +363,10 @@ function SpanList({ run, selectedSpanId, onSelect, showRunSummary = true }: {
       <div className="twb-col-section-label">SPAN 목록</div>
 
       {sortedSpans.map(span => {
-        const childCount = span.toolCalls.length + span.llmCalls.length + span.patches.length;
+        const childCount =
+          (span.toolCallCount ?? span.toolCalls.length) +
+          (span.llmCallCount ?? span.llmCalls.length) +
+          span.patches.length;
         const isSelected = selectedSpanId === span.spanId;
         return (
           <button key={span.spanId} type="button"
@@ -507,28 +510,48 @@ export function TraceWorkbench({ sessionId, onClose }: { sessionId: string; onCl
   const [page, setPage] = useState(1);
   const [selectedRunId,  setSelectedRunId]  = useState<string | null>(null);
   const [selectedSpanId, setSelectedSpanId] = useState<string | null>(null);
+  type AgentTraceListData = Awaited<ReturnType<typeof sessionApi.getAgentTraceList>>;
 
-  const { data: runs = [], isLoading } = useQuery({
-    queryKey: ["agentTraces", sessionId],
-    queryFn:  () => (isBackendSessionId(sessionId) ? sessionApi.getAgentTraces(sessionId) : mockApi.getAgentTraces(sessionId)),
+  const { data: traceList, isLoading } = useQuery<AgentTraceListData>({
+    queryKey: ["agentTraces", sessionId, page],
+    queryFn:  async (): Promise<AgentTraceListData> =>
+      isBackendSessionId(sessionId)
+        ? sessionApi.getAgentTraceList(sessionId, page, TRACE_PAGE_SIZE)
+        : mockApi.getAgentTraces(sessionId).then((runs) => ({
+            runs,
+            totalCount: runs.length,
+            page,
+            size: TRACE_PAGE_SIZE,
+            totalPages: Math.max(1, Math.ceil(runs.length / TRACE_PAGE_SIZE)),
+            hasNext: page < Math.max(1, Math.ceil(runs.length / TRACE_PAGE_SIZE))
+          })),
     staleTime: 30_000,
     refetchInterval: (query) => {
       // 완료/실패/취소된 Trace만 있으면 폴링 중단, 진행 중인 Trace가 있으면 5초 폴링
       const TERMINAL: string[] = ["COMPLETED", "FAILED", "CANCELLED"];
-      const hasActive = (query.state.data ?? []).some((r) => !TERMINAL.includes(r.status));
+      const hasActive = (query.state.data?.runs ?? []).some((r) => !TERMINAL.includes(r.status));
       return hasActive ? 5000 : false;
     }
   });
 
-  const totalPages = Math.max(1, Math.ceil(runs.length / TRACE_PAGE_SIZE));
-  const paginatedRuns = useMemo(() => {
-    const startIndex = (page - 1) * TRACE_PAGE_SIZE;
-    return runs.slice(startIndex, startIndex + TRACE_PAGE_SIZE);
-  }, [page, runs]);
+  const runs = traceList?.runs ?? [];
+  const totalPages = traceList?.totalPages ?? 1;
+  const totalRuns = traceList?.totalCount ?? runs.length;
+
+  const { data: selectedRunDetail } = useQuery<AgentRunTrace>({
+    queryKey: ["agentTraceDetail", sessionId, selectedRunId],
+    queryFn: async (): Promise<AgentRunTrace> =>
+      sessionApi.getAgentTraceDetail(sessionId, selectedRunId ?? ""),
+    enabled: isBackendSessionId(sessionId) && !!selectedRunId,
+    staleTime: 30_000
+  });
 
   const selectedRun = useMemo(
-    () => runs.find((run) => run.agentTraceId === selectedRunId) ?? null,
-    [runs, selectedRunId]
+    () =>
+      isBackendSessionId(sessionId) && selectedRunDetail && selectedRunDetail.agentTraceId === selectedRunId
+        ? selectedRunDetail
+        : runs.find((run) => run.agentTraceId === selectedRunId) ?? null,
+    [runs, selectedRunDetail, selectedRunId, sessionId]
   );
   const selectedSpan = useMemo(
     () => selectedRun?.spans.find((span) => span.spanId === selectedSpanId) ?? null,
@@ -547,6 +570,11 @@ export function TraceWorkbench({ sessionId, onClose }: { sessionId: string; onCl
     if (!selectedRun) {
       if (selectedRunId) setSelectedRunId(null);
       if (selectedSpanId) setSelectedSpanId(null);
+      return;
+    }
+    const apiSelectedSpan = selectedRunSpans.find((span) => span.isSelected);
+    if (apiSelectedSpan && apiSelectedSpan.spanId !== selectedSpanId) {
+      setSelectedSpanId(apiSelectedSpan.spanId);
       return;
     }
     const hasSelectedSpan = selectedSpanId && selectedRun.spans.some((s) => s.spanId === selectedSpanId);
@@ -608,12 +636,12 @@ export function TraceWorkbench({ sessionId, onClose }: { sessionId: string; onCl
       {/* list + drawer body */}
       <div className={`twb-stage${selectedRun ? " twb-stage--drawer-open" : ""}`}>
         <TraceList
-          runs={paginatedRuns}
+          runs={runs}
           selectedId={selectedRunId}
           isLoading={isLoading}
           page={page}
           totalPages={totalPages}
-          totalRuns={runs.length}
+          totalRuns={totalRuns}
           onPageChange={handlePageChange}
           onSelect={handleSelectRun}
         />

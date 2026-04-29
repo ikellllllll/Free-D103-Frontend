@@ -63,6 +63,84 @@ type AgentTraceListPayload =
       items?: AgentRunTrace[];
     };
 
+interface AgentTraceTokenUsageResponse {
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  totalTokens?: number | null;
+}
+
+interface AgentTraceSummaryResponse {
+  traceId: number | string;
+  problemSessionId?: number | string;
+  status?: string | null;
+  startedAt?: string | null;
+  endedAt?: string | null;
+  duration?: number | null;
+  durationMs?: number | null;
+  summary?: string | null;
+  headline?: string | null;
+  outcome?: string | null;
+  errorMessage?: string | null;
+  tokenUsage?: AgentTraceTokenUsageResponse | null;
+  totalCostCredits?: number | null;
+  totalSpanCount?: number | null;
+}
+
+interface AgentTraceListResponse {
+  problemSessionId: number;
+  totalCount: number;
+  page: number;
+  size: number;
+  totalPages: number;
+  hasNext: boolean;
+  traces: AgentTraceSummaryResponse[];
+}
+
+interface AgentTraceSpanSummaryResponse {
+  spanId: number | string;
+  sequenceNo?: number | null;
+  spanName?: string | null;
+  status?: string | null;
+  startedAt?: string | null;
+  endedAt?: string | null;
+  latencyMs?: number | null;
+  interactionCount?: number | null;
+  toolCallCount?: number | null;
+  llmCallCount?: number | null;
+  isSelected?: boolean | null;
+}
+
+interface AgentTraceSelectedSpanResponse extends AgentTraceSpanSummaryResponse {
+  tokenUsage?: AgentTraceTokenUsageResponse | null;
+  primaryModel?: string | null;
+  preview?: {
+    input?: Record<string, unknown> | null;
+    output?: Record<string, unknown> | null;
+  } | null;
+  logView?: {
+    inputJson?: Record<string, unknown> | null;
+    outputJson?: Record<string, unknown> | null;
+  } | null;
+  toolCalls?: AgentToolCall[] | null;
+  llmCalls?: AgentLlmCall[] | null;
+  patches?: AgentPatch[] | null;
+}
+
+interface AgentTraceDetailResponse {
+  trace: AgentTraceSummaryResponse;
+  spans: AgentTraceSpanSummaryResponse[];
+  selectedSpan?: AgentTraceSelectedSpanResponse | null;
+}
+
+interface AgentTraceListResult {
+  runs: AgentRunTrace[];
+  totalCount: number;
+  page: number;
+  size: number;
+  totalPages: number;
+  hasNext: boolean;
+}
+
 const EXTERNAL_SESSION_READY_DELAY_MS = 1600;
 const WORKTREE_PREFIX = ".worktree/";
 const externalFileIdBySession = new Map<string, Map<string, number>>();
@@ -261,6 +339,130 @@ const normalizeSpans = (spans: AgentSpan[] | null | undefined): AgentSpan[] =>
     outputJson: span?.outputJson ?? null
   }));
 
+const toTraceRunStatus = (value: string | null | undefined): AgentRunTrace["status"] => {
+  switch ((value ?? "").toUpperCase()) {
+    case "RUNNING":
+      return "RUNNING";
+    case "PENDING":
+      return "PENDING";
+    case "FAILED":
+      return "FAILED";
+    case "CANCELLED":
+      return "CANCELLED";
+    default:
+      return "COMPLETED";
+  }
+};
+
+const toSpanStatus = (value: string | null | undefined): AgentSpan["status"] => {
+  switch ((value ?? "").toUpperCase()) {
+    case "RUNNING":
+      return "RUNNING";
+    case "PENDING":
+      return "PENDING";
+    case "FAILED":
+      return "FAILED";
+    default:
+      return "COMPLETED";
+  }
+};
+
+const normalizeTraceSummary = (trace: AgentTraceSummaryResponse): AgentRunTrace => ({
+  agentTraceId: String(trace.traceId),
+  problemSessionId: trace.problemSessionId != null ? String(trace.problemSessionId) : undefined,
+  status: toTraceRunStatus(trace.status),
+  startedAt: trace.startedAt ?? new Date().toISOString(),
+  endedAt: trace.endedAt ?? null,
+  durationMs: trace.durationMs ?? trace.duration ?? null,
+  outcome: trace.outcome ?? null,
+  headline: trace.headline ?? null,
+  totalInputTokens: Number(trace.tokenUsage?.inputTokens ?? 0),
+  totalOutputTokens: Number(trace.tokenUsage?.outputTokens ?? 0),
+  totalCostCredits: Number(trace.totalCostCredits ?? 0),
+  totalSpanCount: Number(trace.totalSpanCount ?? 0),
+  summaryText: trace.summary ?? trace.headline ?? null,
+  errorMessage: trace.errorMessage ?? null,
+  spans: []
+});
+
+const normalizeSpanSummary = (span: AgentTraceSpanSummaryResponse): AgentSpan => ({
+  spanId: String(span.spanId),
+  parentSpanId: null,
+  spanName: String(span.spanName ?? "span"),
+  sequenceNo: Number(span.sequenceNo ?? 0),
+  status: toSpanStatus(span.status),
+  startedAt: span.startedAt ?? new Date().toISOString(),
+  endedAt: span.endedAt ?? null,
+  durationMs: span.latencyMs ?? null,
+  latencyMs: span.latencyMs ?? null,
+  interactionCount: Number(span.interactionCount ?? 0),
+  toolCallCount: Number(span.toolCallCount ?? 0),
+  llmCallCount: Number(span.llmCallCount ?? 0),
+  isSelected: Boolean(span.isSelected),
+  toolCalls: [],
+  llmCalls: [],
+  patches: [],
+  inputJson: null,
+  outputJson: null
+});
+
+const normalizeSelectedSpan = (span: AgentTraceSelectedSpanResponse): AgentSpan => ({
+  spanId: String(span.spanId),
+  parentSpanId: null,
+  spanName: String(span.spanName ?? "span"),
+  sequenceNo: Number(span.sequenceNo ?? 0),
+  status: toSpanStatus(span.status),
+  startedAt: span.startedAt ?? new Date().toISOString(),
+  endedAt: span.endedAt ?? null,
+  durationMs: span.latencyMs ?? null,
+  latencyMs: span.latencyMs ?? null,
+  interactionCount: Number(span.interactionCount ?? 0),
+  toolCallCount: Number(span.toolCallCount ?? 0),
+  llmCallCount: Number(span.llmCallCount ?? 0),
+  isSelected: true,
+  tokenUsage: {
+    inputTokens: Number(span.tokenUsage?.inputTokens ?? 0),
+    outputTokens: Number(span.tokenUsage?.outputTokens ?? 0)
+  },
+  primaryModel: span.primaryModel ?? null,
+  toolCalls: normalizeToolCalls(span.toolCalls),
+  llmCalls: normalizeLlmCalls(span.llmCalls),
+  patches: normalizePatches(span.patches),
+  inputJson: span.logView?.inputJson ?? span.preview?.input ?? null,
+  outputJson: span.logView?.outputJson ?? span.preview?.output ?? null
+});
+
+const normalizeAgentTraceListResult = (payload: AgentTraceListResponse): AgentTraceListResult => ({
+  runs: payload.traces.map(normalizeTraceSummary),
+  totalCount: Number(payload.totalCount ?? payload.traces.length),
+  page: Number(payload.page ?? 1),
+  size: Number(payload.size ?? payload.traces.length),
+  totalPages: Number(payload.totalPages ?? 1),
+  hasNext: Boolean(payload.hasNext)
+});
+
+const normalizeAgentTraceDetail = (payload: AgentTraceDetailResponse): AgentRunTrace => {
+  const run = normalizeTraceSummary(payload.trace);
+  const summarySpans = (payload.spans ?? []).map(normalizeSpanSummary);
+  const selectedSpan = payload.selectedSpan ? normalizeSelectedSpan(payload.selectedSpan) : null;
+
+  run.spans = summarySpans.map((span) =>
+    selectedSpan && span.spanId === selectedSpan.spanId
+      ? {
+          ...span,
+          ...selectedSpan
+        }
+      : span
+  );
+
+  if (selectedSpan && !run.spans.some((span) => span.spanId === selectedSpan.spanId)) {
+    run.spans.push(selectedSpan);
+  }
+
+  run.spans.sort((left, right) => left.sequenceNo - right.sequenceNo);
+  return run;
+};
+
 const extractTraceRuns = (payload: AgentTraceListPayload): AgentRunTrace[] => {
   if (Array.isArray(payload)) {
     return payload;
@@ -381,17 +583,58 @@ export const sessionApi = {
   },
 
   async getAgentTraces(sessionId: string) {
+    const result = await this.getAgentTraceList(sessionId, 1, 10);
+    await mockApi.syncExternalTraces(sessionId, toSessionTraces(result.runs));
+    return result.runs;
+  },
+
+  async getAgentTraceList(sessionId: string, page = 1, size = 10) {
     const res = await authClient.get(`api/v1/sessions/${sessionId}/traces`, {
       searchParams: {
-        page: 1,
-        size: 10
+        page,
+        size
       }
     })
-      .json<ApiResponse<AgentTraceListPayload>>();
+      .json<ApiResponse<AgentTraceListResponse | AgentTraceListPayload>>();
 
-    const runs = normalizeAgentRuns(res.data);
-    await mockApi.syncExternalTraces(sessionId, toSessionTraces(runs));
-    return runs;
+    const data = res.data;
+    if (Array.isArray(data) || "traces" in data === false && "runs" in data === false && "items" in data === false && "page" in data === false) {
+      const runs = normalizeAgentRuns(data as AgentTraceListPayload);
+      return {
+        runs,
+        totalCount: runs.length,
+        page,
+        size,
+        totalPages: Math.max(1, Math.ceil(runs.length / size)),
+        hasNext: false
+      } satisfies AgentTraceListResult;
+    }
+
+    if ("page" in data && "size" in data && "totalPages" in data && "traces" in data) {
+      return normalizeAgentTraceListResult(data as AgentTraceListResponse);
+    }
+
+    const runs = normalizeAgentRuns(data as AgentTraceListPayload);
+    return {
+      runs,
+      totalCount: runs.length,
+      page,
+      size,
+      totalPages: Math.max(1, Math.ceil(runs.length / size)),
+      hasNext: false
+    } satisfies AgentTraceListResult;
+  },
+
+  async getAgentTraceDetail(sessionId: string, traceId: string) {
+    const res = await authClient.get(`api/v1/sessions/${sessionId}/traces/${traceId}`)
+      .json<ApiResponse<AgentTraceDetailResponse | AgentRunTrace>>();
+
+    const data = res.data;
+    if ("trace" in data && "spans" in data) {
+      return normalizeAgentTraceDetail(data as AgentTraceDetailResponse);
+    }
+
+    return normalizeAgentRuns([data as AgentRunTrace])[0];
   },
 
   async saveFile(sessionId: string, input: SaveFileRequest) {
