@@ -26,7 +26,7 @@ const resolveInitialTheme = (): ThemeMode => {
   const stored = window.localStorage.getItem(STORAGE_KEY) ?? window.localStorage.getItem(LEGACY_STORAGE_KEY);
   if (stored === "light" || stored === "dark" || stored === "mono") return stored;
 
-  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  return "light";
 };
 
 export const useThemeStore = create<ThemeState>((set, get) => ({

@@ -49,6 +49,12 @@ interface CreateFileRequest {
   language?: string | null;
 }
 
+interface SaveFileRequest {
+  path: string;
+  content: string;
+  language?: string | null;
+}
+
 type AgentTraceListPayload =
   | AgentRunTrace[]
   | {
@@ -102,6 +108,18 @@ const normalizeWorktreePath = (path: string) =>
   path.startsWith(WORKTREE_PREFIX) ? path : `${WORKTREE_PREFIX}${path}`;
 const getFileName = (path: string) => path.split("/").pop() ?? path;
 const getFolderPath = (path: string) => path.split("/").slice(0, -1).join("/") || null;
+
+const resolveRememberedFileId = async (sessionId: string, path: string) => {
+  const remembered = externalFileIdBySession.get(sessionId)?.get(path);
+  if (remembered) {
+    return remembered;
+  }
+
+  const res = await authClient.get(`api/v1/sessions/${sessionId}/files`)
+    .json<ApiResponse<GetFileTreeResponse>>();
+  rememberFileIds(sessionId, res.data);
+  return externalFileIdBySession.get(sessionId)?.get(path) ?? null;
+};
 
 const buildExternalSession = (
   payload: StartSessionResponse,
@@ -374,5 +392,25 @@ export const sessionApi = {
     const runs = normalizeAgentRuns(res.data);
     await mockApi.syncExternalTraces(sessionId, toSessionTraces(runs));
     return runs;
+  },
+
+  async saveFile(sessionId: string, input: SaveFileRequest) {
+    const fileId = await resolveRememberedFileId(sessionId, input.path);
+    if (!fileId) {
+      throw new Error("저장할 파일 정보를 찾지 못했습니다.");
+    }
+
+    const language = input.language ?? toSessionFileLanguage(input.path) ?? inferLanguageFromPath(input.path);
+
+    await authClient.patch(`api/v1/sessions/${sessionId}/files/${fileId}/content`, {
+      json: { content: input.content }
+    });
+
+    await mockApi.syncExternalFileContent(sessionId, input.path, input.content, language);
+    return {
+      path: input.path,
+      content: input.content,
+      language
+    };
   }
 };

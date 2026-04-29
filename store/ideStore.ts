@@ -31,6 +31,7 @@ interface IdeState {
   files: WorkspaceFile[];
   activePath: string | null;
   unsavedPaths: string[];
+  savedContents: Record<string, string>;
   selectedCode: string;
   selectedRange: SelectionRange | null;
   editInstruction: string;
@@ -56,6 +57,7 @@ interface IdeState {
   updateFileContent: (path: string, content: string) => void;
   hydrateFileContent: (path: string, content: string, language?: string) => void;
   markSaved: (path?: string, savedAt?: string) => void;
+  discardFileChanges: (path: string) => void;
   setSelection: (code: string, range: SelectionRange | null) => void;
   setEditInstruction: (value: string) => void;
   setSuggestion: (value: AiEditSuggestion | null) => void;
@@ -81,6 +83,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   files: [],
   activePath: null,
   unsavedPaths: [],
+  savedContents: {},
   selectedCode: "",
   selectedRange: null,
   editInstruction: "예외 처리와 반환 흐름이 안전하도록 수정해줘",
@@ -101,7 +104,9 @@ export const useIdeStore = create<IdeState>((set) => ({
   setWorkspace: (files, activePath) =>
     set({
       files,
-      activePath: activePath ?? files[0]?.path ?? null
+      activePath: activePath ?? files[0]?.path ?? null,
+      unsavedPaths: [],
+      savedContents: Object.fromEntries(files.map((file) => [file.path, file.content]))
     }),
   createWorkspaceFile: (file, activate) =>
     set((state) => {
@@ -111,29 +116,56 @@ export const useIdeStore = create<IdeState>((set) => ({
 
       return {
         files: [...state.files, file],
-        activePath: activate ? file.path : state.activePath ?? file.path
+        activePath: activate ? file.path : state.activePath ?? file.path,
+        savedContents: {
+          ...state.savedContents,
+          [file.path]: file.content
+        }
       };
     }),
   renameWorkspaceFile: (fromPath, toPath) =>
-    set((state) => ({
-      files: state.files.map((file) => (file.path === fromPath ? { ...file, path: toPath } : file)),
-      activePath: state.activePath === fromPath ? toPath : state.activePath,
-      unsavedPaths: state.unsavedPaths.map((path) => (path === fromPath ? toPath : path))
-    })),
+    set((state) => {
+      const nextSavedContents = { ...state.savedContents };
+      if (fromPath in nextSavedContents) {
+        nextSavedContents[toPath] = nextSavedContents[fromPath];
+        delete nextSavedContents[fromPath];
+      }
+
+      return {
+        files: state.files.map((file) => (file.path === fromPath ? { ...file, path: toPath } : file)),
+        activePath: state.activePath === fromPath ? toPath : state.activePath,
+        unsavedPaths: state.unsavedPaths.map((path) => (path === fromPath ? toPath : path)),
+        savedContents: nextSavedContents
+      };
+    }),
   removeWorkspaceFile: (path) =>
-    set((state) => ({
-      files: state.files.filter((file) => file.path !== path),
-      activePath: state.activePath === path ? state.files.find((file) => file.path !== path)?.path ?? null : state.activePath,
-      unsavedPaths: state.unsavedPaths.filter((item) => item !== path)
-    })),
+    set((state) => {
+      const nextSavedContents = { ...state.savedContents };
+      delete nextSavedContents[path];
+
+      return {
+        files: state.files.filter((file) => file.path !== path),
+        activePath: state.activePath === path ? state.files.find((file) => file.path !== path)?.path ?? null : state.activePath,
+        unsavedPaths: state.unsavedPaths.filter((item) => item !== path),
+        savedContents: nextSavedContents
+      };
+    }),
   setActivePath: (path) => set({ activePath: path }),
   updateFileContent: (path, content) =>
-    set((state) => ({
-      files: state.files.map((file) => (file.path === path ? { ...file, content } : file)),
-      unsavedPaths: state.unsavedPaths.includes(path)
-        ? state.unsavedPaths
-        : [...state.unsavedPaths, path]
-    })),
+    set((state) => {
+      const savedContent = state.savedContents[path] ?? "";
+      const nextUnsavedPaths =
+        content === savedContent
+          ? state.unsavedPaths.filter((item) => item !== path)
+          : state.unsavedPaths.includes(path)
+            ? state.unsavedPaths
+            : [...state.unsavedPaths, path];
+
+      return {
+        files: state.files.map((file) => (file.path === path ? { ...file, content } : file)),
+        unsavedPaths: nextUnsavedPaths
+      };
+    }),
   hydrateFileContent: (path, content, language) =>
     set((state) => ({
       files: state.files.map((file) =>
@@ -144,13 +176,43 @@ export const useIdeStore = create<IdeState>((set) => ({
               language: language ?? file.language
             }
           : file
-      )
+      ),
+      savedContents: {
+        ...state.savedContents,
+        [path]: content
+      },
+      unsavedPaths: state.unsavedPaths.filter((item) => item !== path)
     })),
   markSaved: (path, savedAt) =>
-    set((state) => ({
-      unsavedPaths: path ? state.unsavedPaths.filter((item) => item !== path) : [],
-      lastSavedAt: savedAt ?? new Date().toISOString()
-    })),
+    set((state) => {
+      const targetPaths = path ? [path] : state.unsavedPaths;
+      const nextSavedContents = { ...state.savedContents };
+
+      targetPaths.forEach((targetPath) => {
+        const file = state.files.find((item) => item.path === targetPath);
+        if (file) {
+          nextSavedContents[targetPath] = file.content;
+        }
+      });
+
+      return {
+        unsavedPaths: path ? state.unsavedPaths.filter((item) => item !== path) : [],
+        savedContents: nextSavedContents,
+        lastSavedAt: savedAt ?? new Date().toISOString()
+      };
+    }),
+  discardFileChanges: (path) =>
+    set((state) => {
+      const savedContent = state.savedContents[path];
+      if (savedContent === undefined) {
+        return state;
+      }
+
+      return {
+        files: state.files.map((file) => (file.path === path ? { ...file, content: savedContent } : file)),
+        unsavedPaths: state.unsavedPaths.filter((item) => item !== path)
+      };
+    }),
   setSelection: (code, range) =>
     set((state) => {
       const nextAiMode = code ? "edit" : state.aiMode;
@@ -194,6 +256,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       files: [],
       activePath: null,
       unsavedPaths: [],
+      savedContents: {},
       selectedCode: "",
       selectedRange: null,
       editInstruction: "예외 처리와 반환 흐름이 안전하도록 수정해줘",

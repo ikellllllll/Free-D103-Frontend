@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Sun, Moon, Copy, Check, LogOut } from "lucide-react";
+import { Sun, Moon, Copy, Check, LogOut, Play, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { DragEvent as ReactDragEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
@@ -16,7 +16,6 @@ import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { TracePanel } from "@/components/ide/TracePanel";
 import { TraceWorkbench } from "@/components/ide/TraceWorkbench";
 import { useAiChat } from "@/hooks/useAiChat";
-import { useAutoSave } from "@/hooks/useAutoSave";
 import { mockApi } from "@/lib/api/mockApi";
 import { problemApi } from "@/lib/api/problemApi";
 import { isBackendProblemId, isBackendSessionId, sessionApi } from "@/lib/api/sessionApi";
@@ -145,6 +144,13 @@ interface DiffWorkspaceTab {
 }
 
 type WorkspaceTab = FileWorkspaceTab | DiffWorkspaceTab;
+type SavePromptAction =
+  | { type: "close-tab"; tabId: string; path: string }
+  | { type: "run" }
+  | { type: "navigate"; href: string };
+
+const AUTO_SAVE_INTERVAL_MS = 30_000;
+const AUTO_SAVE_STORAGE_KEY = "aig:ide-auto-save";
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const reorderItems = (items: string[], fromId: string, toId: string, position: "before" | "after") => {
@@ -672,7 +678,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const createWorkspaceFile = useIdeStore((state) => state.createWorkspaceFile);
   const renameWorkspaceFile = useIdeStore((state) => state.renameWorkspaceFile);
   const removeWorkspaceFile = useIdeStore((state) => state.removeWorkspaceFile);
+  const discardFileChanges = useIdeStore((state) => state.discardFileChanges);
   const hydrateFileContent = useIdeStore((state) => state.hydrateFileContent);
+  const markSaved = useIdeStore((state) => state.markSaved);
   const updateFileContent = useIdeStore((state) => state.updateFileContent);
   const selectedCode = useIdeStore((state) => state.selectedCode);
   const selectedRange = useIdeStore((state) => state.selectedRange);
@@ -745,6 +753,20 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     project: true
   });
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(() => new Set());
+  const [savePromptAction, setSavePromptAction] = useState<SavePromptAction | null>(null);
+  const [savePromptOpen, setSavePromptOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    try {
+      return window.localStorage.getItem(AUTO_SAVE_STORAGE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
   const isV0 = isV0ThemeTone(themeTone);
 
   const { data: session, isLoading } = useQuery({
@@ -862,7 +884,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   }, []);
 
   const { messages, streaming, requestCount, loadMessages, send } = useAiChat(sessionId);
-  useAutoSave(sessionId);
 
   useEffect(() => {
     const syncViewport = () => {
@@ -1396,8 +1417,19 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         hour12: false
       })}`
     : "자동 저장 대기";
+  const savePromptTitle =
+    savePromptAction?.type === "close-tab"
+      ? `${getFileName(savePromptAction.path)}을(를) 저장할까요?`
+      : savePromptAction?.type === "navigate"
+        ? "페이지를 이동하기 전에 저장할까요?"
+        : "실행 전에 저장할까요?";
+  const savePromptDescription =
+    savePromptAction?.type === "close-tab"
+      ? "저장하지 않으면 이 파일의 마지막 저장 이후 변경 내용이 사라집니다."
+      : savePromptAction?.type === "navigate"
+        ? `${unsavedPaths.length}개의 저장되지 않은 파일이 있습니다. 저장하지 않으면 변경 내용이 사라질 수 있습니다.`
+        : `${unsavedPaths.length}개의 저장되지 않은 파일이 있습니다. 저장 후 실행하면 현재 수정사항으로 실행됩니다.`;
   const solveElapsedLabel = formatSolveElapsed(solveNow - toTimestamp(session?.createdAt));
-  const solveTargetLabel = problem?.estimate ? `목표 ${problem.estimate}` : "목표 미정";
   const showEmptyEditor = activeWorkbenchTab === "code" && openTabs.length === 0;
   const showBottomPanel = bottomPanelOpen;
 
@@ -1560,6 +1592,109 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const refreshSession = () => {
     void queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
   };
+
+  const hasDirtyDescendant = useCallback(
+    (path: string | null) => {
+      if (!path) {
+        return false;
+      }
+
+      return unsavedPaths.some((item) => item === path || item.startsWith(`${path}/`));
+    },
+    [unsavedPaths]
+  );
+
+  const closeTabImmediate = useCallback(
+    (tabId: string) => {
+      setOpenTabPaths((state) => {
+        const currentIndex = state.indexOf(tabId);
+        const next = state.filter((item) => item !== tabId);
+
+        if (activeTabId === tabId) {
+          const fallback = next[currentIndex] ?? next[currentIndex - 1] ?? next[0] ?? null;
+
+          setActiveTabId(fallback);
+          setActiveWorkbenchTab("code");
+
+          if (!fallback) {
+            setSelection("", null);
+            setSuggestion(null);
+          }
+        }
+
+        return next;
+      });
+    },
+    [activeTabId, setSelection, setSuggestion]
+  );
+
+  const savePaths = useCallback(
+    async (paths: string[]) => {
+      const uniquePaths = [...new Set(paths.filter(Boolean))];
+      if (!uniquePaths.length) {
+        return true;
+      }
+
+      const targetFiles = uniquePaths
+        .map((path) => files.find((file) => file.path === path))
+        .filter((file): file is WorkspaceFile => Boolean(file));
+
+      if (!targetFiles.length) {
+        return true;
+      }
+
+      setSaving(true);
+      try {
+        await Promise.all(
+          targetFiles.map((file) =>
+            isBackendSessionId(sessionId)
+              ? sessionApi.saveFile(sessionId, {
+                  path: file.path,
+                  content: file.content,
+                  language: file.language
+                })
+              : mockApi.saveFile(sessionId, file.path, file.content)
+          )
+        );
+        targetFiles.forEach((file) => {
+          markSaved(file.path, new Date().toISOString());
+        });
+        refreshSession();
+        return true;
+      } catch (error) {
+        addToast(error instanceof Error ? error.message : "저장에 실패했습니다.", "error");
+        return false;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [addToast, files, markSaved, sessionId]
+  );
+
+  const saveActiveFile = useCallback(async () => {
+    if (!activeFile || activeTab?.kind !== "file") {
+      return false;
+    }
+
+    return savePaths([activeFile.path]);
+  }, [activeFile, activeTab?.kind, savePaths]);
+
+  const saveAllDirtyFiles = useCallback(async () => {
+    return savePaths(unsavedPaths);
+  }, [savePaths, unsavedPaths]);
+
+  const executeRun = useCallback(async () => {
+    setRunLoading(true);
+    try {
+      const result = await mockApi.runCode(sessionId);
+      setRunResult(result);
+      refreshSession();
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : "실행에 실패했습니다.", "error");
+    } finally {
+      setRunLoading(false);
+    }
+  }, [addToast, sessionId, setRunResult]);
 
 
   const toggleExplorerSection = (key: ExplorerSectionKey) => {
@@ -1845,24 +1980,18 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   );
 
   const handleCloseFileTab = (tabId: string) => {
-    setOpenTabPaths((state) => {
-      const currentIndex = state.indexOf(tabId);
-      const next = state.filter((item) => item !== tabId);
+    const targetTab = openTabs.find((tab) => tab.id === tabId);
+    if (!targetTab) {
+      return;
+    }
 
-      if (activeTabId === tabId) {
-        const fallback = next[currentIndex] ?? next[currentIndex - 1] ?? next[0] ?? null;
+    if (targetTab.kind === "file" && unsavedPaths.includes(targetTab.path)) {
+      setSavePromptAction({ type: "close-tab", tabId, path: targetTab.path });
+      setSavePromptOpen(true);
+      return;
+    }
 
-        setActiveTabId(fallback);
-        setActiveWorkbenchTab("code");
-
-        if (!fallback) {
-          setSelection("", null);
-          setSuggestion(null);
-        }
-      }
-
-      return next;
-    });
+    closeTabImmediate(tabId);
   };
 
   const clearTabDragState = useCallback(() => {
@@ -1973,17 +2102,188 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   };
 
   const handleRun = async () => {
-    setRunLoading(true);
-    try {
-      const result = await mockApi.runCode(sessionId);
-      setRunResult(result);
-      refreshSession();
-    } catch (error) {
-      addToast(error instanceof Error ? error.message : "실행에 실패했습니다.", "error");
-    } finally {
-      setRunLoading(false);
+    if (unsavedPaths.length) {
+      setSavePromptAction({ type: "run" });
+      setSavePromptOpen(true);
+      return;
     }
+
+    await executeRun();
   };
+
+  const handleNavigateRequest = useCallback(
+    (href: string) => {
+      if (unsavedPaths.length) {
+        setSavePromptAction({ type: "navigate", href });
+        setSavePromptOpen(true);
+        return;
+      }
+
+      router.push(href);
+    },
+    [router, unsavedPaths.length]
+  );
+
+  const handleSavePromptCancel = useCallback(() => {
+    if (saving) {
+      return;
+    }
+
+    setSavePromptOpen(false);
+    setSavePromptAction(null);
+  }, [saving]);
+
+  const handleSavePromptDiscard = useCallback(async () => {
+    if (!savePromptAction || saving) {
+      return;
+    }
+
+    if (savePromptAction.type === "close-tab") {
+      discardFileChanges(savePromptAction.path);
+      closeTabImmediate(savePromptAction.tabId);
+    } else if (savePromptAction.type === "navigate") {
+      router.push(savePromptAction.href);
+    } else {
+      await executeRun();
+    }
+
+    setSavePromptOpen(false);
+    setSavePromptAction(null);
+  }, [closeTabImmediate, discardFileChanges, executeRun, router, savePromptAction, saving]);
+
+  const handleSavePromptSave = useCallback(async () => {
+    if (!savePromptAction || saving) {
+      return;
+    }
+
+    const pathsToSave = savePromptAction.type === "close-tab" ? [savePromptAction.path] : [...unsavedPaths];
+    const didSave = await savePaths(pathsToSave);
+    if (!didSave) {
+      return;
+    }
+
+    if (savePromptAction.type === "close-tab") {
+      closeTabImmediate(savePromptAction.tabId);
+    } else if (savePromptAction.type === "navigate") {
+      router.push(savePromptAction.href);
+    } else {
+      await executeRun();
+    }
+
+    setSavePromptOpen(false);
+    setSavePromptAction(null);
+  }, [closeTabImmediate, executeRun, router, savePaths, savePromptAction, saving, unsavedPaths]);
+
+  useEffect(() => {
+    const handleWindowKeydown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        void saveAllDirtyFiles();
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        void saveActiveFile();
+      }
+    };
+
+    window.addEventListener("keydown", handleWindowKeydown);
+    return () => window.removeEventListener("keydown", handleWindowKeydown);
+  }, [saveActiveFile, saveAllDirtyFiles]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(AUTO_SAVE_STORAGE_KEY, autoSaveEnabled ? "1" : "0");
+    } catch {
+      // noop
+    }
+  }, [autoSaveEnabled]);
+
+  useEffect(() => {
+    if (!autoSaveEnabled) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      if (!unsavedPaths.length || saving) {
+        return;
+      }
+
+      void saveAllDirtyFiles();
+    }, AUTO_SAVE_INTERVAL_MS);
+
+    return () => window.clearInterval(timer);
+  }, [autoSaveEnabled, saveAllDirtyFiles, saving, unsavedPaths.length]);
+
+  useEffect(() => {
+    const handleDocumentClick = (event: MouseEvent) => {
+      if (
+        !unsavedPaths.length ||
+        savePromptOpen ||
+        saving ||
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      const anchor = target.closest("a[href]");
+      if (!(anchor instanceof HTMLAnchorElement)) {
+        return;
+      }
+
+      if (anchor.target === "_blank" || anchor.hasAttribute("download")) {
+        return;
+      }
+
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("#")) {
+        return;
+      }
+
+      const url = new URL(anchor.href, window.location.href);
+      if (url.origin !== window.location.origin) {
+        return;
+      }
+
+      const nextHref = `${url.pathname}${url.search}${url.hash}`;
+      const currentHref = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      if (nextHref === currentHref) {
+        return;
+      }
+
+      event.preventDefault();
+      setSavePromptAction({ type: "navigate", href: nextHref });
+      setSavePromptOpen(true);
+    };
+
+    document.addEventListener("click", handleDocumentClick, true);
+    return () => document.removeEventListener("click", handleDocumentClick, true);
+  }, [savePromptOpen, saving, unsavedPaths.length]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!unsavedPaths.length) {
+        return;
+      }
+
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [unsavedPaths.length]);
 
   const handleTest = async () => {
     setTestLoading(true);
@@ -2067,6 +2367,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         const isContextTarget = explorerContextMenu?.targetKind === "folder" && explorerContextMenu.targetPath === node.path;
         const isRenameTarget = explorerRenameDraft?.targetKind === "folder" && explorerRenameDraft.targetPath === node.path;
         const isDropTarget = folderDropTargetPath === node.path;
+        const isDirtyFolder = collapsed && hasDirtyDescendant(node.path);
         return [
           <div key={node.key} className={"tree-branch" + (collapsed ? " tree-branch--closed" : " tree-branch--open")}>
             <button
@@ -2129,7 +2430,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   onClick={(event) => event.stopPropagation()}
                 />
               ) : (
-                <span className="tree-row__folder">{node.name}</span>
+                <>
+                  <span className={isDirtyFolder ? "tree-row__folder tree-row__folder--dirty" : "tree-row__folder"}>{node.name}</span>
+                  {isDirtyFolder ? <span className="file-row__dot file-row__dot--folder" /> : null}
+                </>
               )}
             </button>
             {!collapsed ? (
@@ -2231,6 +2535,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       const fileIcon = getFileIconSpec(file);
       const isContextTarget = explorerContextMenu?.targetKind === "file" && explorerContextMenu.targetPath === file.path;
       const isRenameTarget = explorerRenameDraft?.targetKind === "file" && explorerRenameDraft.targetPath === file.path;
+      const isDirtyFile = unsavedPaths.includes(file.path);
       return [
         <button
           key={node.key}
@@ -2288,10 +2593,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                 onClick={(event) => event.stopPropagation()}
               />
             ) : (
-              <span className="tree-row__label">{node.name}</span>
+              <span className={isDirtyFile ? "tree-row__label tree-row__label--dirty" : "tree-row__label"}>{node.name}</span>
             )}
           </span>
-          {unsavedPaths.includes(file.path) ? <span className="file-row__dot" /> : null}
+          {isDirtyFile ? <span className="file-row__dot" /> : null}
         </button>
       ];
     });
@@ -2577,8 +2882,34 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             </div>
 
             <div className="problem-card__actions">
-              <button type="button" className="ide-command-button" onClick={handleRun} disabled={runLoading}>
-                {runLoading ? "실행 중..." : "실행"}
+              <button
+                type="button"
+                className={autoSaveEnabled ? "ide-command-button ide-command-button--toggle-active" : "ide-command-button"}
+                onClick={() => setAutoSaveEnabled((state) => !state)}
+                aria-pressed={autoSaveEnabled}
+                title={autoSaveEnabled ? "자동 저장 끄기" : "자동 저장 켜기"}
+              >
+                Auto
+              </button>
+              <button
+                type="button"
+                className="ide-command-button"
+                onClick={() => void saveAllDirtyFiles()}
+                disabled={!dirtyCount || saving}
+                aria-label="모두 저장"
+                title="모두 저장"
+              >
+                <Save size={13} strokeWidth={2} />
+              </button>
+              <button
+                type="button"
+                className="ide-command-button"
+                onClick={handleRun}
+                disabled={runLoading}
+                aria-label="실행"
+                title="실행"
+              >
+                <Play size={13} strokeWidth={2} />
               </button>
               <button type="button" className="ide-command-button" onClick={handleTest} disabled={testLoading}>
                 {testLoading ? "테스트 중..." : "테스트"}
@@ -2594,10 +2925,11 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               <button
                 type="button"
                 className="ide-command-button ide-command-button--danger"
-                onClick={() => router.push(withPrefix("/problems"))}
+                onClick={() => handleNavigateRequest(withPrefix("/problems"))}
+                aria-label="종료"
+                title="종료"
               >
                 <LogOut size={13} strokeWidth={2} />
-                종료
               </button>
             </div>
           </div>
@@ -2767,25 +3099,45 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
       <div className="editor-tabbar__row editor-tabbar__row--meta">
         <div className="editor-tabbar__context">
-          <span className="editor-tabbar__meta editor-tabbar__meta--problem">{problem?.title ?? "문제 풀이"}</span>
           <span className="editor-tabbar__metric editor-tabbar__metric--time">풀이 {solveElapsedLabel}</span>
-          <span className="editor-tabbar__metric">{solveTargetLabel}</span>
           <span className="editor-tabbar__meta">{lastSavedLabel}</span>
         </div>
 
         <div className="editor-tabbar__actions">
-          {session?.language && (
-            <LangIcon language={session.language} size={13} showLabel className="ide-lang-badge" />
-          )}
-
           {session?.aiModel && session.aiModel !== "aig-default" && (
             <span className="ide-model-badge">{session.aiModel}</span>
           )}
 
           <span className="editor-tabbar__divider" />
 
-          <button type="button" className="ide-command-button" onClick={handleRun} disabled={runLoading}>
-            {runLoading ? "실행 중..." : "실행"}
+          <button
+            type="button"
+            className={autoSaveEnabled ? "ide-command-button ide-command-button--toggle-active" : "ide-command-button"}
+            onClick={() => setAutoSaveEnabled((state) => !state)}
+            aria-pressed={autoSaveEnabled}
+            title={autoSaveEnabled ? "자동 저장 끄기" : "자동 저장 켜기"}
+          >
+            Auto
+          </button>
+          <button
+            type="button"
+            className="ide-command-button"
+            onClick={() => void saveAllDirtyFiles()}
+            disabled={!dirtyCount || saving}
+            aria-label="모두 저장"
+            title="모두 저장"
+          >
+            <Save size={13} strokeWidth={2} />
+          </button>
+          <button
+            type="button"
+            className="ide-command-button"
+            onClick={handleRun}
+            disabled={runLoading}
+            aria-label="실행"
+            title="실행"
+          >
+            <Play size={13} strokeWidth={2} />
           </button>
           <button type="button" className="ide-command-button" onClick={handleTest} disabled={testLoading}>
             {testLoading ? "테스트 중..." : "테스트"}
@@ -2801,10 +3153,11 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           <button
             type="button"
             className="ide-command-button ide-command-button--danger"
-            onClick={() => router.push(withPrefix("/problems"))}
+            onClick={() => handleNavigateRequest(withPrefix("/problems"))}
+            aria-label="종료"
+            title="종료"
           >
             <LogOut size={13} strokeWidth={2} />
-            종료
           </button>
         </div>
       </div>
@@ -3238,6 +3591,44 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           </>
         )}
       </section>
+      {savePromptOpen && savePromptAction ? (
+        <div className="ide-save-modal-backdrop" role="presentation" onClick={handleSavePromptCancel}>
+          <div
+            className="ide-save-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ide-save-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="ide-save-modal__head">
+              <strong id="ide-save-modal-title">{savePromptTitle}</strong>
+              <span>{savePromptDescription}</span>
+            </div>
+            <div className="ide-save-modal__actions">
+              <button type="button" className="button" onClick={handleSavePromptCancel} disabled={saving}>
+                취소
+              </button>
+              <button type="button" className="button" onClick={() => void handleSavePromptDiscard()} disabled={saving}>
+                저장 안 함
+              </button>
+              <button
+                type="button"
+                className="button button--primary"
+                onClick={() => void handleSavePromptSave()}
+                disabled={saving}
+              >
+                {saving
+                  ? "저장 중..."
+                  : savePromptAction.type === "run"
+                    ? "저장 후 실행"
+                    : savePromptAction.type === "navigate"
+                      ? "저장 후 이동"
+                      : "저장"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

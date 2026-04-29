@@ -1851,6 +1851,12 @@ body:has(.ide-route--workspace) .page-shell > * {
   background: var(--accent);
 }
 
+.file-row__dot--folder {
+  width: 7px;
+  height: 7px;
+  margin-left: 4px;
+}
+
 .file-row--active,
 .tree-row--active,
 .search-result:hover {
@@ -1877,6 +1883,12 @@ body:has(.ide-route--workspace) .page-shell > * {
   font-size: 0.66rem;
   font-family: var(--font-mono);
   letter-spacing: 0.02em;
+}
+
+.tree-row__label--dirty,
+.tree-row__folder--dirty {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .sidebar-callout,
@@ -2281,6 +2293,12 @@ body:has(.ide-route--workspace) .page-shell > * {
 .ide-command-button--primary {
   border-color: rgba(217, 119, 87, 0.32);
   background: var(--accent-dim);
+}
+
+.ide-command-button--toggle-active {
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--ide-border));
+  background: color-mix(in srgb, var(--accent) 16%, var(--ide-pill-bg));
+  color: var(--text);
 }
 
 .ide-command-button--danger {
@@ -3006,6 +3024,53 @@ html[data-theme="light"] .problem-brief-codeblock__content .text-slate-200 {
 .sidebar-section::-webkit-scrollbar-thumb:hover,
 .bottom-panel__body::-webkit-scrollbar-thumb:hover {
   background: color-mix(in srgb, var(--text) 38%, transparent);
+}
+
+.ide-save-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.22);
+  backdrop-filter: blur(4px);
+}
+
+.ide-save-modal {
+  width: min(420px, calc(100vw - 32px));
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  border-radius: 14px;
+  border: 1px solid var(--ide-border);
+  background: var(--panel);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.ide-save-modal__head {
+  display: grid;
+  gap: 6px;
+}
+
+.ide-save-modal__head strong {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.ide-save-modal__head span {
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.ide-save-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .output-grid {
