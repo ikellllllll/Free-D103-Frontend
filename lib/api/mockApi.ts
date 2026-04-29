@@ -760,7 +760,7 @@ export const mockApi = {
       totalInputTokens: 9840,
       totalOutputTokens: 2610,
       totalCostCredits: 124,
-      summaryText: "TodoService의 Optional.get() 패턴을 orElseThrow()로 교체하고 예외 응답 코드를 표준화했습니다.",
+      summaryText: "UserResponse에 active 필드를 추가하고 JSON 응답 키를 isActive로 맞추도록 정리했습니다.",
       errorMessage: null,
       spans: [
         {
@@ -773,15 +773,14 @@ export const mockApi = {
           endedAt: minsAgo(44),
           durationMs: 3200,
           toolCalls: [
-            { toolCallId: "tc-1", toolName: "read_file", argsJson: { path: "src/TodoService.java" }, durationMs: 120, status: "COMPLETED" as const },
-            { toolCallId: "tc-2", toolName: "read_file", argsJson: { path: "src/TodoRepository.java" }, durationMs: 95, status: "COMPLETED" as const }
+            { toolCallId: "tc-1", toolName: "read_file", argsJson: { path: "starter/src/main/java/com/example/starter/dto/UserResponse.java" }, durationMs: 120, status: "COMPLETED" as const }
           ],
           llmCalls: [
             { llmCallId: "llm-1", vendor: "CLAUDE" as const, modelName: "claude-sonnet-4-6", inputTokens: 3200, outputTokens: 480, latencyMs: 1840, finishReason: "end_turn", status: "COMPLETED" as const }
           ],
           patches: [],
-          inputJson: { task: "Analyze TodoService and plan refactoring strategy", files: ["src/TodoService.java", "src/TodoRepository.java"], goal: "Replace Optional.get() with orElseThrow() pattern" },
-          outputJson: { plan: ["1. Replace Optional.get() in getTodoById", "2. Replace in updateTodo", "3. Create TodoNotFoundException"], estimatedChanges: 2, confidence: 0.95 }
+          inputJson: { task: "Analyze UserResponse DTO and extend it for active status response", files: ["starter/src/main/java/com/example/starter/dto/UserResponse.java"], goal: "Expose active state as isActive in the response payload" },
+          outputJson: { plan: ["1. Inject UserService into UserController", "2. Delegate user loading to UserService", "3. Sort UserResponse by name before returning"], estimatedChanges: 2, confidence: 0.95 }
         },
         {
           spanId: "span-1-2",
@@ -793,18 +792,21 @@ export const mockApi = {
           endedAt: minsAgo(43),
           durationMs: 6700,
           toolCalls: [
-            { toolCallId: "tc-3", toolName: "write_file", argsJson: { path: "src/TodoService.java" }, durationMs: 88, status: "COMPLETED" as const },
+            { toolCallId: "tc-3", toolName: "write_file", argsJson: { path: "starter/src/main/java/com/example/starter/dto/UserResponse.java" }, durationMs: 88, status: "COMPLETED" as const },
             { toolCallId: "tc-4", toolName: "bash", argsJson: { cmd: "./gradlew compileJava" }, durationMs: 3200, status: "COMPLETED" as const }
           ],
           llmCalls: [
             { llmCallId: "llm-2", vendor: "CLAUDE" as const, modelName: "claude-sonnet-4-6", inputTokens: 4800, outputTokens: 1640, latencyMs: 2100, finishReason: "end_turn", status: "COMPLETED" as const }
           ],
           patches: [
-            { patchId: "patch-1", filePath: "src/TodoService.java", additions: 14, deletions: 6 },
-            { patchId: "patch-2", filePath: "src/exception/TodoNotFoundException.java", additions: 18, deletions: 0 }
+            { patchId: "patch-1", filePath: "starter/src/main/java/com/example/starter/dto/UserResponse.java", additions: 6, deletions: 1 },
+            { patchId: "patch-2", filePath: "starter/src/main/java/com/example/starter/controller/UserController.java", additions: 9, deletions: 3 },
+            { patchId: "patch-3", filePath: "starter/src/main/java/com/example/starter/service/UserService.java", additions: 12, deletions: 1 },
+            { patchId: "patch-4", filePath: "starter/src/main/java/com/example/starter/entity/User.java", additions: 4, deletions: 0 },
+            { patchId: "patch-5", filePath: "starter/src/main/java/com/example/starter/repository/UserRepository.java", additions: 5, deletions: 0 }
           ],
-          inputJson: { plan: ["Replace Optional.get() in getTodoById", "Create TodoNotFoundException"], currentContent: "public Todo getTodoById(Long id) {\n  return todoRepository.findById(id).get();\n}" },
-          outputJson: { status: "success", filesModified: ["src/TodoService.java", "src/exception/TodoNotFoundException.java"], compilationResult: "BUILD SUCCESS", patchSummary: "+14 -6 lines" }
+          inputJson: { plan: ["Add active field to UserResponse", "Expose the field as isActive with JsonProperty"], currentContent: "public record UserResponse (Long id, String name, String email) {\n}" },
+          outputJson: { status: "success", filesModified: ["starter/src/main/java/com/example/starter/dto/UserResponse.java"], compilationResult: "BUILD SUCCESS", patchSummary: "+6 -1 lines" }
         },
         {
           spanId: "span-1-3",
@@ -838,7 +840,7 @@ export const mockApi = {
       totalOutputTokens: 620,
       totalCostCredits: 38,
       summaryText: null,
-      errorMessage: "컴파일 오류: cannot find symbol — TodoNotFoundException",
+      errorMessage: "컴파일 오류: cannot find symbol — UserService",
       spans: [
         {
           spanId: "span-2-1",
@@ -850,14 +852,14 @@ export const mockApi = {
           endedAt: minsAgo(59),
           durationMs: 2800,
           toolCalls: [
-            { toolCallId: "tc-6", toolName: "read_file", argsJson: { path: "src/TodoService.java" }, durationMs: 110, status: "COMPLETED" as const }
+            { toolCallId: "tc-6", toolName: "read_file", argsJson: { path: "starter/src/main/java/com/example/starter/dto/UserResponse.java" }, durationMs: 110, status: "COMPLETED" as const }
           ],
           llmCalls: [
             { llmCallId: "llm-3", vendor: "CLAUDE" as const, modelName: "claude-sonnet-4-6", inputTokens: 3120, outputTokens: 620, latencyMs: 1600, finishReason: "end_turn", status: "COMPLETED" as const }
           ],
           patches: [],
-          inputJson: { task: "Analyze TodoService and plan refactoring strategy", files: ["src/TodoService.java"], goal: "Replace Optional.get() with orElseThrow() pattern" },
-          outputJson: { plan: ["Replace Optional.get() in getTodoById", "Create TodoNotFoundException"], estimatedChanges: 2, confidence: 0.88 }
+          inputJson: { task: "Analyze UserResponse DTO and add an active field", files: ["starter/src/main/java/com/example/starter/dto/UserResponse.java"], goal: "Return active state using a record field" },
+          outputJson: { plan: ["Add active field", "Annotate the field with JsonProperty"], estimatedChanges: 1, confidence: 0.88 }
         },
         {
           spanId: "span-2-2",
@@ -869,13 +871,13 @@ export const mockApi = {
           endedAt: minsAgo(58),
           durationMs: 4200,
           toolCalls: [
-            { toolCallId: "tc-7", toolName: "write_file", argsJson: { path: "src/TodoService.java" }, durationMs: 92, status: "COMPLETED" as const },
+            { toolCallId: "tc-7", toolName: "write_file", argsJson: { path: "starter/src/main/java/com/example/starter/dto/UserResponse.java" }, durationMs: 92, status: "COMPLETED" as const },
             { toolCallId: "tc-8", toolName: "bash", argsJson: { cmd: "./gradlew compileJava" }, durationMs: 3800, status: "FAILED" as const }
           ],
           llmCalls: [],
           patches: [],
-          inputJson: { plan: ["Replace Optional.get() in getTodoById"], currentContent: "public Todo getTodoById(Long id) {\n  return todoRepository.findById(id).get();\n}" },
-          outputJson: { status: "FAILED", error: "cannot find symbol — TodoNotFoundException", exitCode: 1, buildOutput: "TodoService.java:24: error: cannot find symbol\n  throw new TodoNotFoundException(id);\n              ^" }
+          inputJson: { plan: ["Add active field to UserResponse"], currentContent: "public record UserResponse (Long id, String name, String email) {\n}" },
+          outputJson: { status: "FAILED", error: "cannot find symbol — JsonProperty", exitCode: 1, buildOutput: "UserResponse.java:3: error: package com.fasterxml.jackson.annotation does not exist\nimport com.fasterxml.jackson.annotation.JsonProperty;\n                                       ^" }
         }
       ]
     };

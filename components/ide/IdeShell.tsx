@@ -23,6 +23,7 @@ import { isBackendProblemId, isBackendSessionId, sessionApi } from "@/lib/api/se
 import { getProblemById } from "@/lib/mock-data";
 import type { TraceEvent } from "@/lib/types/ai";
 import type { WorkspaceFile } from "@/lib/types/session";
+import type { AgentPatch, AgentRunTrace } from "@/lib/types/trace";
 import type { BottomPanelTab, SelectionRange, SidebarView } from "@/store/ideStore";
 import { useIdeStore } from "@/store/ideStore";
 import { useThemeStore } from "@/store/themeStore";
@@ -103,6 +104,35 @@ interface TreeNode {
 interface ExplorerFile extends WorkspaceFile {
   isVirtual?: boolean;
   badge?: string;
+}
+
+interface AgentPatchPreview {
+  patchId: string;
+  filePath: string;
+  worktreePath: string;
+  additions: number;
+  deletions: number;
+  summary: string | null;
+  sourceFile?: WorkspaceFile;
+  previewFile: ExplorerFile;
+}
+
+interface MockDiffFileDetail {
+  fileId: number;
+  path: string;
+  name: string;
+  language: string;
+  content: string;
+  updatedAt?: string;
+  originType?: string;
+  presenceStatus?: string;
+}
+
+interface MockAgentDiffPreset {
+  source?: MockDiffFileDetail;
+  worktree?: MockDiffFileDetail;
+  sourceContent?: string;
+  modifiedContent?: string;
 }
 
 interface ExplorerContextMenuState {
@@ -204,10 +234,249 @@ const getFileExtension = (file: Pick<WorkspaceFile, "path" | "language">) => {
   const extension = name.includes(".") ? name.split(".").pop()?.toLowerCase() : "";
   return extension || file.language.toLowerCase();
 };
+
+const MOCK_AGENT_DIFF_PRESETS: Record<string, MockAgentDiffPreset> = {};
+
+const MOCK_AGENT_DIFF_API_PRESETS: Record<string, MockAgentDiffPreset> = {
+  "starter/src/main/java/com/example/starter/dto/UserResponse.java": {
+    source: {
+      fileId: 109,
+      path: "starter/src/main/java/com/example/starter/dto/UserResponse.java",
+      name: "UserResponse.java",
+      language: "java",
+      content: `package com.example.starter.dto;
+
+public record UserResponse (Long id, String name, String email) {
+}`,
+      updatedAt: "2026-04-28T00:33:16.194678"
+    },
+    worktree: {
+      fileId: 2109,
+      path: "starter/src/main/java/com/example/starter/dto/UserResponse.java",
+      name: "UserResponse.java",
+      language: "java",
+      content: `package com.example.starter.dto;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public record UserResponse(
+        Long id,
+        String name,
+        String email,
+        @JsonProperty("isActive")
+        boolean active
+) {
+}`,
+      originType: "MODIFIED",
+      presenceStatus: "ACTIVE"
+    }
+  },
+  "starter/src/main/java/com/example/starter/controller/UserController.java": {
+    source: {
+      fileId: 107,
+      path: "starter/src/main/java/com/example/starter/controller/UserController.java",
+      name: "UserController.java",
+      language: "java",
+      content: `package com.example.starter.controller;
+
+import com.example.starter.dto.UserResponse;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+public class UserController {
+
+    @GetMapping("/users")
+    public List<UserResponse> getUsers() {
+        // TODO: 회원 목록을 name 오름차순으로 조회하여 반환하세요.
+        return List.of();
+    }
+}`,
+      updatedAt: "2026-04-28T00:33:16.194678"
+    },
+    worktree: {
+      fileId: 2107,
+      path: "starter/src/main/java/com/example/starter/controller/UserController.java",
+      name: "UserController.java",
+      language: "java",
+      content: `package com.example.starter.controller;
+
+import com.example.starter.dto.UserResponse;
+import com.example.starter.service.UserService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Comparator;
+import java.util.List;
+
+@RestController
+@RequiredArgsConstructor
+public class UserController {
+
+    private final UserService userService;
+
+    @GetMapping("/users")
+    public List<UserResponse> getUsers() {
+        return userService.getUsers().stream()
+                .sorted(Comparator.comparing(UserResponse::name))
+                .toList();
+    }
+}`,
+      originType: "MODIFIED",
+      presenceStatus: "ACTIVE"
+    }
+  },
+  "starter/src/main/java/com/example/starter/service/UserService.java": {
+    source: {
+      fileId: 115,
+      path: "starter/src/main/java/com/example/starter/service/UserService.java",
+      name: "UserService.java",
+      language: "java",
+      content: `package com.example.starter.service;
+
+public class UserService {
+}`,
+      updatedAt: "2026-04-28T00:33:16.194678"
+    },
+    worktree: {
+      fileId: 2115,
+      path: "starter/src/main/java/com/example/starter/service/UserService.java",
+      name: "UserService.java",
+      language: "java",
+      content: `package com.example.starter.service;
+
+import com.example.starter.dto.UserResponse;
+import com.example.starter.entity.User;
+import com.example.starter.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class UserService {
+
+    private final UserRepository userRepository;
+
+    public List<UserResponse> getUsers() {
+        return userRepository.findAll().stream()
+                .map(u -> new UserResponse(u.getId(), u.getName(), u.getEmail(), u.isActive()))
+                .toList();
+    }
+}`,
+      originType: "MODIFIED",
+      presenceStatus: "ACTIVE"
+    }
+  },
+  "starter/src/main/java/com/example/starter/entity/User.java": {
+    source: {
+      fileId: 111,
+      path: "starter/src/main/java/com/example/starter/entity/User.java",
+      name: "User.java",
+      language: "java",
+      content: `package com.example.starter.entity;
+
+import jakarta.persistence.*;
+
+@Entity
+@Table(name = "users")
+public class User {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String name;
+
+    private String email;
+
+    public Long getId() { return id; }
+    public String getName() { return name; }
+    public String getEmail() { return email; }
+}`,
+      updatedAt: "2026-04-28T00:33:16.194678"
+    },
+    worktree: {
+      fileId: 2111,
+      path: "starter/src/main/java/com/example/starter/entity/User.java",
+      name: "User.java",
+      language: "java",
+      content: `package com.example.starter.entity;
+
+import jakarta.persistence.*;
+
+@Entity
+@Table(name = "users")
+public class User {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String name;
+
+    private String email;
+
+    private boolean active;
+
+    public Long getId() { return id; }
+    public String getName() { return name; }
+    public String getEmail() { return email; }
+    public boolean isActive() { return active; }
+}`,
+      originType: "MODIFIED",
+      presenceStatus: "ACTIVE"
+    }
+  },
+  "starter/src/main/java/com/example/starter/repository/UserRepository.java": {
+    source: {
+      fileId: 113,
+      path: "starter/src/main/java/com/example/starter/repository/UserRepository.java",
+      name: "UserRepository.java",
+      language: "java",
+      content: `package com.example.starter.repository;
+
+import com.example.starter.entity.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface UserRepository extends JpaRepository<User, Long> {
+}`,
+      updatedAt: "2026-04-28T00:33:16.194678"
+    },
+    worktree: {
+      fileId: 2113,
+      path: "starter/src/main/java/com/example/starter/repository/UserRepository.java",
+      name: "UserRepository.java",
+      language: "java",
+      content: `package com.example.starter.repository;
+
+import com.example.starter.entity.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+
+import java.util.List;
+
+public interface UserRepository extends JpaRepository<User, Long> {
+
+    @Query("SELECT u FROM User u WHERE u.active = true ORDER BY u.name")
+    List<User> findAllActiveOrderByName();
+}`,
+      originType: "MODIFIED",
+      presenceStatus: "ACTIVE"
+    }
+  }
+};
+
+const getMockAgentDiffPreset = (path: string) =>
+  MOCK_AGENT_DIFF_API_PRESETS[path] ?? MOCK_AGENT_DIFF_PRESETS[path] ?? null;
 const DIFF_TAB_PREFIX = "diff:";
 const isDiffTabId = (value: string) => value.startsWith(DIFF_TAB_PREFIX);
 const createDiffTabId = (path: string) => `${DIFF_TAB_PREFIX}${path}`;
-const getWorktreeSourcePath = (path: string) => path.replace(/^\.worktree\//, "src/");
+const getWorktreeSourcePath = (path: string) => path.replace(/^\.worktree\//, "");
 const ENDPOINT_LINE_REGEX = /^-\s+`((?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+[^`]+)`/;
 const inferLanguageFromPath = (path: string) => {
   const lower = path.toLowerCase();
@@ -416,10 +685,25 @@ const getFolderIconSpec = (folderName: string, folderPath: string | null, isOpen
     };
   }
 
+  if (normalized === ".worktree" || normalized === "worktree") {
+    return {
+      iconClass: isOpen ? "codicon codicon-folder-opened" : "codicon codicon-folder",
+      kind: "worktree"
+    };
+  }
+
   return {
     iconClass: isOpen ? "codicon codicon-folder-opened" : "codicon codicon-folder",
     kind: "default"
   };
+};
+
+const getFolderDisplayName = (folderName: string, folderPath: string | null) => {
+  if (folderName === ".worktree" && folderPath === ".worktree") {
+    return "worktree";
+  }
+
+  return folderName;
 };
 
 const getFileIconSpec = (file: Pick<WorkspaceFile, "path" | "language">) => {
@@ -527,13 +811,121 @@ const compressJavaPackageFolders = (nodes: TreeNode[], insideJavaRoot = false): 
     };
   });
 
-const buildExplorerFiles = (files: WorkspaceFile[]): ExplorerFile[] => {
+const createMockWorktreeContent = (
+  sourceFile: WorkspaceFile | undefined,
+  patch: AgentPatch,
+  summary: string | null
+) => {
+  const preset = getMockAgentDiffPreset(patch.filePath);
+  if (preset?.worktree) {
+    return preset.worktree.content;
+  }
+  if (preset?.modifiedContent) {
+    return preset.modifiedContent;
+  }
+
+  const base = sourceFile?.content ?? "";
+
+  if (patch.filePath.endsWith(".java")) {
+    if (!sourceFile) {
+      const className = getFileName(patch.filePath).replace(/\.java$/i, "");
+      return [
+        `public class ${className} {`,
+        "  // Mock AI-generated worktree preview",
+        `  // ${summary ?? "Agent generated a new file preview."}`,
+        "}"
+      ].join("\n");
+    }
+
+    let next = base;
+    if (next.includes(".get()")) {
+      next = next.replace(".get()", '.orElseThrow(() -> new IllegalStateException("Mock preview"))');
+    }
+    if (next === base && next.includes("return")) {
+      next = next.replace("return", "// Mock AI patch preview\n    return");
+    }
+    if (next === base) {
+      next = `${base}\n\n// Mock AI patch preview\n// ${summary ?? `${getFileName(patch.filePath)} updated in worktree.`}`;
+    }
+    return next;
+  }
+
+  if (patch.filePath.endsWith(".yml") || patch.filePath.endsWith(".yaml")) {
+    return `${base}\n# Mock AI patch preview\n# ${summary ?? `${getFileName(patch.filePath)} updated.`}`.trim();
+  }
+
+  if (patch.filePath.endsWith(".properties")) {
+    return `${base}\n# Mock AI patch preview\n# ${summary ?? `${getFileName(patch.filePath)} updated.`}`.trim();
+  }
+
+  if (!base) {
+    return `# Mock worktree preview\n# ${summary ?? `${getFileName(patch.filePath)} generated by agent`}\n`;
+  }
+
+  return `${base}\n\n# Mock AI patch preview\n# ${summary ?? `${getFileName(patch.filePath)} updated in worktree.`}`;
+};
+
+const buildAgentPatchPreviews = (files: WorkspaceFile[], runs: AgentRunTrace[]): AgentPatchPreview[] => {
+  const latestRunWithPatches = runs.find((run) => run.spans.some((span) => span.patches.length > 0)) ?? runs[0] ?? null;
+
+  if (!latestRunWithPatches) {
+    return [];
+  }
+
+  const previews = latestRunWithPatches.spans.flatMap((span) =>
+    span.patches.map((patch) => {
+      const preset = getMockAgentDiffPreset(patch.filePath);
+      const sourceFile =
+        files.find((file) => file.path === patch.filePath) ??
+        (preset?.source
+          ? {
+              path: preset.source.path,
+              language: preset.source.language.toLowerCase(),
+              content: preset.source.content
+            }
+          : preset?.sourceContent
+            ? {
+                path: patch.filePath,
+                language: inferLanguageFromPath(patch.filePath),
+                content: preset.sourceContent
+              }
+          : undefined);
+      const worktreePath = `.worktree/${patch.filePath}`;
+      const language =
+        preset?.worktree?.language.toLowerCase() ?? sourceFile?.language ?? inferLanguageFromPath(patch.filePath);
+
+      return {
+        patchId: patch.patchId,
+        filePath: patch.filePath,
+        worktreePath,
+        additions: patch.additions,
+        deletions: patch.deletions,
+        summary: latestRunWithPatches.summaryText,
+        sourceFile,
+        previewFile: {
+          path: worktreePath,
+          language,
+          content: createMockWorktreeContent(sourceFile, patch, latestRunWithPatches.summaryText),
+          isVirtual: true,
+          badge: "ai"
+        }
+      } satisfies AgentPatchPreview;
+    })
+  );
+
+  return previews.filter(
+    (preview, index, list) => list.findIndex((item) => item.worktreePath === preview.worktreePath) === index
+  );
+};
+
+const buildExplorerFiles = (files: WorkspaceFile[], injectedVirtualFiles: ExplorerFile[] = []): ExplorerFile[] => {
   const sourceFiles = files.map((file) => ({
     ...file,
     isVirtual: file.path.startsWith(".worktree/"),
     badge: file.path.startsWith(".worktree/") ? "ai" : undefined
   }));
   const existingPaths = new Set(sourceFiles.map((file) => file.path));
+  const previewFiles = injectedVirtualFiles.filter((file) => !existingPaths.has(file.path));
 
   const agentSupportFiles: ExplorerFile[] = [
     {
@@ -559,7 +951,7 @@ const buildExplorerFiles = (files: WorkspaceFile[]): ExplorerFile[] => {
     }
   ].filter((file) => !existingPaths.has(file.path));
 
-  return [...sourceFiles, ...agentSupportFiles];
+  return [...sourceFiles, ...previewFiles, ...agentSupportFiles];
 };
 
 const buildFileTree = (files: ExplorerFile[], extraFolders: string[] = []) => {
@@ -782,6 +1174,12 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     queryKey: ["workspace", sessionId],
     queryFn: () => (isBackendSessionId(sessionId) ? sessionApi.getWorkspace(sessionId) : mockApi.getWorkspace(sessionId)),
     enabled: !!session
+  });
+  const { data: mockAgentRuns = [] } = useQuery({
+    queryKey: ["mock-agent-traces-preview", sessionId],
+    queryFn: () => mockApi.getAgentTraces(sessionId),
+    enabled: !!session,
+    staleTime: 60_000
   });
   const isApiProblem = isBackendProblemId(session?.problemId ?? "");
   const { data: apiProblem } = useQuery({
@@ -1132,8 +1530,18 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     [apiProblem, session?.problemId]
   );
   const traces = useMemo(() => session?.traces ?? [], [session?.traces]);
-  const explorerFiles = useMemo(() => buildExplorerFiles(files), [files]);
-  const fileTree = useMemo(() => buildFileTree(explorerFiles, localFolders), [explorerFiles, localFolders]);
+  const agentPatchPreviews = useMemo(() => buildAgentPatchPreviews(files, mockAgentRuns), [files, mockAgentRuns]);
+  const explorerFiles = useMemo(
+    () => buildExplorerFiles(files, agentPatchPreviews.map((preview) => preview.previewFile)),
+    [agentPatchPreviews, files]
+  );
+  const fileTree = useMemo(() => {
+    const extraFolders = isBackendSessionId(sessionId)
+      ? Array.from(new Set([...localFolders, ".worktree"]))
+      : localFolders;
+
+    return buildFileTree(explorerFiles, extraFolders);
+  }, [explorerFiles, localFolders, sessionId]);
   const openTabs = useMemo(
     () =>
       openTabPaths
@@ -1142,7 +1550,43 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             const targetPath = path.slice(DIFF_TAB_PREFIX.length);
             const targetFile = explorerFiles.find((file) => file.path === targetPath && file.isVirtual);
             const sourcePath = getWorktreeSourcePath(targetPath);
-            const sourceFile = files.find((file) => file.path === sourcePath);
+            const preset = getMockAgentDiffPreset(sourcePath);
+            const sourceFile = (() => {
+              const existing = files.find((file) => file.path === sourcePath);
+              if (existing && existing.content.trim().length > 0) {
+                return existing;
+              }
+
+              if (preset) {
+                if (preset.source) {
+                  return {
+                    path: preset.source.path,
+                    language: preset.source.language.toLowerCase(),
+                    content: preset.source.content
+                  } satisfies WorkspaceFile;
+                }
+
+                return {
+                  path: sourcePath,
+                  language: targetFile?.language ?? inferLanguageFromPath(sourcePath),
+                  content: preset.sourceContent ?? ""
+                } satisfies WorkspaceFile;
+              }
+
+              if (existing) {
+                return existing;
+              }
+
+              if (targetFile) {
+                return {
+                  path: sourcePath,
+                  language: targetFile.language,
+                  content: ""
+                } satisfies WorkspaceFile;
+              }
+
+              return undefined;
+            })();
 
             if (!targetFile || !sourceFile) {
               return null;
@@ -1191,6 +1635,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
     return files.find((file) => file.path === activePath) ?? files[0] ?? null;
   }, [activePath, activeTab, files]);
+  const latestAgentPatchSummary = agentPatchPreviews[0]?.summary ?? null;
 
   useEffect(() => {
     const handleDismissExplorerMenu = () => {
@@ -2455,11 +2900,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       if (node.kind === "folder") {
         const collapsed = collapsedFolders.has(node.key);
         const folderIcon = getFolderIconSpec(node.name, node.path, !collapsed);
+        const folderDisplayName = getFolderDisplayName(node.name, node.path);
         const isCreateTarget = explorerCreateDraft?.parentPath === node.path;
         const isContextTarget = explorerContextMenu?.targetKind === "folder" && explorerContextMenu.targetPath === node.path;
         const isRenameTarget = explorerRenameDraft?.targetKind === "folder" && explorerRenameDraft.targetPath === node.path;
         const isDropTarget = folderDropTargetPath === node.path;
         const isDirtyFolder = collapsed && hasDirtyDescendant(node.path);
+        const isWorktreeFolder = node.path === ".worktree";
         return [
           <div key={node.key} className={"tree-branch" + (collapsed ? " tree-branch--closed" : " tree-branch--open")}>
             <button
@@ -2521,12 +2968,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   onBlur={cancelExplorerRename}
                   onClick={(event) => event.stopPropagation()}
                 />
-              ) : (
-                <>
-                  <span className={isDirtyFolder ? "tree-row__folder tree-row__folder--dirty" : "tree-row__folder"}>{node.name}</span>
-                  {isDirtyFolder ? <span className="file-row__dot file-row__dot--folder" /> : null}
-                </>
-              )}
+                ) : (
+                  <>
+                    <span className={isDirtyFolder ? "tree-row__folder tree-row__folder--dirty" : "tree-row__folder"}>{folderDisplayName}</span>
+                    {isDirtyFolder ? <span className="file-row__dot file-row__dot--folder" /> : null}
+                    {isWorktreeFolder ? <span className="tree-row__badge">ai</span> : null}
+                  </>
+                )}
             </button>
             {!collapsed ? (
               <div className="tree-branch__children">
@@ -2782,67 +3230,53 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     }
 
     return (
-      <div className="sidebar-section">
+      <div
+        className="sidebar-section"
+        onContextMenu={(event) =>
+          openExplorerContextMenu(event, {
+            parentPath: null,
+            targetPath: null,
+            targetKind: "root"
+          })
+        }
+      >
         <div className="section-block">
-          {renderSectionToggle("project", "EXPLORER", problem?.title ?? session?.workspaceId)}
-          {explorerSections.project ? (
-            <div className="tree-root">
-              <div
-                className={
-                  "tree-folder tree-folder--root" +
-                  (explorerCreateDraft?.parentPath === null ? " tree-folder--create-target" : "") +
-                  (explorerContextMenu?.targetKind === "root" ? " tree-folder--context-target" : "")
-                }
-                onContextMenu={(event) =>
-                  openExplorerContextMenu(event, {
-                    parentPath: null,
-                    targetPath: null,
-                    targetKind: "root"
-                  })
-                }
-              >
-                <span className="tree-row__twistie codicon codicon-chevron-down" aria-hidden />
-                <span className="tree-folder__icon codicon codicon-folder-opened" data-folder-kind="source" aria-hidden />
-                <span className="tree-row__folder">{session?.problemId ?? "workspace"}</span>
-              </div>
-              <div className="tree-root__children">
-                {explorerCreateDraft?.parentPath === null ? (
-                  <div className="tree-create-row tree-create-row--root" style={{ paddingLeft: "16px" }}>
-                    <span
-                      className={
-                        explorerCreateDraft.kind === "folder"
-                          ? "tree-folder__icon codicon codicon-new-folder"
-                          : "file-icon codicon codicon-new-file"
-                      }
-                      aria-hidden
-                    />
-                    <input
-                      autoFocus
-                      className="tree-create-row__input"
-                      value={explorerCreateDraft.value}
-                      placeholder={explorerCreateDraft.kind === "folder" ? "폴더 이름" : "파일 이름"}
-                      onChange={(event) =>
-                        setExplorerCreateDraft((state) => (state ? { ...state, value: event.target.value } : state))
-                      }
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          commitExplorerCreate();
-                        }
+          <div className="tree-root tree-root--flat">
+            {explorerCreateDraft?.parentPath === null ? (
+              <div className="tree-create-row tree-create-row--root" style={{ paddingLeft: "8px" }}>
+                <span
+                  className={
+                    explorerCreateDraft.kind === "folder"
+                      ? "tree-folder__icon codicon codicon-new-folder"
+                      : "file-icon codicon codicon-new-file"
+                  }
+                  aria-hidden
+                />
+                <input
+                  autoFocus
+                  className="tree-create-row__input"
+                  value={explorerCreateDraft.value}
+                  placeholder={explorerCreateDraft.kind === "folder" ? "폴더 이름" : "파일 이름"}
+                  onChange={(event) =>
+                    setExplorerCreateDraft((state) => (state ? { ...state, value: event.target.value } : state))
+                  }
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitExplorerCreate();
+                    }
 
-                        if (event.key === "Escape") {
-                          event.preventDefault();
-                          cancelExplorerCreate();
-                        }
-                      }}
-                      onBlur={cancelExplorerCreate}
-                    />
-                  </div>
-                ) : null}
-                {renderTreeNodes(fileTree, 1)}
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      cancelExplorerCreate();
+                    }
+                  }}
+                  onBlur={cancelExplorerCreate}
+                />
               </div>
-            </div>
-          ) : null}
+            ) : null}
+            {renderTreeNodes(fileTree, 0)}
+          </div>
         </div>
         {explorerContextMenu ? (
           <div
@@ -3420,6 +3854,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   <div ref={editorHostRef} className="editor-host">
                     {activeTab?.kind === "diff" ? (
                       <MonacoDiffEditor
+                        key={activeTab.id}
                         theme={theme === "dark" ? "vs-dark" : "vs"}
                         height="100%"
                         original={activeTab.sourceFile.content}
@@ -3434,7 +3869,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                           scrollBeyondLastLine: false,
                           fontFamily: "var(--font-mono)",
                           lineHeight: 22,
-                          automaticLayout: false,
+                          automaticLayout: true,
                           smoothScrolling: true,
                           stickyScroll: { enabled: false },
                           overviewRulerBorder: false,
@@ -3636,6 +4071,42 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                           <span className="ai-context-chip">AI quota {aiQuotaLabel}</span>
                         </div>
                       </div>
+
+                      {agentPatchPreviews.length ? (
+                        <Card className="mini-panel mini-panel--flat assistant-changes-card">
+                          <div className="assistant-changes__head">
+                            <div>
+                              <strong>변경 파일</strong>
+                              <p className="muted-copy">
+                                Agent가 {agentPatchPreviews.length}개 파일 변경 제안을 준비했어요.
+                              </p>
+                            </div>
+                            <span className="ai-context-chip">{agentPatchPreviews.length} files</span>
+                          </div>
+                          {latestAgentPatchSummary ? (
+                            <p className="muted-copy assistant-changes__summary">{latestAgentPatchSummary}</p>
+                          ) : null}
+                          <div className="assistant-changes__list">
+                            {agentPatchPreviews.map((preview) => (
+                              <button
+                                key={preview.patchId}
+                                type="button"
+                                className="assistant-change-row"
+                                onClick={() => openDiffTab(preview.worktreePath)}
+                              >
+                                <span className="assistant-change-row__main">
+                                  <strong>{getFileName(preview.filePath)}</strong>
+                                  <small>{preview.filePath}</small>
+                                </span>
+                                <span className="assistant-change-row__stats">
+                                  <span className="assistant-change-row__add">+{preview.additions}</span>
+                                  <span className="assistant-change-row__del">-{preview.deletions}</span>
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </Card>
+                      ) : null}
 
                       <Card className="mini-panel mini-panel--flat">
                         <strong>선택 코드</strong>
