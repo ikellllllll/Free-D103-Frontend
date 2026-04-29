@@ -292,10 +292,8 @@ export default function Dev2MyPage() {
 
   return (
     <div className="relative min-h-screen bg-[#EEF2FF] overflow-hidden">
-      {/* Floating blobs & grid */}
+      {/* Background grid */}
       <div className="absolute top-0 left-0 right-0 h-[800px] pointer-events-none overflow-hidden">
-        <div className="absolute -top-10 -left-32 w-[420px] h-[420px] rounded-full bg-indigo-400/30 blur-3xl animate-blob-1" />
-        <div className="absolute top-[10%] -right-32 w-[420px] h-[420px] rounded-full bg-purple-400/30 blur-3xl animate-blob-2" />
         <div className="absolute inset-0 bg-grid-pattern opacity-30" />
       </div>
       <div className="relative max-w-6xl mx-auto px-6 pt-28 pb-16">

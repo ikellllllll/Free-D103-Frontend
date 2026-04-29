@@ -188,10 +188,8 @@ export default function Dev2SubmissionProgressPage({
 
   return (
     <div className="relative bg-gradient-to-b from-indigo-50/40 via-white to-white min-h-screen overflow-hidden">
-      {/* Floating orbs */}
+      {/* Background grid */}
       <div className="absolute top-0 left-0 right-0 h-[700px] pointer-events-none overflow-hidden">
-        <div className="absolute -top-10 -left-40 w-[460px] h-[460px] rounded-full bg-indigo-400/30 blur-3xl animate-blob-1" />
-        <div className="absolute top-[10%] -right-40 w-[460px] h-[460px] rounded-full bg-teal-400/25 blur-3xl animate-blob-2" />
         <div className="absolute inset-0 bg-grid-pattern opacity-30" />
       </div>
 

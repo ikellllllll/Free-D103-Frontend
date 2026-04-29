@@ -229,21 +229,6 @@ export default function Dev2WorkshopPage() {
     <div className="relative min-h-screen overflow-hidden bg-[#EEF2FF]">
       {/* ── Aurora & Mesh backdrop ── */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {/* Mesh gradient base */}
-        <div
-          className="absolute inset-0 opacity-90"
-          style={{
-            backgroundImage: `
-              radial-gradient(1000px 700px at 8% -6%, rgba(99,102,241,0.22), transparent 60%),
-              radial-gradient(900px 600px at 96% 4%, rgba(217,70,239,0.18), transparent 60%),
-              radial-gradient(700px 500px at 50% 100%, rgba(56,189,248,0.16), transparent 65%)
-            `
-          }}
-        />
-        {/* Aurora blobs with staggered motion */}
-        <div className="absolute -top-20 -left-24 w-[520px] h-[520px] rounded-full bg-indigo-400/25 blur-[120px] animate-blob-1" />
-        <div className="absolute top-[6%] right-[-10rem] w-[520px] h-[520px] rounded-full bg-fuchsia-400/20 blur-[120px] animate-blob-2" />
-        <div className="absolute top-[48%] left-[28%] w-[420px] h-[420px] rounded-full bg-violet-400/15 blur-[120px]" />
         {/* Faint grid */}
         <div className="absolute inset-0 bg-grid-pattern opacity-20" />
         {/* Bottom fade */}

@@ -78,47 +78,45 @@ const WORKFLOW = [
 const IDE_STEPS = [
   {
     label: "코드 선택",
-    status: "문제가 있는 로직을 드래그합니다.",
-    question: "이 인증 로직에서 토큰 검증이 실패하는 이유를 알려줘.",
-    answer: 'split("Bearer ")가 먼저 실행되고 있어요. null 체크 후 prefix 검증 순서로 바꾸면 됩니다.'
+    status: "수정이 필요한 하네스 로직을 드래그합니다.",
+    question: "회원 목록 API가 name 오름차순으로 정렬이 안 되는 이유가 뭐야?",
+    answer: "UserController에서 List.of()를 그대로 반환하고 있어요. UserService를 주입하고 .stream().sorted(Comparator.comparing(UserResponse::name)).toList()로 바꾸면 됩니다."
   },
   {
     label: "에이전트에게 질문",
     status: "선택한 코드가 에이전트 모드로 전달됩니다.",
-    question: "이 인증 로직에서 토큰 검증이 실패하는 이유를 알려줘.",
-    answer: 'split("Bearer ")가 먼저 실행되고 있어요. null 체크 후 prefix 검증 순서로 바꾸면 됩니다.'
+    question: "회원 목록 API가 name 오름차순으로 정렬이 안 되는 이유가 뭐야?",
+    answer: "UserController에서 List.of()를 그대로 반환하고 있어요. UserService를 주입하고 .stream().sorted(Comparator.comparing(UserResponse::name)).toList()로 바꾸면 됩니다."
   },
   {
     label: "답변 생성 중",
-    status: "에이전트가 컨텍스트를 분석하고 있습니다.",
-    question: "이 인증 로직에서 토큰 검증이 실패하는 이유를 알려줘.",
-    answer: 'split("Bearer ")가 먼저 실행되고 있어요. null 체크 후 prefix 검증 순서로 바꾸면 됩니다.'
+    status: "에이전트가 하네스 컨텍스트를 분석하고 있습니다.",
+    question: "회원 목록 API가 name 오름차순으로 정렬이 안 되는 이유가 뭐야?",
+    answer: "UserController에서 List.of()를 그대로 반환하고 있어요. UserService를 주입하고 .stream().sorted(Comparator.comparing(UserResponse::name)).toList()로 바꾸면 됩니다."
   },
   {
     label: "답변 도착",
-    status: "원인 설명과 함께 수정 방향을 제안합니다.",
-    question: "이 인증 로직에서 토큰 검증이 실패하는 이유를 알려줘.",
-    answer: 'split("Bearer ")가 먼저 실행되고 있어요. null 체크 후 prefix 검증 순서로 바꾸면 됩니다.'
+    status: "원인과 수정 방향, diff 미리보기가 함께 열립니다.",
+    question: "회원 목록 API가 name 오름차순으로 정렬이 안 되는 이유가 뭐야?",
+    answer: "UserController에서 List.of()를 그대로 반환하고 있어요. UserService를 주입하고 .stream().sorted(Comparator.comparing(UserResponse::name)).toList()로 바꾸면 됩니다."
   }
 ];
 
 const SHOWCASE_STATS = [
-  { value: "5종", label: "실무 과제" },
-  { value: "2개", label: "지원 언어" },
-  { value: "3가지", label: "평가 기준" },
+  { value: "5종", label: "하네스 과제" },
+  { value: "AI", label: "에이전트 협업" },
+  { value: "3개", label: "평가 지표" },
   { value: "14기", label: "SSAFY" }
 ];
 
 const HERO_TYPING_LINES = [
-  "AI 에이전트와 함께",
+  "하네스 엔지니어링",
   "실무 역량을 키우는",
-  "코딩 워크스페이스"
+  "하네스 엔지니어링 워크스페이스"
 ] as const;
 
 const HERO_TYPEWRITER_WORDS = [
-  "실무 역량을 키우는",
-  "문제 해결을 키우는",
-  "AI 활용을 키우는"
+  "워크스페이스"
 ] as const;
 
 export function LandingAIG() {
@@ -385,17 +383,14 @@ export function LandingAIG() {
         className="relative bg-[#0F0F2E] text-white flex flex-col overflow-visible"
         style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
       >
-        {/* Floating orbs */}
+        {/* Background grid */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute -top-24 left-[8%] w-[420px] h-[420px] rounded-full bg-violet-500/40 blur-3xl animate-blob-1" />
-          <div className="absolute top-10 right-[5%] w-[360px] h-[360px] rounded-full bg-teal-400/30 blur-3xl animate-blob-2" />
-          <div className="absolute top-[55%] left-[35%] w-[260px] h-[260px] rounded-full bg-indigo-500/30 blur-3xl animate-float" />
           <div className="absolute inset-0 bg-grid-pattern opacity-[0.15]" />
         </div>
 
-        {/* Pill nav */}
-        <div className="relative z-10 pt-6 px-6">
-          <nav className="mx-auto max-w-5xl flex items-center justify-between bg-white/95 backdrop-blur-md rounded-full px-5 py-2.5 shadow-xl shadow-indigo-900/30">
+        {/* Topbar */}
+        <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-white/70 shadow-sm">
+          <nav className="mx-auto h-14 max-w-6xl flex items-center justify-between px-6">
             <Link href="/" className="flex items-center space-x-2 font-display font-bold text-lg group cursor-pointer">
               <Image src="/brand/app-icon-light.svg" alt="AIG" width={28} height={28} className="rounded-lg" />
               <span className="text-indigo-600">AIG</span>
@@ -408,7 +403,7 @@ export function LandingAIG() {
             </div>
             <Link
               href={user ? "/problems" : "/login"}
-              className="inline-flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-full transition-colors shadow-md cursor-pointer"
+              className="inline-flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-md transition-colors shadow-sm cursor-pointer"
             >
               <span>{user ? "시작하기" : "로그인"}</span>
               <ArrowRight size={14} strokeWidth={2.4} />
@@ -419,14 +414,13 @@ export function LandingAIG() {
         {/* Hero content */}
         <div className="relative z-10 flex flex-col items-center px-6 pt-6 pb-10 text-center max-w-4xl mx-auto w-full animate-slide-up md:pt-8">
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-bold tracking-tight leading-[1.1] mb-3">
-            <span className="block">AI 에이전트와</span>
+            <span className="block">하네스엔지니어링</span>
             <span className="block">
               <span className="hero-typewriter-inline" aria-live="polite">
                 <span className="hero-typewriter-inline__text">{heroTypedText}</span>
                 <span className="hero-typewriter-inline__caret" aria-hidden="true" />
               </span>
             </span>
-            <span className="block">코딩 워크스페이스</span>
           </h1>
 
           <div className="self-center inline-flex border-l-2 border-white/40 pl-3 text-xs font-semibold tracking-[0.12em] text-white/55 mb-4">
@@ -434,9 +428,9 @@ export function LandingAIG() {
           </div>
 
           <p className="text-base md:text-xl text-indigo-200/90 max-w-2xl mx-auto leading-relaxed mb-5">
-            실무 과제를 풀고, 에이전트 흐름을 기록하고,
+            하네스 구성 문제를 풀고, AI와 함께 수정 근거를 남기고,
             <br className="hidden md:block" />
-            AI 활용 역량을 피드백 리포트로 확인하세요.
+            Trace와 리포트로 풀이 과정을 다시 설명할 수 있게 만드세요.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -479,13 +473,13 @@ export function LandingAIG() {
               <div className="absolute left-5 top-4 z-20 flex gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/40 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-sm">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  IDE
+                  Harness IDE
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-400/30 bg-indigo-500/20 px-2.5 py-1 text-[10px] font-semibold text-indigo-200 backdrop-blur-sm">
-                  Diff View
+                  Diff · Trace
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-teal-400/30 bg-teal-500/20 px-2.5 py-1 text-[10px] font-semibold text-teal-200 backdrop-blur-sm">
-                  Agent Mode
+                  AI 피드백 리포트
                 </span>
               </div>
               <div className="relative overflow-hidden rounded-[14px]">
@@ -545,10 +539,8 @@ export function LandingAIG() {
         className="relative min-h-screen bg-[#EEF2FF] overflow-hidden flex flex-col justify-center py-20"
         style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
       >
-        {/* blob decorations */}
+        {/* Background grid */}
         <div className="pointer-events-none absolute top-0 left-0 right-0 h-full overflow-hidden">
-          <div className="absolute -top-10 -left-32 w-[420px] h-[420px] rounded-full bg-indigo-300/25 blur-3xl animate-blob-1" />
-          <div className="absolute top-[10%] -right-32 w-[420px] h-[420px] rounded-full bg-violet-300/20 blur-3xl animate-blob-2" />
           <div className="absolute inset-0 bg-grid-pattern opacity-[0.04]" />
         </div>
 
@@ -556,14 +548,14 @@ export function LandingAIG() {
           {/* heading */}
           <div className="mb-12">
             <h2 className="text-4xl md:text-5xl font-display font-bold tracking-tight mb-4 text-slate-950">
-              AI를{" "}
+              하네스 과제를{" "}
               <span style={{ backgroundImage: "linear-gradient(90deg,#4338CA,#6D28D9,#0E7490)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-                어떻게 쓰느냐
+                풀고, 기록하고
               </span>
-              를<br />평가합니다
+              ,<br />근거로 설명합니다
             </h2>
             <p className="text-base text-slate-600 max-w-xl leading-relaxed">
-              단순히 AI를 허용하는 게 아니라, 설계하고 활용하는 과정을 Trace로 기록하고 피드백합니다.
+              모듈 연결·신호 흐름·API 구현 과제를 AI와 함께 풀고, 에이전트가 어떻게 사고했는지 Trace로 남깁니다.
             </p>
           </div>
 
@@ -574,7 +566,7 @@ export function LandingAIG() {
             <div className="relative min-h-[260px] rounded-3xl border border-gray-200/80 bg-white overflow-hidden group transition-all duration-300 p-8 flex flex-col justify-start shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)] hover:-translate-y-1 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_12px_24px_-12px_rgba(79,70,229,0.25)]">
               <div>
                 <h3 className="text-3xl font-display font-bold text-slate-950 tracking-tight mb-5">Chat Mode</h3>
-                <p className="text-base text-slate-600 leading-7">AI에게 직접 질문하고 답변을 받으며 코드를 작성합니다. 프롬프트 품질이 곧 실력입니다.</p>
+                <p className="text-base text-slate-600 leading-7">하네스 구조와 API 설계에 대해 AI에게 직접 질문하고 코드를 완성합니다. 프롬프트 품질이 곧 풀이 역량입니다.</p>
               </div>
               <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-400/50 to-transparent" />
             </div>
@@ -583,7 +575,7 @@ export function LandingAIG() {
             <div className="relative min-h-[260px] rounded-3xl border border-gray-200/80 bg-white overflow-hidden group transition-all duration-300 p-8 flex flex-col justify-start shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)] hover:-translate-y-1 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_12px_24px_-12px_rgba(79,70,229,0.25)]">
               <div className="min-w-0">
                 <h3 className="text-3xl font-display font-bold text-slate-950 tracking-tight mb-5">Agent Mode</h3>
-                <p className="text-base text-slate-600 leading-7">하네스를 설계하고 에이전트에게 과제를 위임합니다. 자율 실행된 에이전트의 Trace가 남습니다.</p>
+                <p className="text-base text-slate-600 leading-7">하네스 구성 문제를 에이전트에게 위임합니다. 자율 실행된 수정 흐름이 Diff와 Trace로 기록되어 근거를 검토할 수 있습니다.</p>
               </div>
               <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-400/50 to-transparent" />
             </div>
@@ -592,7 +584,7 @@ export function LandingAIG() {
             <div className="relative min-h-[260px] rounded-3xl border border-gray-200/80 bg-white overflow-hidden group transition-all duration-300 p-8 flex flex-col justify-start shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)] hover:-translate-y-1 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_12px_24px_-12px_rgba(79,70,229,0.25)]">
               <div className="min-w-0">
                 <h3 className="text-3xl font-display font-bold text-slate-950 tracking-tight mb-5">AI 피드백 리포트</h3>
-                <p className="text-base text-slate-600 leading-7">하네스 품질 · 실행 품질 · Trace 활용 3가지 기준으로 AI 활용 역량을 수치화합니다.</p>
+                <p className="text-base text-slate-600 leading-7">하네스 품질 · 실행 품질 · Trace 활용, 3가지 기준으로 이번 풀이에서 무엇이 좋았고 무엇을 보완해야 하는지 수치로 확인합니다.</p>
               </div>
               <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-teal-400/50 to-transparent" />
             </div>
@@ -610,15 +602,13 @@ export function LandingAIG() {
         style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
       >
         <div className="pointer-events-none absolute top-0 left-0 right-0 h-full overflow-hidden">
-          <div className="absolute -top-10 -left-32 w-[420px] h-[420px] rounded-full bg-indigo-300/25 blur-3xl animate-blob-1" />
-          <div className="absolute top-[10%] -right-32 w-[420px] h-[420px] rounded-full bg-violet-300/20 blur-3xl animate-blob-2" />
           <div className="absolute inset-0 bg-grid-pattern opacity-[0.04]" />
         </div>
 
         <div className="relative max-w-6xl mx-auto px-6 w-full">
           <div className="text-center mb-10">
             <h2 className="text-3xl md:text-5xl font-display font-bold text-gray-900 tracking-tight mb-3">
-              세션 시작부터 리포트까지
+              하네스 과제 시작부터
               <br />
               <span
                 className="bg-gradient-animate"
@@ -631,7 +621,7 @@ export function LandingAIG() {
                   color: "transparent"
                 }}
               >
-                한 흐름으로
+                리포트까지 한 흐름으로
               </span>
             </h2>
           </div>
@@ -758,8 +748,6 @@ export function LandingAIG() {
         style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
       >
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-20 left-[12%] w-[380px] h-[380px] rounded-full bg-violet-500/30 blur-3xl animate-blob-1" />
-          <div className="absolute bottom-20 right-[8%] w-[320px] h-[320px] rounded-full bg-teal-400/25 blur-3xl animate-blob-2" />
           <div className="absolute inset-0 bg-grid-pattern opacity-[0.1]" />
         </div>
 
@@ -769,10 +757,10 @@ export function LandingAIG() {
               라이브 데모
             </div>
             <h2 className="text-3xl md:text-5xl font-display font-bold tracking-tight mb-3">
-              실제 화면처럼 흐르는 워크플로
+              하네스 과제를 실제로 풀어보면
             </h2>
             <p className="text-base md:text-lg text-indigo-200/80 max-w-2xl mx-auto">
-              문제 풀이 화면에서 코드를 선택하고, 에이전트 모드로 질문을 보내고, 답변이 도착하는 순간까지.
+              IDE에서 문제를 파악하고, 에이전트에게 질문을 보내고, 수정 근거와 diff를 확인하는 흐름을 미리 체험하세요.
             </p>
           </div>
 
@@ -917,15 +905,13 @@ export function LandingAIG() {
         style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
       >
         <div className="pointer-events-none absolute top-0 left-0 right-0 h-full overflow-hidden">
-          <div className="absolute -top-10 -left-32 w-[420px] h-[420px] rounded-full bg-indigo-300/25 blur-3xl animate-blob-1" />
-          <div className="absolute top-[10%] -right-32 w-[420px] h-[420px] rounded-full bg-violet-300/20 blur-3xl animate-blob-2" />
           <div className="absolute inset-0 bg-grid-pattern opacity-[0.04]" />
         </div>
         <div className="max-w-6xl mx-auto px-6 w-full relative">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div className="animate-slide-up">
               <h2 className="text-4xl md:text-5xl font-display font-bold text-gray-900 tracking-tight leading-tight mb-6">
-                내가 AI를
+                하네스 풀이를
                 <br />
                 <span
                   style={{
@@ -936,14 +922,12 @@ export function LandingAIG() {
                     color: "transparent"
                   }}
                 >
-                  어떻게 썼는지
+                  근거로 설명할 수 있게
                 </span>
-                <br />
-                객관적으로
               </h2>
               <p className="text-lg text-gray-600 leading-relaxed mb-8">
-                하네스 품질 · 실행 품질 · Trace 활용 3가지 기준의 정량 분석과 함께,
-                잘한 점과 개선할 점을 구체적인 사례로 제시합니다.
+                하네스 품질 · 실행 품질 · Trace 활용, 3가지 기준의 정량 분석과 함께
+                어떤 수정이 왜 이루어졌는지 구체적인 사례로 확인합니다.
               </p>
               <Link
                 href="/signup"
@@ -1054,8 +1038,6 @@ export function LandingAIG() {
         style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
       >
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-0 left-[20%] w-96 h-96 rounded-full bg-violet-500/30 blur-3xl animate-blob-1" />
-          <div className="absolute bottom-0 right-[15%] w-96 h-96 rounded-full bg-teal-400/30 blur-3xl animate-blob-2" />
           <div className="absolute inset-0 bg-grid-pattern opacity-[0.15]" />
         </div>
 

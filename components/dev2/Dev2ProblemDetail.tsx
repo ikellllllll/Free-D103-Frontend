@@ -194,10 +194,8 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
 
   return (
     <div className="relative bg-gradient-to-b from-violet-200/70 via-indigo-100/60 to-slate-100 min-h-screen overflow-hidden">
-      {/* Floating orbs (mirror the problems list background) */}
+      {/* Background grid */}
       <div className="absolute top-0 left-0 right-0 h-[700px] pointer-events-none overflow-hidden">
-        <div className="absolute -top-10 -left-40 w-[460px] h-[460px] rounded-full bg-indigo-400/30 blur-3xl animate-blob-1" />
-        <div className="absolute top-[10%] -right-40 w-[460px] h-[460px] rounded-full bg-purple-400/30 blur-3xl animate-blob-2" />
         <div className="absolute inset-0 bg-grid-pattern opacity-30" />
       </div>
 

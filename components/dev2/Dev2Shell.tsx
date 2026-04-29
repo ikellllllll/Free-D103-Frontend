@@ -174,9 +174,9 @@ export function Dev2Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-white font-sans">
-      {/* ── Pill-shape floating nav (pure overlay, no layout space) ── */}
-      <header className="fixed top-4 left-0 right-0 z-50 px-6 pointer-events-none">
-        <div className="max-w-6xl mx-auto flex items-center justify-between bg-white/95 backdrop-blur-xl rounded-full px-3 pl-6 py-2.5 shadow-xl shadow-indigo-900/10 border border-white pointer-events-auto">
+      {/* ── Topbar ── */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-b border-gray-200 shadow-sm pointer-events-auto">
+        <div className="h-14 max-w-6xl mx-auto flex items-center justify-between px-6">
           <Link
             href={withPrefix("/problems")}
             className="group flex items-center space-x-2 font-display font-bold text-lg shrink-0"
@@ -193,7 +193,7 @@ export function Dev2Shell({ children }: { children: ReactNode }) {
                 <Link
                   key={item.href}
                   href={withPrefix(item.href)}
-                  className={`px-4 py-1.5 rounded-full transition-colors ${
+                  className={`px-4 py-1.5 rounded-md transition-colors ${
                     active
                       ? "bg-indigo-600 text-white"
                       : "hover:text-indigo-600 hover:bg-gray-50"

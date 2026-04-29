@@ -6,10 +6,8 @@ export default function Dev2TermsPage() {
 
   return (
     <div className="relative min-h-screen bg-[#0F0F2E] text-white font-sans overflow-hidden">
-      {/* Cosmic orbs */}
+      {/* Background grid */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-24 -left-40 w-[520px] h-[520px] rounded-full bg-violet-500/30 blur-3xl animate-blob-1" />
-        <div className="absolute top-[40%] -right-40 w-[480px] h-[480px] rounded-full bg-teal-400/20 blur-3xl animate-blob-2" />
         <div className="absolute inset-0 bg-grid-pattern opacity-[0.1]" />
       </div>
 

@@ -90,7 +90,7 @@ function FilterChip({
     <button
       type="button"
       onClick={onClick}
-      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+      className={`px-3 py-1.5 rounded-none text-xs font-semibold transition-all ${
         active
           ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/30"
           : "text-gray-600 border border-gray-200 bg-white hover:border-indigo-300 hover:text-indigo-600"
@@ -110,7 +110,7 @@ function FilterGroup({
 }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="bg-gray-100 border border-gray-300 rounded-md px-2 py-1 text-[11px] font-black uppercase tracking-wider mr-0.5 font-sans whitespace-nowrap text-gray-900">
+      <span className="bg-gray-100 border border-gray-300 rounded-none px-2 py-1 text-[11px] font-black uppercase tracking-wider mr-0.5 font-sans whitespace-nowrap text-gray-900">
         {label}
       </span>
       {children}
@@ -416,10 +416,8 @@ export default function Dev2ProblemsPage() {
 
   return (
     <div className="relative bg-[#EEF2FF] min-h-screen overflow-hidden">
-      {/* Floating blobs & grid */}
+      {/* Background grid */}
       <div className="absolute top-0 left-0 right-0 h-[800px] pointer-events-none overflow-hidden">
-        <div className="absolute -top-10 -left-32 w-[420px] h-[420px] rounded-full bg-indigo-400/30 blur-3xl animate-blob-1" />
-        <div className="absolute top-[10%] -right-32 w-[420px] h-[420px] rounded-full bg-purple-400/30 blur-3xl animate-blob-2" />
         <div className="absolute inset-0 bg-grid-pattern opacity-30" />
       </div>
 
@@ -460,91 +458,89 @@ export default function Dev2ProblemsPage() {
           <StatCard label="평균 통과율" value={stats.avgPass} suffix="%" />
         </div>
 
-        {/* Search + sort */}
+        {/* Search + filters */}
         <div
-          className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-4 animate-slide-up"
+          className="mb-6 sm:mb-8 animate-slide-up border border-gray-200 bg-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04)]"
           style={{ animationDelay: "0.1s", animationFillMode: "both" }}
         >
-          <div className="relative flex-1">
-            <Search
-              size={16}
-              strokeWidth={2.2}
-              className="absolute left-4 inset-y-0 my-auto text-gray-400 pointer-events-none"
-            />
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="제목, 설명, 유형으로 검색..."
-              className="w-full bg-white/80 backdrop-blur border border-transparent rounded-2xl pl-11 pr-10 py-3 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 transition-all"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full inline-flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
-                aria-label="검색어 지우기"
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-0 border-b border-gray-200">
+            <div className="relative flex-1">
+              <Search
+                size={16}
+                strokeWidth={2.2}
+                className="absolute left-4 inset-y-0 my-auto text-gray-400 pointer-events-none"
+              />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="제목, 설명, 유형으로 검색..."
+                className="w-full bg-white border-0 rounded-none pl-11 pr-10 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-0"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-none inline-flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+                  aria-label="검색어 지우기"
+                >
+                  <X size={14} strokeWidth={2.4} />
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0 border-t sm:border-t-0 sm:border-l border-gray-200 px-3 py-2">
+              <label
+                htmlFor="dev2-sort"
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-700 whitespace-nowrap"
               >
-                <X size={14} strokeWidth={2.4} />
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <label
-              htmlFor="dev2-sort"
-              className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-700 whitespace-nowrap"
-            >
-              <SlidersHorizontal size={14} strokeWidth={2.2} className="text-gray-400" />
-              정렬
-            </label>
-            <select
-              id="dev2-sort"
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortId)}
-              className="flex-1 sm:flex-none bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 font-medium shadow-sm focus:outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 transition-all cursor-pointer"
-            >
-              {SORT_OPTIONS.map((opt) => (
-                <option key={opt.id} value={opt.id}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Filter bar */}
-        <div
-          className="flex items-center gap-x-2 mb-6 sm:mb-8 animate-slide-up overflow-x-auto"
-          style={{ animationDelay: "0.15s", animationFillMode: "both" }}
-        >
-          <div className="flex items-center gap-1.5 px-3 py-2 bg-white rounded-xl border border-gray-200 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_4px_12px_-6px_rgba(79,70,229,0.12)]">
-            <FilterGroup label="난이도">
-              <FilterChip active={level === "ALL"} onClick={() => setLevel("ALL")}>전체</FilterChip>
-              {LEVEL_OPTIONS.map((v) => (
-                <FilterChip key={v} active={level === v} onClick={() => setLevel(v)}>
-                  Lv {v}
-                  <span className="ml-1 text-[10px] opacity-70">{LEVEL_META[v].label}</span>
-                </FilterChip>
-              ))}
-            </FilterGroup>
+                <SlidersHorizontal size={14} strokeWidth={2.2} className="text-gray-400" />
+                정렬
+              </label>
+              <select
+                id="dev2-sort"
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortId)}
+                className="flex-1 sm:flex-none bg-white border border-gray-200 rounded-none px-3 py-2 text-sm text-gray-700 font-medium focus:outline-none focus:border-indigo-300 transition-colors cursor-pointer"
+              >
+                {SORT_OPTIONS.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <div className="flex items-center gap-1.5 px-3 py-2 bg-white rounded-xl border border-gray-200 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_4px_12px_-6px_rgba(79,70,229,0.12)]">
-            <FilterGroup label="유형">
-              <FilterChip active={category === "ALL"} onClick={() => setCategory("ALL")}>전체</FilterChip>
-              {CATEGORY_OPTIONS.map((c) => (
-                <FilterChip key={c} active={category === c} onClick={() => setCategory(c)}>{c}</FilterChip>
-              ))}
-            </FilterGroup>
-          </div>
+          <div className="flex items-center gap-x-0 overflow-x-auto">
+            <div className="flex items-center gap-1.5 px-3 py-2 border-r border-gray-200">
+              <FilterGroup label="난이도">
+                <FilterChip active={level === "ALL"} onClick={() => setLevel("ALL")}>전체</FilterChip>
+                {LEVEL_OPTIONS.map((v) => (
+                  <FilterChip key={v} active={level === v} onClick={() => setLevel(v)}>
+                    Lv {v}
+                    <span className="ml-1 text-[10px] opacity-70">{LEVEL_META[v].label}</span>
+                  </FilterChip>
+                ))}
+              </FilterGroup>
+            </div>
 
-          <div className="flex items-center gap-1.5 px-3 py-2 bg-white rounded-xl border border-gray-200 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_4px_12px_-6px_rgba(79,70,229,0.12)]">
-            <FilterGroup label="상태">
-              <FilterChip active={status === "ALL"} onClick={() => setStatus("ALL")}>전체</FilterChip>
-              {STATUS_OPTIONS.map((s) => (
-                <FilterChip key={s} active={status === s} onClick={() => setStatus(s)}>{s}</FilterChip>
-              ))}
-            </FilterGroup>
+            <div className="flex items-center gap-1.5 px-3 py-2 border-r border-gray-200">
+              <FilterGroup label="유형">
+                <FilterChip active={category === "ALL"} onClick={() => setCategory("ALL")}>전체</FilterChip>
+                {CATEGORY_OPTIONS.map((c) => (
+                  <FilterChip key={c} active={category === c} onClick={() => setCategory(c)}>{c}</FilterChip>
+                ))}
+              </FilterGroup>
+            </div>
+
+            <div className="flex items-center gap-1.5 px-3 py-2">
+              <FilterGroup label="상태">
+                <FilterChip active={status === "ALL"} onClick={() => setStatus("ALL")}>전체</FilterChip>
+                {STATUS_OPTIONS.map((s) => (
+                  <FilterChip key={s} active={status === s} onClick={() => setStatus(s)}>{s}</FilterChip>
+                ))}
+              </FilterGroup>
+            </div>
           </div>
         </div>
 

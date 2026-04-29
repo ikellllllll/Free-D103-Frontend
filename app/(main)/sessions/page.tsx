@@ -175,8 +175,6 @@ export default function Dev2SessionsPage() {
         className="pointer-events-none absolute inset-x-0 top-0 h-[900px] overflow-hidden"
         aria-hidden="true"
       >
-        <div className="absolute -top-24 -left-24 w-[560px] h-[560px] rounded-full bg-indigo-400/25 blur-[120px] animate-blob-1" />
-        <div className="absolute top-[8%] right-[-8rem] w-[520px] h-[520px] rounded-full bg-fuchsia-400/20 blur-[120px] animate-blob-2" />
         <div className="absolute inset-0 bg-grid-pattern opacity-[0.18]" />
         {/* Soft fade to page background so content sits on a calm surface */}
         <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-b from-transparent to-slate-50" />

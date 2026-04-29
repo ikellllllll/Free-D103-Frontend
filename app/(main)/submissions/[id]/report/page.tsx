@@ -124,10 +124,8 @@ export default function Dev2FeedbackReportPage({
 
   return (
     <div className="relative bg-gradient-to-b from-indigo-50/20 via-white to-white min-h-screen overflow-hidden">
-      {/* Soft background orbs */}
+      {/* Background grid */}
       <div className="absolute top-0 left-0 right-0 h-[900px] pointer-events-none overflow-hidden">
-        <div className="absolute -top-10 -left-32 w-[480px] h-[480px] rounded-full bg-indigo-400/20 blur-3xl animate-blob-1" />
-        <div className="absolute top-[8%] -right-32 w-[480px] h-[480px] rounded-full bg-teal-400/20 blur-3xl animate-blob-2" />
         <div className="absolute inset-0 bg-grid-pattern opacity-25" />
       </div>
 
@@ -140,11 +138,6 @@ export default function Dev2FeedbackReportPage({
               "linear-gradient(135deg, #3B3A9E 0%, #4F46E5 30%, #7C3AED 70%, #6D28D9 100%)"
           }}
         >
-          {/* Decorative orbs */}
-          <div className="absolute -top-10 -right-10 w-64 h-64 rounded-full bg-white/10 blur-3xl" />
-          <div className="absolute -bottom-12 -left-12 w-56 h-56 rounded-full bg-white/10 blur-2xl" />
-          <div className="absolute top-1/3 left-[30%] w-6 h-6 rounded-full bg-white/20 blur-sm" />
-
           <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-6 p-8 md:p-12">
             {/* Left */}
             <div className="flex-1 min-w-0">

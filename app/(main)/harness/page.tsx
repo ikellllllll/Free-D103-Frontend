@@ -224,11 +224,7 @@ export default function Dev2HarnessPage() {
       {/* ─── Aurora / Mesh background ─── */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
         {/* Base mesh wash */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_20%_-10%,rgba(99,102,241,0.22),transparent_60%),radial-gradient(ellipse_70%_55%_at_85%_5%,rgba(217,70,239,0.18),transparent_60%),radial-gradient(ellipse_60%_45%_at_50%_100%,rgba(56,189,248,0.14),transparent_60%)]" />
-        {/* Aurora blobs */}
-        <div className="absolute -top-24 -left-32 w-[520px] h-[520px] rounded-full bg-indigo-400/25 blur-3xl animate-blob-1" />
-        <div className="absolute top-[6%] -right-36 w-[520px] h-[520px] rounded-full bg-fuchsia-400/20 blur-3xl animate-blob-2" />
-        <div className="absolute top-[35%] left-[30%] w-[420px] h-[420px] rounded-full bg-violet-400/18 blur-3xl animate-blob-1" style={{ animationDelay: "-3s" }} />
+        {/* Background grid */}
         {/* Grid pattern overlay */}
         <div className="absolute inset-0 bg-grid-pattern opacity-[0.18]" />
         {/* Bottom fade to solid surface */}
