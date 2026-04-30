@@ -21,6 +21,7 @@ import { useAiChat } from "@/hooks/useAiChat";
 import { mockApi } from "@/lib/api/mockApi";
 import { problemApi } from "@/lib/api/problemApi";
 import { isBackendProblemId, isBackendSessionId, sessionApi } from "@/lib/api/sessionApi";
+import { parseApiDateTime } from "@/lib/dateTime";
 import { getProblemById } from "@/lib/mock-data";
 import type { TraceEvent } from "@/lib/types/ai";
 import type { WorkspaceFile } from "@/lib/types/session";
@@ -208,7 +209,7 @@ const areStringArraysEqual = (left: string[], right: string[]) =>
 const pad2 = (value: number) => String(value).padStart(2, "0");
 const toTimestamp = (value?: string | null) => {
   if (!value) return Date.now();
-  const timestamp = new Date(value).getTime();
+  const timestamp = parseApiDateTime(value)?.getTime() ?? Number.NaN;
   return Number.isFinite(timestamp) ? timestamp : Date.now();
 };
 const formatSolveElapsed = (elapsedMs: number) => {
@@ -1910,8 +1911,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     ai: aiQuotaLabel,
     output: testResult ? `${testResult.failed}` : traces.length ? `${traces.length}` : null
   };
-  const lastSavedLabel = lastSavedAt
-    ? `저장 ${new Date(lastSavedAt).toLocaleTimeString("ko-KR", {
+  const lastSavedDate = parseApiDateTime(lastSavedAt);
+  const lastSavedLabel = lastSavedDate
+    ? `저장 ${lastSavedDate.toLocaleTimeString("ko-KR", {
         hour: "2-digit",
         minute: "2-digit",
         hour12: false

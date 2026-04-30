@@ -1,5 +1,6 @@
 import { authClient } from "@/lib/api/authApi";
 import { mockApi } from "@/lib/api/mockApi";
+import { normalizeApiDateTime, parseApiDateTime } from "@/lib/dateTime";
 import { createInitialSession } from "@/lib/mock-data";
 import type { AiMessage, TraceEvent } from "@/lib/types/ai";
 import type { ProblemLanguage, SolveSession, WorkspaceFile } from "@/lib/types/session";
@@ -222,6 +223,7 @@ const buildExternalSession = (
   aiModel: string,
   aiProvider: string
 ): SolveSession => {
+  const startedAt = normalizeApiDateTime(payload.startedAt) ?? payload.startedAt;
   const seeded = createInitialSession(
     String(payload.problemSessionId),
     userId,
@@ -237,8 +239,8 @@ const buildExternalSession = (
     userId,
     language,
     status: "CREATING",
-    createdAt: payload.startedAt,
-    lastSavedAt: payload.startedAt,
+    createdAt: startedAt,
+    lastSavedAt: startedAt,
     readyAt: Date.now() + EXTERNAL_SESSION_READY_DELAY_MS,
     aiModel,
     aiProvider
@@ -302,7 +304,7 @@ const toWorkspaceFiles = (
 };
 
 const formatTraceTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString("ko-KR", {
+  (parseApiDateTime(iso) ?? new Date(iso)).toLocaleTimeString("ko-KR", {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -739,6 +741,9 @@ export const sessionApi = {
     const res = await authClient.post(`api/v1/sessions/${sessionId}/end`)
       .json<ApiResponse<EndSessionResponse>>();
 
-    return res.data;
+    return {
+      ...res.data,
+      endedAt: normalizeApiDateTime(res.data.endedAt) ?? res.data.endedAt
+    };
   }
 };
