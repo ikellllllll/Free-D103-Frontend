@@ -19,6 +19,12 @@ interface StartSessionResponse {
   startedAt: string;
 }
 
+interface EndSessionResponse {
+  problemSessionId: number;
+  status?: "IN_PROGRESS" | "ENDED" | "EXPIRED";
+  endedAt: string;
+}
+
 interface FileTreeItemResponse {
   fileId: number;
   path: string;
@@ -727,5 +733,12 @@ export const sessionApi = {
       content: input.content,
       language
     };
+  },
+
+  async endSession(sessionId: string) {
+    const res = await authClient.post(`api/v1/sessions/${sessionId}/end`)
+      .json<ApiResponse<EndSessionResponse>>();
+
+    return res.data;
   }
 };
