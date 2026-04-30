@@ -7,7 +7,6 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Key,
   Trophy,
-  Flame,
   Shield,
   Check,
   Pencil,
@@ -302,8 +301,8 @@ export default function Dev2MyPage() {
           {/* ── LEFT SIDEBAR ── */}
           <aside className="w-56 shrink-0 sticky top-28">
             {/* Profile mini card */}
-            <div className="mb-4 p-4 rounded-2xl bg-white/60 backdrop-blur-md border border-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_4px_16px_-4px_rgba(99,102,241,0.12)] flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-white text-indigo-700 flex items-center justify-center font-bold text-sm shrink-0 shadow-[0_2px_8px_-2px_rgba(99,102,241,0.2)] ring-1 ring-indigo-100">
+            <div className="mb-4 p-4 rounded-2xl bg-white border border-gray-200 shadow-sm flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-sm shrink-0 ring-1 ring-indigo-100">
                 {initials}
               </div>
               <div className="min-w-0">
@@ -328,31 +327,15 @@ export default function Dev2MyPage() {
                         key={item.id}
                         type="button"
                         onClick={() => setActiveTab(item.id)}
-                        className={`relative w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
+                        className={`relative w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors duration-200 ${
                           active
                             ? isDanger
-                              ? "text-rose-600 font-semibold"
-                              : "text-indigo-700 font-semibold"
+                              ? "bg-white text-rose-600 font-semibold shadow-sm ring-1 ring-rose-100"
+                              : "bg-white text-indigo-700 font-semibold shadow-sm ring-1 ring-indigo-100"
                             : isDanger
-                              ? "text-rose-400 hover:text-rose-600"
-                              : "text-gray-500 hover:text-gray-900"
+                              ? "text-rose-400 hover:bg-white/70 hover:text-rose-600"
+                              : "text-gray-500 hover:bg-white/70 hover:text-gray-900"
                         }`}
-                        style={active ? {
-                          background: isDanger
-                            ? "linear-gradient(135deg, rgba(254,226,226,0.7) 0%, rgba(255,241,242,0.55) 100%)"
-                            : "linear-gradient(135deg, rgba(224,231,255,0.75) 0%, rgba(237,233,254,0.55) 100%)",
-                          backdropFilter: "blur(12px)",
-                          WebkitBackdropFilter: "blur(12px)",
-                          border: isDanger
-                            ? "1px solid rgba(252,165,165,0.45)"
-                            : "1px solid rgba(165,180,252,0.45)",
-                          boxShadow: isDanger
-                            ? "inset 0 1px 0 rgba(255,255,255,0.85), 0 4px 12px -4px rgba(239,68,68,0.18), 0 1px 3px rgba(239,68,68,0.08)"
-                            : "inset 0 1px 0 rgba(255,255,255,0.85), 0 4px 12px -4px rgba(99,102,241,0.22), 0 1px 3px rgba(99,102,241,0.08)"
-                        } : {
-                          background: "transparent",
-                          border: "1px solid transparent"
-                        }}
                       >
                         <Icon
                           size={15}
@@ -385,54 +368,39 @@ export default function Dev2MyPage() {
               <div className="animate-slide-up space-y-4">
                 <SectionHeader title="프로필" desc="내 계정 정보와 활동 현황" />
 
-                {/* Top row: avatar card + stat cards */}
-                <div className="flex gap-4 items-stretch">
+                {/* Top row: profile summary */}
+                <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_1fr] gap-3 items-stretch">
                   {/* Avatar + info */}
-                  <div className="relative overflow-hidden bg-white rounded-2xl border border-gray-200 shadow-sm p-7 flex flex-col items-center text-center w-52 shrink-0">
+                  <div className="relative overflow-hidden bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 flex items-center gap-4 min-h-[132px]">
                     {/* Subtle gradient top */}
                     <div
-                      className="absolute inset-x-0 top-0 h-24 opacity-60"
-                      style={{ background: "linear-gradient(180deg, #eef2ff 0%, transparent 100%)" }}
+                      className="absolute inset-y-0 left-0 w-24 opacity-60"
+                      style={{ background: "linear-gradient(90deg, #eef2ff 0%, transparent 100%)" }}
                       aria-hidden="true"
                     />
-                    <div className="relative mb-4">
+                    <div className="relative shrink-0">
                       {/* Glow ring */}
                       <div className="absolute inset-0 rounded-full blur-xl bg-indigo-400/30 scale-110" aria-hidden="true" />
-                      <div className="relative w-20 h-20 rounded-full bg-white text-indigo-700 flex items-center justify-center font-display font-black text-2xl shadow-[0_4px_16px_-4px_rgba(99,102,241,0.25)] ring-1 ring-indigo-100">
+                      <div className="relative w-14 h-14 rounded-full bg-white text-indigo-700 flex items-center justify-center font-display font-black text-xl shadow-[0_4px_16px_-4px_rgba(99,102,241,0.25)] ring-1 ring-indigo-100">
                         {initials}
                       </div>
-                      <span className="absolute bottom-0.5 right-0.5 w-4 h-4 rounded-full bg-emerald-400 ring-2 ring-white shadow-sm" />
                     </div>
-                    <h2 className="relative font-bold text-gray-900 text-base leading-tight mb-1">{name}</h2>
-                    <p className="relative text-xs text-gray-500 mb-3 truncate max-w-full">{email}</p>
-                    <div className="relative inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-xs font-semibold text-indigo-700">
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                      SSAFY 14기 D103
+                    <div className="relative min-w-0">
+                      <h2 className="font-bold text-gray-900 text-base leading-tight mb-1 truncate">{name}</h2>
+                      <p className="text-xs text-gray-500 truncate">{email}</p>
                     </div>
                   </div>
 
-                  {/* Stat cards grid */}
-                  <div className="flex-1 grid grid-cols-1 gap-3">
-                    {[
-                      { icon: Trophy, label: "랭킹", value: "Top 12%", sub: "전체 참여자 기준", color: "text-amber-500", bg: "bg-amber-50", ring: "ring-amber-100" },
-                      { icon: Flame, label: "연속 출석", value: "7일", sub: "현재 streak 유지 중", color: "text-orange-500", bg: "bg-orange-50", ring: "ring-orange-100" },
-                      { icon: Shield, label: "티어", value: "Silver II", sub: "다음 티어까지 조금 더", color: "text-slate-500", bg: "bg-slate-50", ring: "ring-slate-200" }
-                    ].map((stat) => {
-                      const Icon = stat.icon;
-                      return (
-                        <div key={stat.label} className="flex items-center gap-4 bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
-                          <span className={`shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl ${stat.bg} ring-1 ${stat.ring} ${stat.color}`}>
-                            <Icon size={18} strokeWidth={2} />
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">{stat.label}</div>
-                            <div className="text-sm text-gray-500">{stat.sub}</div>
-                          </div>
-                          <div className="text-lg font-bold text-gray-900 tabular-nums shrink-0">{stat.value}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <ProfileStatRow
+                    icon={Shield}
+                    label="티어"
+                    value="Silver II"
+                    sub="다음 티어까지 조금 더"
+                    color="text-slate-500"
+                    bg="bg-slate-50"
+                    ring="ring-slate-200"
+                  />
+                  <StreakGrassCard streak={7} />
                 </div>
 
                 {/* Info row */}
@@ -759,6 +727,77 @@ function SectionHeader({ title, desc }: { title: string; desc: string }) {
       <h2 className="text-xl font-bold text-gray-900 tracking-tight">{title}</h2>
       <p className="text-sm text-gray-500 mt-0.5">{desc}</p>
     </div>
+  );
+}
+
+function ProfileStatRow({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  color,
+  bg,
+  ring
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  sub: string;
+  color: string;
+  bg: string;
+  ring: string;
+}) {
+  return (
+    <div className="flex items-center gap-4 bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 min-h-[132px] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+      <span className={`shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl ${bg} ring-1 ${ring} ${color}`}>
+        <Icon size={18} strokeWidth={2} />
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">{label}</div>
+        <div className="text-sm text-gray-500 leading-snug">{sub}</div>
+      </div>
+      <div className="text-lg font-bold text-gray-900 tabular-nums shrink-0">{value}</div>
+    </div>
+  );
+}
+
+function StreakGrassCard({ streak }: { streak: number }) {
+  const cells = Array.from({ length: 21 }, (_, index) => {
+    const active = index >= 21 - streak;
+    const strength = index % 4;
+    const activeClass = [
+      "bg-emerald-300",
+      "bg-emerald-400",
+      "bg-green-500",
+      "bg-emerald-600"
+    ][strength];
+
+    return (
+      <span
+        key={index}
+        className={`h-3 w-3 rounded-[3px] border ${
+          active
+            ? `${activeClass} border-emerald-500/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]`
+            : "border-gray-200 bg-gray-100"
+        }`}
+        aria-hidden="true"
+      />
+    );
+  });
+
+  return (
+    <section className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 min-h-[132px]">
+      <div className="flex items-center justify-between gap-4 mb-3">
+        <div>
+          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">연속 출석</div>
+          <div className="text-sm text-gray-500 leading-snug">하루씩 잔디를 심는 중</div>
+        </div>
+        <div className="text-lg font-bold text-gray-900 tabular-nums shrink-0">{streak}일</div>
+      </div>
+      <div className="inline-grid grid-cols-7 gap-1 rounded-xl bg-emerald-50/70 p-3 ring-1 ring-emerald-100">
+        {cells}
+      </div>
+    </section>
   );
 }
 

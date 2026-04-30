@@ -96,8 +96,11 @@ export default function SessionStartPage({
             </div>
             <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-300"
-                style={{ width: `${progress}%` }}
+                className="h-full rounded-full transition-all duration-300"
+                style={{
+                  width: `${progress}%`,
+                  background: "linear-gradient(to right, #6366f1, #a855f7)"
+                }}
               />
             </div>
             <p className="text-xs text-gray-400 mt-2">

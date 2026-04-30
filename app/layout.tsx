@@ -36,7 +36,9 @@ export const metadata: Metadata = {
   title: "AIG | AI-based Integrated Ground",
   description: "AIG 프론트 과제 워크스페이스 프로토타입",
   icons: {
-    icon: "/icon.svg"
+    icon: [
+      { url: "/favicon.png", sizes: "32x32", type: "image/png" },
+    ],
   }
 };
 

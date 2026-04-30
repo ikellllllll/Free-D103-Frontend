@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Sparkles,
   ArrowRight,
@@ -16,16 +16,6 @@ import { useAuthStore } from "@/store/authStore";
 
 const SECTION_IDS = ["hero", "showcase", "features", "workflow", "demo", "reports", "cta"] as const;
 type SectionId = (typeof SECTION_IDS)[number];
-
-const SECTION_LABELS: Record<SectionId, string> = {
-  hero: "홈",
-  showcase: "미리보기",
-  features: "기능",
-  workflow: "워크플로",
-  demo: "데모",
-  reports: "리포트",
-  cta: "시작하기"
-};
 
 const WORKFLOW = [
   {
@@ -109,22 +99,9 @@ const SHOWCASE_STATS = [
   { value: "14기", label: "SSAFY" }
 ];
 
-const HERO_TYPING_LINES = [
-  "하네스 엔지니어링",
-  "실무 역량을 키우는",
-  "하네스 엔지니어링 워크스페이스"
-] as const;
-
-const HERO_TYPEWRITER_WORDS = [
-  "워크스페이스"
-] as const;
-
 export function LandingAIG() {
   // 로그인 유저는 "시작하기" 버튼 → /problems, 비로그인은 "로그인" → /login
   const user = useAuthStore((s) => s.user);
-  const [heroLineIndex, setHeroLineIndex] = useState(0);
-  const [heroTypedText, setHeroTypedText] = useState("");
-  const [heroDeleting, setHeroDeleting] = useState(false);
 
   const sectionRefs = useRef<Record<SectionId, HTMLElement | null>>({
     hero: null,
@@ -136,9 +113,6 @@ export function LandingAIG() {
     cta: null
   });
   const previewRef = useRef<HTMLDivElement | null>(null);
-  const [activeSection, setActiveSection] = useState<SectionId>("hero");
-  const isScrollingRef = useRef(false);
-  const currentSectionRef = useRef(0);
 
   // Workflow step selector
   const [activeStep, setActiveStep] = useState(0);
@@ -186,32 +160,6 @@ export function LandingAIG() {
     return () => window.clearInterval(t);
   }, []);
 
-  useEffect(() => {
-    const current = HERO_TYPEWRITER_WORDS[heroLineIndex];
-    let timeout: number;
-
-    if (!heroDeleting && heroTypedText.length < current.length) {
-      timeout = window.setTimeout(() => {
-        setHeroTypedText(current.slice(0, heroTypedText.length + 1));
-      }, 108);
-    } else if (!heroDeleting && heroTypedText.length === current.length) {
-      timeout = window.setTimeout(() => {
-        setHeroDeleting(true);
-      }, 1350);
-    } else if (heroDeleting && heroTypedText.length > 0) {
-      timeout = window.setTimeout(() => {
-        setHeroTypedText(current.slice(0, heroTypedText.length - 1));
-      }, 58);
-    } else {
-      timeout = window.setTimeout(() => {
-        setHeroDeleting(false);
-        setHeroLineIndex((heroLineIndex + 1) % HERO_TYPEWRITER_WORDS.length);
-      }, 180);
-    }
-
-    return () => window.clearTimeout(timeout);
-  }, [heroDeleting, heroLineIndex, heroTypedText]);
-
   const setSectionRef = useCallback(
     (id: SectionId) => (node: HTMLElement | null) => {
       sectionRefs.current[id] = node;
@@ -219,17 +167,12 @@ export function LandingAIG() {
     []
   );
 
-  const scrollToIdx = useCallback((idx: number) => {
-    const clamped = Math.max(0, Math.min(SECTION_IDS.length - 1, idx));
-    currentSectionRef.current = clamped;
-    setActiveSection(SECTION_IDS[clamped]);
-
-    if (clamped === 0) {
+  const scrollToSection = useCallback((id: SectionId) => {
+    if (id === "hero") {
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
-    const id = SECTION_IDS[clamped];
-    // showcase: preview 카드 상단이 viewport 상단에 오도록 스크롤
+
     if (id === "showcase" && previewRef.current) {
       const top = previewRef.current.getBoundingClientRect().top + window.scrollY;
       window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
@@ -241,14 +184,6 @@ export function LandingAIG() {
     window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
   }, []);
 
-  const scrollToSection = useCallback((id: SectionId) => {
-    const idx = SECTION_IDS.indexOf(id);
-    if (idx < 0) return;
-    isScrollingRef.current = true;
-    scrollToIdx(idx);
-    window.setTimeout(() => { isScrollingRef.current = false; }, 900);
-  }, [scrollToIdx]);
-
   const handleAnchorJump = useCallback(
     (id: SectionId) => (event: React.MouseEvent) => {
       event.preventDefault();
@@ -257,131 +192,14 @@ export function LandingAIG() {
     [scrollToSection]
   );
 
-  // PPT-style wheel snap
-  // 마우스 휠: deltaY 크고 드문 이벤트 → 즉시 snap
-  // 트랙패드: deltaY 작고 연속 이벤트 → debounce 누적 후 snap
-  const wheelAccumRef = useRef(0);
-  const wheelTimerRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    const triggerSnap = (dir: number) => {
-      const next = currentSectionRef.current + dir;
-      if (next < 0 || next >= SECTION_IDS.length) return;
-      isScrollingRef.current = true;
-      scrollToIdx(next);
-      window.setTimeout(() => { isScrollingRef.current = false; }, 900);
-    };
-
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      if (isScrollingRef.current) return;
-
-      // 마우스 휠: 큰 deltaY (>= 50) 또는 line 모드 → 즉시 snap
-      if (Math.abs(e.deltaY) >= 50 || e.deltaMode === 1) {
-        if (wheelTimerRef.current) {
-          clearTimeout(wheelTimerRef.current);
-          wheelTimerRef.current = null;
-        }
-        wheelAccumRef.current = 0;
-        triggerSnap(e.deltaY > 0 ? 1 : -1);
-        return;
-      }
-
-      // 트랙패드: 작은 deltaY → 누적 후 100ms 디바운스
-      wheelAccumRef.current += e.deltaY;
-      if (wheelTimerRef.current) clearTimeout(wheelTimerRef.current);
-      wheelTimerRef.current = window.setTimeout(() => {
-        const accum = wheelAccumRef.current;
-        wheelAccumRef.current = 0;
-        wheelTimerRef.current = null;
-        if (Math.abs(accum) < 30) return;
-        triggerSnap(accum > 0 ? 1 : -1);
-      }, 100);
-    };
-
-    window.addEventListener("wheel", onWheel, { passive: false });
-    return () => {
-      window.removeEventListener("wheel", onWheel);
-      if (wheelTimerRef.current) clearTimeout(wheelTimerRef.current);
-    };
-  }, [scrollToIdx]);
-
-  // Keyboard arrow / PageDown
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!["ArrowDown", "ArrowUp", "PageDown", "PageUp"].includes(e.key)) return;
-      e.preventDefault();
-      if (isScrollingRef.current) return;
-      const dir = (e.key === "ArrowDown" || e.key === "PageDown") ? 1 : -1;
-      const next = currentSectionRef.current + dir;
-      if (next < 0 || next >= SECTION_IDS.length) return;
-      isScrollingRef.current = true;
-      scrollToIdx(next);
-      window.setTimeout(() => { isScrollingRef.current = false; }, 900);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [scrollToIdx]);
-
-  // IntersectionObserver — viewport root, sync currentSectionRef
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
-        if (visible[0]) {
-          const id = visible[0].target.getAttribute("data-section") as SectionId | null;
-          if (id) {
-            setActiveSection(id);
-            if (!isScrollingRef.current) {
-              currentSectionRef.current = SECTION_IDS.indexOf(id);
-            }
-          }
-        }
-      },
-      { root: null, threshold: [0.35, 0.55, 0.75] }
-    );
-    SECTION_IDS.forEach((id) => {
-      const node = sectionRefs.current[id];
-      if (node) observer.observe(node);
-    });
-    return () => observer.disconnect();
-  }, []);
-
-  const dots = useMemo(() => SECTION_IDS, []);
-
   return (
     <div className="dev2-landing-scroll w-full max-w-none bg-[#0F0F2E] font-sans">
-      {/* Section dots (right side, fixed) — adaptive to section background */}
-      <div className="pointer-events-none fixed right-6 top-1/2 z-40 -translate-y-1/2 hidden md:flex flex-col items-end gap-3">
-        {dots.map((id) => {
-          const isActive = activeSection === id;
-          const dotCls = isActive
-            ? "border-cyan-300 bg-cyan-300 shadow-[0_0_0_4px_rgba(103,232,249,0.2)]"
-            : "border-white/40 bg-white/40 group-hover:border-cyan-300 group-hover:bg-cyan-300";
-
-          return (
-            <button
-              key={id}
-              type="button"
-              onClick={() => scrollToSection(id)}
-              aria-label={`${SECTION_LABELS[id]} 섹션으로 이동`}
-              className="pointer-events-auto group flex items-center justify-end gap-2 transition-colors cursor-pointer"
-            >
-              <span className={`block w-3 h-3 rounded-full border transition-all ${dotCls}`} />
-            </button>
-          );
-        })}
-      </div>
-
       {/* ────────────────── HERO SECTION (Dark) ────────────────── */}
       <section
         ref={setSectionRef("hero")}
         data-section="hero"
         id="hero"
         className="relative bg-[#0F0F2E] text-white flex flex-col overflow-visible"
-        style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
       >
         {/* Background grid */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -392,7 +210,7 @@ export function LandingAIG() {
         <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-white/70 shadow-sm">
           <nav className="mx-auto h-14 max-w-6xl flex items-center justify-between px-6">
             <Link href="/" className="flex items-center space-x-2 font-display font-bold text-lg group cursor-pointer">
-              <Image src="/brand/app-icon-light.svg" alt="AIG" width={28} height={28} className="rounded-lg" />
+              <Image src="/brand/favicon.png" alt="AIG" width={28} height={28} className="rounded-lg object-cover" />
               <span className="text-indigo-600">AIG</span>
             </Link>
             <div className="hidden md:flex items-center space-x-8 text-sm font-medium text-gray-700">
@@ -415,12 +233,7 @@ export function LandingAIG() {
         <div className="relative z-10 flex flex-col items-center px-6 pt-6 pb-10 text-center max-w-4xl mx-auto w-full animate-slide-up md:pt-8">
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-bold tracking-tight leading-[1.1] mb-3">
             <span className="block">하네스엔지니어링</span>
-            <span className="block">
-              <span className="hero-typewriter-inline" aria-live="polite">
-                <span className="hero-typewriter-inline__text">{heroTypedText}</span>
-                <span className="hero-typewriter-inline__caret" aria-hidden="true" />
-              </span>
-            </span>
+            <span className="block">워크스페이스</span>
           </h1>
 
           <div className="self-center inline-flex border-l-2 border-white/40 pl-3 text-xs font-semibold tracking-[0.12em] text-white/55 mb-4">
@@ -508,7 +321,7 @@ export function LandingAIG() {
         data-section="showcase"
         id="showcase"
         className="relative bg-[#0A0A20] text-white"
-        style={{ scrollSnapAlign: "start", scrollSnapStop: "always", paddingTop: "160px" }}
+        style={{ paddingTop: "160px" }}
       >
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(99,102,241,0.10),transparent_55%)]" />
@@ -537,7 +350,6 @@ export function LandingAIG() {
         data-section="features"
         id="features"
         className="relative min-h-screen bg-[#EEF2FF] overflow-hidden flex flex-col justify-center py-20"
-        style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
       >
         {/* Background grid */}
         <div className="pointer-events-none absolute top-0 left-0 right-0 h-full overflow-hidden">
@@ -555,7 +367,7 @@ export function LandingAIG() {
               ,<br />근거로 설명합니다
             </h2>
             <p className="text-base text-slate-600 max-w-xl leading-relaxed">
-              모듈 연결·신호 흐름·API 구현 과제를 AI와 함께 풀고, 에이전트가 어떻게 사고했는지 Trace로 남깁니다.
+              API 구현 과제를 AI와 함께 풀고, 에이전트가 어떻게 사고했는지 Trace로 남깁니다.
             </p>
           </div>
 
@@ -599,7 +411,6 @@ export function LandingAIG() {
         data-section="workflow"
         id="workflow"
         className="relative min-h-screen bg-[#EEF2FF] flex flex-col justify-center py-16 overflow-hidden"
-        style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
       >
         <div className="pointer-events-none absolute top-0 left-0 right-0 h-full overflow-hidden">
           <div className="absolute inset-0 bg-grid-pattern opacity-[0.04]" />
@@ -745,7 +556,6 @@ export function LandingAIG() {
         data-section="demo"
         id="demo"
         className="relative min-h-screen bg-[#2d2d44] text-white overflow-hidden flex flex-col justify-center py-16"
-        style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
       >
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute inset-0 bg-grid-pattern opacity-[0.1]" />
@@ -902,7 +712,6 @@ export function LandingAIG() {
         data-section="reports"
         id="reports"
         className="relative min-h-screen bg-[#EEF2FF] overflow-hidden flex flex-col justify-center py-20"
-        style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
       >
         <div className="pointer-events-none absolute top-0 left-0 right-0 h-full overflow-hidden">
           <div className="absolute inset-0 bg-grid-pattern opacity-[0.04]" />
@@ -1029,13 +838,12 @@ export function LandingAIG() {
         </div>
       </section>
 
-      {/* ────────────────── CTA + FOOTER (combined to one snap section) ────────────────── */}
+      {/* ────────────────── CTA + FOOTER ────────────────── */}
       <section
         ref={setSectionRef("cta")}
         data-section="cta"
         id="cta"
         className="relative min-h-screen bg-[#0F0F2E] text-white overflow-hidden flex flex-col"
-        style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
       >
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute inset-0 bg-grid-pattern opacity-[0.15]" />
@@ -1073,12 +881,12 @@ export function LandingAIG() {
           </div>
         </div>
 
-        {/* Footer nested inside the cta snap section */}
+        {/* Footer */}
         <footer className="relative bg-[#0A0A20] text-indigo-200/80 py-10 border-t border-white/10">
           <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between gap-6">
             <div>
               <Link href="/" className="inline-flex items-center space-x-2 text-white font-display font-bold text-lg mb-2 cursor-pointer">
-                <Image src="/brand/app-icon-light.svg" alt="AIG" width={24} height={24} className="rounded-md" />
+                <Image src="/brand/favicon.png" alt="AIG" width={24} height={24} className="rounded-md object-cover" />
                 <span>AIG</span>
               </Link>
               <p className="text-xs text-indigo-200/60 max-w-md leading-relaxed">

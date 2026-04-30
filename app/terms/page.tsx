@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Sparkles, ArrowLeft, Shield, FileText, AlertTriangle } from "lucide-react";
+import Image from "next/image";
+import { ArrowLeft, Shield, FileText, AlertTriangle } from "lucide-react";
 
 export default function Dev2TermsPage() {
   const updatedAt = "2026년 4월 22일";
@@ -17,7 +18,7 @@ export default function Dev2TermsPage() {
           href="/"
           className="inline-flex items-center space-x-2 text-white font-display font-bold text-xl group"
         >
-          <Sparkles size={22} strokeWidth={2} className="group-hover:rotate-12 transition-transform" />
+          <Image src="/brand/favicon.png" alt="AIG" width={28} height={28} className="rounded-lg object-cover" />
           <span>AIG</span>
         </Link>
         <Link

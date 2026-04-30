@@ -193,7 +193,7 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
   }
 
   return (
-    <div className="relative bg-gradient-to-b from-violet-200/70 via-indigo-100/60 to-slate-100 min-h-screen overflow-hidden">
+    <div className="relative bg-[#EEF2FF] min-h-screen overflow-hidden">
       {/* Background grid */}
       <div className="absolute top-0 left-0 right-0 h-[700px] pointer-events-none overflow-hidden">
         <div className="absolute inset-0 bg-grid-pattern opacity-30" />

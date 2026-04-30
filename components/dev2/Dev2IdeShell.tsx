@@ -43,6 +43,7 @@ import {
   SplitSquareVertical,
   ListChecks,
   Loader2,
+  Network,
   type LucideIcon
 } from "lucide-react";
 
@@ -73,7 +74,7 @@ const MonacoDiffEditor = dynamic(
 /* ───────────────────────────────────────────────── Types + Helpers */
 
 type TabKey = "code" | "problem" | "trace";
-type RailKey = "files" | "problem" | "trace" | "tests" | "ai";
+type RailKey = "files" | "problem" | "trace" | "tests" | "ai" | "harness";
 type BottomTabKey = "terminal" | "tests" | "problems" | "output";
 type DragMode = "sidebar" | "ai" | "bottom";
 
@@ -136,9 +137,20 @@ function buildFileTree(files: WorkspaceFile[], filter = ""): TreeNode[] {
   }
 
   const sortNodes = (nodes: TreeNode[]): TreeNode[] => {
+    const rootFolderOrder: Record<string, number> = {
+      src: 0,
+      agent: 1,
+      starter: 2,
+      ".worktree": 3
+    };
+    const getRootFolderRank = (node: TreeFolder) =>
+      node.path && !node.path.includes("/") ? rootFolderOrder[node.name] ?? 99 : 99;
     const folders = nodes
       .filter((n): n is TreeFolder => n.kind === "folder")
-      .sort((a, b) => a.name.localeCompare(b.name))
+      .sort((a, b) => {
+        const rankDiff = getRootFolderRank(a) - getRootFolderRank(b);
+        return rankDiff || a.name.localeCompare(b.name);
+      })
       .map((f) => ({ ...f, children: sortNodes(f.children) }));
     const leafs = nodes
       .filter((n): n is TreeFile => n.kind === "file")
@@ -147,6 +159,24 @@ function buildFileTree(files: WorkspaceFile[], filter = ""): TreeNode[] {
   };
 
   return sortNodes(root.children);
+}
+
+function isAgentConfigFile(path: string): boolean {
+  const normalized = path.replace(/\\/g, "/").toLowerCase();
+  const name = normalized.split("/").pop() ?? normalized;
+  const isMd = name.endsWith(".md") || name.endsWith(".mdx");
+
+  return (
+    normalized.startsWith("agent/") ||
+    normalized.startsWith("agents/") ||
+    normalized.startsWith(".agents/") ||
+    normalized.startsWith("skills/") ||
+    normalized.includes("/skills/") ||
+    name === "agents.md" ||
+    name === "agent.md" ||
+    name === "harness.md" ||
+    (isMd && /(instruction|instructions|prompt|skill|harness)/.test(name))
+  );
 }
 
 function deriveBadge(file: WorkspaceFile):
@@ -956,7 +986,8 @@ function ActivityRail({
     { key: "problem", icon: ListChecks, label: "과제" },
     { key: "trace", icon: GitBranch, label: "Trace" },
     { key: "tests", icon: TestTube, label: "테스트" },
-    { key: "ai", icon: Bot, label: "AI" }
+    { key: "ai", icon: Bot, label: "AI" },
+    { key: "harness", icon: Network, label: "하네스" }
   ];
   const theme = useThemeStore((s) => s.theme);
   const toggleTheme = useThemeStore((s) => s.toggleTheme);
@@ -1046,6 +1077,7 @@ function SecondaryPanel({
   if (railKey === "tests") return <TestsSidePanel testResult={testResult} />;
   if (railKey === "problem") return <ProblemSidePanel problem={problem} />;
   if (railKey === "trace") return <TraceSidePanel traces={traces} agentRuns={agentRuns} />;
+  if (railKey === "harness") return <HarnessPanel />;
   return <AiSidePanel />;
 }
 
@@ -1065,7 +1097,11 @@ function FilesPanel({
   testResult: ReturnType<typeof useIdeStore.getState>["testResult"];
 }) {
   const [query, setQuery] = useState("");
-  const tree = useMemo(() => buildFileTree(files, query), [files, query]);
+  const agentFiles = useMemo(() => files.filter((file) => isAgentConfigFile(file.path)), [files]);
+  const workspaceFiles = useMemo(() => files.filter((file) => !isAgentConfigFile(file.path)), [files]);
+  const agentTree = useMemo(() => buildFileTree(agentFiles, query), [agentFiles, query]);
+  const workspaceTree = useMemo(() => buildFileTree(workspaceFiles, query), [workspaceFiles, query]);
+  const hasVisibleFiles = agentTree.length > 0 || workspaceTree.length > 0;
 
   const resultSummary = testResult
     ? { ok: testResult.failed === 0, text: `${testResult.passed}/${testResult.total} 통과` }
@@ -1109,16 +1145,44 @@ function FilesPanel({
 
       {/* Tree */}
       <div className="flex-1 overflow-y-auto py-2 px-2 text-sm">
-        {tree.length === 0 ? (
+        {!hasVisibleFiles ? (
           <div className="px-2 py-4 text-xs text-gray-400 text-center">파일이 없습니다.</div>
         ) : (
-          <TreeView
-            nodes={tree}
-            activePath={activePath}
-            unsavedPaths={unsavedPaths}
-            onSelect={onSelect}
-            onOpenDiff={onOpenDiff}
-          />
+          <div className="space-y-3">
+            {agentTree.length > 0 && (
+              <ExplorerSection
+                title="Agent 설정"
+                description="지시문 · skills · harness"
+                count={agentFiles.length}
+                tone="agent"
+              >
+                <TreeView
+                  nodes={agentTree}
+                  activePath={activePath}
+                  unsavedPaths={unsavedPaths}
+                  onSelect={onSelect}
+                  onOpenDiff={onOpenDiff}
+                />
+              </ExplorerSection>
+            )}
+
+            {workspaceTree.length > 0 && (
+              <ExplorerSection
+                title="워크스페이스"
+                description="소스 · 테스트 · 설정"
+                count={workspaceFiles.length}
+                tone="workspace"
+              >
+                <TreeView
+                  nodes={workspaceTree}
+                  activePath={activePath}
+                  unsavedPaths={unsavedPaths}
+                  onSelect={onSelect}
+                  onOpenDiff={onOpenDiff}
+                />
+              </ExplorerSection>
+            )}
+          </div>
         )}
       </div>
 
@@ -1148,6 +1212,57 @@ function FilesPanel({
         </div>
       </div>
     </aside>
+  );
+}
+
+function ExplorerSection({
+  title,
+  description,
+  count,
+  tone,
+  children
+}: {
+  title: string;
+  description: string;
+  count: number;
+  tone: "agent" | "workspace";
+  children: ReactNode;
+}) {
+  const isAgent = tone === "agent";
+
+  return (
+    <section
+      className={`overflow-hidden rounded-xl border ${
+        isAgent
+          ? "border-indigo-200 bg-indigo-50/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]"
+          : "border-gray-200 bg-white"
+      }`}
+    >
+      <div
+        className={`flex items-center justify-between gap-2 border-b px-2.5 py-2 ${
+          isAgent ? "border-indigo-100 bg-white/60" : "border-gray-100 bg-gray-50"
+        }`}
+      >
+        <span className="min-w-0">
+          <span
+            className={`block truncate text-[11px] font-black uppercase tracking-[0.12em] ${
+              isAgent ? "text-indigo-700" : "text-gray-500"
+            }`}
+          >
+            {title}
+          </span>
+          <span className="block truncate text-[10px] text-gray-400">{description}</span>
+        </span>
+        <span
+          className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${
+            isAgent ? "bg-indigo-600 text-white" : "bg-gray-200 text-gray-600"
+          }`}
+        >
+          {count}
+        </span>
+      </div>
+      <div className="py-1">{children}</div>
+    </section>
   );
 }
 
@@ -1483,6 +1598,110 @@ function TraceSidePanel({
           </div>
         )}
       </div>
+    </aside>
+  );
+}
+
+/* ───────────────────────────────────────────────── HarnessPanel */
+
+const HARNESS_NODE_TYPES = [
+  { type: "instruction", icon: "📋", label: "Instruction", desc: "시스템 프롬프트 · CLAUDE.md" },
+  { type: "agent",       icon: "🤖", label: "Agent",       desc: "에이전트 역할 · 모델 설정" },
+  { type: "skill",       icon: "🔧", label: "Skill",       desc: "개별 스킬 파일" },
+  { type: "harness",     icon: "⚙️", label: "Harness",     desc: "오케스트레이션 설정" }
+] as const;
+
+function HarnessPanel() {
+  const [mode, setMode] = useState<"empty" | "canvas">("empty");
+
+  return (
+    <aside className="dev2-ide-panel w-full bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col overflow-hidden">
+      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2">
+          <Network size={14} strokeWidth={2.2} className="text-indigo-500" />
+          <span className="font-display font-bold text-gray-900 text-[15px]">하네스</span>
+        </div>
+        {mode === "canvas" && (
+          <button
+            type="button"
+            onClick={() => setMode("empty")}
+            title="초기화"
+            className="w-6 h-6 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 flex items-center justify-center transition-colors"
+          >
+            <X size={12} />
+          </button>
+        )}
+      </div>
+
+      {mode === "empty" ? (
+        <div className="flex-1 flex flex-col items-center justify-center px-5 py-8 gap-5">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center">
+            <Network size={22} strokeWidth={1.8} className="text-indigo-500" />
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-semibold text-gray-800 mb-1">하네스 구성</p>
+            <p className="text-xs text-gray-400 leading-relaxed">
+              에이전트, 스킬, 인스트럭션 파일을<br />
+              노드 캔버스로 시각화하고 편집합니다.
+            </p>
+          </div>
+          <div className="w-full flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => setMode("canvas")}
+              className="w-full py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors"
+            >
+              마법사로 시작하기
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("canvas")}
+              className="w-full py-2 rounded-xl border border-gray-200 text-gray-600 text-xs font-semibold hover:bg-gray-50 transition-colors"
+            >
+              직접 구성하기
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 flex flex-col min-h-0">
+          {/* 노드 팔레트 */}
+          <div className="px-4 py-3 border-b border-gray-100 shrink-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">노드 추가</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {HARNESS_NODE_TYPES.map((n) => (
+                <button
+                  key={n.type}
+                  type="button"
+                  title={n.desc}
+                  className="flex items-center gap-2 px-2.5 py-2 rounded-xl border border-gray-100 bg-gray-50 hover:border-indigo-200 hover:bg-indigo-50 transition-colors text-left"
+                >
+                  <span className="text-sm leading-none">{n.icon}</span>
+                  <span className="text-[11px] font-semibold text-gray-700">{n.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 캔버스 영역 */}
+          <div className="flex-1 relative bg-[#fafafa] overflow-hidden">
+            {/* 격자 배경 */}
+            <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <pattern id="harness-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                  <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e5e7eb" strokeWidth="0.5" />
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#harness-grid)" />
+            </svg>
+
+            {/* 빈 캔버스 힌트 */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 pointer-events-none">
+              <p className="text-[11px] text-gray-400 font-medium">위 버튼으로 노드를 추가하세요</p>
+              <p className="text-[10px] text-gray-300">노드 클릭 → 편집 · 드래그 → 연결</p>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }

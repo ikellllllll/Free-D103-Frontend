@@ -11,7 +11,7 @@ const SRCS: Record<BrandLogoVariant, { light: string; dark: string }> = {
   "primary":      { light: "/brand/logo-primary-light.svg",      dark: "/brand/logo-primary-dark.svg" },
   "primary-word": { light: "/brand/logo-primary-word-light.svg", dark: "/brand/logo-primary-word-dark.svg" },
   "primary-word-v2": { light: "/brand/logo-primary-word-v2-light.svg", dark: "/brand/logo-primary-word-v2-dark.svg" },
-  "app-icon":     { light: "/brand/app-icon-light.svg",          dark: "/brand/app-icon-dark.svg" },
+  "app-icon":     { light: "/brand/favicon.png",                 dark: "/brand/favicon.png" },
 };
 
 export function BrandLogo({ variant = "primary", height = 28, className, style }: BrandLogoProps) {

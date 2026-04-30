@@ -181,7 +181,7 @@ export function Dev2Shell({ children }: { children: ReactNode }) {
             href={withPrefix("/problems")}
             className="group flex items-center space-x-2 font-display font-bold text-lg shrink-0"
           >
-            <Image src="/brand/app-icon-light.svg" alt="AIG" width={28} height={28} className="rounded-lg" />
+            <Image src="/brand/favicon.png" alt="AIG" width={28} height={28} className="rounded-lg object-cover" />
             <span className="text-indigo-600">AIG</span>
           </Link>
 
@@ -222,13 +222,13 @@ export function Dev2Shell({ children }: { children: ReactNode }) {
               <button
                 type="button"
                 onClick={() => setUserMenuOpen((v) => !v)}
-                className={`w-9 h-9 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-bold transition-all ${
-                  userMenuOpen ? "ring-2 ring-gray-600 ring-offset-1" : "hover:ring-2 hover:ring-gray-400 hover:ring-offset-1"
+                className={`w-9 h-9 rounded-full bg-white text-gray-600 border border-gray-200 flex items-center justify-center transition-all shadow-sm ${
+                  userMenuOpen ? "ring-2 ring-indigo-200 ring-offset-1" : "hover:border-indigo-200 hover:bg-indigo-50"
                 }`}
                 aria-haspopup="menu"
                 aria-expanded={userMenuOpen}
               >
-                {user?.name?.slice(0, 1)?.toUpperCase() ?? "U"}
+                <User size={18} strokeWidth={2} />
               </button>
 
               {userMenuOpen && (
@@ -239,8 +239,8 @@ export function Dev2Shell({ children }: { children: ReactNode }) {
                 >
                   {/* User info */}
                   <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
-                      {user?.name?.slice(0, 1)?.toUpperCase() ?? "U"}
+                    <div className="w-8 h-8 rounded-full bg-white text-gray-600 border border-gray-200 flex items-center justify-center shrink-0 shadow-sm">
+                      <User size={16} strokeWidth={2} />
                     </div>
                     <div className="min-w-0">
                       <div className="text-sm font-semibold text-gray-900 truncate">{user?.name ?? "사용자"}</div>

@@ -15,7 +15,7 @@ export default function Dev2AuthLayout({ children }: { children: ReactNode }) {
           href="/"
           className="inline-flex items-center space-x-2 text-white font-display font-bold text-xl group"
         >
-          <Image src="/brand/app-icon-dark.svg" alt="AIG" width={28} height={28} className="rounded-lg" />
+          <Image src="/brand/favicon.png" alt="AIG" width={28} height={28} className="rounded-lg object-cover" />
           <span>AIG</span>
         </Link>
       </header>
