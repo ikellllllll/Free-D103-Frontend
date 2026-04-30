@@ -12,7 +12,6 @@ import {
   Save,
   Eye,
   Pencil,
-  Info,
   ChevronDown,
   ChevronRight,
   FolderOpen,
@@ -602,10 +601,7 @@ export default function Dev2HarnessPage() {
         </section>
 
         {/* ── INFO BANNER (glass) ── */}
-        <section className={`rounded-2xl px-5 py-4 flex items-start gap-3 ${GLASS}`}>
-          <span className="shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-xl bg-indigo-100 text-indigo-500">
-            <Info size={15} strokeWidth={2.4} />
-          </span>
+        <section className={`rounded-2xl px-5 py-4 ${GLASS}`}>
           <div className="text-sm text-gray-700 leading-relaxed">
             <strong className="font-bold text-gray-900">실행 환경 안내 · </strong>
             <code className="font-mono text-xs bg-white/70 ring-1 ring-white/80 px-1.5 py-0.5 rounded">HARNESS.md</code>

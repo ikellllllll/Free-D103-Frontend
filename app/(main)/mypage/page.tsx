@@ -44,7 +44,7 @@ const BYOK_PROVIDERS: {
   tint: string;
 }[] = [
   { id: "anthropic", label: "Anthropic Claude", logo: "/AI_logo/icons8-claude-ai.svg", tint: "bg-orange-50" },
-  { id: "openai", label: "OpenAI ChatGPT", logo: "/AI_logo/icons8-chatgpt.svg", tint: "bg-emerald-50" },
+  { id: "openai", label: "OpenAI ChatGPT", logo: "/AI_logo/icons8-chatgpt.svg", tint: "bg-white" },
   { id: "google", label: "Google Gemini", logo: "/AI_logo/icons8-gemini-ai.svg", tint: "bg-sky-50" }
 ];
 
