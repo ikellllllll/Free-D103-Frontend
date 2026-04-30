@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Sun, Moon, LogOut } from "lucide-react";
+import { Sun, Moon, LogOut, User } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
@@ -59,6 +59,7 @@ export function AppHeader() {
     <header className="app-header">
       <div className="app-header__inner">
         <Link href={withPrefix("/problems")} className="brand">
+          <BrandLogo variant="app-icon" height={28} />
           <BrandLogo variant="primary-word" height={26} />
           <span className="brand__meta">
             <strong>AI Interview Guide</strong>
@@ -92,12 +93,12 @@ export function AppHeader() {
                 width: 36,
                 height: 36,
                 borderRadius: "50%",
-                background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-                color: "#fff",
+                background: "#fff",
+                color: "#6b7280",
                 fontWeight: 700,
                 fontSize: "0.9rem",
-                border: open ? "2px solid rgba(99,102,241,0.6)" : "2px solid transparent",
-                boxShadow: open ? "0 0 0 3px rgba(99,102,241,0.18)" : "none",
+                border: open ? "1px solid rgba(99,102,241,0.35)" : "1px solid rgba(229,231,235,1)",
+                boxShadow: open ? "0 0 0 3px rgba(99,102,241,0.14)" : "0 1px 2px rgba(17,24,39,0.06)",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
@@ -106,7 +107,7 @@ export function AppHeader() {
                 flexShrink: 0
               }}
             >
-              {initials}
+              <User size={18} strokeWidth={2} />
             </button>
 
             {open && (
@@ -130,10 +131,10 @@ export function AppHeader() {
                     <div style={{
                       width: 32, height: 32, borderRadius: "50%",
                       background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-                      color: "#fff", fontWeight: 700, fontSize: "0.82rem",
+                      color: "#fff",
                       display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
                     }}>
-                      {initials}
+                      <User size={15} strokeWidth={2} />
                     </div>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--text-1, #111827)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>

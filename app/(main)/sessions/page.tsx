@@ -214,27 +214,25 @@ export default function Dev2SessionsPage() {
         </section>
 
         {/* ── STATS STRIP ── */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-          <StatTile
-            label="완료"
-            value={String(stats.completed)}
-            accent="from-violet-500 to-indigo-600"
-          />
-          <StatTile
-            label="진행 중"
-            value={String(stats.inProgress)}
-            accent="from-indigo-500 to-sky-500"
-          />
-          <StatTile
-            label="평균 점수"
-            value={stats.avgScore ? String(stats.avgScore) : "—"}
-            accent="from-fuchsia-500 to-violet-600"
-          />
-          <StatTile
-            label="총 학습 시간"
-            value={stats.totalTime}
-            accent="from-sky-500 to-indigo-500"
-          />
+        <section className="rounded-2xl border border-gray-200 bg-white p-3 sm:p-4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04)]">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+            <StatTile
+              label="완료"
+              value={String(stats.completed)}
+            />
+            <StatTile
+              label="진행 중"
+              value={String(stats.inProgress)}
+            />
+            <StatTile
+              label="평균 점수"
+              value={stats.avgScore ? String(stats.avgScore) : "—"}
+            />
+            <StatTile
+              label="총 학습 시간"
+              value={stats.totalTime}
+            />
+          </div>
         </section>
 
         {/* ── FILTER BAR ── */}
@@ -391,18 +389,16 @@ export default function Dev2SessionsPage() {
 
 function StatTile({
   label,
-  value,
-  accent
+  value
 }: {
   label: string;
   value: string;
-  accent: string;
 }) {
   return (
-    <div className="group relative overflow-hidden rounded-2xl bg-white border border-gray-200/80 p-4 sm:p-5 transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-1 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_10px_24px_-18px_rgba(79,70,229,0.3)] hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_1px_2px_rgba(17,24,39,0.04),0_16px_36px_-18px_rgba(79,70,229,0.4)]">
+    <div className="stat-inner-bg relative overflow-hidden rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm">
       {/* Top accent wash */}
       <div
-        className={`pointer-events-none absolute inset-x-0 -top-24 h-32 bg-gradient-to-b ${accent} opacity-[0.12] blur-2xl`}
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/80"
         aria-hidden="true"
       />
       <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-500">

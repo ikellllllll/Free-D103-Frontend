@@ -90,7 +90,7 @@ function FilterChip({
     <button
       type="button"
       onClick={onClick}
-      className={`px-3 py-1.5 rounded-none text-xs font-semibold transition-all ${
+      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
         active
           ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/30"
           : "text-gray-600 border border-gray-200 bg-white hover:border-indigo-300 hover:text-indigo-600"
@@ -110,7 +110,7 @@ function FilterGroup({
 }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="bg-gray-100 border border-gray-300 rounded-none px-2 py-1 text-[11px] font-black uppercase tracking-wider mr-0.5 font-sans whitespace-nowrap text-gray-900">
+      <span className="bg-gray-100 border border-gray-300 rounded-lg px-2 py-1 text-[11px] font-black uppercase tracking-wider mr-0.5 font-sans whitespace-nowrap text-gray-900">
         {label}
       </span>
       {children}
@@ -212,8 +212,8 @@ function StatCard({
   suffix?: string;
 }) {
   return (
-    <div className="group relative overflow-hidden rounded-2xl bg-white border border-gray-200/80 p-4 sm:p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_8px_20px_-14px_rgba(79,70,229,0.18)] transition-[transform,box-shadow] duration-300 ease-out hover:-translate-y-1 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_10px_20px_-12px_rgba(79,70,229,0.25),0_20px_40px_-20px_rgba(17,24,39,0.15)]">
-      <div className="min-w-0">
+    <div className="relative overflow-hidden bg-white p-2 sm:p-3">
+      <div className="stat-inner-bg min-w-0 rounded-xl border border-gray-200 p-3 sm:p-4">
         <div className="text-xs font-semibold text-gray-500 truncate">{label}</div>
         <div className="flex items-baseline gap-1 mt-1">
           <span className="text-xl sm:text-2xl font-bold text-gray-900 tabular-nums">
@@ -449,7 +449,7 @@ export default function Dev2ProblemsPage() {
 
         {/* Stats */}
         <div
-          className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8 animate-slide-up"
+          className="grid grid-cols-2 lg:grid-cols-4 gap-0 mb-6 sm:mb-8 animate-slide-up overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04)] divide-x divide-y divide-gray-200 lg:divide-y-0"
           style={{ animationDelay: "0.05s", animationFillMode: "both" }}
         >
           <StatCard label="전체 과제" value={stats.total} suffix="개" />
@@ -460,7 +460,7 @@ export default function Dev2ProblemsPage() {
 
         {/* Search + filters */}
         <div
-          className="mb-6 sm:mb-8 animate-slide-up border border-gray-200 bg-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04)]"
+          className="mb-6 sm:mb-8 animate-slide-up overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04)]"
           style={{ animationDelay: "0.1s", animationFillMode: "both" }}
         >
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-0 border-b border-gray-200">
@@ -481,7 +481,7 @@ export default function Dev2ProblemsPage() {
                 <button
                   type="button"
                   onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-none inline-flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full inline-flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
                   aria-label="검색어 지우기"
                 >
                   <X size={14} strokeWidth={2.4} />
@@ -500,7 +500,7 @@ export default function Dev2ProblemsPage() {
                 id="dev2-sort"
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortId)}
-                className="flex-1 sm:flex-none bg-white border border-gray-200 rounded-none px-3 py-2 text-sm text-gray-700 font-medium focus:outline-none focus:border-indigo-300 transition-colors cursor-pointer"
+                className="flex-1 sm:flex-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors cursor-pointer focus:outline-none focus:border-indigo-300"
               >
                 {SORT_OPTIONS.map((opt) => (
                   <option key={opt.id} value={opt.id}>
@@ -511,35 +511,37 @@ export default function Dev2ProblemsPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-x-0 overflow-x-auto">
-            <div className="flex items-center gap-1.5 px-3 py-2 border-r border-gray-200">
-              <FilterGroup label="난이도">
-                <FilterChip active={level === "ALL"} onClick={() => setLevel("ALL")}>전체</FilterChip>
-                {LEVEL_OPTIONS.map((v) => (
-                  <FilterChip key={v} active={level === v} onClick={() => setLevel(v)}>
-                    Lv {v}
-                    <span className="ml-1 text-[10px] opacity-70">{LEVEL_META[v].label}</span>
-                  </FilterChip>
-                ))}
-              </FilterGroup>
-            </div>
+          <div className="p-3">
+            <div className="stat-inner-bg flex flex-col overflow-hidden rounded-xl border border-gray-200 sm:flex-row sm:items-stretch">
+              <div className="flex items-center gap-1.5 px-3 py-2 border-b border-gray-200 sm:border-b-0 sm:border-r">
+                <FilterGroup label="난이도">
+                  <FilterChip active={level === "ALL"} onClick={() => setLevel("ALL")}>전체</FilterChip>
+                  {LEVEL_OPTIONS.map((v) => (
+                    <FilterChip key={v} active={level === v} onClick={() => setLevel(v)}>
+                      Lv {v}
+                      <span className="ml-1 text-[10px] opacity-70">{LEVEL_META[v].label}</span>
+                    </FilterChip>
+                  ))}
+                </FilterGroup>
+              </div>
 
-            <div className="flex items-center gap-1.5 px-3 py-2 border-r border-gray-200">
-              <FilterGroup label="유형">
-                <FilterChip active={category === "ALL"} onClick={() => setCategory("ALL")}>전체</FilterChip>
-                {CATEGORY_OPTIONS.map((c) => (
-                  <FilterChip key={c} active={category === c} onClick={() => setCategory(c)}>{c}</FilterChip>
-                ))}
-              </FilterGroup>
-            </div>
+              <div className="flex items-center gap-1.5 px-3 py-2 border-b border-gray-200 sm:border-b-0 sm:border-r">
+                <FilterGroup label="유형">
+                  <FilterChip active={category === "ALL"} onClick={() => setCategory("ALL")}>전체</FilterChip>
+                  {CATEGORY_OPTIONS.map((c) => (
+                    <FilterChip key={c} active={category === c} onClick={() => setCategory(c)}>{c}</FilterChip>
+                  ))}
+                </FilterGroup>
+              </div>
 
-            <div className="flex items-center gap-1.5 px-3 py-2">
-              <FilterGroup label="상태">
-                <FilterChip active={status === "ALL"} onClick={() => setStatus("ALL")}>전체</FilterChip>
-                {STATUS_OPTIONS.map((s) => (
-                  <FilterChip key={s} active={status === s} onClick={() => setStatus(s)}>{s}</FilterChip>
-                ))}
-              </FilterGroup>
+              <div className="flex items-center gap-1.5 px-3 py-2">
+                <FilterGroup label="상태">
+                  <FilterChip active={status === "ALL"} onClick={() => setStatus("ALL")}>전체</FilterChip>
+                  {STATUS_OPTIONS.map((s) => (
+                    <FilterChip key={s} active={status === s} onClick={() => setStatus(s)}>{s}</FilterChip>
+                  ))}
+                </FilterGroup>
+              </div>
             </div>
           </div>
         </div>

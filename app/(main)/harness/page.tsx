@@ -138,6 +138,26 @@ const STORAGE_KEY = "aig-harness-files-v1";
 const GLASS =
   "bg-white/70 backdrop-blur-md border border-white/70 ring-1 ring-inset ring-white/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_32px_-18px_rgba(79,70,229,0.25)]";
 
+const IDE_TONE = {
+  workbench: "#ffffff",
+  sidebar: "#ffffff",
+  activity: "#eef3ff",
+  tab: "#eef3ff",
+  tabActive: "#ffffff",
+  border: "#d7def3",
+  hover: "#eef2ff",
+  pill: "#eef2ff",
+  status: "#5b4cf0",
+  accent: "#6d3df5",
+  accentDim: "#eef0ff",
+  text: "#1f2937",
+  muted: "#71809a",
+  muted2: "#9aa6bd",
+  code: "#111827",
+  codeMuted: "#0f7ea5",
+  divider: "#111827"
+};
+
 function loadFiles(): Partial<Record<AgentFile["id"], string>> {
   if (typeof window === "undefined") return {};
   try {
@@ -250,19 +270,19 @@ export default function Dev2HarnessPage() {
         {/* ── EDITOR BODY (VS Code style) ── */}
         <section className="relative">
           <div
-            className="rounded-xl overflow-hidden border border-[#3c3c3c] shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)]"
-            style={{ backgroundColor: "#1e1e1e" }}
+            className="rounded-xl overflow-hidden border-4 shadow-[0_0_0_1px_rgba(0,0,0,0.95),0_24px_60px_-24px_rgba(79,70,229,0.28)]"
+            style={{ backgroundColor: IDE_TONE.workbench, borderColor: "#020617" }}
           >
             {/* Window titlebar — VS Code on Windows style */}
             <div
-              className="flex items-center h-8 border-b border-[#252526] select-none"
-              style={{ backgroundColor: "#323233" }}
+              className="flex items-center h-8 border-b select-none"
+              style={{ backgroundColor: IDE_TONE.activity, borderColor: IDE_TONE.divider }}
             >
               {/* Center: title + save status */}
               <div className="flex-1 flex items-center justify-center gap-2 min-w-0 px-4">
-                <span className="text-[12px] text-[#8d8d8d] font-mono truncate">
-                  {activeFile.path}
-                </span>
+                  <span className="text-[12px] font-mono font-semibold truncate" style={{ color: IDE_TONE.text }}>
+                    {activeFile.path}
+                  </span>
                 {totalDirty > 0 && (
                   <span className="text-[11px] text-amber-400 shrink-0">●</span>
                 )}
@@ -284,30 +304,33 @@ export default function Dev2HarnessPage() {
                 <button
                   type="button"
                   aria-label="최소화"
-                  className="flex items-center justify-center w-11 h-full hover:bg-white/10 transition-colors"
+                  className="flex items-center justify-center w-11 h-full transition-colors"
+                  style={{ color: IDE_TONE.muted }}
                 >
                   <svg width="10" height="1" viewBox="0 0 10 1" fill="none">
-                    <rect width="10" height="1" fill="#cccccc" />
+                    <rect width="10" height="1" fill="currentColor" />
                   </svg>
                 </button>
                 {/* Restore — square outline */}
                 <button
                   type="button"
                   aria-label="최대화"
-                  className="flex items-center justify-center w-11 h-full hover:bg-white/10 transition-colors"
+                  className="flex items-center justify-center w-11 h-full transition-colors"
+                  style={{ color: IDE_TONE.muted }}
                 >
                   <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                    <rect x="0.5" y="0.5" width="9" height="9" stroke="#cccccc" strokeWidth="1" />
+                    <rect x="0.5" y="0.5" width="9" height="9" stroke="currentColor" strokeWidth="1" />
                   </svg>
                 </button>
                 {/* Close — X */}
                 <button
                   type="button"
                   aria-label="닫기"
-                  className="flex items-center justify-center w-11 h-full hover:bg-[#e81123] transition-colors group"
+                  className="flex items-center justify-center w-11 h-full transition-colors group"
+                  style={{ color: IDE_TONE.muted }}
                 >
                   <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                    <path d="M1 1l8 8M9 1L1 9" stroke="#cccccc" strokeWidth="1.2" strokeLinecap="round" className="group-hover:stroke-white" />
+                    <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" className="group-hover:stroke-white" />
                   </svg>
                 </button>
               </div>
@@ -316,15 +339,15 @@ export default function Dev2HarnessPage() {
             <div className="flex" style={{ minHeight: "560px" }}>
               {/* ── Explorer sidebar ── */}
               <div
-                className="w-52 shrink-0 flex flex-col border-r border-[#3c3c3c]"
-                style={{ backgroundColor: "#252526" }}
+                className="w-52 shrink-0 flex flex-col border-r-2"
+                style={{ backgroundColor: IDE_TONE.sidebar, borderColor: IDE_TONE.divider }}
               >
                 {/* Explorer header */}
-                <div className="flex items-center justify-between px-3 py-2 border-b border-[#3c3c3c]">
-                  <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#bbbbbb]">
+                <div className="flex items-center justify-between px-3 py-2 border-b" style={{ borderColor: IDE_TONE.divider }}>
+                  <span className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: IDE_TONE.text }}>
                     Explorer
                   </span>
-                  <span className="text-[10px] text-[#6c6c6c] font-mono tabular-nums">
+                  <span className="text-[10px] font-mono tabular-nums" style={{ color: IDE_TONE.muted2 }}>
                     {AGENT_FILES.length} files
                   </span>
                 </div>
@@ -332,10 +355,10 @@ export default function Dev2HarnessPage() {
                 {/* Workspace folder */}
                 <div className="py-1">
                   {/* Folder row */}
-                  <div className="flex items-center gap-1 px-2 py-1 text-[#cccccc] select-none">
-                    <ChevronDown size={13} className="text-[#858585] shrink-0" />
-                    <FolderOpen size={13} className="text-[#dcb862] shrink-0" />
-                    <span className="text-[11px] font-bold uppercase tracking-wide ml-0.5 text-[#bbbbbb]">
+                  <div className="flex items-center gap-1 px-2 py-1 select-none" style={{ color: IDE_TONE.text }}>
+                    <ChevronDown size={13} className="shrink-0" style={{ color: IDE_TONE.muted }} />
+                    <FolderOpen size={13} className="shrink-0" style={{ color: "#5b8dff" }} />
+                    <span className="text-[11px] font-bold uppercase tracking-wide ml-0.5" style={{ color: IDE_TONE.text }}>
                       agent
                     </span>
                   </div>
@@ -346,25 +369,26 @@ export default function Dev2HarnessPage() {
                     const isDirty = dirty.has(file.id);
                     const Icon = file.icon;
                     const tagColors: Record<AgentFile["tag"], string> = {
-                      main: "text-indigo-400",
-                      meta: "text-[#858585]",
-                      temp: "text-amber-400"
+                      main: "text-sky-400",
+                      meta: "text-slate-400",
+                      temp: "text-violet-400"
                     };
                     return (
                       <button
                         key={file.id}
                         type="button"
                         onClick={() => setActiveId(file.id)}
-                        className={`w-full flex items-center gap-2 pl-7 pr-3 py-[5px] text-left text-[13px] font-mono transition-colors ${
-                          active
-                            ? "bg-[#094771] text-white"
-                            : "text-[#cccccc] hover:bg-[rgba(255,255,255,0.07)]"
-                        }`}
+                        className="w-full flex items-center gap-2 pl-7 pr-3 py-[5px] text-left text-[13px] font-mono transition-colors"
+                        style={{
+                          backgroundColor: active ? IDE_TONE.accentDim : "transparent",
+                          color: active ? IDE_TONE.text : IDE_TONE.muted
+                        }}
                       >
                         <Icon
                           size={14}
                           strokeWidth={1.8}
-                          className={`shrink-0 ${active ? "text-indigo-300" : tagColors[file.tag]}`}
+                          className={`shrink-0 ${active ? "" : tagColors[file.tag]}`}
+                          style={active ? { color: IDE_TONE.accent } : undefined}
                         />
                         <span className="flex-1 truncate">{file.label}</span>
                         {isDirty && (
@@ -379,11 +403,11 @@ export default function Dev2HarnessPage() {
                 </div>
 
                 {/* File summary at bottom */}
-                <div className="mt-auto border-t border-[#3c3c3c] p-3">
-                  <div className="text-[11px] text-[#6c6c6c] font-mono mb-1 uppercase tracking-wider">
+                <div className="mt-auto border-t p-3" style={{ borderColor: IDE_TONE.divider }}>
+                  <div className="text-[11px] font-mono mb-1 uppercase tracking-wider" style={{ color: IDE_TONE.muted2 }}>
                     선택됨
                   </div>
-                  <div className="text-[11px] text-[#858585] leading-relaxed">
+                  <div className="text-[11px] leading-relaxed" style={{ color: IDE_TONE.muted }}>
                     {activeFile.summary}
                   </div>
                   <span
@@ -395,11 +419,11 @@ export default function Dev2HarnessPage() {
               </div>
 
               {/* ── Editor panel ── */}
-              <div className="flex-1 flex flex-col min-w-0" style={{ backgroundColor: "#1e1e1e" }}>
+              <div className="flex-1 flex flex-col min-w-0" style={{ backgroundColor: IDE_TONE.workbench }}>
                 {/* Tab bar */}
                 <div
-                  className="flex items-stretch border-b border-[#252526]"
-                  style={{ backgroundColor: "#2d2d2d" }}
+                  className="flex items-stretch border-b"
+                  style={{ backgroundColor: IDE_TONE.tab, borderColor: IDE_TONE.divider }}
                 >
                   {AGENT_FILES.map((file) => {
                     const active = activeId === file.id;
@@ -409,19 +433,20 @@ export default function Dev2HarnessPage() {
                         key={file.id}
                         type="button"
                         onClick={() => setActiveId(file.id)}
-                        className={`relative flex items-center gap-2 px-4 py-2 text-[12px] font-mono whitespace-nowrap border-r border-[#252526] transition-colors ${
-                          active
-                            ? "bg-[#1e1e1e] text-[#cccccc]"
-                            : "text-[#858585] hover:bg-[#2a2a2a] hover:text-[#cccccc]"
-                        }`}
+                        className="relative flex items-center gap-2 px-4 py-2 text-[12px] font-mono whitespace-nowrap border-r border-b transition-colors"
+                        style={{
+                          backgroundColor: active ? IDE_TONE.tabActive : "transparent",
+                          borderColor: IDE_TONE.divider,
+                          color: active ? IDE_TONE.text : IDE_TONE.muted
+                        }}
                       >
                         {/* Active top border */}
                         {active && (
-                          <span className="absolute inset-x-0 top-0 h-[2px] bg-indigo-500" />
+                          <span className="absolute inset-x-0 top-0 h-[2px]" style={{ backgroundColor: IDE_TONE.accent }} />
                         )}
                         <span>{file.label}</span>
                         {isDirty && (
-                          <span className="w-2 h-2 rounded-full bg-[#cccccc] opacity-80 shrink-0" />
+                          <span className="w-2 h-2 rounded-full opacity-80 shrink-0" style={{ backgroundColor: IDE_TONE.muted }} />
                         )}
                       </button>
                     );
@@ -429,16 +454,16 @@ export default function Dev2HarnessPage() {
 
                   {/* Actions pushed to right */}
                   <div className="ml-auto flex items-center gap-1 px-3 shrink-0">
-                    <div className="flex items-center rounded overflow-hidden ring-1 ring-[#3c3c3c]">
+                    <div className="flex items-center rounded overflow-hidden" style={{ boxShadow: `0 0 0 1px ${IDE_TONE.divider}` }}>
                       <button
                         type="button"
                         onClick={() => setViewMode("edit")}
                         title="편집 모드"
-                        className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] transition-colors ${
-                          viewMode === "edit"
-                            ? "bg-indigo-600 text-white"
-                            : "bg-[#2d2d2d] text-[#858585] hover:text-[#cccccc]"
-                        }`}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] transition-colors"
+                        style={{
+                          backgroundColor: viewMode === "edit" ? IDE_TONE.accent : IDE_TONE.pill,
+                          color: viewMode === "edit" ? "#ffffff" : IDE_TONE.muted
+                        }}
                       >
                         <Pencil size={11} strokeWidth={2.4} />
                         편집
@@ -447,11 +472,12 @@ export default function Dev2HarnessPage() {
                         type="button"
                         onClick={() => setViewMode("preview")}
                         title="미리보기"
-                        className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] transition-colors border-l border-[#3c3c3c] ${
-                          viewMode === "preview"
-                            ? "bg-indigo-600 text-white"
-                            : "bg-[#2d2d2d] text-[#858585] hover:text-[#cccccc]"
-                        }`}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] transition-colors border-l"
+                        style={{
+                          backgroundColor: viewMode === "preview" ? IDE_TONE.accent : IDE_TONE.pill,
+                          borderColor: IDE_TONE.divider,
+                          color: viewMode === "preview" ? "#ffffff" : IDE_TONE.muted
+                        }}
                       >
                         <Eye size={11} strokeWidth={2.4} />
                         미리보기
@@ -461,7 +487,8 @@ export default function Dev2HarnessPage() {
                       type="button"
                       onClick={handleReset}
                       title="기본값으로 초기화"
-                      className="flex items-center gap-1 px-2.5 py-1.5 rounded text-[11px] text-[#858585] hover:text-[#cccccc] hover:bg-white/10 transition-colors"
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded text-[11px] transition-colors"
+                      style={{ color: IDE_TONE.muted }}
                     >
                       <RotateCcw size={11} strokeWidth={2.4} />
                     </button>
@@ -469,7 +496,8 @@ export default function Dev2HarnessPage() {
                       type="button"
                       onClick={handleSaveActive}
                       disabled={!dirty.has(activeId)}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[11px] font-semibold text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[11px] font-semibold text-white disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                      style={{ backgroundColor: IDE_TONE.accent }}
                     >
                       <Save size={11} strokeWidth={2.5} />
                       저장
@@ -479,15 +507,15 @@ export default function Dev2HarnessPage() {
 
                 {/* Breadcrumb */}
                 <div
-                  className="flex items-center gap-1 px-4 py-1.5 text-[11px] font-mono text-[#858585] border-b border-[#3c3c3c]"
-                  style={{ backgroundColor: "#1e1e1e" }}
+                  className="flex items-center gap-1 px-4 py-1.5 text-[11px] font-mono border-y"
+                  style={{ backgroundColor: IDE_TONE.workbench, borderColor: IDE_TONE.divider, color: IDE_TONE.muted }}
                 >
                   <span>agent</span>
-                  <ChevronRight size={11} className="text-[#6c6c6c]" />
-                  <span className="text-[#cccccc]">{activeFile.label}</span>
+                  <ChevronRight size={11} style={{ color: IDE_TONE.muted2 }} />
+                  <span style={{ color: IDE_TONE.text }}>{activeFile.label}</span>
                   {dirty.has(activeId) && (
                     <>
-                      <span className="mx-2 text-[#3c3c3c]">·</span>
+                      <span className="mx-2" style={{ color: IDE_TONE.divider }}>·</span>
                       <span className="text-amber-400">수정됨</span>
                     </>
                   )}
@@ -499,8 +527,8 @@ export default function Dev2HarnessPage() {
                     {/* Line numbers */}
                     <div
                       ref={lineNumbersRef}
-                      className="overflow-hidden select-none shrink-0 text-right pt-4 pb-4 pr-3 font-mono text-[13px] text-[#858585] leading-6"
-                      style={{ backgroundColor: "#1e1e1e", minWidth: "48px" }}
+                      className="overflow-hidden select-none shrink-0 text-right pt-4 pb-4 pr-3 font-mono text-[13px] leading-6"
+                      style={{ backgroundColor: IDE_TONE.workbench, color: IDE_TONE.muted, minWidth: "48px" }}
                     >
                       {activeContent.split("\n").map((_, i) => (
                         <div key={i} style={{ lineHeight: "24px" }}>
@@ -516,31 +544,32 @@ export default function Dev2HarnessPage() {
                       onScroll={handleEditorScroll}
                       spellCheck={false}
                       style={{
-                        caretColor: "#aeafad",
+                        caretColor: IDE_TONE.accent,
+                        color: IDE_TONE.code,
                         lineHeight: "24px",
-                        backgroundColor: "#1e1e1e"
+                        backgroundColor: IDE_TONE.workbench
                       }}
-                      className="flex-1 text-[#d4d4d4] font-mono text-[13px] outline-none border-0 resize-none pt-4 pb-4 pr-6 overflow-y-auto selection:bg-[#094771] selection:text-white"
+                      className="flex-1 font-mono text-[13px] outline-none border-0 resize-none pt-4 pb-4 pr-6 overflow-y-auto selection:bg-indigo-200 selection:text-gray-950"
                     />
                   </div>
                 ) : (
                   <div
                     className="flex-1 px-10 py-6 overflow-auto"
-                    style={{ minHeight: "460px", backgroundColor: "#1e1e1e" }}
+                    style={{ minHeight: "460px", backgroundColor: IDE_TONE.workbench }}
                   >
                     <div
-                      className="text-[14px] text-[#d4d4d4] leading-relaxed
-                        [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-white [&_h1]:mb-4 [&_h1]:mt-0 [&_h1]:pb-2 [&_h1]:border-b [&_h1]:border-[#3c3c3c]
-                        [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-white [&_h2]:mt-6 [&_h2]:mb-2.5
-                        [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-[#cccccc] [&_h3]:mt-4 [&_h3]:mb-2
-                        [&_p]:mb-3 [&_p]:text-[#cccccc]
+                      className="text-[14px] text-gray-800 leading-relaxed
+                        [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-gray-950 [&_h1]:mb-4 [&_h1]:mt-0 [&_h1]:pb-2 [&_h1]:border-b [&_h1]:border-indigo-100
+                        [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-gray-950 [&_h2]:mt-6 [&_h2]:mb-2.5
+                        [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-gray-700 [&_h3]:mt-4 [&_h3]:mb-2
+                        [&_p]:mb-3 [&_p]:text-gray-700
                         [&_ul]:pl-5 [&_ul]:space-y-1.5 [&_ul]:mb-3 [&_ul>li]:list-disc [&_ul>li]:marker:text-indigo-400
-                        [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:space-y-1 [&_ol]:mb-3 [&_ol]:marker:text-[#858585]
-                        [&_code]:bg-[#2d2d2d] [&_code]:text-[#ce9178] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[13px] [&_code]:font-mono [&_code]:ring-1 [&_code]:ring-[#3c3c3c]
-                        [&_pre]:bg-[#2d2d2d] [&_pre]:text-[#d4d4d4] [&_pre]:p-4 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:my-3 [&_pre]:ring-1 [&_pre]:ring-[#3c3c3c] [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:p-0 [&_pre_code]:ring-0
-                        [&_blockquote]:border-l-4 [&_blockquote]:border-indigo-500 [&_blockquote]:pl-4 [&_blockquote]:py-0.5 [&_blockquote]:my-3 [&_blockquote]:text-[#858585] [&_blockquote]:italic
-                        [&_hr]:my-5 [&_hr]:border-t [&_hr]:border-[#3c3c3c]
-                        [&_strong]:font-bold [&_strong]:text-white
+                        [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:space-y-1 [&_ol]:mb-3 [&_ol]:marker:text-slate-400
+                        [&_code]:bg-indigo-50 [&_code]:text-violet-700 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[13px] [&_code]:font-mono [&_code]:ring-1 [&_code]:ring-indigo-100
+                        [&_pre]:bg-slate-50 [&_pre]:text-gray-800 [&_pre]:p-4 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:my-3 [&_pre]:ring-1 [&_pre]:ring-indigo-100 [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:p-0 [&_pre_code]:ring-0
+                        [&_blockquote]:border-l-4 [&_blockquote]:border-indigo-500 [&_blockquote]:pl-4 [&_blockquote]:py-0.5 [&_blockquote]:my-3 [&_blockquote]:text-slate-500 [&_blockquote]:italic
+                        [&_hr]:my-5 [&_hr]:border-t [&_hr]:border-indigo-100
+                        [&_strong]:font-bold [&_strong]:text-gray-950
                         [&_a]:text-indigo-400 [&_a]:underline [&_a]:underline-offset-2"
                     >
                       <Markdown remarkPlugins={[remarkGfm]}>
@@ -552,12 +581,12 @@ export default function Dev2HarnessPage() {
 
                 {/* Status bar */}
                 <div
-                  className="flex items-center justify-between px-4 h-6 text-white text-[11px] font-mono shrink-0"
-                  style={{ backgroundColor: "#0078d4" }}
+                  className="flex items-center justify-between px-4 h-6 text-white text-[11px] font-mono shrink-0 border-t"
+                  style={{ backgroundColor: IDE_TONE.status, borderColor: IDE_TONE.divider }}
                 >
                   <div className="flex items-center gap-4">
                     <span>Markdown</span>
-                    <span className="text-blue-200">{activeFile.path}</span>
+                    <span className="text-white/75">{activeFile.path}</span>
                   </div>
                   <div className="flex items-center gap-4">
                     {dirty.has(activeId) && (
@@ -574,7 +603,7 @@ export default function Dev2HarnessPage() {
 
         {/* ── INFO BANNER (glass) ── */}
         <section className={`rounded-2xl px-5 py-4 flex items-start gap-3 ${GLASS}`}>
-          <span className="shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white ring-1 ring-white/70 shadow-[0_8px_18px_-10px_rgba(79,70,229,0.55),inset_0_1px_0_0_rgba(255,255,255,0.45)]">
+          <span className="shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-xl bg-indigo-100 text-indigo-500">
             <Info size={15} strokeWidth={2.4} />
           </span>
           <div className="text-sm text-gray-700 leading-relaxed">
