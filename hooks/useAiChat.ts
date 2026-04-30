@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 
 import { mockApi } from "@/lib/api/mockApi";
+import { isBackendSessionId, sessionApi } from "@/lib/api/sessionApi";
 import type { AiMessage } from "@/lib/types/ai";
 import { useIdeStore } from "@/store/ideStore";
 
@@ -14,7 +15,9 @@ export function useAiChat(sessionId: string) {
   const [requestCount, setRequestCount] = useState(0);
 
   const loadMessages = useCallback(async () => {
-    const data = await mockApi.getChatMessages(sessionId);
+    const data = isBackendSessionId(sessionId)
+      ? await sessionApi.getChatMessages(sessionId)
+      : await mockApi.getChatMessages(sessionId);
     setMessages(data);
     return data;
   }, [sessionId, setMessages]);

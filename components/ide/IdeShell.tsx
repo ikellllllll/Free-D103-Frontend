@@ -15,6 +15,7 @@ import { LangIcon } from "@/components/common/LangIcon";
 import { isV0ThemeTone, useDevTheme } from "@/components/dev/DevThemeContext";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { TracePanel } from "@/components/ide/TracePanel";
+import { HarnessPanel } from "@/components/ide/HarnessPanel";
 import { TraceWorkbench } from "@/components/ide/TraceWorkbench";
 import { useAiChat } from "@/hooks/useAiChat";
 import { mockApi } from "@/lib/api/mockApi";
@@ -43,7 +44,8 @@ const activityItems: Array<{ id: SidebarView; icon: string; label: string; descr
   { id: "explorer",   icon: "codicon-files",      label: "탐색기",      description: "파일 트리" },
   { id: "search",     icon: "codicon-search",     label: "검색",        description: "파일명과 코드 검색" },
   { id: "trace",      icon: "codicon-pulse",      label: "Trace",       description: "에이전트 실행 기록" },
-  { id: "extensions", icon: "codicon-extensions", label: "확장",        description: "설치된 워크벤치 도구" }
+  { id: "extensions", icon: "codicon-extensions",   label: "확장",   description: "설치된 워크벤치 도구" },
+  { id: "harness",    icon: "codicon-circuit-board", label: "하네스", description: "에이전트·스킬·인스트럭션 구성" }
 ];
 
 const bottomTabs: Array<{ id: BottomPanelTab; label: string }> = [
@@ -81,7 +83,7 @@ const extensionItems = [
 
 const INITIAL_AGENT_SNAPSHOT_VERSION = 1;
 
-type ExplorerSectionKey = "project";
+type ExplorerSectionKey = "agent" | "project";
 type DragMode = "sidebar" | "ai" | "bottom";
 
 interface DragState {
@@ -224,6 +226,16 @@ const formatSolveElapsed = (elapsedMs: number) => {
   }
 
   return `${pad2(minutes)}:${pad2(seconds)}`;
+};
+
+const parseEstimateMs = (estimate: string): number => {
+  const minKr = estimate.match(/(\d+(?:\.\d+)?)\s*분/);
+  if (minKr) return parseFloat(minKr[1]) * 60000;
+  const hr = estimate.match(/(\d+(?:\.\d+)?)\s*h/);
+  if (hr) return parseFloat(hr[1]) * 3600000;
+  const min = estimate.match(/(\d+(?:\.\d+)?)\s*m/);
+  if (min) return parseFloat(min[1]) * 60000;
+  return 0;
 };
 const clampSelectionCode = (code: string) =>
   code.length > MAX_SELECTED_CODE_CHARS ? `${code.slice(0, MAX_SELECTED_CODE_CHARS)}\n/* selection truncated */` : code;
@@ -943,9 +955,9 @@ const buildExplorerFiles = (files: WorkspaceFile[], injectedVirtualFiles: Explor
       badge: "temp"
     },
     {
-      path: "agent/instuction.md",
+      path: "agent/instruction.md",
       language: "markdown",
-      content: "# Agent Instuction\n\n에이전트 보조 지시를 두는 가상 파일입니다.",
+      content: "# Agent Instruction\n\n에이전트 보조 지시를 두는 가상 파일입니다.",
       isVirtual: true,
       badge: "meta"
     }
@@ -1032,7 +1044,8 @@ const buildFileTree = (files: ExplorerFile[], extraFolders: string[] = []) => {
         const rootFolderOrder: Record<string, number> = {
           src: 0,
           agent: 1,
-          ".worktree": 2
+          ".worktree": 2,
+          starter: 3
         };
 
         const leftRank = left.kind === "folder" && left.path && !left.path.includes("/") ? rootFolderOrder[left.name] ?? 99 : 99;
@@ -1054,6 +1067,28 @@ const buildFileTree = (files: ExplorerFile[], extraFolders: string[] = []) => {
       }));
 
   return compressJavaPackageFolders(sortNodes(root.children));
+};
+
+const isAgentConfigExplorerPath = (path: string) => {
+  const normalizedPath = path.replace(/\\/g, "/").toLowerCase();
+  const fileName = normalizedPath.split("/").pop() ?? normalizedPath;
+  const isMarkdownFile = fileName.endsWith(".md") || fileName.endsWith(".mdx");
+
+  return (
+    normalizedPath === "agent" ||
+    normalizedPath.startsWith("agent/") ||
+    normalizedPath === "agents" ||
+    normalizedPath.startsWith("agents/") ||
+    normalizedPath === ".agents" ||
+    normalizedPath.startsWith(".agents/") ||
+    normalizedPath === "skills" ||
+    normalizedPath.startsWith("skills/") ||
+    normalizedPath.includes("/skills/") ||
+    fileName === "agent.md" ||
+    fileName === "agents.md" ||
+    fileName === "harness.md" ||
+    (isMarkdownFile && /(instruction|instuction|instructions|prompt|skill|harness)/.test(fileName))
+  );
 };
 
 export function IdeShell({ sessionId }: { sessionId: string }) {
@@ -1147,6 +1182,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const [solveNow, setSolveNow] = useState(() => Date.now());
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [explorerSections, setExplorerSections] = useState<Record<ExplorerSectionKey, boolean>>({
+    agent: true,
     project: true
   });
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(() => new Set());
@@ -1176,8 +1212,11 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     enabled: !!session
   });
   const { data: mockAgentRuns = [] } = useQuery({
-    queryKey: ["mock-agent-traces-preview", sessionId],
-    queryFn: () => mockApi.getAgentTraces(sessionId),
+    queryKey: ["agentTraces", sessionId],
+    queryFn: () =>
+      isBackendSessionId(sessionId)
+        ? sessionApi.getAgentTraces(sessionId)
+        : mockApi.getAgentTraces(sessionId),
     enabled: !!session,
     staleTime: 60_000
   });
@@ -1535,13 +1574,21 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     () => buildExplorerFiles(files, agentPatchPreviews.map((preview) => preview.previewFile)),
     [agentPatchPreviews, files]
   );
-  const fileTree = useMemo(() => {
-    const extraFolders = isBackendSessionId(sessionId)
-      ? Array.from(new Set([...localFolders, ".worktree"]))
-      : localFolders;
+  const agentExplorerFiles = useMemo(
+    () => explorerFiles.filter((file) => isAgentConfigExplorerPath(file.path)),
+    [explorerFiles]
+  );
+  const workspaceExplorerFiles = useMemo(
+    () => explorerFiles.filter((file) => !isAgentConfigExplorerPath(file.path)),
+    [explorerFiles]
+  );
+  const agentFileTree = useMemo(() => buildFileTree(agentExplorerFiles), [agentExplorerFiles]);
+  const workspaceFileTree = useMemo(() => {
+    const extraFolders = Array.from(new Set([...localFolders, ".worktree"]));
+    const workspaceFolders = extraFolders.filter((folder) => !isAgentConfigExplorerPath(folder));
 
-    return buildFileTree(explorerFiles, extraFolders);
-  }, [explorerFiles, localFolders, sessionId]);
+    return buildFileTree(workspaceExplorerFiles, workspaceFolders);
+  }, [localFolders, workspaceExplorerFiles]);
   const openTabs = useMemo(
     () =>
       openTabPaths
@@ -1857,6 +1904,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     search: searchQuery.trim() ? `${searchMatches.length}` : null,
     trace: null,
     extensions: `${extensionItems.length}`,
+    harness: null,
     ai: aiQuotaLabel,
     output: testResult ? `${testResult.failed}` : traces.length ? `${traces.length}` : null
   };
@@ -1879,7 +1927,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       : savePromptAction?.type === "navigate"
         ? `${unsavedPaths.length}개의 저장되지 않은 파일이 있습니다. 저장하지 않으면 변경 내용이 사라질 수 있습니다.`
         : `${unsavedPaths.length}개의 저장되지 않은 파일이 있습니다. 저장 후 실행하면 현재 수정사항으로 실행됩니다.`;
-  const solveElapsedLabel = formatSolveElapsed(solveNow - toTimestamp(session?.createdAt));
+  const solveElapsedMs = solveNow - toTimestamp(session?.createdAt);
+  const solveElapsedLabel = formatSolveElapsed(solveElapsedMs);
+  const estimateLimitMs = parseEstimateMs(problem?.estimate ?? "");
+  const isOvertime = estimateLimitMs > 0 && solveElapsedMs > estimateLimitMs;
+  const overtimeMs = isOvertime ? solveElapsedMs - estimateLimitMs : 0;
+  const timerProgress = estimateLimitMs > 0 ? Math.min(1, solveElapsedMs / estimateLimitMs) : 0;
+  const timerPhase = isOvertime ? "overtime" : timerProgress >= 0.85 ? "warning" : "normal";
   const showEmptyEditor = activeWorkbenchTab === "code" && openTabs.length === 0;
   const showBottomPanel = bottomPanelOpen;
 
@@ -3194,6 +3248,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       return <TracePanel sessionId={sessionId} />;
     }
 
+    if (sidebarView === "harness") {
+      return <HarnessPanel />;
+    }
+
     if (sidebarView === "extensions") {
       return (
         <div className="sidebar-section">
@@ -3275,7 +3333,33 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                 />
               </div>
             ) : null}
-            {renderTreeNodes(fileTree, 0)}
+            {agentFileTree.length ? (
+              <div className="agent-section">
+                <button
+                  type="button"
+                  className="agent-section__header"
+                  onClick={() => toggleExplorerSection("agent")}
+                >
+                  <span>{explorerSections.agent ? "v" : ">"} Agent 설정</span>
+                </button>
+                {explorerSections.agent ? (
+                  <div className="agent-section__subtitle">agent · skills · instruction · harness</div>
+                ) : null}
+                {explorerSections.agent ? <div className="mt-1">{renderTreeNodes(agentFileTree, 0)}</div> : null}
+              </div>
+            ) : null}
+            {workspaceFileTree.length ? (
+              <div>
+                <button
+                  type="button"
+                  className="w-full px-2 pb-1 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400"
+                  onClick={() => toggleExplorerSection("project")}
+                >
+                  {explorerSections.project ? "v" : ">"} Workspace
+                </button>
+                {explorerSections.project ? renderTreeNodes(workspaceFileTree, 0) : null}
+              </div>
+            ) : null}
           </div>
         </div>
         {explorerContextMenu ? (
@@ -3408,46 +3492,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             </div>
 
             <div className="problem-card__actions">
-              <button
-                type="button"
-                className={autoSaveEnabled ? "ide-command-button ide-command-button--toggle-active" : "ide-command-button"}
-                onClick={() => setAutoSaveEnabled((state) => !state)}
-                aria-pressed={autoSaveEnabled}
-                title={autoSaveEnabled ? "자동 저장 끄기" : "자동 저장 켜기"}
-              >
-                Auto
-              </button>
-              <button
-                type="button"
-                className="ide-command-button"
-                onClick={() => void saveAllDirtyFiles()}
-                disabled={!dirtyCount || saving}
-                aria-label="모두 저장"
-                title="모두 저장"
-              >
-                <Save size={13} strokeWidth={2} />
-              </button>
-              <button
-                type="button"
-                className="ide-command-button"
-                onClick={handleRun}
-                disabled={runLoading}
-                aria-label="실행"
-                title="실행"
-              >
-                <Play size={13} strokeWidth={2} />
-              </button>
-              <button type="button" className="ide-command-button" onClick={handleTest} disabled={testLoading}>
-                {testLoading ? "테스트 중..." : "테스트"}
-              </button>
-              <button
-                type="button"
-                className="ide-command-button ide-command-button--primary"
-                onClick={handleSubmit}
-                disabled={submitLoading}
-              >
-                {submitLoading ? "제출 중..." : "제출"}
-              </button>
               <button
                 type="button"
                 className="ide-command-button ide-command-button--danger"
@@ -3625,7 +3669,22 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
       <div className="editor-tabbar__row editor-tabbar__row--meta">
         <div className="editor-tabbar__context">
-          <span className="editor-tabbar__metric editor-tabbar__metric--time">풀이 {solveElapsedLabel}</span>
+          {estimateLimitMs > 0 ? (
+            <div className={`solve-timer-bar solve-timer-bar--${timerPhase}`}>
+              <div className="solve-timer-bar__track">
+                <div
+                  className="solve-timer-bar__fill"
+                  style={{ width: isOvertime ? "100%" : `${timerProgress * 100}%` }}
+                />
+              </div>
+              <span className="solve-timer-bar__label">
+                {isOvertime ? `+${formatSolveElapsed(overtimeMs)}` : solveElapsedLabel}
+              </span>
+              <span className="solve-timer-bar__limit">{problem?.estimate}</span>
+            </div>
+          ) : (
+            <span className="editor-tabbar__metric editor-tabbar__metric--time">풀이 {solveElapsedLabel}</span>
+          )}
           <span className="editor-tabbar__meta">{lastSavedLabel}</span>
         </div>
 
@@ -3634,57 +3693,66 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             <span className="ide-model-badge">{session.aiModel}</span>
           )}
 
-          <span className="editor-tabbar__divider" />
+          <div className="ide-toolbar">
+            <button
+              type="button"
+              className={autoSaveEnabled ? "ide-toolbar__btn ide-toolbar__btn--active" : "ide-toolbar__btn"}
+              onClick={() => setAutoSaveEnabled((state) => !state)}
+              aria-pressed={autoSaveEnabled}
+              title={autoSaveEnabled ? "자동 저장 끄기" : "자동 저장 켜기"}
+            >
+              Auto
+            </button>
+            <button
+              type="button"
+              className="ide-toolbar__btn"
+              onClick={() => void saveAllDirtyFiles()}
+              disabled={!dirtyCount || saving}
+              aria-label="모두 저장"
+              title="모두 저장"
+            >
+              <Save size={13} strokeWidth={2} />
+            </button>
 
-          <button
-            type="button"
-            className={autoSaveEnabled ? "ide-command-button ide-command-button--toggle-active" : "ide-command-button"}
-            onClick={() => setAutoSaveEnabled((state) => !state)}
-            aria-pressed={autoSaveEnabled}
-            title={autoSaveEnabled ? "자동 저장 끄기" : "자동 저장 켜기"}
-          >
-            Auto
-          </button>
-          <button
-            type="button"
-            className="ide-command-button"
-            onClick={() => void saveAllDirtyFiles()}
-            disabled={!dirtyCount || saving}
-            aria-label="모두 저장"
-            title="모두 저장"
-          >
-            <Save size={13} strokeWidth={2} />
-          </button>
-          <button
-            type="button"
-            className="ide-command-button"
-            onClick={handleRun}
-            disabled={runLoading}
-            aria-label="실행"
-            title="실행"
-          >
-            <Play size={13} strokeWidth={2} />
-          </button>
-          <button type="button" className="ide-command-button" onClick={handleTest} disabled={testLoading}>
-            {testLoading ? "테스트 중..." : "테스트"}
-          </button>
-          <button
-            type="button"
-            className="ide-command-button ide-command-button--primary"
-            onClick={handleSubmit}
-            disabled={submitLoading}
-          >
-            {submitLoading ? "제출 중..." : "제출"}
-          </button>
-          <button
-            type="button"
-            className="ide-command-button ide-command-button--danger"
-            onClick={() => handleNavigateRequest(withPrefix("/problems"))}
-            aria-label="종료"
-            title="종료"
-          >
-            <LogOut size={13} strokeWidth={2} />
-          </button>
+            <span className="ide-toolbar__sep" />
+
+            <button
+              type="button"
+              className="ide-toolbar__btn"
+              onClick={handleRun}
+              disabled={runLoading}
+              aria-label="실행"
+              title="실행"
+            >
+              <Play size={13} strokeWidth={2} />
+            </button>
+            <button type="button" className="ide-toolbar__btn" onClick={handleTest} disabled={testLoading}>
+              {testLoading ? "..." : "테스트"}
+            </button>
+
+            <span className="ide-toolbar__sep" />
+
+            <button
+              type="button"
+              className="ide-toolbar__btn ide-toolbar__btn--submit"
+              onClick={handleSubmit}
+              disabled={submitLoading}
+            >
+              {submitLoading ? "제출 중..." : "제출"}
+            </button>
+
+            <span className="ide-toolbar__sep" />
+
+            <button
+              type="button"
+              className="ide-toolbar__btn ide-toolbar__btn--exit"
+              onClick={() => handleNavigateRequest(withPrefix("/problems"))}
+              aria-label="종료"
+              title="종료"
+            >
+              <LogOut size={13} strokeWidth={2} />
+            </button>
+          </div>
         </div>
       </div>
     </div>

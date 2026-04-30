@@ -462,7 +462,52 @@ export const mockApi = {
 
   async getChatMessages(sessionId: string) {
     await delay(120);
-    return clone(getSessionOrThrow(readDb(), sessionId).messages);
+    const stored = clone(getSessionOrThrow(readDb(), sessionId).messages);
+    const hasRealConversation = stored.some((m) => !m.id.startsWith("msg-seed-") && !m.id.startsWith("optimistic-"));
+    if (hasRealConversation) return stored;
+
+    // Notion API 명세 예시 기반 mock 대화 데이터
+    const base = new Date(Date.now() - 18 * 60000).toISOString();
+    const t = (offsetMin: number) => new Date(new Date(base).getTime() + offsetMin * 60000).toISOString();
+
+    return [
+      {
+        id: "mock-msg-1",
+        role: "user" as const,
+        content: "GET /users API를 구현하려고 하는데 어디서부터 시작해야 하나요?",
+        createdAt: t(0)
+      },
+      {
+        id: "mock-msg-2",
+        role: "assistant" as const,
+        content: `Controller → Service → Repository 순서로 구현하는 게 좋습니다.\n\n1. **Repository**: \`findAllByOrderByNameAsc()\` 메서드를 선언하면 Spring Data JPA가 자동으로 name 오름차순 쿼리를 생성합니다.\n2. **Service**: Repository를 주입받아 조회 결과를 \`List<UserResponse>\`로 변환합니다.\n3. **Controller**: \`@GetMapping("/users")\`에서 Service를 호출하고 200 OK로 반환합니다.`,
+        createdAt: t(1)
+      },
+      {
+        id: "mock-msg-3",
+        role: "user" as const,
+        content: "UserRepository에 메서드를 어떻게 선언해야 해요?",
+        createdAt: t(3)
+      },
+      {
+        id: "mock-msg-4",
+        role: "assistant" as const,
+        content: "Spring Data JPA의 메서드 이름 규칙을 사용하면 됩니다:\n\n```java\npublic interface UserRepository extends JpaRepository<User, Long> {\n    List<User> findAllByOrderByNameAsc();\n}\n```\n\n`findAllByOrderByNameAsc`는 **전체 조회 후 name 오름차순 정렬**을 의미합니다. 별도 `@Query` 없이 JPA가 자동으로 처리합니다.",
+        createdAt: t(4)
+      },
+      {
+        id: "mock-msg-5",
+        role: "user" as const,
+        content: "Service에서 User 엔티티를 UserResponse DTO로 변환하는 방법도 알려주세요.",
+        createdAt: t(7)
+      },
+      {
+        id: "mock-msg-6",
+        role: "assistant" as const,
+        content: `UserResponse에 정적 팩토리 메서드를 추가하는 방식이 깔끔합니다:\n\n\`\`\`java\n// UserResponse.java\npublic record UserResponse(Long id, String name, String email) {\n    public static UserResponse from(User user) {\n        return new UserResponse(user.getId(), user.getName(), user.getEmail());\n    }\n}\n\n// UserService.java\npublic List<UserResponse> findAll() {\n    return userRepository.findAllByOrderByNameAsc()\n            .stream()\n            .map(UserResponse::from)\n            .toList();\n}\n\`\`\`\n\n회원이 없으면 빈 리스트가 반환되므로 별도 처리 없이 요구사항을 충족합니다.`,
+        createdAt: t(8)
+      }
+    ] satisfies Array<{ id: string; role: "user" | "assistant"; content: string; createdAt: string }>;
   },
 
   async requestAiChat(sessionId: string, message: string, currentFile?: string) {

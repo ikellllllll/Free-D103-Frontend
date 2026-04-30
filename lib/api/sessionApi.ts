@@ -1,7 +1,7 @@
 import { authClient } from "@/lib/api/authApi";
 import { mockApi } from "@/lib/api/mockApi";
 import { createInitialSession } from "@/lib/mock-data";
-import type { TraceEvent } from "@/lib/types/ai";
+import type { AiMessage, TraceEvent } from "@/lib/types/ai";
 import type { ProblemLanguage, SolveSession, WorkspaceFile } from "@/lib/types/session";
 import type { AgentLlmCall, AgentPatch, AgentRunTrace, AgentSpan, AgentToolCall } from "@/lib/types/trace";
 
@@ -38,6 +38,16 @@ interface GetFileContentResponse {
   name?: string;
   language?: string | null;
   content?: string | null;
+}
+
+interface GetWorktreeFileResponse {
+  fileId: number;
+  path: string;
+  name: string;
+  language: string;
+  content: string;
+  originType: "COPIED_FROM_REAL" | "GENERATED";
+  presenceStatus: "ACTIVE" | "DELETED";
 }
 
 type SessionFileNodeType = "FILE" | "DIRECTORY";
@@ -558,6 +568,16 @@ export const sessionApi = {
     return workspace;
   },
 
+  async getWorktreeFileContent(sessionId: string, worktreeFileId: number) {
+    try {
+      const res = await authClient.get(`api/v1/sessions/${sessionId}/worktrees/${worktreeFileId}`)
+        .json<ApiResponse<GetWorktreeFileResponse>>();
+      return res.data as GetFileContentResponse;
+    } catch {
+      return null;
+    }
+  },
+
   async getFileContent(sessionId: string, path: string) {
     const fileId = externalFileIdBySession.get(sessionId)?.get(path);
     if (!fileId) {
@@ -566,14 +586,22 @@ export const sessionApi = {
 
     let payload: GetFileContentResponse | null = null;
 
-    try {
-      const res = await authClient.get(`api/v1/sessions/${sessionId}/files/${fileId}`)
-        .json<ApiResponse<GetFileContentResponse>>();
-      payload = res.data;
-    } catch {
-      const res = await authClient.get(`api/v1/sessions/${sessionId}/files/${fileId}/content`)
-        .json<ApiResponse<GetFileContentResponse>>();
-      payload = res.data;
+    if (path.startsWith(WORKTREE_PREFIX)) {
+      payload = await this.getWorktreeFileContent(sessionId, fileId);
+    } else {
+      try {
+        const res = await authClient.get(`api/v1/sessions/${sessionId}/files/${fileId}`)
+          .json<ApiResponse<GetFileContentResponse>>();
+        payload = res.data;
+      } catch {
+        try {
+          const res = await authClient.get(`api/v1/sessions/${sessionId}/files/${fileId}/content`)
+            .json<ApiResponse<GetFileContentResponse>>();
+          payload = res.data;
+        } catch {
+          payload = null;
+        }
+      }
     }
 
     const content = payload?.content ?? "";
@@ -583,22 +611,43 @@ export const sessionApi = {
   },
 
   async getAgentTraces(sessionId: string) {
-    const result = await this.getAgentTraceList(sessionId, 1, 10);
-    await mockApi.syncExternalTraces(sessionId, toSessionTraces(result.runs));
-    return result.runs;
+    try {
+      const result = await this.getAgentTraceList(sessionId, 1, 10);
+      if (result.runs.length === 0) return mockApi.getAgentTraces(sessionId);
+      await mockApi.syncExternalTraces(sessionId, toSessionTraces(result.runs));
+      return result.runs;
+    } catch {
+      return mockApi.getAgentTraces(sessionId);
+    }
   },
 
   async getAgentTraceList(sessionId: string, page = 1, size = 10) {
-    const res = await authClient.get(`api/v1/sessions/${sessionId}/traces`, {
-      searchParams: {
-        page,
-        size
-      }
-    })
-      .json<ApiResponse<AgentTraceListResponse | AgentTraceListPayload>>();
+    try {
+      const res = await authClient.get(`api/v1/sessions/${sessionId}/traces`, {
+        searchParams: {
+          page,
+          size
+        }
+      })
+        .json<ApiResponse<AgentTraceListResponse | AgentTraceListPayload>>();
 
-    const data = res.data;
-    if (Array.isArray(data) || "traces" in data === false && "runs" in data === false && "items" in data === false && "page" in data === false) {
+      const data = res.data;
+      if (Array.isArray(data) || "traces" in data === false && "runs" in data === false && "items" in data === false && "page" in data === false) {
+        const runs = normalizeAgentRuns(data as AgentTraceListPayload);
+        return {
+          runs,
+          totalCount: runs.length,
+          page,
+          size,
+          totalPages: Math.max(1, Math.ceil(runs.length / size)),
+          hasNext: false
+        } satisfies AgentTraceListResult;
+      }
+
+      if ("page" in data && "size" in data && "totalPages" in data && "traces" in data) {
+        return normalizeAgentTraceListResult(data as AgentTraceListResponse);
+      }
+
       const runs = normalizeAgentRuns(data as AgentTraceListPayload);
       return {
         runs,
@@ -608,33 +657,56 @@ export const sessionApi = {
         totalPages: Math.max(1, Math.ceil(runs.length / size)),
         hasNext: false
       } satisfies AgentTraceListResult;
+    } catch {
+      const runs = await mockApi.getAgentTraces(sessionId);
+      return {
+        runs,
+        totalCount: runs.length,
+        page,
+        size,
+        totalPages: 1,
+        hasNext: false
+      } satisfies AgentTraceListResult;
     }
-
-    if ("page" in data && "size" in data && "totalPages" in data && "traces" in data) {
-      return normalizeAgentTraceListResult(data as AgentTraceListResponse);
-    }
-
-    const runs = normalizeAgentRuns(data as AgentTraceListPayload);
-    return {
-      runs,
-      totalCount: runs.length,
-      page,
-      size,
-      totalPages: Math.max(1, Math.ceil(runs.length / size)),
-      hasNext: false
-    } satisfies AgentTraceListResult;
   },
 
   async getAgentTraceDetail(sessionId: string, traceId: string) {
-    const res = await authClient.get(`api/v1/sessions/${sessionId}/traces/${traceId}`)
-      .json<ApiResponse<AgentTraceDetailResponse | AgentRunTrace>>();
+    try {
+      const res = await authClient.get(`api/v1/sessions/${sessionId}/traces/${traceId}`)
+        .json<ApiResponse<AgentTraceDetailResponse | AgentRunTrace>>();
 
-    const data = res.data;
-    if ("trace" in data && "spans" in data) {
-      return normalizeAgentTraceDetail(data as AgentTraceDetailResponse);
+      const data = res.data;
+      if ("trace" in data && "spans" in data) {
+        return normalizeAgentTraceDetail(data as AgentTraceDetailResponse);
+      }
+
+      return normalizeAgentRuns([data as AgentRunTrace])[0];
+    } catch {
+      const runs = await mockApi.getAgentTraces(sessionId);
+      return runs.find((run) => run.agentTraceId === traceId) ?? runs[0];
     }
+  },
 
-    return normalizeAgentRuns([data as AgentRunTrace])[0];
+  async getChatMessages(sessionId: string): Promise<AiMessage[]> {
+    try {
+      const res = await authClient
+        .get(`api/v1/ai/sessions/${sessionId}/messages`)
+        .json<ApiResponse<{ messages: Array<{ agentSessionMsgId: number; msgKind: "AI" | "HUMAN"; content: string; createdAt: string }> }>>();
+
+      const messages = res.data?.messages ?? [];
+      if (messages.length === 0) {
+        return mockApi.getChatMessages(sessionId);
+      }
+
+      return messages.map((m) => ({
+        id: String(m.agentSessionMsgId),
+        role: m.msgKind === "HUMAN" ? "user" : "assistant",
+        content: m.content,
+        createdAt: m.createdAt
+      }));
+    } catch {
+      return mockApi.getChatMessages(sessionId);
+    }
   },
 
   async saveFile(sessionId: string, input: SaveFileRequest) {

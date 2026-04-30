@@ -12,7 +12,7 @@ export interface SelectionRange {
   endColumn: number;
 }
 
-export type SidebarView = "explorer" | "search" | "extensions" | "trace";
+export type SidebarView = "explorer" | "search" | "extensions" | "trace" | "harness";
 export type BottomPanelTab = "output" | "tests" | "trace";
 
 const isSameSelectionRange = (left: SelectionRange | null, right: SelectionRange | null) => {

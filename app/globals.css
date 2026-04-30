@@ -1220,6 +1220,10 @@ html[data-theme="light"] .social-button__github-icon {
 
 .markdown-block h1,
 .markdown-block h2,
+.markdown-block h3 { color: var(--text); }
+
+.markdown-block h1,
+.markdown-block h2,
 .markdown-block h3,
 .markdown-block p { margin: 0 0 10px; }
 
@@ -2396,6 +2400,118 @@ body:has(.ide-route--workspace) .page-shell > * {
   border-color: transparent;
 }
 
+/* ─── Unified IDE toolbar strip ──────────────────────────────── */
+.ide-toolbar {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--ide-border);
+  background: var(--ide-pill-bg);
+  overflow: hidden;
+}
+
+.ide-toolbar__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 0 10px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ide-toolbar__btn:hover:not(:disabled) {
+  background: var(--ide-hover-bg);
+  color: var(--text);
+}
+
+.ide-toolbar__btn:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.ide-toolbar__btn--active {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.ide-toolbar__btn--submit {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.ide-toolbar__btn--submit:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+
+.ide-toolbar__btn--exit {
+  color: var(--muted);
+}
+
+.ide-toolbar__btn--exit:hover {
+  background: rgba(248, 113, 113, 0.1);
+  color: #f87171;
+}
+
+.ide-toolbar__sep {
+  width: 1px;
+  height: 16px;
+  background: var(--ide-border);
+  flex-shrink: 0;
+}
+
+/* ─── Agent section in file explorer ────────────────────────── */
+.agent-section {
+  margin-bottom: 12px;
+  border-top: 1px solid rgba(99, 102, 241, 0.18);
+  border-bottom: 1px solid rgba(99, 102, 241, 0.18);
+  background: rgba(99, 102, 241, 0.06);
+  padding: 8px 0;
+}
+
+.agent-section__header {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(99, 102, 241, 0.9);
+}
+
+.agent-section__badge {
+  border-radius: 9999px;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  background: rgba(99, 102, 241, 0.1);
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  color: rgba(99, 102, 241, 0.8);
+}
+
+.agent-section__subtitle {
+  padding: 0 4px 2px;
+  font-size: 11px;
+  color: rgba(99, 102, 241, 0.55);
+}
+
 /* ─── IDE language badge (display only) ──────────────────────── */
 .ide-lang-badge {
   display: inline-flex;
@@ -2505,6 +2621,63 @@ body:has(.ide-route--workspace) .page-shell > * {
   border-color: var(--line-strong);
   color: var(--text);
   background: var(--accent-dim);
+}
+
+.solve-timer-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.solve-timer-bar__track {
+  width: 90px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--ide-border);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.solve-timer-bar__fill {
+  height: 100%;
+  border-radius: 3px;
+  background: #6366f1;
+  transition: width 0.8s linear, background 0.4s;
+}
+
+.solve-timer-bar--warning .solve-timer-bar__fill {
+  background: #f59e0b;
+}
+
+.solve-timer-bar--overtime .solve-timer-bar__fill {
+  background: #ef4444;
+}
+
+.solve-timer-bar__label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  min-width: 42px;
+  transition: color 0.3s;
+}
+
+.solve-timer-bar--overtime .solve-timer-bar__label {
+  color: #ef4444;
+}
+
+.solve-timer-bar__limit {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.solve-timer-bar--overtime .solve-timer-bar__limit {
+  color: #fca5a5;
 }
 
 @media (max-width: 1180px) {
@@ -11339,4 +11512,13 @@ html[data-theme="light"] .dev2-ide-shell .monaco-editor .margin,
   .bg-gradient-animate {
     animation: none !important;
   }
+}
+
+/* ─── Shared stat inner background ─────────────────────────────
+   problems/page.tsx → StatCard 내부 셀
+   sessions/page.tsx → StatTile
+   색상 변경 시 이 한 곳만 수정하면 됩니다.
+─────────────────────────────────────────────────────────────── */
+.stat-inner-bg {
+  background-color: #f1f3f6; /* gray-100에 근접 */
 }
