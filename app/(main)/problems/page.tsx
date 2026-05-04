@@ -357,8 +357,8 @@ export default function Dev2ProblemsPage() {
   const [sort, setSort] = useState<SortId>("default");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["problems"],
-    queryFn: () => problemApi.getProblems()
+    queryKey: ["problems", { category }],
+    queryFn: () => problemApi.getProblems({ category })
   });
 
   const all = data ?? [];

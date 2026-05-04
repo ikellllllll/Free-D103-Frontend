@@ -12,6 +12,7 @@ interface ProblemListItem {
   title: string;
   summary: string;
   difficulty: string;
+  category?: string;
   passRate: number;
   status: string;
 }
@@ -46,6 +47,17 @@ function mapCategory(category: string): ProblemCategory {
   return "API 구현";
 }
 
+function inferCategoryFromTitle(title: string): ProblemCategory {
+  const normalized = title.trim();
+  if (normalized.endsWith("버그 수정")) return "버그 수정";
+  return "API 구현";
+}
+
+function toApiCategory(category: ProblemCategory | "ALL" | undefined): "API" | "BUG" | undefined {
+  if (!category || category === "ALL") return undefined;
+  return category === "버그 수정" ? "BUG" : "API";
+}
+
 function formatEstimate(timeLimitMinutes: number): string {
   if (timeLimitMinutes < 60) return `${timeLimitMinutes}m`;
   const h = timeLimitMinutes / 60;
@@ -57,8 +69,11 @@ function toOrder(index: number): string {
 }
 
 export const problemApi = {
-  async getProblems(): Promise<ProblemSummary[]> {
-    const res = await authClient.get("api/v1/problems")
+  async getProblems(filters?: { category?: ProblemCategory | "ALL" }): Promise<ProblemSummary[]> {
+    const apiCategory = toApiCategory(filters?.category);
+    const res = await authClient.get("api/v1/problems", {
+      searchParams: apiCategory ? { category: apiCategory } : undefined
+    })
       .json<ApiResponse<ProblemListItem[]>>();
 
     return res.data.map((item, index) => ({
@@ -67,7 +82,11 @@ export const problemApi = {
       title: item.title,
       summary: item.summary,
       level: mapLevel(item.difficulty),
-      category: "API 구현" as ProblemCategory, // 목록 API에 category 없음
+      category: item.category
+        ? mapCategory(item.category)
+        : apiCategory
+          ? mapCategory(apiCategory)
+          : inferCategoryFromTitle(item.title),
       passRate: Math.round(item.passRate),
       status: mapStatus(item.status),
       estimate: "2h" // 목록 API에 timeLimit 없음
@@ -90,7 +109,7 @@ export const problemApi = {
       status: mapStatus(item.status ?? "NOT_STARTED"),
       estimate: formatEstimate(item.timeLimit),
       description: item.description,
-      // 백엔드 미구현 필드 — 추후 API 연동 시 교체
+      // 백엔드 미구현 필드 - 추후 API 연동 시 교체
       requirements: [],
       endpoints: [],
       publicCases: [],

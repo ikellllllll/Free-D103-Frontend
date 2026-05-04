@@ -4,7 +4,7 @@ import Link from "next/link";
 import { use, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Code2, Clock, ArrowLeft } from "lucide-react";
+import { Code2, Clock, ArrowLeft } from "lucide-react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
@@ -56,8 +56,13 @@ export default function SessionStartPage({
       <div className="max-w-2xl mx-auto px-6 pt-28 pb-16">
         <div className="bg-white rounded-3xl border border-gray-100 shadow-xl p-10">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 mb-4">
-              <Loader2 size={28} className="animate-spin" />
+            <div className="inline-flex items-center justify-center mb-4">
+              <img
+                src="/loading-5.svg"
+                alt=""
+                className="h-32 w-32"
+                aria-hidden="true"
+              />
             </div>
             <h1 className="text-2xl md:text-3xl font-display font-bold text-gray-900 tracking-tight mb-2">
               세션 환경을 준비하고 있습니다
