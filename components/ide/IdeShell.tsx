@@ -3786,6 +3786,15 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   .join(" ")
               }
               draggable
+              onMouseDown={(event) => {
+                if (event.button !== 1) {
+                  return;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+                handleCloseFileTab(tab.id);
+              }}
               onDragStart={(event) => handleTabDragStart(event, tab.id)}
               onDragOver={(event) => handleTabDragOver(event, tab.id)}
               onDrop={(event) => handleTabDrop(event, tab.id)}

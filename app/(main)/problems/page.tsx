@@ -8,10 +8,11 @@ import {
   CheckCircle2,
   Clock,
   Circle,
+  AlertTriangle,
   Search,
   X,
   ArrowRight,
-  Target,
+  RefreshCw,
   SlidersHorizontal
 } from "lucide-react";
 
@@ -356,7 +357,7 @@ export default function Dev2ProblemsPage() {
   const [status, setStatus] = useState<ProblemStatus | "ALL">("ALL");
   const [sort, setSort] = useState<SortId>("default");
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["problems", { category }],
     queryFn: () => problemApi.getProblems({ category })
   });
@@ -572,6 +573,27 @@ export default function Dev2ProblemsPage() {
                 <SkeletonCard />
               </div>
             ))
+          ) : isError ? (
+            <div className="col-span-full flex flex-col items-center justify-center text-center py-16 sm:py-20 px-6 border border-dashed border-red-200 rounded-2xl bg-white/80 backdrop-blur animate-fade-in">
+              <div className="w-14 h-14 mb-5 rounded-2xl bg-red-50 ring-1 ring-red-100 flex items-center justify-center">
+                <AlertTriangle size={22} strokeWidth={2.2} className="text-red-500" />
+              </div>
+              <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1">
+                과제 목록을 불러오지 못했어요
+              </h3>
+              <p className="text-sm text-gray-500 mb-5 max-w-md">
+                {error instanceof Error ? error.message : "서버 응답을 확인한 뒤 다시 시도해 주세요."}
+              </p>
+              <button
+                type="button"
+                onClick={() => void refetch()}
+                disabled={isFetching}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold shadow-sm shadow-indigo-600/30 hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <RefreshCw size={14} strokeWidth={2.4} className={isFetching ? "animate-spin" : ""} />
+                다시 불러오기
+              </button>
+            </div>
           ) : filtered.length === 0 ? (
             <div className="col-span-full flex flex-col items-center justify-center text-center py-16 sm:py-20 px-6 border border-dashed border-gray-200 rounded-2xl bg-white/60 backdrop-blur animate-fade-in">
               <div className="relative w-16 h-16 mb-5">

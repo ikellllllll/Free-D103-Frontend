@@ -29,7 +29,10 @@ interface ProblemDetailResponse {
   status?: string;
 }
 
-type ProblemListDetail = Pick<ProblemDetailResponse, "problemId" | "category" | "timeLimit">;
+interface AnnotatedProblemListItem {
+  item: ProblemListItem;
+  category?: "API" | "BUG" | string;
+}
 
 function mapLevel(difficulty: string): ProblemLevel {
   if (difficulty === "level1") return 1;
@@ -49,9 +52,9 @@ function mapCategory(category: string): ProblemCategory {
   return "API 구현";
 }
 
-function inferCategoryFromTitle(title: string): ProblemCategory {
-  const normalized = title.trim();
-  if (normalized.endsWith("버그 수정")) return "버그 수정";
+function inferCategoryFromTitle(title: string, summary = ""): ProblemCategory {
+  const normalized = `${title} ${summary}`.trim().toLowerCase();
+  if (normalized.includes("버그") || normalized.includes("bug")) return "버그 수정";
   return "API 구현";
 }
 
@@ -66,55 +69,62 @@ function formatEstimate(timeLimitMinutes: number): string {
   return Number.isInteger(h) ? `${h}h` : `${h.toFixed(1)}h`;
 }
 
+function estimateFromLevel(level: ProblemLevel): string {
+  if (level === 1) return "1h";
+  if (level === 2) return "2h";
+  return "3h";
+}
+
 function toOrder(index: number): string {
   return String(index + 1).padStart(2, "0");
+}
+
+async function fetchProblemList(apiCategory?: "API" | "BUG"): Promise<AnnotatedProblemListItem[]> {
+  const res = await authClient.get("api/v1/problems", {
+    searchParams: apiCategory ? { category: apiCategory } : undefined
+  })
+    .json<ApiResponse<ProblemListItem[]>>();
+
+  return res.data.map((item) => ({
+    item,
+    category: apiCategory ?? item.category
+  }));
 }
 
 export const problemApi = {
   async getProblems(filters?: { category?: ProblemCategory | "ALL" }): Promise<ProblemSummary[]> {
     const apiCategory = toApiCategory(filters?.category);
-    const res = await authClient.get("api/v1/problems", {
-      searchParams: apiCategory ? { category: apiCategory } : undefined
-    })
-      .json<ApiResponse<ProblemListItem[]>>();
+    const annotatedItems = apiCategory
+      ? await fetchProblemList(apiCategory)
+      : (await Promise.all([fetchProblemList("API"), fetchProblemList("BUG")]))
+        .flat()
+        .sort((a, b) => a.item.problemId - b.item.problemId);
 
-    const detailsById = new Map<number, ProblemListDetail>();
-    const detailResults = await Promise.allSettled(
-      res.data.map((item) =>
-        authClient.get(`api/v1/problems/${item.problemId}`)
-          .json<ApiResponse<ProblemDetailResponse>>()
-      )
+    const uniqueItems = Array.from(
+      annotatedItems
+        .reduce((acc, annotated) => acc.set(annotated.item.problemId, annotated), new Map<number, AnnotatedProblemListItem>())
+        .values()
     );
 
-    detailResults.forEach((result) => {
-      if (result.status !== "fulfilled") return;
-      const detail = result.value.data;
-      detailsById.set(detail.problemId, {
-        problemId: detail.problemId,
-        category: detail.category,
-        timeLimit: detail.timeLimit
-      });
-    });
-
-    return res.data.map((item, index) => {
-      const detail = detailsById.get(item.problemId);
+    return uniqueItems.map(({ item, category }, index) => {
+      const level = mapLevel(item.difficulty);
 
       return {
         id: String(item.problemId),
         order: toOrder(index),
         title: item.title,
         summary: item.summary,
-        level: mapLevel(item.difficulty),
-        category: detail
-          ? mapCategory(detail.category)
+        level,
+        category: category
+          ? mapCategory(category)
           : item.category
             ? mapCategory(item.category)
             : apiCategory
               ? mapCategory(apiCategory)
-              : inferCategoryFromTitle(item.title),
+              : inferCategoryFromTitle(item.title, item.summary),
         passRate: Math.round(item.passRate),
         status: mapStatus(item.status),
-        estimate: detail ? formatEstimate(detail.timeLimit) : "2h"
+        estimate: estimateFromLevel(level)
       };
     });
   },

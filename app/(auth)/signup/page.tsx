@@ -34,41 +34,61 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [emailChecked, setEmailChecked] = useState(false);
+  const [emailChecking, setEmailChecking] = useState(false);
   const [passwordError, setPasswordError] = useState("");
 
   const strength = getPasswordStrength(password);
 
-  const handleEmailBlur = async () => {
-    if (!EMAIL_REGEX.test(email)) return;
+  const checkEmailAvailability = async (showSuccessToast = false) => {
+    const normalizedEmail = email.trim();
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      setEmailError("올바른 이메일 형식이 아닙니다.");
+      setEmailChecked(false);
+      return false;
+    }
+
+    setEmailChecking(true);
     try {
-      const available = await authApi.checkEmailAvailability(email);
+      const available = await authApi.checkEmailAvailability(normalizedEmail);
       if (!available) {
         setEmailError("이미 사용 중인 이메일입니다.");
         setEmailChecked(false);
+        return false;
       } else {
         setEmailError("");
         setEmailChecked(true);
+        if (showSuccessToast) {
+          addToast("사용 가능한 이메일입니다.", "success");
+        }
+        return true;
       }
     } catch {
-      // 서버 에러는 제출 시점에 다시 처리
+      setEmailError("이메일 확인에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      setEmailChecked(false);
+      return false;
+    } finally {
+      setEmailChecking(false);
     }
   };
 
   const handleSignup = async () => {
     setEmailError("");
     setPasswordError("");
+    const normalizedEmail = email.trim();
 
     if (!name.trim()) {
       addToast("이름을 입력해 주세요.", "warning");
       return;
     }
-    if (!EMAIL_REGEX.test(email)) {
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
       setEmailError("올바른 이메일 형식이 아닙니다.");
       return;
     }
     if (!emailChecked) {
-      setEmailError("이메일 중복 확인이 필요합니다.");
-      return;
+      const available = await checkEmailAvailability();
+      if (!available) {
+        return;
+      }
     }
     if (password.length < 8) {
       setPasswordError("비밀번호는 8자 이상이어야 합니다.");
@@ -81,8 +101,8 @@ export default function SignupPage() {
 
     setLoading(true);
     try {
-      const signupData = await authApi.signup(email, password, name);
-      const tokens = await authApi.login(email, password);
+      const signupData = await authApi.signup(normalizedEmail, password, name);
+      const tokens = await authApi.login(normalizedEmail, password);
       const user = buildUserFromToken(tokens.accessToken, {
         id: String(signupData.userId),
         name: signupData.nickname,
@@ -130,24 +150,42 @@ export default function SignupPage() {
           </Field>
 
           <div>
-            <Field label="이메일">
-              <input
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setEmailError("");
-                  setEmailChecked(false);
-                }}
-                onBlur={() => {
-                  void handleEmailBlur();
-                }}
-                placeholder="you@example.com"
-                className={`auth-input login-v0-lite__input${emailError ? " !border-red-400" : ""}`}
-              />
-            </Field>
+            <div className="login-v0-lite__field block">
+              <span className="login-v0-lite__field-label block text-sm font-semibold text-gray-800 mb-1.5">
+                이메일
+              </span>
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setEmailError("");
+                    setEmailChecked(false);
+                  }}
+                  onBlur={() => {
+                    if (!emailChecked && EMAIL_REGEX.test(email.trim())) {
+                      void checkEmailAvailability();
+                    }
+                  }}
+                  placeholder="you@example.com"
+                  className={`auth-input login-v0-lite__input flex-1 min-w-0${emailError ? " !border-red-400" : ""}`}
+                />
+                <button
+                  type="button"
+                  onClick={() => void checkEmailAvailability(true)}
+                  disabled={emailChecking || emailChecked}
+                  className="shrink-0 rounded-2xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 transition-colors hover:border-indigo-300 hover:text-indigo-600 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
+                >
+                  {emailChecking ? "확인 중" : emailChecked ? "확인됨" : "중복 확인"}
+                </button>
+              </div>
+            </div>
             {emailError && <p className="text-xs text-red-500 mt-1 ml-0.5">{emailError}</p>}
+            {emailChecked && !emailError && (
+              <p className="text-xs text-green-600 mt-1 ml-0.5">사용 가능한 이메일입니다.</p>
+            )}
           </div>
 
           <div>
@@ -223,7 +261,7 @@ export default function SignupPage() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || emailChecking}
             className="login-v0-lite__submit w-full flex items-center justify-center space-x-2 text-white font-semibold py-3 rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed mt-1"
             style={{
               backgroundImage: "linear-gradient(90deg, #4F46E5, #7C3AED)",
