@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "rea
 import { flushSync } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import { Badge } from "@/components/common/Badge";
 import { Card } from "@/components/common/Card";
@@ -3679,7 +3680,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           <section className="problem-card problem-card--feature">
             <div className="markdown-block problem-workspace__markdown">
               {parsedProblemBrief.beforeDescription ? (
-                <Markdown components={problemBriefMarkdownComponents}>{parsedProblemBrief.beforeDescription}</Markdown>
+                <Markdown remarkPlugins={[remarkGfm]} components={problemBriefMarkdownComponents}>{parsedProblemBrief.beforeDescription}</Markdown>
               ) : (
                 <p className="muted-copy">문제 설명이 아직 등록되지 않았습니다.</p>
               )}
@@ -3706,7 +3707,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             )}
             {parsedProblemBrief.afterDescription ? (
               <div className="markdown-block problem-workspace__markdown">
-                <Markdown components={problemBriefMarkdownComponents}>{parsedProblemBrief.afterDescription}</Markdown>
+                <Markdown remarkPlugins={[remarkGfm]} components={problemBriefMarkdownComponents}>{parsedProblemBrief.afterDescription}</Markdown>
               </div>
             ) : null}
           </section>
@@ -4107,7 +4108,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   >
                     {markdownPreviewOpen && canPreviewActiveMarkdown ? (
                       <div className="markdown-preview">
-                        <Markdown components={problemBriefMarkdownComponents}>
+                        <Markdown remarkPlugins={[remarkGfm]} components={problemBriefMarkdownComponents}>
                           {activeFile.content || "_미리볼 Markdown 내용이 없습니다._"}
                         </Markdown>
                       </div>
