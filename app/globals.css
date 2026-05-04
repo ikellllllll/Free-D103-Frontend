@@ -2336,6 +2336,16 @@ body:has(.ide-route--workspace) .page-shell > * {
   opacity: 1;
 }
 
+.pane-resizer--collapsed::after {
+  opacity: 0.28;
+}
+
+.pane-resizer--collapsed:hover::after {
+  background: var(--pane-resizer-line-hover);
+  box-shadow: 0 0 0 2px var(--pane-resizer-glow);
+  opacity: 1;
+}
+
 .ide-shell__main {
   flex: 1 1 auto;
   min-width: 0;
@@ -2723,6 +2733,39 @@ body:has(.ide-route--workspace) .page-shell > * {
 
 .editor-tabs::-webkit-scrollbar {
   display: none;
+}
+
+.editor-tabs__tools {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 36px;
+  padding: 0 8px;
+  border-left: 1px solid var(--ide-border);
+  background: var(--ide-tab-bg);
+}
+
+.editor-tabs__mode-button {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  border-radius: 6px;
+  border: 1px solid var(--ide-border);
+  color: var(--muted);
+  background: var(--ide-sidebar-bg);
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.editor-tabs__mode-button:hover,
+.editor-tabs__mode-button--active {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 44%, var(--ide-border) 56%);
+  background: var(--ide-hover-bg);
 }
 
 .editor-tabs__item {
@@ -3171,6 +3214,79 @@ html[data-theme="light"] .problem-brief-codeblock__content .text-slate-200 {
   min-height: 0;
   overflow: hidden;
   background: var(--ide-workbench-bg);
+}
+
+.editor-host--preview {
+  overflow: auto;
+  background: var(--ide-surface);
+}
+
+.markdown-preview {
+  width: min(100%, 920px);
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 34px 40px 72px;
+  color: var(--text);
+  font-size: 0.94rem;
+  line-height: 1.76;
+}
+
+.markdown-preview :is(h1, h2, h3, h4) {
+  margin: 1.35em 0 0.55em;
+  color: var(--text);
+  line-height: 1.24;
+}
+
+.markdown-preview h1 {
+  margin-top: 0;
+  font-size: 1.85rem;
+}
+
+.markdown-preview h2 {
+  font-size: 1.36rem;
+}
+
+.markdown-preview h3 {
+  font-size: 1.08rem;
+}
+
+.markdown-preview p,
+.markdown-preview ul,
+.markdown-preview ol,
+.markdown-preview blockquote,
+.markdown-preview .problem-brief-codeblock {
+  margin: 0 0 14px;
+}
+
+.markdown-preview ul,
+.markdown-preview ol {
+  padding-left: 1.35rem;
+}
+
+.markdown-preview li + li {
+  margin-top: 5px;
+}
+
+.markdown-preview blockquote {
+  padding: 10px 14px;
+  border-left: 3px solid var(--accent);
+  color: var(--muted);
+  background: color-mix(in srgb, var(--ide-sidebar-bg) 70%, transparent);
+}
+
+.markdown-preview :not(pre) > code {
+  padding: 2px 5px;
+  border-radius: 5px;
+  color: var(--text);
+  background: var(--ide-tab-bg);
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+}
+
+.markdown-preview a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .editor-loading {

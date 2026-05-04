@@ -16,6 +16,7 @@ interface ApiResponse<T> {
 interface StartSessionResponse {
   problemSessionId: number;
   problemId: number;
+  language?: "JAVA" | "PYTHON" | ProblemLanguage;
   status: "IN_PROGRESS" | "COMPLETED";
   startedAt: string;
 }
@@ -520,6 +521,18 @@ const toSessionTraces = (runs: AgentRunTrace[]): TraceEvent[] =>
 export const isBackendSessionId = (value: string) => /^\d+$/.test(value);
 export const isBackendProblemId = (value: string) => /^\d+$/.test(value);
 
+const toApiProblemLanguage = (language: ProblemLanguage) => language.toUpperCase() as "JAVA" | "PYTHON";
+
+const toProblemLanguage = (language: StartSessionResponse["language"] | null | undefined): ProblemLanguage | null => {
+  if (!language) return null;
+  const normalized = String(language).toLowerCase();
+  if (normalized === "java" || normalized === "python") {
+    return normalized;
+  }
+
+  return null;
+};
+
 export const sessionApi = {
   async startSession(
     problemId: string,
@@ -528,10 +541,15 @@ export const sessionApi = {
     aiModel = "aig-default",
     aiProvider = "default"
   ) {
-    const res = await authClient.post(`api/v1/problems/${problemId}/sessions`)
+    const res = await authClient.post(`api/v1/problems/${problemId}/sessions`, {
+      json: {
+        language: toApiProblemLanguage(language)
+      }
+    })
       .json<ApiResponse<StartSessionResponse>>();
 
-    const session = buildExternalSession(res.data, userId, language, aiModel, aiProvider);
+    const sessionLanguage = toProblemLanguage(res.data.language) ?? language;
+    const session = buildExternalSession(res.data, userId, sessionLanguage, aiModel, aiProvider);
     await mockApi.registerExternalSession(session);
     return session;
   },

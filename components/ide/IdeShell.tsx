@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Sun, Moon, Copy, Check, LogOut, Play, Save } from "lucide-react";
+import { Sun, Moon, Copy, Check, LogOut, Play, Save, Eye, PencilLine } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { DragEvent as ReactDragEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
@@ -58,6 +58,15 @@ const bottomTabs: Array<{ id: BottomPanelTab; label: string }> = [
 const AI_REQUEST_QUOTA = 5;
 const SOLVE_TIMER_INTERVAL_MS = 1000;
 const MAX_SELECTED_CODE_CHARS = 12000;
+const SIDEBAR_MIN_WIDTH = 220;
+const SIDEBAR_CLOSE_WIDTH = 170;
+const AI_PANEL_MIN_WIDTH = 280;
+const AI_PANEL_CLOSE_WIDTH = 230;
+const BOTTOM_PANEL_MIN_HEIGHT = 140;
+const BOTTOM_PANEL_CLOSE_HEIGHT = 105;
+const SIDEBAR_REOPEN_WIDTH = SIDEBAR_CLOSE_WIDTH + 1;
+const AI_PANEL_REOPEN_WIDTH = AI_PANEL_CLOSE_WIDTH + 1;
+const BOTTOM_PANEL_REOPEN_HEIGHT = BOTTOM_PANEL_CLOSE_HEIGHT + 1;
 
 const extensionItems = [
   {
@@ -93,6 +102,7 @@ interface DragState {
   startY: number;
   startWidth: number;
   startHeight: number;
+  collapsed: boolean;
 }
 
 interface TreeNode {
@@ -247,6 +257,16 @@ const getFileExtension = (file: Pick<WorkspaceFile, "path" | "language">) => {
   const name = getFileName(file.path);
   const extension = name.includes(".") ? name.split(".").pop()?.toLowerCase() : "";
   return extension || file.language.toLowerCase();
+};
+
+const isMarkdownWorkspaceFile = (file?: Pick<WorkspaceFile, "path" | "language"> | null) => {
+  if (!file) {
+    return false;
+  }
+
+  const lowerPath = file.path.toLowerCase();
+  const language = file.language.toLowerCase();
+  return lowerPath.endsWith(".md") || lowerPath.endsWith(".mdx") || language === "markdown" || language === "mdx";
 };
 
 const MOCK_AGENT_DIFF_PRESETS: Record<string, MockAgentDiffPreset> = {};
@@ -1184,6 +1204,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const [draggedExplorerPath, setDraggedExplorerPath] = useState<string | null>(null);
   const [folderDropTargetPath, setFolderDropTargetPath] = useState<string | null>(null);
   const [solveNow, setSolveNow] = useState(() => Date.now());
+  const [markdownPreviewOpen, setMarkdownPreviewOpen] = useState(false);
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [explorerSections, setExplorerSections] = useState<Record<ExplorerSectionKey, boolean>>({
     agent: true,
@@ -1536,18 +1557,66 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       }
 
       if (dragState.mode === "sidebar") {
-        const nextWidth = clamp(dragState.startWidth + (event.clientX - dragState.startX), 220, maxSidebarWidth);
+        const rawWidth = dragState.startWidth + (event.clientX - dragState.startX);
+        const startedCollapsed = dragState.startWidth === SIDEBAR_CLOSE_WIDTH;
+        if (rawWidth <= SIDEBAR_CLOSE_WIDTH) {
+          setSidebarOpen(false);
+          dragState.collapsed = true;
+          return;
+        }
+
+        dragState.collapsed = false;
+        setSidebarOpen(true);
+        const nextWidth = startedCollapsed
+          ? clamp(
+              Math.max(rawWidth - SIDEBAR_CLOSE_WIDTH, SIDEBAR_REOPEN_WIDTH),
+              SIDEBAR_REOPEN_WIDTH,
+              maxSidebarWidth
+            )
+          : clamp(rawWidth, SIDEBAR_MIN_WIDTH, maxSidebarWidth);
         setSidebarWidth(nextWidth);
         return;
       }
 
       if (dragState.mode === "ai") {
-        const nextWidth = clamp(dragState.startWidth - (event.clientX - dragState.startX), 280, maxAiPanelWidth);
+        const rawWidth = dragState.startWidth - (event.clientX - dragState.startX);
+        const startedCollapsed = dragState.startWidth === AI_PANEL_CLOSE_WIDTH;
+        if (rawWidth <= AI_PANEL_CLOSE_WIDTH) {
+          setAiOpen(false);
+          dragState.collapsed = true;
+          return;
+        }
+
+        dragState.collapsed = false;
+        setAiOpen(true);
+        const nextWidth = startedCollapsed
+          ? clamp(
+              Math.max(rawWidth - AI_PANEL_CLOSE_WIDTH, AI_PANEL_REOPEN_WIDTH),
+              AI_PANEL_REOPEN_WIDTH,
+              maxAiPanelWidth
+            )
+          : clamp(rawWidth, AI_PANEL_MIN_WIDTH, maxAiPanelWidth);
         setAiPanelWidth(nextWidth);
         return;
       }
 
-      const nextHeight = clamp(dragState.startHeight - (event.clientY - dragState.startY), 140, maxBottomPanelHeight);
+      const rawHeight = dragState.startHeight - (event.clientY - dragState.startY);
+      const startedCollapsed = dragState.startHeight === BOTTOM_PANEL_CLOSE_HEIGHT;
+      if (rawHeight <= BOTTOM_PANEL_CLOSE_HEIGHT) {
+        setBottomPanelOpen(false);
+        dragState.collapsed = true;
+        return;
+      }
+
+      dragState.collapsed = false;
+      setBottomPanelOpen(true);
+      const nextHeight = startedCollapsed
+        ? clamp(
+            Math.max(rawHeight - BOTTOM_PANEL_CLOSE_HEIGHT, BOTTOM_PANEL_REOPEN_HEIGHT),
+            BOTTOM_PANEL_REOPEN_HEIGHT,
+            maxBottomPanelHeight
+          )
+        : clamp(rawHeight, BOTTOM_PANEL_MIN_HEIGHT, maxBottomPanelHeight);
       setBottomPanelHeight(nextHeight);
     };
 
@@ -1566,7 +1635,17 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       window.removeEventListener("pointerup", handlePointerUp);
       window.removeEventListener("pointercancel", handlePointerUp);
     };
-  }, [maxAiPanelWidth, maxBottomPanelHeight, maxSidebarWidth, setAiPanelWidth, setBottomPanelHeight, setSidebarWidth]);
+  }, [
+    maxAiPanelWidth,
+    maxBottomPanelHeight,
+    maxSidebarWidth,
+    setAiOpen,
+    setAiPanelWidth,
+    setBottomPanelHeight,
+    setBottomPanelOpen,
+    setSidebarOpen,
+    setSidebarWidth
+  ]);
 
   const problem = useMemo(
     () => apiProblem ?? getProblemById(session?.problemId ?? "todo-api"),
@@ -1839,6 +1918,11 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const aiQuotaLabel = `${Math.min(requestTotal, AI_REQUEST_QUOTA)}/${AI_REQUEST_QUOTA}`;
   const agentSnapshotLabel = `v0.${agentSnapshotVersion}`;
   const dirtyCount = unsavedPaths.length;
+  const canPreviewActiveMarkdown = activeTab?.kind === "file" && isMarkdownWorkspaceFile(activeFile);
+  useEffect(() => {
+    setMarkdownPreviewOpen(canPreviewActiveMarkdown);
+  }, [activeFile?.path, canPreviewActiveMarkdown]);
+
   const parsedProblemBrief = useMemo(() => {
     if (!problem?.description) {
       return { beforeDescription: "", afterDescription: "", parsedEndpoints: [] as string[] };
@@ -2056,8 +2140,16 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       mode,
       startX: event.clientX,
       startY: event.clientY,
-      startWidth: mode === "sidebar" ? effectiveSidebarWidth : effectiveAiPanelWidth,
-      startHeight: effectiveBottomPanelHeight
+      startWidth:
+        mode === "sidebar"
+          ? sidebarOpen
+            ? effectiveSidebarWidth
+            : SIDEBAR_CLOSE_WIDTH
+          : aiOpen
+            ? effectiveAiPanelWidth
+            : AI_PANEL_CLOSE_WIDTH,
+      startHeight: bottomPanelOpen ? effectiveBottomPanelHeight : BOTTOM_PANEL_CLOSE_HEIGHT,
+      collapsed: false
     };
 
     document.body.style.cursor = mode === "bottom" ? "row-resize" : "col-resize";
@@ -3733,6 +3825,21 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             </div>
           ))}
         </div>
+        {canPreviewActiveMarkdown ? (
+          <div className="editor-tabs__tools">
+            <button
+              type="button"
+              className={markdownPreviewOpen ? "editor-tabs__mode-button editor-tabs__mode-button--active" : "editor-tabs__mode-button"}
+              onClick={() => setMarkdownPreviewOpen((state) => !state)}
+              aria-pressed={markdownPreviewOpen}
+              aria-label={markdownPreviewOpen ? "Markdown 편집" : "Markdown 미리보기"}
+              title={markdownPreviewOpen ? "Markdown 편집" : "Markdown 미리보기"}
+            >
+              {markdownPreviewOpen ? <PencilLine size={14} strokeWidth={2} /> : <Eye size={14} strokeWidth={2} />}
+              <span>{markdownPreviewOpen ? "편집" : "미리보기"}</span>
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <div className="editor-tabbar__row editor-tabbar__row--meta">
@@ -3976,7 +4083,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   aria-hidden="true"
                 />
               </>
-            ) : null}
+            ) : (
+              <div
+                className="pane-resizer pane-resizer--vertical pane-resizer--collapsed pane-resizer--sidebar-collapsed"
+                onMouseDown={beginResize("sidebar")}
+                aria-hidden="true"
+              />
+            )}
 
             <div className="ide-shell__main">
               {renderEditorTabs()}
@@ -3988,8 +4101,17 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                     <span>왼쪽 탐색기에서 파일을 열거나, 문제 아이콘으로 문제 화면을 확인하세요.</span>
                   </div>
                 ) : (
-                  <div ref={editorHostRef} className="editor-host">
-                    {activeTab?.kind === "diff" ? (
+                  <div
+                    ref={editorHostRef}
+                    className={markdownPreviewOpen && canPreviewActiveMarkdown ? "editor-host editor-host--preview" : "editor-host"}
+                  >
+                    {markdownPreviewOpen && canPreviewActiveMarkdown ? (
+                      <div className="markdown-preview">
+                        <Markdown components={problemBriefMarkdownComponents}>
+                          {activeFile.content || "_미리볼 Markdown 내용이 없습니다._"}
+                        </Markdown>
+                      </div>
+                    ) : activeTab?.kind === "diff" ? (
                       <MonacoDiffEditor
                         key={activeTab.id}
                         theme={theme === "dark" ? "vs-dark" : "vs"}
@@ -4075,7 +4197,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                       {renderBottomPanel()}
                     </section>
                   </>
-                ) : null}
+                ) : (
+                  <div
+                    className="pane-resizer pane-resizer--horizontal pane-resizer--collapsed pane-resizer--bottom-collapsed"
+                    onMouseDown={beginResize("bottom")}
+                    aria-hidden="true"
+                  />
+                )}
               </div>
 
               <div className="status-bar">
@@ -4287,7 +4415,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   )}
                 </aside>
               </>
-            ) : null}
+            ) : (
+              <div
+                className="pane-resizer pane-resizer--vertical pane-resizer--collapsed pane-resizer--ai-collapsed"
+                onMouseDown={beginResize("ai")}
+                aria-hidden="true"
+              />
+            )}
           </>
         )}
       </section>
