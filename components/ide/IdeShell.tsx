@@ -3966,7 +3966,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               <span className="activity-bar__badge">{problemRequirementsCount}</span>
             </button>
 
-            {activityItems.map((item) =>
+            {activityItems.filter((item) => item.id !== "extensions").map((item) =>
               item.id === "trace" ? (
                 <button
                   key={item.id}

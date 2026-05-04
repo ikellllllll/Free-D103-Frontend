@@ -1588,6 +1588,37 @@ body:has(.ide-route--workspace) .page-shell > * {
   height: 24px;
 }
 
+.activity-bar__icon.codicon-book::before { content: "\eaa4"; }
+.activity-bar__icon.codicon-files::before { content: "\eaf0"; }
+.activity-bar__icon.codicon-search::before { content: "\ea6d"; }
+.activity-bar__icon.codicon-pulse::before { content: "\eb31"; }
+.activity-bar__icon.codicon-circuit-board::before { content: "\eabe"; }
+.activity-bar__icon.codicon-terminal::before { content: "\ea85"; }
+.activity-bar__icon.codicon-hubot::before { content: "\eb08"; }
+
+.codicon-chevron-down::before { content: "\eab4"; }
+.codicon-chevron-right::before { content: "\eab6"; }
+.codicon-book::before { content: "\eaa4"; }
+.codicon-files::before { content: "\eaf0"; }
+.codicon-search::before { content: "\ea6d"; }
+.codicon-pulse::before { content: "\eb31"; }
+.codicon-circuit-board::before { content: "\eabe"; }
+.codicon-terminal::before { content: "\ea85"; }
+.codicon-hubot::before { content: "\eb08"; }
+.codicon-folder::before { content: "\ea83"; }
+.codicon-folder-opened::before { content: "\eaf7"; }
+.codicon-new-folder::before { content: "\ea80"; }
+.codicon-new-file::before { content: "\ea7f"; }
+.codicon-symbol-namespace::before { content: "\ea8b"; }
+.codicon-symbol-class::before { content: "\eb5b"; }
+.codicon-settings-gear::before { content: "\eb51"; }
+.codicon-gear::before { content: "\eaf8"; }
+.codicon-source-control::before { content: "\ea68"; }
+.codicon-file-code::before { content: "\eae9"; }
+.codicon-file::before { content: "\ea7b"; }
+.codicon-edit::before { content: "\ea73"; }
+.codicon-trash::before { content: "\ea81"; }
+
 .activity-bar__badge {
   position: absolute;
   top: auto;
@@ -3520,7 +3551,11 @@ html[data-theme="light"] .problem-brief-codeblock__content .text-slate-200 {
   overflow: auto;
 }
 
-.chat-stack--panel { min-height: 0; align-content: start; }
+.chat-stack--panel {
+  min-height: 0;
+  align-content: start;
+  overflow: auto;
+}
 
 .assistant-header__title {
   display: flex;
@@ -3607,9 +3642,17 @@ html[data-theme="light"] .problem-brief-codeblock__content .text-slate-200 {
 
 .chat-status { color: var(--muted); font-size: 0.84rem; }
 
-.chat-input-row { display: grid; gap: 10px; }
+.chat-input-row {
+  display: grid;
+  gap: 10px;
+  min-height: max-content;
+}
 
-.input--textarea { min-height: 80px; resize: vertical; }
+.input--textarea {
+  min-height: 80px;
+  max-height: 180px;
+  resize: vertical;
+}
 
 .ai-tabs {
   display: inline-flex;
@@ -3661,10 +3704,12 @@ html[data-theme="light"] .problem-brief-codeblock__content .text-slate-200 {
   gap: 12px;
   min-height: 0;
   padding: 14px;
+  overflow: auto;
 }
 
 .ai-panel--chat {
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(96px, 1fr) auto;
+  align-content: stretch;
 }
 
 .ai-panel--edit {
