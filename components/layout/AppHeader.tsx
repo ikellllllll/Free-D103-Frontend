@@ -149,47 +149,23 @@ export function AppHeader() {
 
                 {/* Theme toggle */}
                 {hydrated && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={toggleTheme}
-                      style={{
-                        width: "100%", display: "flex", alignItems: "center", gap: 10,
-                        padding: "10px 16px", background: "none", border: "none",
-                        cursor: "pointer", fontSize: "0.86rem", color: "var(--text-2, #374151)",
-                        fontWeight: 500, transition: "background 0.15s"
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--hover, rgba(0,0,0,0.04))")}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
-                    >
-                      {theme === "dark"
-                        ? <Sun size={15} strokeWidth={1.8} />
-                        : <Moon size={15} strokeWidth={1.8} />}
-                      <span>{theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const { setTheme } = useThemeStore.getState();
-                        setTheme(theme === "mono" ? "light" : "mono");
-                      }}
-                      style={{
-                        width: "100%", display: "flex", alignItems: "center", gap: 10,
-                        padding: "10px 16px", background: "none", border: "none",
-                        cursor: "pointer", fontSize: "0.86rem", color: "var(--text-2, #374151)",
-                        fontWeight: 500, transition: "background 0.15s"
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--hover, rgba(0,0,0,0.04))")}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
-                    >
-                      {/* Half-filled circle icon for B&W */}
-                      <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-                        <circle cx="7.5" cy="7.5" r="6.5" stroke="currentColor" strokeWidth="1.4" />
-                        <path d="M7.5 1a6.5 6.5 0 0 1 0 13V1z" fill="currentColor" />
-                      </svg>
-                      <span>{theme === "mono" ? "컬러 모드로 전환" : "흑백 모드로 전환"}</span>
-                    </button>
-                  </>
+                  <button
+                    type="button"
+                    onClick={toggleTheme}
+                    style={{
+                      width: "100%", display: "flex", alignItems: "center", gap: 10,
+                      padding: "10px 16px", background: "none", border: "none",
+                      cursor: "pointer", fontSize: "0.86rem", color: "var(--text-2, #374151)",
+                      fontWeight: 500, transition: "background 0.15s"
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--hover, rgba(0,0,0,0.04))")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                  >
+                    {theme === "dark"
+                      ? <Sun size={15} strokeWidth={1.8} />
+                      : <Moon size={15} strokeWidth={1.8} />}
+                    <span>{theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}</span>
+                  </button>
                 )}
 
                 {/* Divider */}

@@ -56,7 +56,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 const stored = localStorage.getItem('aig-theme-mode') ?? localStorage.getItem('ait-theme-mode');
                 const theme = stored === 'light' || stored === 'dark'
                   ? stored
-                  : (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+                  : 'light';
+                if (stored && stored !== theme) {
+                  localStorage.setItem('aig-theme-mode', theme);
+                }
                 document.documentElement.dataset.theme = theme;
               } catch (error) {}
             })();`

@@ -123,10 +123,6 @@
   --transition-base: 0.2s ease;
 }
 
-html[data-theme="mono"] body {
-  filter: grayscale(1);
-}
-
 html[data-theme="light"] {
   --bg:           #faf8f3;
   --bg-soft:      #ffffff;
@@ -4505,16 +4501,47 @@ a.plist-row:hover .plist-row__cta { opacity: 1; transform: translateX(2px); }
   min-height: 60vh;
   display: grid;
   place-items: center;
+  padding: 32px 20px;
 }
 
 .loader-card {
-  min-width: 300px;
+  width: min(360px, 100%);
   display: grid;
-  gap: 12px;
+  gap: 10px;
   padding: 20px;
   border-radius: 8px;
-  border: 1px solid var(--line);
-  background: var(--panel);
+  border: 1px solid rgba(203, 213, 225, 0.86);
+  background: rgba(255, 255, 255, 0.94);
+  color: #111827;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 18px 44px rgba(79, 70, 229, 0.12);
+  font-family: var(--font-inter), var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+.loader-card .eyebrow {
+  background: rgba(79, 70, 229, 0.10);
+  border-color: rgba(99, 102, 241, 0.24);
+  color: #4f46e5;
+  font-family: var(--font-inter), var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.08em;
+}
+
+.loader-card strong {
+  color: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+html[data-theme="dark"] .loader-card {
+  border-color: #2c344d;
+  background: rgba(23, 27, 45, 0.94);
+  color: #eef2ff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.28), 0 18px 44px rgba(0, 0, 0, 0.34);
+}
+
+html[data-theme="dark"] .loader-card .eyebrow {
+  background: rgba(139, 140, 255, 0.14);
+  border-color: rgba(165, 180, 252, 0.26);
+  color: #a5b4fc;
 }
 
 .empty-state {
@@ -11081,6 +11108,213 @@ html[data-theme="light"] .design-dev[data-v3-theme] {
   min-width: 100%;
   overflow-x: hidden;
   background: #0F0F2E;
+}
+
+.dev2-app-shell {
+  --dev2-app-bg: #eef2ff;
+  --dev2-app-surface: #ffffff;
+  --dev2-app-surface-2: #f8fafc;
+  --dev2-app-surface-3: #eef2ff;
+  --dev2-app-border: #e5e7eb;
+  --dev2-app-border-strong: #d1d5db;
+  --dev2-app-text: #111827;
+  --dev2-app-text-2: #374151;
+  --dev2-app-muted: #6b7280;
+  --dev2-app-subtle: #9ca3af;
+  --dev2-app-accent: #4f46e5;
+  --dev2-app-accent-soft: rgba(79, 70, 229, 0.10);
+  --dev2-app-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 14px 32px rgba(79, 70, 229, 0.12);
+  background: var(--dev2-app-surface);
+  color: var(--dev2-app-text);
+  color-scheme: light;
+  transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+html[data-theme="dark"] body:has(.dev2-app-shell) {
+  background: #0f1221;
+}
+
+html[data-theme="dark"] .dev2-app-shell {
+  --dev2-app-bg: #0f1221;
+  --dev2-app-surface: #171b2d;
+  --dev2-app-surface-2: #1f2539;
+  --dev2-app-surface-3: #273049;
+  --dev2-app-border: #2c344d;
+  --dev2-app-border-strong: #3a4563;
+  --dev2-app-text: #eef2ff;
+  --dev2-app-text-2: #d6def7;
+  --dev2-app-muted: #a6b0cb;
+  --dev2-app-subtle: #77829e;
+  --dev2-app-accent: #a5b4fc;
+  --dev2-app-accent-soft: rgba(139, 140, 255, 0.14);
+  --dev2-app-shadow: 0 1px 2px rgba(0, 0, 0, 0.28), 0 16px 36px rgba(0, 0, 0, 0.32);
+  background: var(--dev2-app-bg) !important;
+  color-scheme: dark;
+}
+
+html[data-theme="dark"] .dev2-app-shell :is(.bg-white, .bg-white\/60, .bg-white\/70, .bg-white\/80, .bg-white\/95) {
+  background-color: var(--dev2-app-surface) !important;
+}
+
+html[data-theme="dark"] .dev2-app-shell :is(.bg-gray-50, .bg-gray-50\/40, .bg-gray-50\/50, .bg-gray-50\/70, .bg-gray-100),
+html[data-theme="dark"] .dev2-app-shell [class~="bg-[#EEF2FF]"] {
+  background-color: var(--dev2-app-bg) !important;
+}
+
+html[data-theme="dark"] .dev2-app-shell :is(.stat-inner-bg, .skeleton-shimmer) {
+  background-color: var(--dev2-app-surface-2) !important;
+}
+
+html[data-theme="dark"] .dev2-app-shell :is(.border-gray-50, .border-gray-100, .border-gray-200, .border-gray-200\/80, .border-gray-300),
+html[data-theme="dark"] .dev2-app-shell :is(.ring-gray-100, .ring-gray-200, .ring-gray-300, .ring-gray-300\/80) {
+  border-color: var(--dev2-app-border) !important;
+  --tw-ring-color: var(--dev2-app-border) !important;
+}
+
+html[data-theme="dark"] .dev2-app-shell :is(.divide-gray-100, .divide-gray-200) > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--dev2-app-border) !important;
+}
+
+html[data-theme="dark"] .dev2-app-shell :is(.text-gray-900, .text-gray-800) {
+  color: var(--dev2-app-text) !important;
+}
+
+html[data-theme="dark"] .dev2-app-shell :is(.text-gray-700, .text-gray-600) {
+  color: var(--dev2-app-text-2) !important;
+}
+
+html[data-theme="dark"] .dev2-app-shell :is(.text-gray-500, .text-gray-400) {
+  color: var(--dev2-app-muted) !important;
+}
+
+html[data-theme="dark"] .dev2-app-shell .text-gray-300 {
+  color: var(--dev2-app-subtle) !important;
+}
+
+html[data-theme="dark"] .dev2-app-shell :is(input, textarea, select) {
+  background-color: var(--dev2-app-surface-2) !important;
+  border-color: var(--dev2-app-border) !important;
+  color: var(--dev2-app-text) !important;
+}
+
+html[data-theme="dark"] .dev2-app-shell :is(input, textarea)::placeholder {
+  color: var(--dev2-app-subtle) !important;
+}
+
+html[data-theme="dark"] .dev2-app-shell :is(.hover\:bg-gray-50:hover, .hover\:bg-gray-100:hover, .hover\:bg-gray-200:hover, .hover\:bg-white:hover) {
+  background-color: var(--dev2-app-surface-3) !important;
+}
+
+html[data-theme="dark"] .dev2-app-shell :is(.bg-indigo-50, .bg-indigo-50\/40, .bg-indigo-50\/50, .bg-indigo-50\/60, .bg-indigo-50\/70, .bg-indigo-100, .bg-violet-50, .bg-violet-50\/50, .bg-violet-50\/60, .bg-violet-100, .bg-fuchsia-50) {
+  background-color: var(--dev2-app-accent-soft) !important;
+}
+
+html[data-theme="dark"] .dev2-app-shell :is(.text-indigo-700, .text-indigo-600, .text-indigo-500, .text-indigo-400, .text-violet-700, .text-violet-600, .text-violet-500, .text-fuchsia-600) {
+  color: var(--dev2-app-accent) !important;
+}
+
+html[data-theme="dark"] .dev2-app-shell :is(.shadow-sm, .shadow-md, .shadow-lg, .shadow-xl) {
+  box-shadow: var(--dev2-app-shadow) !important;
+}
+
+.dev2-auth-gate {
+  --dev2-auth-bg: #eef2ff;
+  --dev2-auth-surface: rgba(255, 255, 255, 0.94);
+  --dev2-auth-border: rgba(203, 213, 225, 0.86);
+  --dev2-auth-text: #111827;
+  --dev2-auth-muted: #6b7280;
+  --dev2-auth-accent: #4f46e5;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--dev2-auth-bg);
+  color: var(--dev2-auth-text);
+  font-family: var(--font-inter), var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  color-scheme: light;
+}
+
+html[data-theme="dark"] .dev2-auth-gate {
+  --dev2-auth-bg: #0f1221;
+  --dev2-auth-surface: rgba(23, 27, 45, 0.94);
+  --dev2-auth-border: #2c344d;
+  --dev2-auth-text: #eef2ff;
+  --dev2-auth-muted: #a6b0cb;
+  --dev2-auth-accent: #a5b4fc;
+  color-scheme: dark;
+}
+
+.dev2-auth-gate__panel {
+  width: min(360px, 100%);
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid var(--dev2-auth-border);
+  border-radius: 8px;
+  background: var(--dev2-auth-surface);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 18px 44px rgba(79, 70, 229, 0.14);
+}
+
+html[data-theme="dark"] .dev2-auth-gate__panel {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.28), 0 18px 44px rgba(0, 0, 0, 0.34);
+}
+
+.dev2-auth-gate__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--dev2-auth-accent);
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.dev2-auth-gate__mark {
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--dev2-auth-accent);
+  color: #ffffff;
+  font-size: 0.86rem;
+}
+
+.dev2-auth-gate__copy {
+  display: grid;
+  gap: 5px;
+}
+
+.dev2-auth-gate__copy span {
+  color: var(--dev2-auth-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.dev2-auth-gate__copy strong {
+  color: var(--dev2-auth-text);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.dev2-auth-gate__bar {
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.16);
+}
+
+.dev2-auth-gate__bar span {
+  display: block;
+  width: 42%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--dev2-auth-accent);
+  animation: dev2-auth-gate-progress 1.05s ease-in-out infinite;
+}
+
+@keyframes dev2-auth-gate-progress {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(240%); }
 }
 
 html:has(.dev2-landing-scroll) {

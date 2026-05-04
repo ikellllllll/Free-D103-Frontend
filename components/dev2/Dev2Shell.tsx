@@ -173,7 +173,7 @@ export function Dev2Shell({ children }: { children: ReactNode }) {
   }, [paletteOpen, filteredItems, paletteIndex, router, withPrefix]);
 
   return (
-    <div className="min-h-screen bg-white font-sans">
+    <div className="dev2-app-shell min-h-screen bg-white font-sans">
       {/* ── Topbar ── */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-b border-gray-200 shadow-sm pointer-events-auto">
         <div className="h-14 max-w-6xl mx-auto flex items-center justify-between px-6">
@@ -250,31 +250,14 @@ export function Dev2Shell({ children }: { children: ReactNode }) {
 
                   <div className="py-1">
                     {hydrated && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => { toggleTheme(); setUserMenuOpen(false); }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        >
-                          {theme === "dark" ? <Sun size={15} strokeWidth={1.8} /> : <Moon size={15} strokeWidth={1.8} />}
-                          <span>{theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const { setTheme } = useThemeStore.getState();
-                            setTheme(theme === "mono" ? "light" : "mono");
-                            setUserMenuOpen(false);
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        >
-                          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-                            <circle cx="7.5" cy="7.5" r="6.5" stroke="currentColor" strokeWidth="1.4" />
-                            <path d="M7.5 1a6.5 6.5 0 0 1 0 13V1z" fill="currentColor" />
-                          </svg>
-                          <span>{theme === "mono" ? "컬러 모드로 전환" : "흑백 모드로 전환"}</span>
-                        </button>
-                      </>
+                      <button
+                        type="button"
+                        onClick={() => { toggleTheme(); setUserMenuOpen(false); }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        {theme === "dark" ? <Sun size={15} strokeWidth={1.8} /> : <Moon size={15} strokeWidth={1.8} />}
+                        <span>{theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}</span>
+                      </button>
                     )}
                     <div className="my-1 h-px bg-gray-100" />
                     <button

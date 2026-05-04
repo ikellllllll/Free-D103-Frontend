@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 
-export type ThemeMode = "dark" | "light" | "mono";
+export type ThemeMode = "dark" | "light";
 
 const STORAGE_KEY = "aig-theme-mode";
 const LEGACY_STORAGE_KEY = "ait-theme-mode";
@@ -21,16 +21,20 @@ const applyTheme = (theme: ThemeMode) => {
 };
 
 const resolveInitialTheme = (): ThemeMode => {
-  if (typeof window === "undefined") return "dark";
+  if (typeof window === "undefined") return "light";
 
   const stored = window.localStorage.getItem(STORAGE_KEY) ?? window.localStorage.getItem(LEGACY_STORAGE_KEY);
-  if (stored === "light" || stored === "dark" || stored === "mono") return stored;
+  if (stored === "light" || stored === "dark") return stored;
+
+  if (stored) {
+    window.localStorage.setItem(STORAGE_KEY, "light");
+  }
 
   return "light";
 };
 
 export const useThemeStore = create<ThemeState>((set, get) => ({
-  theme: "dark",
+  theme: "light",
   hydrated: false,
   hydrate: () => {
     const theme = resolveInitialTheme();
