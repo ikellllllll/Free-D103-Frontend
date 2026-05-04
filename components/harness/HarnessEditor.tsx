@@ -103,9 +103,7 @@ interface ApiProvider {
 
 const API_PROVIDERS: ApiProvider[] = [
   { id: "anthropic", label: "Anthropic (Claude)", placeholder: "sk-ant-...", prefix: "sk-ant-" },
-  { id: "openai",    label: "OpenAI (GPT)",       placeholder: "sk-...",     prefix: "sk-" },
-  { id: "google",    label: "Google (Gemini)",     placeholder: "AIza...",    prefix: "AIza" },
-  { id: "mistral",   label: "Mistral",             placeholder: "...",        prefix: "" }
+  { id: "openai",    label: "OpenAI (GPT)",       placeholder: "sk-...",     prefix: "sk-" }
 ];
 
 const STORAGE_KEY = "aig-harness-files-v1";

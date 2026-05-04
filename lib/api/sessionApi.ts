@@ -17,7 +17,7 @@ interface StartSessionResponse {
   problemSessionId: number;
   problemId: number;
   language?: "JAVA" | "PYTHON" | ProblemLanguage;
-  status: "IN_PROGRESS" | "COMPLETED";
+  status: "IN_PROGRESS" | "ENDED" | "EXPIRED";
   startedAt: string;
 }
 
@@ -521,8 +521,6 @@ const toSessionTraces = (runs: AgentRunTrace[]): TraceEvent[] =>
 export const isBackendSessionId = (value: string) => /^\d+$/.test(value);
 export const isBackendProblemId = (value: string) => /^\d+$/.test(value);
 
-const toApiProblemLanguage = (language: ProblemLanguage) => language.toUpperCase() as "JAVA" | "PYTHON";
-
 const toProblemLanguage = (language: StartSessionResponse["language"] | null | undefined): ProblemLanguage | null => {
   if (!language) return null;
   const normalized = String(language).toLowerCase();
@@ -541,11 +539,7 @@ export const sessionApi = {
     aiModel = "aig-default",
     aiProvider = "default"
   ) {
-    const res = await authClient.post(`api/v1/problems/${problemId}/sessions`, {
-      json: {
-        language: toApiProblemLanguage(language)
-      }
-    })
+    const res = await authClient.post(`api/v1/problems/${problemId}/sessions`)
       .json<ApiResponse<StartSessionResponse>>();
 
     const sessionLanguage = toProblemLanguage(res.data.language) ?? language;

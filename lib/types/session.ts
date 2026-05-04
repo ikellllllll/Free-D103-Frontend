@@ -24,8 +24,8 @@ export interface SolveSession {
   files: WorkspaceFile[];
   messages: AiMessage[];
   traces: TraceEvent[];
-  aiModel: string;    // "claude-sonnet-4-6", "gpt-4o", "aig-default" 등
-  aiProvider: string; // "anthropic" | "openai" | "google" | "mistral" | "default"
+  aiModel: string;    // "CLAUDE_4_5_SONNET", "GPT_5_2", "aig-default" 등
+  aiProvider: string; // "anthropic" | "openai" | "default"
 }
 
 export interface RunResult {

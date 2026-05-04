@@ -80,7 +80,7 @@ type Span = {
   id: string;
   kind: SpanKind;
   name: string; // e.g. "plan-next-step"
-  subLabel: string; // e.g. "claude-sonnet-4-6 · 1.2s"
+  subLabel: string; // e.g. "CLAUDE_4_5_SONNET · 1.2s"
   time: string; // "14:22:18"
   durationMs: number;
   startedMs: number; // relative start ms from first span
@@ -126,7 +126,7 @@ function synthesize(events: TraceEvent[]): Span[] {
 
     const model =
       kind === "llm"
-        ? "claude-sonnet-4-6"
+        ? "CLAUDE_4_5_SONNET"
         : kind === "patch"
           ? "retry-patch"
           : "http-client";

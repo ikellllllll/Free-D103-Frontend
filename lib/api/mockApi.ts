@@ -821,7 +821,7 @@ export const mockApi = {
             { toolCallId: "tc-1", toolName: "read_file", argsJson: { path: "starter/src/main/java/com/example/starter/dto/UserResponse.java" }, durationMs: 120, status: "COMPLETED" as const }
           ],
           llmCalls: [
-            { llmCallId: "llm-1", vendor: "CLAUDE" as const, modelName: "claude-sonnet-4-6", inputTokens: 3200, outputTokens: 480, latencyMs: 1840, finishReason: "end_turn", status: "COMPLETED" as const }
+              { llmCallId: "llm-1", vendor: "CLAUDE" as const, modelName: "CLAUDE_4_5_SONNET", inputTokens: 3200, outputTokens: 480, latencyMs: 1840, finishReason: "end_turn", status: "COMPLETED" as const }
           ],
           patches: [],
           inputJson: { task: "Analyze UserResponse DTO and extend it for active status response", files: ["starter/src/main/java/com/example/starter/dto/UserResponse.java"], goal: "Expose active state as isActive in the response payload" },
@@ -841,7 +841,7 @@ export const mockApi = {
             { toolCallId: "tc-4", toolName: "bash", argsJson: { cmd: "./gradlew compileJava" }, durationMs: 3200, status: "COMPLETED" as const }
           ],
           llmCalls: [
-            { llmCallId: "llm-2", vendor: "CLAUDE" as const, modelName: "claude-sonnet-4-6", inputTokens: 4800, outputTokens: 1640, latencyMs: 2100, finishReason: "end_turn", status: "COMPLETED" as const }
+              { llmCallId: "llm-2", vendor: "CLAUDE" as const, modelName: "CLAUDE_4_5_SONNET", inputTokens: 4800, outputTokens: 1640, latencyMs: 2100, finishReason: "end_turn", status: "COMPLETED" as const }
           ],
           patches: [
             { patchId: "patch-1", filePath: "starter/src/main/java/com/example/starter/dto/UserResponse.java", additions: 6, deletions: 1 },
@@ -900,7 +900,7 @@ export const mockApi = {
             { toolCallId: "tc-6", toolName: "read_file", argsJson: { path: "starter/src/main/java/com/example/starter/dto/UserResponse.java" }, durationMs: 110, status: "COMPLETED" as const }
           ],
           llmCalls: [
-            { llmCallId: "llm-3", vendor: "CLAUDE" as const, modelName: "claude-sonnet-4-6", inputTokens: 3120, outputTokens: 620, latencyMs: 1600, finishReason: "end_turn", status: "COMPLETED" as const }
+              { llmCallId: "llm-3", vendor: "CLAUDE" as const, modelName: "CLAUDE_4_5_SONNET", inputTokens: 3120, outputTokens: 620, latencyMs: 1600, finishReason: "end_turn", status: "COMPLETED" as const }
           ],
           patches: [],
           inputJson: { task: "Analyze UserResponse DTO and add an active field", files: ["starter/src/main/java/com/example/starter/dto/UserResponse.java"], goal: "Return active state using a record field" },

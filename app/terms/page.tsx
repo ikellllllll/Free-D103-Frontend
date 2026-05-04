@@ -66,7 +66,7 @@ export default function Dev2TermsPage() {
             </p>
             <p>본 서비스는 다음 기능을 제공합니다.</p>
             <ul>
-              <li>실무 백엔드 과제 제공 (Spring Boot · FastAPI 기반)</li>
+              <li>실무 백엔드 과제 제공 (Spring Boot · Django 기반)</li>
               <li>Chat Mode / Agent Mode로 AI와 협업</li>
               <li>에이전트 실행 Trace 저장 및 조회</li>
               <li>하네스 품질 · 실행 품질 · Trace 활용도 기반 피드백 리포트</li>

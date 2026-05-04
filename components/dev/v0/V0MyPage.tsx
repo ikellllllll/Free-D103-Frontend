@@ -22,9 +22,7 @@ interface LevelBreakdown {
 
 const BYOK_PROVIDERS = [
   { id: "anthropic", label: "Anthropic", placeholder: "sk-ant-..." },
-  { id: "openai", label: "OpenAI", placeholder: "sk-..." },
-  { id: "google", label: "Google AI", placeholder: "AIza..." },
-  { id: "mistral", label: "Mistral", placeholder: "..." }
+  { id: "openai", label: "OpenAI", placeholder: "sk-..." }
 ] as const;
 
 type ProviderId = (typeof BYOK_PROVIDERS)[number]["id"];

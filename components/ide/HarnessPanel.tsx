@@ -11,7 +11,7 @@ interface AgentModel {
   name: string;
   desc: string;
   tags: string[];
-  provider: "anthropic" | "openai" | "google";
+  provider: "anthropic" | "openai";
 }
 
 interface Skill {
@@ -33,29 +33,29 @@ interface InstructionTemplate {
 
 const AGENT_MODELS: AgentModel[] = [
   {
-    id: "claude-sonnet-4-6",
-    name: "Claude Sonnet 4.6",
+    id: "CLAUDE_4_5_SONNET",
+    name: "Claude 4.5 Sonnet",
     desc: "추론과 코딩에 최적화된 균형형 모델",
     tags: ["추론 강함", "긴 컨텍스트"],
     provider: "anthropic",
   },
   {
-    id: "claude-haiku-4-5",
-    name: "Claude Haiku 4.5",
+    id: "CLAUDE_4_5_HAIKU",
+    name: "Claude 4.5 Haiku",
     desc: "빠른 응답이 필요한 경량 작업에 최적",
     tags: ["빠름", "경량"],
     provider: "anthropic",
   },
   {
-    id: "gpt-4o",
-    name: "GPT-4o",
-    desc: "멀티모달 지원의 범용 고성능 모델",
-    tags: ["범용", "멀티모달"],
+    id: "GPT_5_2",
+    name: "GPT-5.2",
+    desc: "추론과 코딩에 강한 최신 OpenAI 모델",
+    tags: ["최신", "추론"],
     provider: "openai",
   },
   {
-    id: "gpt-4o-mini",
-    name: "GPT-4o mini",
+    id: "GPT_5_MINI",
+    name: "GPT-5 Mini",
     desc: "빠르고 비용 효율적인 경량 모델",
     tags: ["빠름", "저비용"],
     provider: "openai",
@@ -125,7 +125,6 @@ const INSTRUCTION_TEMPLATES: InstructionTemplate[] = [
 const PROVIDER_BADGE: Record<AgentModel["provider"], { label: string; color: string; bg: string }> = {
   anthropic: { label: "Anthropic", color: "#c9623f", bg: "#fff4f0" },
   openai:    { label: "OpenAI",    color: "#10a37f", bg: "#f0fdf9" },
-  google:    { label: "Google",    color: "#4285f4", bg: "#f0f4ff" },
 };
 
 /* ── Step indicator ─────────────────────────────────────────── */

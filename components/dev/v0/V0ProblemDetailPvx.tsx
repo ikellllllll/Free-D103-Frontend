@@ -18,7 +18,7 @@ import { useUiStore } from "@/store/uiStore";
 
 const LANG_OPTIONS: { value: ProblemLanguage; label: string; desc: string }[] = [
   { value: "java",   label: "Java",   desc: "Spring Boot · JPA" },
-  { value: "python", label: "Python", desc: "FastAPI · Pydantic" },
+  { value: "python", label: "Python", desc: "Django · SQLite ORM" },
 ];
 
 const BYOK_STORAGE_KEY = "aig-byok-keys-v1";
@@ -30,27 +30,21 @@ const MODEL_OPTIONS: Record<string, ModelOption[]> = {
     { id: "aig-default", label: "AIG 기본 모델", note: "시스템 제공", provider: "default" },
   ],
   anthropic: [
-    { id: "claude-opus-4-6",   label: "Claude Opus 4.6",   note: "가장 강력",   provider: "anthropic" },
-    { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", note: "균형",        provider: "anthropic" },
-    { id: "claude-haiku-4-5",  label: "Claude Haiku 4.5",  note: "빠름 · 경량", provider: "anthropic" },
+    { id: "CLAUDE_4_5_OPUS",   label: "Claude 4.5 Opus",   note: "가장 강력",   provider: "anthropic" },
+    { id: "CLAUDE_4_5_SONNET", label: "Claude 4.5 Sonnet", note: "균형",        provider: "anthropic" },
+    { id: "CLAUDE_4_5_HAIKU",  label: "Claude 4.5 Haiku",  note: "빠름 · 경량", provider: "anthropic" },
   ],
   openai: [
-    { id: "gpt-5.4",      label: "GPT-5.4",      note: "최신 플래그십", provider: "openai" },
-    { id: "gpt-5.4-mini", label: "GPT-5.4 mini", note: "균형",          provider: "openai" },
-    { id: "gpt-5.4-nano", label: "GPT-5.4 nano", note: "경량 · 빠름",   provider: "openai" },
-    { id: "gpt-4.1",      label: "GPT-4.1",      note: "이전 세대",     provider: "openai" },
-  ],
-  google: [
-    { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro",   note: "최신 플래그십", provider: "google" },
-    { id: "gemini-2.5-pro",         label: "Gemini 2.5 Pro",   note: "안정 · 장문맥", provider: "google" },
-    { id: "gemini-2.5-flash",       label: "Gemini 2.5 Flash", note: "고성능 · 저가", provider: "google" },
+    { id: "GPT_5_2",    label: "GPT-5.2",      note: "최신 플래그십", provider: "openai" },
+    { id: "GPT_5",      label: "GPT-5",        note: "범용",          provider: "openai" },
+    { id: "GPT_5_MINI", label: "GPT-5 Mini",   note: "균형",          provider: "openai" },
+    { id: "GPT_5_NANO", label: "GPT-5 Nano",   note: "경량 · 빠름",   provider: "openai" },
   ],
 };
 
 const PROVIDER_LABELS: Record<string, string> = {
   anthropic: "Anthropic",
   openai: "OpenAI",
-  google: "Google AI",
 };
 
 const METHOD_CLASS: Record<string, string> = {

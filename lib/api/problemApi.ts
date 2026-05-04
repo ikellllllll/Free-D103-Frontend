@@ -29,6 +29,8 @@ interface ProblemDetailResponse {
   status?: string;
 }
 
+type ProblemListDetail = Pick<ProblemDetailResponse, "problemId" | "category" | "timeLimit">;
+
 function mapLevel(difficulty: string): ProblemLevel {
   if (difficulty === "level1") return 1;
   if (difficulty === "level2") return 2;
@@ -76,21 +78,45 @@ export const problemApi = {
     })
       .json<ApiResponse<ProblemListItem[]>>();
 
-    return res.data.map((item, index) => ({
-      id: String(item.problemId),
-      order: toOrder(index),
-      title: item.title,
-      summary: item.summary,
-      level: mapLevel(item.difficulty),
-      category: item.category
-        ? mapCategory(item.category)
-        : apiCategory
-          ? mapCategory(apiCategory)
-          : inferCategoryFromTitle(item.title),
-      passRate: Math.round(item.passRate),
-      status: mapStatus(item.status),
-      estimate: "2h" // 목록 API에 timeLimit 없음
-    }));
+    const detailsById = new Map<number, ProblemListDetail>();
+    const detailResults = await Promise.allSettled(
+      res.data.map((item) =>
+        authClient.get(`api/v1/problems/${item.problemId}`)
+          .json<ApiResponse<ProblemDetailResponse>>()
+      )
+    );
+
+    detailResults.forEach((result) => {
+      if (result.status !== "fulfilled") return;
+      const detail = result.value.data;
+      detailsById.set(detail.problemId, {
+        problemId: detail.problemId,
+        category: detail.category,
+        timeLimit: detail.timeLimit
+      });
+    });
+
+    return res.data.map((item, index) => {
+      const detail = detailsById.get(item.problemId);
+
+      return {
+        id: String(item.problemId),
+        order: toOrder(index),
+        title: item.title,
+        summary: item.summary,
+        level: mapLevel(item.difficulty),
+        category: detail
+          ? mapCategory(detail.category)
+          : item.category
+            ? mapCategory(item.category)
+            : apiCategory
+              ? mapCategory(apiCategory)
+              : inferCategoryFromTitle(item.title),
+        passRate: Math.round(item.passRate),
+        status: mapStatus(item.status),
+        estimate: detail ? formatEstimate(detail.timeLimit) : "2h"
+      };
+    });
   },
 
   async getProblemDetail(problemId: string): Promise<ProblemDetail> {

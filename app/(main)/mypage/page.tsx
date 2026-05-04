@@ -35,7 +35,7 @@ import { useUiStore } from "@/store/uiStore";
 
 /* ─── BYOK ─── */
 
-type ProviderId = "anthropic" | "openai" | "google";
+type ProviderId = "anthropic" | "openai";
 
 const BYOK_PROVIDERS: {
   id: ProviderId;
@@ -44,8 +44,7 @@ const BYOK_PROVIDERS: {
   tint: string;
 }[] = [
   { id: "anthropic", label: "Anthropic Claude", logo: "/AI_logo/icons8-claude-ai.svg", tint: "bg-orange-50" },
-  { id: "openai", label: "OpenAI ChatGPT", logo: "/AI_logo/icons8-chatgpt.svg", tint: "bg-white" },
-  { id: "google", label: "Google Gemini", logo: "/AI_logo/icons8-gemini-ai.svg", tint: "bg-sky-50" }
+  { id: "openai", label: "OpenAI ChatGPT", logo: "/AI_logo/icons8-chatgpt.svg", tint: "bg-white" }
 ];
 
 const BYOK_STORAGE_KEY = "aig-byok-keys-v1";
@@ -488,7 +487,7 @@ export default function Dev2MyPage() {
             {/* API KEYS */}
             {activeTab === "apikeys" && (
               <div className="animate-slide-up">
-                <SectionHeader title="API 키" desc="내 OpenAI · Anthropic · Google 키를 안전하게 연결" />
+                <SectionHeader title="API 키" desc="백엔드 저장 API가 없어 현재는 브라우저에만 저장됩니다." />
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                   <div className="flex flex-col gap-2">
                     {BYOK_PROVIDERS.map((p) => {
@@ -619,9 +618,13 @@ export default function Dev2MyPage() {
                         className="w-full px-3.5 py-2.5 rounded-xl border-2 border-gray-200 bg-white text-sm font-semibold text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
                       >
                         <option>자동 추천</option>
-                        <option>Claude Sonnet 4.6</option>
-                        <option>GPT-5.4</option>
-                        <option>Gemini 2.5 Pro</option>
+                        <option>Claude 4.5 Sonnet</option>
+                        <option>Claude 4.5 Opus</option>
+                        <option>Claude 4.5 Haiku</option>
+                        <option>GPT-5.2</option>
+                        <option>GPT-5</option>
+                        <option>GPT-5 Mini</option>
+                        <option>GPT-5 Nano</option>
                       </select>
                     </div>
 

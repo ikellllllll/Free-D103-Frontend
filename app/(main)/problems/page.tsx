@@ -443,7 +443,7 @@ export default function Dev2ProblemsPage() {
             </span>
           </h1>
           <p className="text-sm sm:text-lg text-gray-500 max-w-2xl mx-auto leading-relaxed text-pretty px-2">
-            Spring Boot · FastAPI 기반 엄선된 시나리오, 난이도별로 정리했습니다.
+            Spring Boot · Django 기반 엄선된 시나리오, 난이도별로 정리했습니다.
           </p>
         </div>
 

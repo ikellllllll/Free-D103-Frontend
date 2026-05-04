@@ -225,44 +225,41 @@ public class Todo {
 
 export const pythonStarterFiles: WorkspaceFile[] = [
   {
-    path: "src/main.py",
+    path: "app/views.py",
     language: "python",
-    content: `from fastapi import FastAPI, HTTPException
-from service import TodoService
-from models import Todo, TodoCreate
+    content: `import json
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 
-app = FastAPI()
+from .service import TodoService
+
 service = TodoService()
 
 
-@app.post("/todos", status_code=201)
-def create_todo(body: TodoCreate):
-    return service.create(body.dict())
+@csrf_exempt
+def todo_collection(request):
+    if request.method == "GET":
+        return JsonResponse(service.find_all(), safe=False)
+    if request.method == "POST":
+        return JsonResponse(service.create(json.loads(request.body or "{}")), status=201)
+    return JsonResponse({"message": "Method not allowed"}, status=405)
 
 
-@app.get("/todos")
-def list_todos():
-    return service.find_all()
-
-
-@app.get("/todos/{todo_id}")
-def get_todo(todo_id: int):
-    todo = service.find_by_id(todo_id)
-    return todo
-
-
-@app.patch("/todos/{todo_id}")
-def update_todo(todo_id: int, body: dict):
-    return service.update(todo_id, body)
-
-
-@app.delete("/todos/{todo_id}", status_code=204)
-def delete_todo(todo_id: int):
-    service.delete(todo_id)
+@csrf_exempt
+def todo_detail(request, todo_id):
+    if request.method == "GET":
+        todo = service.find_by_id(todo_id)
+        return JsonResponse(todo)
+    if request.method == "PATCH":
+        return JsonResponse(service.update(todo_id, json.loads(request.body or "{}")))
+    if request.method == "DELETE":
+        service.delete(todo_id)
+        return JsonResponse({}, status=204)
+    return JsonResponse({"message": "Method not allowed"}, status=405)
 `
   },
   {
-    path: "src/service.py",
+    path: "app/service.py",
     language: "python",
     content: `class TodoService:
     def __init__(self):
@@ -293,32 +290,25 @@ def delete_todo(todo_id: int):
 `
   },
   {
-    path: "src/models.py",
+    path: "app/models.py",
     language: "python",
-    content: `from pydantic import BaseModel
+    content: `from django.db import models
 
 
-class TodoCreate(BaseModel):
-    title: str
-
-
-class Todo(BaseModel):
-    id: int
-    title: str
-    done: bool = False
+class Todo(models.Model):
+    title = models.CharField(max_length=100)
+    done = models.BooleanField(default=False)
 `
   },
   {
-    path: "src/test_main.py",
+    path: "tests/test_public.py",
     language: "python",
-    content: `from fastapi.testclient import TestClient
-from main import app
-
-client = TestClient(app)
+    content: `from django.test import TestCase
 
 
-def test_get_nonexistent_todo():
-    response = client.get("/todos/999")
+class TodoApiPublicTest(TestCase):
+  def test_get_nonexistent_todo(self):
+    response = self.client.get("/todos/999")
     # TODO: 404를 반환해야 합니다
     assert response.status_code == 404
 `
@@ -379,7 +369,7 @@ public class TodoController {
 };
 
 const buildPythonWorktreeContent = (file: WorkspaceFile) => {
-  if (file.path === "src/service.py") {
+  if (file.path === "app/service.py") {
     return `class TodoService:
     def __init__(self):
         self._todos: dict = {}
@@ -410,20 +400,18 @@ const buildPythonWorktreeContent = (file: WorkspaceFile) => {
         del self._todos[todo_id]
 `;
   }
-  if (file.path === "src/test_main.py") {
-    return `from fastapi.testclient import TestClient
-from main import app
-
-client = TestClient(app)
+  if (file.path === "tests/test_public.py") {
+    return `from django.test import TestCase
 
 
-def test_get_nonexistent_todo():
-    response = client.get("/todos/999")
+class TodoApiPublicTest(TestCase):
+  def test_get_nonexistent_todo(self):
+    response = self.client.get("/todos/999")
     assert response.status_code == 404
 
 
-def test_create_todo():
-    response = client.post("/todos", json={"title": "공부하기"})
+  def test_create_todo(self):
+    response = self.client.post("/todos", data={"title": "공부하기"}, content_type="application/json")
     assert response.status_code == 201
 `;
   }
@@ -433,9 +421,9 @@ def test_create_todo():
 export const createWorktreeFiles = (files: WorkspaceFile[]) => {
   const isPython = files.some((f) => f.language === "python");
   return files
-    .filter((file) => file.path.startsWith("src/"))
+    .filter((file) => !file.path.startsWith("agent/"))
     .map((file) => ({
-      path: file.path.replace(/^src\//, ".worktree/"),
+      path: `.worktree/${file.path.replace(/^src\//, "")}`,
       language: file.language,
       content: isPython ? buildPythonWorktreeContent(file) : buildJavaWorktreeContent(file)
     }));

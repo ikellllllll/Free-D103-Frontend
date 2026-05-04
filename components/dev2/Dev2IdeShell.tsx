@@ -2800,7 +2800,7 @@ function AiPairPanel({
           <div className="flex items-center gap-2">
             <span className="font-display font-bold text-gray-900 text-[16px]">AI 페어</span>
             <span className="inline-flex items-center text-[10px] font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
-              claude-sonnet-4-6
+              CLAUDE_4_5_SONNET
             </span>
           </div>
           <div className="inline-flex rounded-lg bg-gray-100 p-0.5 text-xs font-semibold">
