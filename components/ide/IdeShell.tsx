@@ -1159,6 +1159,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const allowNextPopStateRef = useRef(false);
   const isDirtyRef = useRef(false);
   const savedBackTargetRef = useRef<string | null>(null);
+  const sessionTimeoutHandledRef = useRef(false);
   const routerRef = useRef(router);
 
   const [chatInput, setChatInput] = useState("");
@@ -1938,12 +1939,32 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const solveElapsedMs = solveNow - toTimestamp(session?.createdAt);
   const solveElapsedLabel = formatSolveElapsed(solveElapsedMs);
   const estimateLimitMs = parseEstimateMs(problem?.estimate ?? "");
+  const isTimeExpired = estimateLimitMs > 0 && solveElapsedMs >= estimateLimitMs;
   const isOvertime = estimateLimitMs > 0 && solveElapsedMs > estimateLimitMs;
   const overtimeMs = isOvertime ? solveElapsedMs - estimateLimitMs : 0;
   const timerProgress = estimateLimitMs > 0 ? Math.min(1, solveElapsedMs / estimateLimitMs) : 0;
   const timerPhase = isOvertime ? "overtime" : timerProgress >= 0.85 ? "warning" : "normal";
   const showEmptyEditor = activeWorkbenchTab === "code" && openTabs.length === 0;
   const showBottomPanel = bottomPanelOpen;
+
+  useEffect(() => {
+    sessionTimeoutHandledRef.current = false;
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!session || !problem || !isTimeExpired || sessionTimeoutHandledRef.current) {
+      return;
+    }
+
+    sessionTimeoutHandledRef.current = true;
+    setSavePromptOpen(false);
+    setSavePromptAction(null);
+    addToast("제한 시간이 지나 세션이 종료되었습니다.", "warning");
+
+    void queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
+    void queryClient.invalidateQueries({ queryKey: ["sessions"] });
+    router.replace(withPrefix("/problems"));
+  }, [addToast, isTimeExpired, problem, queryClient, router, session, sessionId, withPrefix]);
 
   const handleMount = (editor: any, monaco: any) => {
     cleanupEditorSubscriptions();
