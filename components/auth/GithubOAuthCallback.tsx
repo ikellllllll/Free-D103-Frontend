@@ -62,8 +62,8 @@ export function GithubOAuthCallback() {
       try {
         const response = await authApi.githubOAuthLogin(code);
         const user = buildUserFromToken(response.accessToken, {
-          name: "GitHub 사용자",
-          email: "",
+          name: response.nickname ?? "GitHub 사용자",
+          email: response.email ?? "",
           provider: "GITHUB"
         });
         signIn(user, {

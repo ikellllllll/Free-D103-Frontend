@@ -86,7 +86,10 @@ export default function DevLoginPage() {
     setLoading(true);
     try {
       const tokens = await authApi.login(email, password);
-      const user = buildUserFromToken(tokens.accessToken, { email });
+      const user = buildUserFromToken(tokens.accessToken, {
+        email: tokens.email ?? email,
+        name: tokens.nickname,
+      });
       signIn(user, tokens);
       addToast("로그인되었습니다.", "success");
       router.push(withPrefix("/problems"));

@@ -16,13 +16,35 @@ interface TokenResponse {
   refreshToken: string;
 }
 
+/** 백엔드 LoginResponse — 토큰 + 사용자 정보(2026-05-06~ 추가) */
+export interface LoginResponse extends TokenResponse {
+  nickname?: string;
+  email?: string;
+}
+
 interface OAuthLoginResponse extends TokenResponse {
   isNewUser: boolean;
+  nickname?: string;
+  email?: string;
 }
 
 interface SignupResponse {
   userId: number;
   email: string;
+  nickname: string;
+}
+
+/** GET /api/v1/users 응답 (백엔드 UserInfoResponse) */
+export interface UserInfoResponse {
+  userId: number;
+  email: string;
+  nickname: string;
+  provider: "LOCAL" | "GITHUB";
+  createdAt: string;
+}
+
+/** PATCH /api/v1/users 응답 (백엔드 UpdateNicknameResponse) */
+export interface UpdateNicknameResponse {
   nickname: string;
 }
 
@@ -150,9 +172,23 @@ export const authApi = {
     return res.data;
   },
 
-  async login(email: string, password: string): Promise<TokenResponse> {
+  async login(email: string, password: string): Promise<LoginResponse> {
     const res = await api.post("api/v1/auth/login", { json: { email, password } })
-      .json<ApiResponse<TokenResponse>>();
+      .json<ApiResponse<LoginResponse>>();
+    return res.data;
+  },
+
+  /** 회원 정보 조회 — GET /api/v1/users */
+  async getMe(): Promise<UserInfoResponse> {
+    const res = await authClient.get("api/v1/users")
+      .json<ApiResponse<UserInfoResponse>>();
+    return res.data;
+  },
+
+  /** 닉네임 수정 — PATCH /api/v1/users */
+  async updateNickname(nickname: string): Promise<UpdateNicknameResponse> {
+    const res = await authClient.patch("api/v1/users", { json: { nickname } })
+      .json<ApiResponse<UpdateNicknameResponse>>();
     return res.data;
   },
 

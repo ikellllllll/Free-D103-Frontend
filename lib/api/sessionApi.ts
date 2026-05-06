@@ -539,7 +539,11 @@ export const sessionApi = {
     aiModel = "aig-default",
     aiProvider = "default"
   ) {
-    const res = await authClient.post(`api/v1/problems/${problemId}/sessions`)
+    // 백엔드 StartSessionRequest는 Language enum (JAVA | PYTHON, 대문자) 을 body 로 받음
+    const res = await authClient
+      .post(`api/v1/problems/${problemId}/sessions`, {
+        json: { language: language.toUpperCase() }
+      })
       .json<ApiResponse<StartSessionResponse>>();
 
     const sessionLanguage = toProblemLanguage(res.data.language) ?? language;

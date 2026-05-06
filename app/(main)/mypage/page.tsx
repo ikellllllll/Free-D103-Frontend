@@ -28,6 +28,7 @@ import {
 
 import { LangIcon } from "@/components/common/LangIcon";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
+import { authApi } from "@/lib/api/authApi";
 import { mockApi } from "@/lib/api/mockApi";
 import { useAuthStore } from "@/store/authStore";
 import { useThemeStore } from "@/store/themeStore";
@@ -125,12 +126,18 @@ const NAV_GROUPS: NavGroup[] = [
 export default function Dev2MyPage() {
   const { withPrefix } = useRouteScope();
   const user = useAuthStore((s) => s.user);
+  const setAuthUser = useAuthStore((s) => s.setUser);
   const addToast = useUiStore((s) => s.addToast);
   const theme = useThemeStore((s) => s.theme);
   const hydrated = useThemeStore((s) => s.hydrated);
   const setTheme = useThemeStore((s) => s.setTheme);
 
   const [activeTab, setActiveTab] = useState<TabId>("profile");
+
+  // 닉네임 수정
+  const [editingNickname, setEditingNickname] = useState(false);
+  const [nicknameInput, setNicknameInput] = useState("");
+  const [savingNickname, setSavingNickname] = useState(false);
 
   const { data } = useQuery({
     queryKey: ["mypage", user?.id],
@@ -288,6 +295,47 @@ export default function Dev2MyPage() {
     addToast("mock 데이터가 초기화되었습니다. 새로고침해 주세요.", "success");
   };
 
+  const startEditNickname = () => {
+    setNicknameInput(name);
+    setEditingNickname(true);
+  };
+
+  const cancelEditNickname = () => {
+    setEditingNickname(false);
+    setNicknameInput("");
+  };
+
+  const saveNickname = async () => {
+    const next = nicknameInput.trim();
+    if (!next) {
+      addToast("닉네임을 입력해 주세요.", "error");
+      return;
+    }
+    if (next.length > 20) {
+      addToast("닉네임은 20자 이내여야 합니다.", "error");
+      return;
+    }
+    if (next === name) {
+      cancelEditNickname();
+      return;
+    }
+    setSavingNickname(true);
+    try {
+      const res = await authApi.updateNickname(next);
+      setAuthUser({ name: res.nickname });
+      addToast("닉네임이 변경되었습니다.", "success");
+      setEditingNickname(false);
+      setNicknameInput("");
+    } catch (error) {
+      addToast(
+        error instanceof Error ? error.message : "닉네임 변경에 실패했습니다.",
+        "error"
+      );
+    } finally {
+      setSavingNickname(false);
+    }
+  };
+
   return (
     <div className="relative min-h-screen bg-[#EEF2FF] overflow-hidden">
       {/* Background grid */}
@@ -384,9 +432,67 @@ export default function Dev2MyPage() {
                         {initials}
                       </div>
                     </div>
-                    <div className="relative min-w-0">
-                      <h2 className="font-bold text-gray-900 text-base leading-tight mb-1 truncate">{name}</h2>
-                      <p className="text-xs text-gray-500 truncate">{email}</p>
+                    <div className="relative min-w-0 flex-1">
+                      {editingNickname ? (
+                        <div className="flex flex-col gap-1.5">
+                          <input
+                            type="text"
+                            value={nicknameInput}
+                            onChange={(e) => setNicknameInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                void saveNickname();
+                              } else if (e.key === "Escape") {
+                                e.preventDefault();
+                                cancelEditNickname();
+                              }
+                            }}
+                            disabled={savingNickname}
+                            maxLength={20}
+                            autoFocus
+                            placeholder="닉네임"
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-indigo-200 bg-white text-sm font-semibold text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all disabled:opacity-60"
+                          />
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => void saveNickname()}
+                              disabled={savingNickname || !nicknameInput.trim()}
+                              className="px-2.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {savingNickname ? "저장 중..." : "저장"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelEditNickname}
+                              disabled={savingNickname}
+                              className="px-2.5 py-1 rounded-md border border-gray-200 text-gray-600 text-[11px] font-semibold hover:bg-gray-50 transition-colors disabled:opacity-50"
+                            >
+                              취소
+                            </button>
+                            <span className="text-[10px] text-gray-400 ml-1 tabular-nums">
+                              {nicknameInput.length}/20
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <h2 className="font-bold text-gray-900 text-base leading-tight truncate">{name}</h2>
+                            <button
+                              type="button"
+                              onClick={startEditNickname}
+                              className="shrink-0 p-1 rounded-md text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                              aria-label="닉네임 수정"
+                              title="닉네임 수정"
+                            >
+                              <Pencil size={12} strokeWidth={2.2} />
+                            </button>
+                          </div>
+                          <p className="text-xs text-gray-500 truncate">{email}</p>
+                        </>
+                      )}
                     </div>
                   </div>
 

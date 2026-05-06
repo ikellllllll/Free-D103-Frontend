@@ -21,6 +21,7 @@ interface AuthState {
   signIn: (user: AuthUser, tokens: AuthTokens) => void;
   signOut: () => void;
   setTokens: (tokens: AuthTokens) => void;
+  setUser: (patch: Partial<AuthUser>) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -59,5 +60,15 @@ export const useAuthStore = create<AuthState>((set) => ({
       window.localStorage.setItem(TOKEN_KEY, JSON.stringify(tokens));
     }
     set({ tokens });
+  },
+  setUser: (patch) => {
+    set((state) => {
+      if (!state.user) return state;
+      const next = { ...state.user, ...patch };
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      }
+      return { user: next };
+    });
   }
 }));
