@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type MouseEvent as ReactMouseEvent } from "react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
+import { useGithubOAuthLogin } from "@/hooks/useGithubOAuthLogin";
 import { authApi, buildUserFromToken } from "@/lib/api/authApi";
 import { useAuthStore } from "@/store/authStore";
 import { useUiStore } from "@/store/uiStore";
@@ -25,6 +26,7 @@ export default function DevLoginPage() {
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
   const [clock, setClock] = useState<string>("--:--:--");
+  const { githubOAuthLoading, startGithubOAuth } = useGithubOAuthLogin();
 
   const shellRef = useRef<HTMLDivElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
@@ -184,7 +186,7 @@ export default function DevLoginPage() {
           </div>
 
           {/* Social */}
-          <button type="button" className="pvxl-social">
+          <button type="button" className="pvxl-social" onClick={startGithubOAuth} disabled={githubOAuthLoading || loading}>
             <Image
               src="/icons8-github-로고.svg"
               alt=""
@@ -193,8 +195,8 @@ export default function DevLoginPage() {
               aria-hidden
               className="pvxl-social__icon"
             />
-            <span>GitHub으로 계속하기</span>
-            <span className="pvxl-social__arrow" aria-hidden>→</span>
+            <span>{githubOAuthLoading ? "GitHub로 이동 중..." : "GitHub으로 계속하기"}</span>
+            {!githubOAuthLoading && <span className="pvxl-social__arrow" aria-hidden>→</span>}
           </button>
 
           <div className="pvxl-divider" role="separator">

@@ -16,6 +16,11 @@ RUN yarn install --frozen-lockfile --network-timeout 600000
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+ARG NEXT_PUBLIC_GITHUB_CLIENT_ID
+ARG NEXT_PUBLIC_GITHUB_REDIRECT_URI
+ENV NEXT_PUBLIC_GITHUB_CLIENT_ID=$NEXT_PUBLIC_GITHUB_CLIENT_ID
+ENV NEXT_PUBLIC_GITHUB_REDIRECT_URI=$NEXT_PUBLIC_GITHUB_REDIRECT_URI
+
 # deps 스테이지의 node_modules 재사용
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .

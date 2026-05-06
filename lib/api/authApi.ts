@@ -16,6 +16,10 @@ interface TokenResponse {
   refreshToken: string;
 }
 
+interface OAuthLoginResponse extends TokenResponse {
+  isNewUser: boolean;
+}
+
 interface SignupResponse {
   userId: number;
   email: string;
@@ -149,6 +153,12 @@ export const authApi = {
   async login(email: string, password: string): Promise<TokenResponse> {
     const res = await api.post("api/v1/auth/login", { json: { email, password } })
       .json<ApiResponse<TokenResponse>>();
+    return res.data;
+  },
+
+  async githubOAuthLogin(code: string): Promise<OAuthLoginResponse> {
+    const res = await api.post("api/v1/auth/oauth/github", { json: { code } })
+      .json<ApiResponse<OAuthLoginResponse>>();
     return res.data;
   },
 

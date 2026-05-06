@@ -21,6 +21,21 @@ yarn build:sidecar
 yarn build:all
 ```
 
+## Auth Environment
+
+GitHub OAuth 로그인은 프론트에서 GitHub authorize URL로 이동한 뒤,
+`/oauth/github/callback`에서 받은 `code`를 백엔드 `POST /api/v1/auth/oauth/github`로 전달합니다.
+
+```bash
+NEXT_PUBLIC_GITHUB_CLIENT_ID=your-github-oauth-client-id
+# 선택값. 미설정 시 현재 origin + /oauth/github/callback 사용
+NEXT_PUBLIC_GITHUB_REDIRECT_URI=https://k14d103.p.ssafy.io/oauth/github/callback
+```
+
+`NEXT_PUBLIC_GITHUB_REDIRECT_URI`는 백엔드 `GITHUB_REDIRECT_URI` 및 GitHub OAuth App callback URL과 같아야 합니다.
+Docker 배포에서는 이 값들이 빌드 시점 build arg로도 전달되어야 하며,
+`docker-compose.ssafy.yml`은 같은 이름의 환경변수를 build arg로 넘기도록 구성되어 있습니다.
+
 ## AI Edit 구조
 
 메인 앱은 개발용 AI 수정 UI를 직접 렌더링하지 않습니다.

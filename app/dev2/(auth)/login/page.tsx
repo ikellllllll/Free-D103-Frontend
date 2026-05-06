@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
+import { useGithubOAuthLogin } from "@/hooks/useGithubOAuthLogin";
 import { authApi, buildUserFromToken } from "@/lib/api/authApi";
 import { useAuthStore } from "@/store/authStore";
 import { useUiStore } from "@/store/uiStore";
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("user@email.com");
   const [password, setPassword] = useState("password");
   const [loading, setLoading] = useState(false);
+  const { githubOAuthLoading, startGithubOAuth } = useGithubOAuthLogin();
 
   const handleLogin = async () => {
     setLoading(true);
@@ -40,9 +42,9 @@ export default function LoginPage() {
 
   return (
     <form className="stack-24" onSubmit={handleSubmit}>
-      <button className="button social-button" type="button">
+      <button className="button social-button" type="button" onClick={startGithubOAuth} disabled={githubOAuthLoading || loading}>
         <Image src="/icons8-github-로고.svg" alt="" width={18} height={18} aria-hidden className="social-button__github-icon" />
-        GitHub 계정으로 계속
+        {githubOAuthLoading ? "GitHub로 이동 중..." : "GitHub 계정으로 계속"}
       </button>
 
       <div className="divider">
