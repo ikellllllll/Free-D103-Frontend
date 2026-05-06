@@ -27,14 +27,13 @@ GitHub OAuth 로그인은 프론트에서 GitHub authorize URL로 이동한 뒤,
 `/oauth/github/callback`에서 받은 `code`를 백엔드 `POST /api/v1/auth/oauth/github`로 전달합니다.
 
 ```bash
-NEXT_PUBLIC_GITHUB_CLIENT_ID=your-github-oauth-client-id
-# 선택값. 미설정 시 현재 origin + /oauth/github/callback 사용
-NEXT_PUBLIC_GITHUB_REDIRECT_URI=https://k14d103.p.ssafy.io/oauth/github/callback
+GITHUB_CLIENT_ID=your-github-oauth-client-id
+GITHUB_REDIRECT_URI=https://k14d103.p.ssafy.io/oauth/github/callback
 ```
 
-`NEXT_PUBLIC_GITHUB_REDIRECT_URI`는 백엔드 `GITHUB_REDIRECT_URI` 및 GitHub OAuth App callback URL과 같아야 합니다.
-Docker 배포에서는 이 값들이 빌드 시점 build arg로도 전달되어야 하며,
-`docker-compose.ssafy.yml`은 같은 이름의 환경변수를 build arg로 넘기도록 구성되어 있습니다.
+`GITHUB_REDIRECT_URI`는 백엔드 설정 및 GitHub OAuth App callback URL과 같아야 합니다.
+Docker 배포에서는 `docker-compose.ssafy.yml`이 `GITHUB_*` 값을 Next.js 빌드용 `NEXT_PUBLIC_*`
+build arg로 매핑합니다. 공용 서버 `.env`에는 `NEXT_PUBLIC_*` 값을 별도로 둘 필요가 없습니다.
 
 ## AI Edit 구조
 

@@ -17,8 +17,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_GITHUB_CLIENT_ID: ${NEXT_PUBLIC_GITHUB_CLIENT_ID:-}
-        NEXT_PUBLIC_GITHUB_REDIRECT_URI: ${NEXT_PUBLIC_GITHUB_REDIRECT_URI:-}
+        NEXT_PUBLIC_GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+        NEXT_PUBLIC_GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-}
     image: aiground-frontend:latest
     container_name: aiground-frontend
     restart: unless-stopped
@@ -27,8 +27,6 @@ services:
       - NEXT_TELEMETRY_DISABLED=1
       - PORT=3000
       - HOSTNAME=0.0.0.0
-      - NEXT_PUBLIC_GITHUB_CLIENT_ID=${NEXT_PUBLIC_GITHUB_CLIENT_ID:-}
-      - NEXT_PUBLIC_GITHUB_REDIRECT_URI=${NEXT_PUBLIC_GITHUB_REDIRECT_URI:-}
     ports:
       # localhost만 바인드 — nginx가 외부 노출 담당
       - "127.0.0.1:3000:3000"
