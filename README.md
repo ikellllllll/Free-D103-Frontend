@@ -32,8 +32,8 @@ GITHUB_REDIRECT_URI=https://k14d103.p.ssafy.io/oauth/github/callback
 ```
 
 `GITHUB_REDIRECT_URI`는 백엔드 설정 및 GitHub OAuth App callback URL과 같아야 합니다.
-Docker 배포에서는 `docker-compose.ssafy.yml`이 `GITHUB_*` 값을 Next.js 빌드용 `NEXT_PUBLIC_*`
-build arg로 매핑합니다. 공용 서버 `.env`에는 `NEXT_PUBLIC_*` 값을 별도로 둘 필요가 없습니다.
+Docker 배포에서는 `docker-compose.ssafy.yml`이 같은 `GITHUB_*` 값을 프론트 컨테이너 런타임 환경변수로도 전달합니다.
+클라이언트 번들에는 OAuth client id를 직접 박지 않고, `/api/auth/github/start` route handler가 런타임 환경변수로 GitHub authorize URL을 생성합니다.
 
 ## AI Edit 구조
 
