@@ -2580,6 +2580,15 @@ body:has(.ide-route--workspace) .page-shell > * {
   background: var(--ide-tab-bg);
 }
 
+.editor-tabbar--global,
+.editor-tabbar--group {
+  grid-template-rows: auto;
+}
+
+.editor-tabbar--group {
+  border-bottom: 1px solid var(--ide-border);
+}
+
 .editor-tabbar__row {
   min-width: 0;
   display: flex;
@@ -2777,6 +2786,7 @@ body:has(.ide-route--workspace) .page-shell > * {
   min-height: 26px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   padding: 0 9px;
   border-radius: 6px;
@@ -2786,6 +2796,11 @@ body:has(.ide-route--workspace) .page-shell > * {
   font-size: 0.76rem;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.editor-tabs__mode-button--icon {
+  width: 28px;
+  padding: 0;
 }
 
 .editor-tabs__mode-button:hover,
@@ -2892,6 +2907,84 @@ body:has(.ide-route--workspace) .page-shell > * {
   min-height: 0;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto auto;
+}
+
+.editor-groups {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+  background: var(--ide-workbench-bg);
+}
+
+.editor-group {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  border-right: 1px solid var(--ide-border);
+  background: var(--ide-workbench-bg);
+}
+
+.editor-group:last-child {
+  border-right: 0;
+}
+
+.editor-group--active {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 34%, transparent);
+}
+
+.editor-group-resizer {
+  flex: 0 0 5px;
+  cursor: col-resize;
+  background: var(--ide-border);
+  position: relative;
+  z-index: 2;
+}
+
+.editor-group-resizer::after {
+  content: "";
+  position: absolute;
+  inset: 0 -3px;
+}
+
+.editor-group-resizer:hover {
+  background: var(--accent);
+}
+
+.editor-split-drop-zone {
+  flex: 0 0 112px;
+  min-height: 0;
+  margin: 8px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 7px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 48%, var(--ide-border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 9%, var(--ide-workbench-bg));
+  color: var(--muted);
+  text-align: center;
+  pointer-events: auto;
+}
+
+.editor-split-drop-zone .codicon {
+  font-size: 18px;
+  color: var(--accent);
+}
+
+.editor-split-drop-zone strong {
+  max-width: 82px;
+  color: var(--text);
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.editor-split-drop-zone:hover {
+  background: color-mix(in srgb, var(--accent) 14%, var(--ide-workbench-bg));
+  border-color: var(--accent);
 }
 
 .editor-empty-state {

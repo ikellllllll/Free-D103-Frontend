@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { Sun, Moon, Copy, Check, LogOut, Play, Save, Eye, PencilLine } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { DragEvent as ReactDragEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
 import { flushSync } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Markdown from "react-markdown";
@@ -106,6 +106,14 @@ interface DragState {
   collapsed: boolean;
 }
 
+interface EditorGroupResizeState {
+  leftGroupId: string;
+  rightGroupId: string;
+  startX: number;
+  leftWidth: number;
+  rightWidth: number;
+}
+
 interface TreeNode {
   key: string;
   name: string;
@@ -189,14 +197,31 @@ interface DiffWorkspaceTab {
 }
 
 type WorkspaceTab = FileWorkspaceTab | DiffWorkspaceTab;
+
+interface EditorGroupState {
+  id: string;
+  tabIds: string[];
+  activeTabId: string | null;
+}
+
+interface EditorLayoutSnapshot {
+  version: 1;
+  activeGroupId: string | null;
+  groups: EditorGroupState[];
+  groupSizes: Record<string, number>;
+}
+
 type SavePromptAction =
-  | { type: "close-tab"; tabId: string; path: string }
+  | { type: "close-tab"; groupId: string; tabId: string; path: string }
   | { type: "run" }
   | { type: "end-session" }
   | { type: "navigate"; href: string };
 
 const AUTO_SAVE_INTERVAL_MS = 30_000;
 const AUTO_SAVE_STORAGE_KEY = "aig:ide-auto-save";
+const EDITOR_LAYOUT_STORAGE_PREFIX = "aig:ide-editor-layout";
+const INITIAL_EDITOR_GROUP_ID = "editor-group-1";
+const MAX_EDITOR_GROUPS = 3;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const reorderItems = (items: string[], fromId: string, toId: string, position: "before" | "after") => {
@@ -217,6 +242,7 @@ const reorderItems = (items: string[], fromId: string, toId: string, position: "
 };
 const areStringArraysEqual = (left: string[], right: string[]) =>
   left.length === right.length && left.every((value, index) => value === right[index]);
+const getEditorLayoutStorageKey = (sessionId: string) => `${EDITOR_LAYOUT_STORAGE_PREFIX}:${sessionId}`;
 const pad2 = (value: number) => String(value).padStart(2, "0");
 const toTimestamp = (value?: string | null) => {
   if (!value) return Date.now();
@@ -254,6 +280,20 @@ const clampSelectionCode = (code: string) =>
   code.length > MAX_SELECTED_CODE_CHARS ? `${code.slice(0, MAX_SELECTED_CODE_CHARS)}\n/* selection truncated */` : code;
 const getFileName = (path: string) => path.split("/").pop() ?? path;
 const getFolderPath = (path: string) => path.split("/").slice(0, -1).join("/");
+const resolveInitialEditorPath = (files: Array<Pick<WorkspaceFile, "path" | "language">>) => {
+  const visibleFiles = files.filter((file) => !file.path.startsWith(".worktree/"));
+  const normalizedName = (path: string) => getFileName(path).toLowerCase();
+  const pathRank = (path: string) => {
+    const lower = path.toLowerCase();
+    if (lower === "readme.md") return 0;
+    if (normalizedName(lower) === "readme.md" && !lower.includes("/.sandbox/")) return 1;
+    if (lower === "agent/harness.md") return 2;
+    if (lower.endsWith(".md") || lower.endsWith(".mdx")) return 3;
+    return 4;
+  };
+  const ranked = [...visibleFiles].sort((left, right) => pathRank(left.path) - pathRank(right.path));
+  return ranked[0]?.path ?? files[0]?.path ?? null;
+};
 const getFileExtension = (file: Pick<WorkspaceFile, "path" | "language">) => {
   const name = getFileName(file.path);
   const extension = name.includes(".") ? name.split(".").pop()?.toLowerCase() : "";
@@ -1170,6 +1210,11 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const editorRef = useRef<any>(null);
   const diffEditorRef = useRef<any>(null);
   const editorHostRef = useRef<HTMLDivElement | null>(null);
+  const editorRefsRef = useRef<Map<string, any>>(new Map());
+  const diffEditorRefsRef = useRef<Map<string, any>>(new Map());
+  const editorHostRefsRef = useRef<Map<string, HTMLDivElement>>(new Map());
+  const editorGroupRefsRef = useRef<Map<string, HTMLElement>>(new Map());
+  const editorGroupResizeRef = useRef<EditorGroupResizeState | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
   const monacoRef = useRef<any>(null);
@@ -1182,6 +1227,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const savedBackTargetRef = useRef<string | null>(null);
   const sessionTimeoutHandledRef = useRef(false);
   const routerRef = useRef(router);
+  const activeEditorGroupIdRef = useRef(INITIAL_EDITOR_GROUP_ID);
+  const editorLayoutHydratedSessionRef = useRef<string | null>(null);
+  const editorLayoutApplyingSnapshotRef = useRef(false);
 
   const [chatInput, setChatInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -1194,9 +1242,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const [agentSnapshotVersion, setAgentSnapshotVersion] = useState(INITIAL_AGENT_SNAPSHOT_VERSION);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
   const [activeWorkbenchTab, setActiveWorkbenchTab] = useState<"code" | "problem" | "trace">("code");
-  const [activeTabId, setActiveTabId] = useState<string | null>(null);
-  const [openTabPaths, setOpenTabPaths] = useState<string[]>([]);
+  const [editorGroups, setEditorGroups] = useState<EditorGroupState[]>([
+    { id: INITIAL_EDITOR_GROUP_ID, tabIds: [], activeTabId: null }
+  ]);
+  const [activeEditorGroupId, setActiveEditorGroupId] = useState(INITIAL_EDITOR_GROUP_ID);
+  const [editorGroupSizes, setEditorGroupSizes] = useState<Record<string, number>>({});
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
+  const [draggedTabSourceGroupId, setDraggedTabSourceGroupId] = useState<string | null>(null);
   const [tabDropHint, setTabDropHint] = useState<{ targetId: string; position: "before" | "after" } | null>(null);
   const [explorerContextMenu, setExplorerContextMenu] = useState<ExplorerContextMenuState | null>(null);
   const [explorerCreateDraft, setExplorerCreateDraft] = useState<ExplorerCreateDraft | null>(null);
@@ -1253,6 +1305,36 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     enabled: !!session?.problemId && isApiProblem
   });
 
+  const activeEditorGroup = useMemo(
+    () => editorGroups.find((group) => group.id === activeEditorGroupId) ?? editorGroups[0],
+    [activeEditorGroupId, editorGroups]
+  );
+  const activeTabId = activeEditorGroup?.activeTabId ?? null;
+  const openTabPaths = useMemo(
+    () => Array.from(new Set(editorGroups.flatMap((group) => group.tabIds))),
+    [editorGroups]
+  );
+
+  useEffect(() => {
+    activeEditorGroupIdRef.current = activeEditorGroupId;
+  }, [activeEditorGroupId]);
+
+  useEffect(() => {
+    if (!editorGroups.some((group) => group.id === activeEditorGroupId)) {
+      const fallbackGroupId = editorGroups[0]?.id ?? INITIAL_EDITOR_GROUP_ID;
+      setActiveEditorGroupId(fallbackGroupId);
+      activeEditorGroupIdRef.current = fallbackGroupId;
+    }
+  }, [activeEditorGroupId, editorGroups]);
+
+  useEffect(() => {
+    const validGroupIds = new Set(editorGroups.map((group) => group.id));
+    setEditorGroupSizes((state) => {
+      const next = Object.fromEntries(Object.entries(state).filter(([groupId]) => validGroupIds.has(groupId)));
+      return Object.keys(next).length === Object.keys(state).length ? state : next;
+    });
+  }, [editorGroups]);
+
   const maxSidebarWidth = getMaxSidebarWidth(viewportSize.width);
   const maxAiPanelWidth = getMaxAiPanelWidth(viewportSize.width);
   const maxBottomPanelHeight = getMaxBottomPanelHeight(viewportSize.height);
@@ -1263,38 +1345,37 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const requestEditorLayout = useCallback(() => {
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
-        const editor = activeTabId && isDiffTabId(activeTabId) ? diffEditorRef.current : editorRef.current;
-        const host = editorHostRef.current;
+        const layoutEditor = (groupId: string, editor: any) => {
+          const host = editorHostRefsRef.current.get(groupId);
+          if (!editor || !host || typeof editor.layout !== "function") {
+            return;
+          }
 
-        if (!editor || !host || typeof editor.layout !== "function") {
-          return;
-        }
+          const width = host.clientWidth;
+          const height = host.clientHeight;
 
-        const width = host.clientWidth;
-        const height = host.clientHeight;
+          if (!width || !height) {
+            return;
+          }
 
-        if (!width || !height) {
-          return;
-        }
+          editor.layout({ width, height });
+        };
 
-        editor.layout({ width, height });
+        editorRefsRef.current.forEach((editor, groupId) => layoutEditor(groupId, editor));
+        diffEditorRefsRef.current.forEach((editor, groupId) => layoutEditor(groupId, editor));
       });
     });
   }, []);
 
   const syncMonacoAuxInputs = useCallback(() => {
-    const host = editorHostRef.current;
+    editorHostRefsRef.current.forEach((host, groupId) => {
+      const imeTextarea = host.querySelector<HTMLTextAreaElement>("textarea.ime-text-area");
 
-    if (!host) {
-      return;
-    }
-
-    const imeTextarea = host.querySelector<HTMLTextAreaElement>("textarea.ime-text-area");
-
-    if (imeTextarea) {
-      imeTextarea.id = "ide-ime-textarea";
-      imeTextarea.setAttribute("name", "ide-ime-textarea");
-    }
+      if (imeTextarea) {
+        imeTextarea.id = `ide-ime-textarea-${groupId}`;
+        imeTextarea.setAttribute("name", `ide-ime-textarea-${groupId}`);
+      }
+    });
   }, []);
 
   const updateCursorPosition = useCallback((next: { line: number; column: number }) => {
@@ -1382,13 +1463,17 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       disposeTrackedMonacoModels();
       editorRef.current = null;
       diffEditorRef.current = null;
+      editorRefsRef.current.clear();
+      diffEditorRefsRef.current.clear();
+      editorHostRefsRef.current.clear();
+      editorGroupRefsRef.current.clear();
       monacoRef.current = null;
     };
   }, [cleanupEditorSubscriptions, disposeTrackedMonacoModels]);
 
   useEffect(() => {
     if (workspace?.files?.length) {
-      setWorkspace(workspace.files, workspace.files[1]?.path ?? workspace.files[0]?.path);
+      setWorkspace(workspace.files, resolveInitialEditorPath(workspace.files) ?? workspace.files[0]?.path);
     }
   }, [setWorkspace, workspace]);
 
@@ -1468,7 +1553,12 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   }, [messages, streaming]);
 
   useEffect(() => {
-    if (!editorHostRef.current || typeof ResizeObserver === "undefined") {
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const hosts = Array.from(editorHostRefsRef.current.values());
+    if (!hosts.length) {
       return;
     }
 
@@ -1476,15 +1566,20 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       requestEditorLayout();
     });
 
-    observer.observe(editorHostRef.current);
+    hosts.forEach((host) => observer.observe(host));
 
     return () => {
       observer.disconnect();
     };
-  }, [activeWorkbenchTab, requestEditorLayout]);
+  }, [activeTabId, activeWorkbenchTab, editorGroups.length, requestEditorLayout]);
 
   useEffect(() => {
-    if (!editorHostRef.current || typeof MutationObserver === "undefined") {
+    if (typeof MutationObserver === "undefined") {
+      return;
+    }
+
+    const hosts = Array.from(editorHostRefsRef.current.values());
+    if (!hosts.length) {
       return;
     }
 
@@ -1494,15 +1589,17 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       syncMonacoAuxInputs();
     });
 
-    observer.observe(editorHostRef.current, {
-      childList: true,
-      subtree: true
-    });
+    hosts.forEach((host) =>
+      observer.observe(host, {
+        childList: true,
+        subtree: true
+      })
+    );
 
     return () => {
       observer.disconnect();
     };
-  }, [activeWorkbenchTab, syncMonacoAuxInputs]);
+  }, [activeTabId, activeWorkbenchTab, editorGroups.length, syncMonacoAuxInputs]);
 
   useEffect(() => {
     const clampWorkbenchLayout = () => {
@@ -1551,6 +1648,24 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
+      const editorGroupResize = editorGroupResizeRef.current;
+      if (editorGroupResize) {
+        const totalWidth = editorGroupResize.leftWidth + editorGroupResize.rightWidth;
+        const minWidth = Math.min(280, Math.floor(totalWidth / 2));
+        const nextLeftWidth = clamp(
+          editorGroupResize.leftWidth + (event.clientX - editorGroupResize.startX),
+          minWidth,
+          totalWidth - minWidth
+        );
+
+        setEditorGroupSizes((state) => ({
+          ...state,
+          [editorGroupResize.leftGroupId]: nextLeftWidth,
+          [editorGroupResize.rightGroupId]: totalWidth - nextLeftWidth
+        }));
+        return;
+      }
+
       const dragState = dragStateRef.current;
 
       if (!dragState) {
@@ -1622,6 +1737,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     };
 
     const handlePointerUp = () => {
+      editorGroupResizeRef.current = null;
       dragStateRef.current = null;
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
@@ -1752,7 +1868,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     [explorerFiles, files, openTabPaths]
   );
   const activeTab = useMemo(
-    () => openTabs.find((tab) => tab.id === activeTabId) ?? openTabs[0] ?? null,
+    () => openTabs.find((tab) => tab.id === activeTabId) ?? null,
     [activeTabId, openTabs]
   );
   const activeFile = useMemo(() => {
@@ -1764,8 +1880,17 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       return activeTab.file;
     }
 
-    return files.find((file) => file.path === activePath) ?? files[0] ?? null;
+    const initialPath = resolveInitialEditorPath(files);
+    return files.find((file) => file.path === activePath) ?? files.find((file) => file.path === initialPath) ?? files[0] ?? null;
   }, [activePath, activeTab, files]);
+  const tabsById = useMemo(() => new Map(openTabs.map((tab) => [tab.id, tab])), [openTabs]);
+  const getGroupTabs = useCallback(
+    (group: EditorGroupState) =>
+      group.tabIds
+        .map((tabId) => tabsById.get(tabId))
+        .filter((tab): tab is WorkspaceTab => Boolean(tab)),
+    [tabsById]
+  );
   const latestAgentPatchSummary = agentPatchPreviews[0]?.summary ?? null;
 
   useEffect(() => {
@@ -1789,48 +1914,198 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     setLocalFolders([]);
     setDraggedExplorerPath(null);
     setFolderDropTargetPath(null);
+    editorLayoutHydratedSessionRef.current = null;
+    editorLayoutApplyingSnapshotRef.current = false;
+    setEditorGroups([{ id: INITIAL_EDITOR_GROUP_ID, tabIds: [], activeTabId: null }]);
+    setActiveEditorGroupId(INITIAL_EDITOR_GROUP_ID);
+    activeEditorGroupIdRef.current = INITIAL_EDITOR_GROUP_ID;
+    editorRefsRef.current.clear();
+    diffEditorRefsRef.current.clear();
+    editorHostRefsRef.current.clear();
+    editorGroupRefsRef.current.clear();
+    setEditorGroupSizes({});
   }, [sessionId]);
 
   useEffect(() => {
+    const isValidTabId = (tabId: string) => {
+      if (isDiffTabId(tabId)) {
+        const targetPath = tabId.slice(DIFF_TAB_PREFIX.length);
+        return explorerFiles.some((file) => file.path === targetPath && file.isVirtual);
+      }
+
+      return files.some((file) => file.path === tabId) || explorerFiles.some((file) => file.path === tabId && file.isVirtual);
+    };
+
     if (!files.length) {
-      setOpenTabPaths((state) => (state.length ? [] : state));
-      setActiveTabId((state) => (state === null ? state : null));
+      setEditorGroups((state) => {
+        const next = [{ id: state[0]?.id ?? INITIAL_EDITOR_GROUP_ID, tabIds: [], activeTabId: null }];
+        return JSON.stringify(state) === JSON.stringify(next) ? state : next;
+      });
       return;
     }
 
-    const fallbackPath = activePath ?? files[0].path;
+    const preferredPath = resolveInitialEditorPath(explorerFiles) ?? files[0].path;
+    const fallbackPath =
+      openTabPaths.length > 0 && activePath && isValidTabId(activePath)
+        ? activePath
+        : preferredPath;
 
-    setOpenTabPaths((state) => {
-      const filtered = state.filter((path) => {
-        if (isDiffTabId(path)) {
-          const targetPath = path.slice(DIFF_TAB_PREFIX.length);
-          return explorerFiles.some((file) => file.path === targetPath && file.isVirtual);
-        }
+    setEditorGroups((state) => {
+      const nextGroups = state
+        .map((group) => {
+          const filtered = group.tabIds.filter(isValidTabId);
+          const tabIds = filtered.length ? filtered : group.id === activeEditorGroupIdRef.current ? [fallbackPath] : filtered;
+          const activeId = group.activeTabId && tabIds.includes(group.activeTabId) ? group.activeTabId : tabIds[0] ?? null;
 
-        return files.some((file) => file.path === path) || explorerFiles.some((file) => file.path === path && file.isVirtual);
-      });
+          return { ...group, tabIds, activeTabId: activeId };
+        })
+        .filter((group, index) => index === 0 || group.tabIds.length > 0);
 
-      const next = activeTabId || filtered.length ? filtered : [fallbackPath];
-      return areStringArraysEqual(state, next) ? state : next;
+      const normalizedGroups = nextGroups.length
+        ? nextGroups
+        : [{ id: INITIAL_EDITOR_GROUP_ID, tabIds: [fallbackPath], activeTabId: fallbackPath }];
+
+      const same =
+        state.length === normalizedGroups.length &&
+        state.every((group, index) => {
+          const next = normalizedGroups[index];
+          return group.id === next.id && group.activeTabId === next.activeTabId && areStringArraysEqual(group.tabIds, next.tabIds);
+        });
+
+      return same ? state : normalizedGroups;
     });
-
-    if (!activeTabId) {
-      setActiveTabId(fallbackPath);
-    }
-  }, [activePath, activeTabId, explorerFiles, files]);
+  }, [activePath, explorerFiles, files, openTabPaths.length]);
 
   useEffect(() => {
-    if (!openTabs.length) {
-      if (activeTabId) {
-        setActiveTabId(null);
-      }
+    setEditorGroups((state) => {
+      const nextGroups = state.map((group) => {
+        const validTabIds = group.tabIds.filter((tabId) => tabsById.has(tabId));
+        const activeId = group.activeTabId && validTabIds.includes(group.activeTabId)
+          ? group.activeTabId
+          : validTabIds[0] ?? null;
+
+        return { ...group, tabIds: validTabIds, activeTabId: activeId };
+      });
+
+      const same =
+        state.length === nextGroups.length &&
+        state.every((group, index) => {
+          const next = nextGroups[index];
+          return group.id === next.id && group.activeTabId === next.activeTabId && areStringArraysEqual(group.tabIds, next.tabIds);
+        });
+
+      return same ? state : nextGroups;
+    });
+  }, [tabsById]);
+
+  useEffect(() => {
+    if (!files.length || editorLayoutHydratedSessionRef.current === sessionId) {
       return;
     }
 
-    if (!activeTabId || !openTabs.some((tab) => tab.id === activeTabId)) {
-      setActiveTabId(openTabs[0].id);
+    editorLayoutHydratedSessionRef.current = sessionId;
+
+    const isValidTabId = (tabId: string) => {
+      if (isDiffTabId(tabId)) {
+        const targetPath = tabId.slice(DIFF_TAB_PREFIX.length);
+        return explorerFiles.some((file) => file.path === targetPath && file.isVirtual);
+      }
+
+      return files.some((file) => file.path === tabId) || explorerFiles.some((file) => file.path === tabId && file.isVirtual);
+    };
+
+    try {
+      const rawSnapshot = window.localStorage.getItem(getEditorLayoutStorageKey(sessionId));
+      if (!rawSnapshot) {
+        return;
+      }
+
+      const snapshot = JSON.parse(rawSnapshot) as Partial<EditorLayoutSnapshot>;
+      if (!Array.isArray(snapshot.groups)) {
+        return;
+      }
+
+      const usedGroupIds = new Set<string>();
+      const nextGroups = snapshot.groups
+        .slice(0, MAX_EDITOR_GROUPS)
+        .map((group, index) => {
+          const fallbackGroupId = index === 0 ? INITIAL_EDITOR_GROUP_ID : `editor-group-restored-${index + 1}`;
+          const groupId = typeof group.id === "string" && group.id.trim() ? group.id : fallbackGroupId;
+          const safeGroupId = usedGroupIds.has(groupId) ? `${groupId}-${index + 1}` : groupId;
+          const tabIds = Array.from(new Set(Array.isArray(group.tabIds) ? group.tabIds.filter(isValidTabId) : []));
+
+          usedGroupIds.add(safeGroupId);
+
+          return {
+            id: safeGroupId,
+            tabIds,
+            activeTabId: group.activeTabId && tabIds.includes(group.activeTabId) ? group.activeTabId : tabIds[0] ?? null
+          };
+        })
+        .filter((group) => group.tabIds.length > 0);
+
+      if (!nextGroups.length) {
+        return;
+      }
+
+      const nextActiveGroupId =
+        typeof snapshot.activeGroupId === "string" && nextGroups.some((group) => group.id === snapshot.activeGroupId)
+          ? snapshot.activeGroupId
+          : nextGroups[0].id;
+      const nextGroupSizes = Object.fromEntries(
+        Object.entries(snapshot.groupSizes ?? {}).filter(
+          ([groupId, width]) => nextGroups.some((group) => group.id === groupId) && typeof width === "number" && Number.isFinite(width)
+        )
+      );
+
+      editorLayoutApplyingSnapshotRef.current = true;
+      setEditorGroups(nextGroups);
+      setActiveEditorGroupId(nextActiveGroupId);
+      activeEditorGroupIdRef.current = nextActiveGroupId;
+      setEditorGroupSizes(nextGroupSizes);
+    } catch {
+      window.localStorage.removeItem(getEditorLayoutStorageKey(sessionId));
     }
-  }, [activeTabId, openTabs]);
+  }, [explorerFiles, files, sessionId]);
+
+  useEffect(() => {
+    if (!files.length || editorLayoutHydratedSessionRef.current !== sessionId) {
+      return;
+    }
+
+    if (editorLayoutApplyingSnapshotRef.current) {
+      editorLayoutApplyingSnapshotRef.current = false;
+      return;
+    }
+
+    const groups = editorGroups
+      .map((group) => ({
+        ...group,
+        tabIds: group.tabIds.filter((tabId) => tabsById.has(tabId)),
+        activeTabId: group.activeTabId && tabsById.has(group.activeTabId) ? group.activeTabId : group.tabIds.find((tabId) => tabsById.has(tabId)) ?? null
+      }))
+      .filter((group) => group.tabIds.length > 0)
+      .slice(0, MAX_EDITOR_GROUPS);
+
+    if (!groups.length) {
+      return;
+    }
+
+    const snapshot: EditorLayoutSnapshot = {
+      version: 1,
+      activeGroupId: groups.some((group) => group.id === activeEditorGroupId) ? activeEditorGroupId : groups[0].id,
+      groups,
+      groupSizes: Object.fromEntries(
+        Object.entries(editorGroupSizes).filter(([groupId, width]) => groups.some((group) => group.id === groupId) && Number.isFinite(width))
+      )
+    };
+
+    try {
+      window.localStorage.setItem(getEditorLayoutStorageKey(sessionId), JSON.stringify(snapshot));
+    } catch {
+      // noop
+    }
+  }, [activeEditorGroupId, editorGroupSizes, editorGroups, files.length, sessionId, tabsById]);
 
   useEffect(() => {
     if (!activeTab) {
@@ -2051,9 +2326,11 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     router.replace(withPrefix("/problems"));
   }, [addToast, isTimeExpired, problem, queryClient, router, session, sessionId, withPrefix]);
 
-  const handleMount = (editor: any, monaco: any) => {
-    cleanupEditorSubscriptions();
-    editorRef.current = editor;
+  const handleMount = (groupId: string) => (editor: any, monaco: any) => {
+    editorRefsRef.current.set(groupId, editor);
+    if (activeEditorGroupIdRef.current === groupId) {
+      editorRef.current = editor;
+    }
     trackMonacoModels(editor, monaco);
     const initialPosition = editor.getPosition();
 
@@ -2065,6 +2342,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     }
 
     const selectionDisposable = editor.onDidChangeCursorSelection(() => {
+      if (activeEditorGroupIdRef.current !== groupId) {
+        return;
+      }
+
       if (selectionDebounceTimerRef.current) clearTimeout(selectionDebounceTimerRef.current);
       selectionDebounceTimerRef.current = setTimeout(() => {
         const selection = editor.getSelection();
@@ -2111,8 +2392,11 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     syncMonacoAuxInputs();
   };
 
-  const handleDiffMount = (editor: any, monaco: any) => {
-    diffEditorRef.current = editor;
+  const handleDiffMount = (groupId: string) => (editor: any, monaco: any) => {
+    diffEditorRefsRef.current.set(groupId, editor);
+    if (activeEditorGroupIdRef.current === groupId) {
+      diffEditorRef.current = editor;
+    }
     trackMonacoModels(editor, monaco);
     requestEditorLayout();
   };
@@ -2157,33 +2441,164 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     document.body.style.userSelect = "none";
   };
 
-  const focusLine = (path: string, lineNumber?: number) => {
-    setActiveWorkbenchTab("code");
-    setOpenTabPaths((state) => (state.includes(path) ? state : [...state, path]));
-    setActiveTabId(path);
-    setActivePath(path);
+  const beginEditorGroupResize =
+    (leftGroupId: string, rightGroupId: string) => (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
 
-    window.requestAnimationFrame(() => {
-      if (!editorRef.current || !lineNumber) {
+      const leftGroup = editorGroupRefsRef.current.get(leftGroupId);
+      const rightGroup = editorGroupRefsRef.current.get(rightGroupId);
+      if (!leftGroup || !rightGroup) {
         return;
       }
 
-      editorRef.current.focus();
-      editorRef.current.revealLineInCenter(lineNumber);
-      editorRef.current.setPosition({ lineNumber, column: 1 });
+      editorGroupResizeRef.current = {
+        leftGroupId,
+        rightGroupId,
+        startX: event.clientX,
+        leftWidth: leftGroup.getBoundingClientRect().width,
+        rightWidth: rightGroup.getBoundingClientRect().width
+      };
+
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+    };
+
+  const focusEditorGroup = useCallback((groupId: string) => {
+    setActiveEditorGroupId(groupId);
+    activeEditorGroupIdRef.current = groupId;
+    editorRef.current = editorRefsRef.current.get(groupId) ?? editorRef.current;
+    diffEditorRef.current = diffEditorRefsRef.current.get(groupId) ?? diffEditorRef.current;
+  }, []);
+
+  const openTabInEditorGroup = useCallback(
+    (tabId: string, groupId = activeEditorGroupId) => {
+      setActiveWorkbenchTab("code");
+      setActiveEditorGroupId(groupId);
+      activeEditorGroupIdRef.current = groupId;
+      setEditorGroups((state) =>
+        state.map((group) => {
+          if (group.id !== groupId) {
+            return group;
+          }
+
+          const tabIds = group.tabIds.includes(tabId) ? group.tabIds : [...group.tabIds, tabId];
+          return { ...group, tabIds, activeTabId: tabId };
+        })
+      );
+    },
+    [activeEditorGroupId]
+  );
+
+  const focusLine = (path: string, lineNumber?: number, groupId = activeEditorGroupId) => {
+    setActiveWorkbenchTab("code");
+    openTabInEditorGroup(path, groupId);
+    setActivePath(path);
+
+    window.requestAnimationFrame(() => {
+      const editor = editorRefsRef.current.get(groupId) ?? editorRef.current;
+      if (!editor || !lineNumber) {
+        return;
+      }
+
+      editor.focus();
+      editor.revealLineInCenter(lineNumber);
+      editor.setPosition({ lineNumber, column: 1 });
     });
   };
 
-  const openDiffTab = (targetPath: string) => {
+  const openDiffTab = (targetPath: string, groupId = activeEditorGroupId) => {
     const diffTabId = createDiffTabId(targetPath);
 
     setActiveWorkbenchTab("code");
-    setOpenTabPaths((state) => (state.includes(diffTabId) ? state : [...state, diffTabId]));
-    setActiveTabId(diffTabId);
+    openTabInEditorGroup(diffTabId, groupId);
     setSelection("", null);
     setSuggestion(null);
     setAiMode("chat");
   };
+
+  const splitActiveEditorGroup = useCallback((sourceGroupId = activeEditorGroupId, sourceTabId = activeTabId) => {
+    if (!sourceTabId || editorGroups.length >= MAX_EDITOR_GROUPS) {
+      return;
+    }
+
+    const nextGroupId = `editor-group-${Date.now()}`;
+
+    setEditorGroups((state) => {
+      const activeIndex = Math.max(0, state.findIndex((group) => group.id === sourceGroupId));
+      const nextGroup: EditorGroupState = { id: nextGroupId, tabIds: [sourceTabId], activeTabId: sourceTabId };
+      const next = [...state];
+      next.splice(activeIndex + 1, 0, nextGroup);
+      return next;
+    });
+
+    setActiveEditorGroupId(nextGroupId);
+    activeEditorGroupIdRef.current = nextGroupId;
+    setActiveWorkbenchTab("code");
+  }, [activeEditorGroupId, activeTabId, editorGroups.length]);
+
+  const closeEditorGroup = useCallback(
+    (groupId: string) => {
+      if (editorGroups.length <= 1) {
+        return;
+      }
+
+      setEditorGroups((state) => {
+        if (state.length <= 1) {
+          return state;
+        }
+
+        const closedIndex = state.findIndex((group) => group.id === groupId);
+        const closedGroup = state[closedIndex];
+        if (!closedGroup) {
+          return state;
+        }
+
+        const next = state.filter((group) => group.id !== groupId);
+        const fallbackIndex = Math.max(0, Math.min(closedIndex, next.length - 1));
+        const fallbackGroup = next[fallbackIndex] ?? next[0];
+        const closingActiveGroup = activeEditorGroupIdRef.current === groupId;
+
+        if (closingActiveGroup && fallbackGroup) {
+          setActiveEditorGroupId(fallbackGroup.id);
+          activeEditorGroupIdRef.current = fallbackGroup.id;
+          setActiveWorkbenchTab("code");
+        }
+
+        if (!fallbackGroup || !closedGroup.tabIds.length) {
+          return next;
+        }
+
+        const closedActiveTabId =
+          closedGroup.activeTabId && closedGroup.tabIds.includes(closedGroup.activeTabId)
+            ? closedGroup.activeTabId
+            : closedGroup.tabIds[0] ?? null;
+
+        return next.map((group) => {
+          if (group.id !== fallbackGroup.id) {
+            return group;
+          }
+
+          const tabIds = [...group.tabIds];
+          closedGroup.tabIds.forEach((tabId) => {
+            if (!tabIds.includes(tabId)) {
+              tabIds.push(tabId);
+            }
+          });
+
+          const activeTabId =
+            closingActiveGroup && closedActiveTabId && tabIds.includes(closedActiveTabId)
+              ? closedActiveTabId
+              : group.activeTabId && tabIds.includes(group.activeTabId)
+                ? group.activeTabId
+                : tabIds[0] ?? null;
+
+          return { ...group, tabIds, activeTabId };
+        });
+      });
+    },
+    [editorGroups.length]
+  );
 
   const handleOpenCodeWorkbench = () => {
     setActiveWorkbenchTab("code");
@@ -2231,27 +2646,31 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   );
 
   const closeTabImmediate = useCallback(
-    (tabId: string) => {
-      setOpenTabPaths((state) => {
-        const currentIndex = state.indexOf(tabId);
-        const next = state.filter((item) => item !== tabId);
+    (tabId: string, groupId = activeEditorGroupId) => {
+      setEditorGroups((state) =>
+        state.map((group) => {
+          if (group.id !== groupId) {
+            return group;
+          }
 
-        if (activeTabId === tabId) {
-          const fallback = next[currentIndex] ?? next[currentIndex - 1] ?? next[0] ?? null;
+          const currentIndex = group.tabIds.indexOf(tabId);
+          const nextTabIds = group.tabIds.filter((item) => item !== tabId);
+          const fallback =
+            group.activeTabId === tabId
+              ? nextTabIds[currentIndex] ?? nextTabIds[currentIndex - 1] ?? nextTabIds[0] ?? null
+              : group.activeTabId;
 
-          setActiveTabId(fallback);
-          setActiveWorkbenchTab("code");
-
-          if (!fallback) {
+          if (group.activeTabId === tabId && !fallback && activeEditorGroupIdRef.current === groupId) {
             setSelection("", null);
             setSuggestion(null);
           }
-        }
 
-        return next;
-      });
+          return { ...group, tabIds: nextTabIds, activeTabId: fallback };
+        })
+      );
+      setActiveWorkbenchTab("code");
     },
-    [activeTabId, setSelection, setSuggestion]
+    [activeEditorGroupId, setSelection, setSuggestion]
   );
 
   const savePaths = useCallback(
@@ -2460,8 +2879,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         });
 
         setWorkspace(workspaceResult.files, nextPath);
-        setOpenTabPaths((state) => (state.includes(nextPath) ? state : [...state, nextPath]));
-        setActiveTabId(nextPath);
+        openTabInEditorGroup(nextPath);
         setActivePath(nextPath);
         setExplorerCreateDraft(null);
         void queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
@@ -2482,12 +2900,11 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       },
       true
     );
-    setOpenTabPaths((state) => (state.includes(nextPath) ? state : [...state, nextPath]));
-    setActiveTabId(nextPath);
+    openTabInEditorGroup(nextPath);
     setActivePath(nextPath);
     setExplorerCreateDraft(null);
     addToast(`파일 '${rawName}' 생성 준비 완료`, "success");
-  }, [addToast, createWorkspaceFile, explorerCreateDraft, files, queryClient, sessionId, setActivePath, setWorkspace]);
+  }, [addToast, createWorkspaceFile, explorerCreateDraft, files, openTabInEditorGroup, queryClient, sessionId, setActivePath, setWorkspace]);
 
   const commitExplorerRename = useCallback(() => {
     if (!explorerRenameDraft) {
@@ -2515,8 +2932,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
       setLocalFolders((state) => appendLocalFolder(state, getFolderPath(explorerRenameDraft.targetPath) || null));
       renameWorkspaceFile(explorerRenameDraft.targetPath, nextPath);
-      setOpenTabPaths((state) => state.map((path) => (path === explorerRenameDraft.targetPath ? nextPath : path)));
-      setActiveTabId((state) => (state === explorerRenameDraft.targetPath ? nextPath : state));
+      setEditorGroups((state) =>
+        state.map((group) => ({
+          ...group,
+          tabIds: group.tabIds.map((path) => (path === explorerRenameDraft.targetPath ? nextPath : path)),
+          activeTabId: group.activeTabId === explorerRenameDraft.targetPath ? nextPath : group.activeTabId
+        }))
+      );
       setExplorerRenameDraft(null);
       addToast(`파일 이름을 '${rawName}'로 변경했어요.`, "success");
       return;
@@ -2537,8 +2959,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       .forEach((file) => {
         renameWorkspaceFile(file.path, replacePathPrefix(file.path, explorerRenameDraft.targetPath, nextPath));
       });
-    setOpenTabPaths((state) => state.map((path) => replacePathPrefix(path, explorerRenameDraft.targetPath, nextPath)));
-    setActiveTabId((state) => (state ? replacePathPrefix(state, explorerRenameDraft.targetPath, nextPath) : state));
+    setEditorGroups((state) =>
+      state.map((group) => ({
+        ...group,
+        tabIds: group.tabIds.map((path) => replacePathPrefix(path, explorerRenameDraft.targetPath, nextPath)),
+        activeTabId: group.activeTabId ? replacePathPrefix(group.activeTabId, explorerRenameDraft.targetPath, nextPath) : null
+      }))
+    );
     setExplorerRenameDraft(null);
     addToast(`폴더 이름을 '${rawName}'로 변경했어요.`, "success");
   }, [addToast, explorerRenameDraft, files, localFolders, renameWorkspaceFile]);
@@ -2555,8 +2982,16 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     if (targetKind === "file") {
       setLocalFolders((state) => appendLocalFolder(state, getFolderPath(targetPath) || null));
       removeWorkspaceFile(targetPath);
-      setOpenTabPaths((state) => state.filter((path) => path !== targetPath));
-      setActiveTabId((state) => (state === targetPath ? null : state));
+      setEditorGroups((state) =>
+        state.map((group) => {
+          const tabIds = group.tabIds.filter((path) => path !== targetPath);
+          return {
+            ...group,
+            tabIds,
+            activeTabId: group.activeTabId === targetPath ? tabIds[0] ?? null : group.activeTabId
+          };
+        })
+      );
       addToast(`파일 '${getFileName(targetPath)}'을 삭제했어요.`, "success");
       return;
     }
@@ -2565,8 +3000,16 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     files
       .filter((file) => file.path.startsWith(`${targetPath}/`))
       .forEach((file) => removeWorkspaceFile(file.path));
-    setOpenTabPaths((state) => state.filter((path) => !path.startsWith(`${targetPath}/`)));
-    setActiveTabId((state) => (state && state.startsWith(`${targetPath}/`) ? null : state));
+    setEditorGroups((state) =>
+      state.map((group) => {
+        const tabIds = group.tabIds.filter((path) => !path.startsWith(`${targetPath}/`));
+        return {
+          ...group,
+          tabIds,
+          activeTabId: group.activeTabId && group.activeTabId.startsWith(`${targetPath}/`) ? tabIds[0] ?? null : group.activeTabId
+        };
+      })
+    );
     addToast(`폴더 '${getFileName(targetPath)}'을 삭제했어요.`, "success");
   }, [addToast, explorerContextMenu, files, removeWorkspaceFile]);
 
@@ -2620,37 +3063,44 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
       setLocalFolders((state) => appendLocalFolder(state, getFolderPath(sourcePath) || null));
       renameWorkspaceFile(sourcePath, nextPath);
-      setOpenTabPaths((state) => state.map((path) => (path === sourcePath ? nextPath : path)));
-      setActiveTabId((state) => (state === sourcePath ? nextPath : state));
+      setEditorGroups((state) =>
+        state.map((group) => ({
+          ...group,
+          tabIds: group.tabIds.map((path) => (path === sourcePath ? nextPath : path)),
+          activeTabId: group.activeTabId === sourcePath ? nextPath : group.activeTabId
+        }))
+      );
       addToast(`파일을 '${getFileName(targetFolderPath)}' 폴더로 이동했어요.`, "success");
     },
     [addToast, clearExplorerDragState, draggedExplorerPath, files, renameWorkspaceFile]
   );
 
-  const handleCloseFileTab = (tabId: string) => {
+  const handleCloseFileTab = (tabId: string, groupId = activeEditorGroupId) => {
     const targetTab = openTabs.find((tab) => tab.id === tabId);
     if (!targetTab) {
       return;
     }
 
     if (targetTab.kind === "file" && unsavedPaths.includes(targetTab.path)) {
-      setSavePromptAction({ type: "close-tab", tabId, path: targetTab.path });
+      setSavePromptAction({ type: "close-tab", groupId, tabId, path: targetTab.path });
       setSavePromptOpen(true);
       return;
     }
 
-    closeTabImmediate(tabId);
+    closeTabImmediate(tabId, groupId);
   };
 
   const clearTabDragState = useCallback(() => {
     setDraggedTabId(null);
+    setDraggedTabSourceGroupId(null);
     setTabDropHint(null);
   }, []);
 
-  const handleTabDragStart = useCallback((event: ReactDragEvent<HTMLDivElement>, tabId: string) => {
+  const handleTabDragStart = useCallback((event: ReactDragEvent<HTMLDivElement>, tabId: string, groupId: string) => {
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", tabId);
     setDraggedTabId(tabId);
+    setDraggedTabSourceGroupId(groupId);
     setTabDropHint(null);
   }, []);
 
@@ -2674,8 +3124,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   );
 
   const handleTabDrop = useCallback(
-    (event: ReactDragEvent<HTMLDivElement>, targetId: string) => {
+    (event: ReactDragEvent<HTMLDivElement>, targetId: string, groupId = activeEditorGroupId) => {
       event.preventDefault();
+      event.stopPropagation();
 
       const sourceId = draggedTabId || event.dataTransfer.getData("text/plain");
       if (!sourceId || sourceId === targetId || !tabDropHint || tabDropHint.targetId !== targetId) {
@@ -2683,10 +3134,159 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         return;
       }
 
-      setOpenTabPaths((state) => reorderItems(state, sourceId, targetId, tabDropHint.position));
+      setEditorGroups((state) => {
+        const withoutSource = state.map((group) => {
+          if (draggedTabSourceGroupId ? group.id !== draggedTabSourceGroupId : !group.tabIds.includes(sourceId)) {
+            return group;
+          }
+
+          const tabIds = group.tabIds.filter((tabId) => tabId !== sourceId);
+          return {
+            ...group,
+            tabIds,
+            activeTabId: group.activeTabId === sourceId ? tabIds[0] ?? null : group.activeTabId
+          };
+        });
+
+        return withoutSource.map((group) => {
+          if (group.id !== groupId) {
+            return group;
+          }
+
+          const tabIds = group.tabIds.includes(sourceId) ? group.tabIds : [...group.tabIds, sourceId];
+          return {
+            ...group,
+            tabIds: reorderItems(tabIds, sourceId, targetId, tabDropHint.position),
+            activeTabId: sourceId
+          };
+        });
+      });
+      focusEditorGroup(groupId);
       clearTabDragState();
     },
-    [clearTabDragState, draggedTabId, tabDropHint]
+    [activeEditorGroupId, clearTabDragState, draggedTabId, draggedTabSourceGroupId, focusEditorGroup, tabDropHint]
+  );
+
+  const handleTabDropToGroup = useCallback(
+    (event: ReactDragEvent<HTMLElement>, groupId: string) => {
+      const sourceId = draggedTabId || event.dataTransfer.getData("text/plain");
+      if (!sourceId || !tabsById.has(sourceId)) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      setEditorGroups((state) => {
+        const withoutSource = state.map((group) => {
+          if (draggedTabSourceGroupId ? group.id !== draggedTabSourceGroupId : !group.tabIds.includes(sourceId)) {
+            return group;
+          }
+
+          const tabIds = group.tabIds.filter((tabId) => tabId !== sourceId);
+          return {
+            ...group,
+            tabIds,
+            activeTabId: group.activeTabId === sourceId ? tabIds[0] ?? null : group.activeTabId
+          };
+        });
+
+        return withoutSource.map((group) => {
+          if (group.id !== groupId) {
+            return group;
+          }
+
+          const tabIds = group.tabIds.includes(sourceId) ? group.tabIds : [...group.tabIds, sourceId];
+          return { ...group, tabIds, activeTabId: sourceId };
+        });
+      });
+
+      focusEditorGroup(groupId);
+      clearTabDragState();
+    },
+    [clearTabDragState, draggedTabId, draggedTabSourceGroupId, focusEditorGroup, tabsById]
+  );
+
+  const handleTabDragOverGroup = useCallback(
+    (event: ReactDragEvent<HTMLElement>) => {
+      const sourceId = draggedTabId || event.dataTransfer.getData("text/plain");
+      if (!sourceId || !tabsById.has(sourceId)) {
+        return;
+      }
+
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+    },
+    [draggedTabId, tabsById]
+  );
+
+  const handleTabSplitDragOver = useCallback(
+    (event: ReactDragEvent<HTMLDivElement>) => {
+      const sourceId = draggedTabId || event.dataTransfer.getData("text/plain");
+      if (!sourceId || !tabsById.has(sourceId) || editorGroups.length >= MAX_EDITOR_GROUPS) {
+        return;
+      }
+
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+    },
+    [draggedTabId, editorGroups.length, tabsById]
+  );
+
+  const handleTabSplitDrop = useCallback(
+    (event: ReactDragEvent<HTMLDivElement>) => {
+      const sourceId = draggedTabId || event.dataTransfer.getData("text/plain");
+      if (!sourceId || !tabsById.has(sourceId) || editorGroups.length >= MAX_EDITOR_GROUPS) {
+        clearTabDragState();
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const nextGroupId = `editor-group-${Date.now()}`;
+
+      setEditorGroups((state) => {
+        if (state.length >= MAX_EDITOR_GROUPS) {
+          return state;
+        }
+
+        const sourceGroupId =
+          draggedTabSourceGroupId ??
+          state.find((group) => group.tabIds.includes(sourceId))?.id ??
+          activeEditorGroupId;
+        const sourceIndex = Math.max(0, state.findIndex((group) => group.id === sourceGroupId));
+        const nextGroup: EditorGroupState = { id: nextGroupId, tabIds: [sourceId], activeTabId: sourceId };
+        const withoutSource = state.map((group) => {
+          if (group.id !== sourceGroupId) {
+            return group;
+          }
+
+          const tabIds = group.tabIds.filter((tabId) => tabId !== sourceId);
+          return {
+            ...group,
+            tabIds,
+            activeTabId: group.activeTabId === sourceId ? tabIds[0] ?? null : group.activeTabId
+          };
+        });
+        const next = [...withoutSource];
+        next.splice(sourceIndex + 1, 0, nextGroup);
+        return next;
+      });
+
+      setActiveEditorGroupId(nextGroupId);
+      activeEditorGroupIdRef.current = nextGroupId;
+      setActiveWorkbenchTab("code");
+      clearTabDragState();
+    },
+    [
+      activeEditorGroupId,
+      clearTabDragState,
+      draggedTabId,
+      draggedTabSourceGroupId,
+      editorGroups.length,
+      tabsById
+    ]
   );
 
   const handleTabDragEnd = useCallback(() => {
@@ -2825,7 +3425,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
     if (savePromptAction.type === "close-tab") {
       discardFileChanges(savePromptAction.path);
-      closeTabImmediate(savePromptAction.tabId);
+      closeTabImmediate(savePromptAction.tabId, savePromptAction.groupId);
     } else if (savePromptAction.type === "navigate") {
       savedBackTargetRef.current = null;
       router.push(savePromptAction.href);
@@ -2851,7 +3451,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     setSavePromptAction(null);
 
     if (savePromptAction.type === "close-tab") {
-      closeTabImmediate(savePromptAction.tabId);
+      closeTabImmediate(savePromptAction.tabId, savePromptAction.groupId);
     } else if (savePromptAction.type === "navigate") {
       savedBackTargetRef.current = null;
       router.push(savePromptAction.href);
@@ -2873,12 +3473,27 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
         void saveActiveFile();
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key === "\\") {
+        event.preventDefault();
+        splitActiveEditorGroup();
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && /^[1-3]$/.test(event.key)) {
+        const group = editorGroups[Number(event.key) - 1];
+        if (group) {
+          event.preventDefault();
+          focusEditorGroup(group.id);
+        }
       }
     };
 
     window.addEventListener("keydown", handleWindowKeydown);
     return () => window.removeEventListener("keydown", handleWindowKeydown);
-  }, [saveActiveFile, saveAllDirtyFiles]);
+  }, [editorGroups, focusEditorGroup, saveActiveFile, saveAllDirtyFiles, splitActiveEditorGroup]);
 
   useEffect(() => {
     try {
@@ -3764,94 +4379,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     );
   };
 
-  const renderEditorTabs = () => (
-    <div className="editor-tabbar">
-      <div className="editor-tabbar__row editor-tabbar__row--tabs">
-        <div className="editor-tabs" onWheel={handleTabRailWheel}>
-          {openTabs.map((tab) => (
-            <div
-              key={tab.id}
-              className={
-                [
-                  "editor-tabs__item",
-                  activeWorkbenchTab === "code" && tab.id === activeTab?.id ? "editor-tabs__item--active" : "",
-                  draggedTabId === tab.id ? "editor-tabs__item--dragging" : "",
-                  tabDropHint?.targetId === tab.id
-                    ? tabDropHint.position === "before"
-                      ? "editor-tabs__item--drop-before"
-                      : "editor-tabs__item--drop-after"
-                    : ""
-                ]
-                  .filter(Boolean)
-                  .join(" ")
-              }
-              draggable
-              onMouseDown={(event) => {
-                if (event.button !== 1) {
-                  return;
-                }
-
-                event.preventDefault();
-                event.stopPropagation();
-                handleCloseFileTab(tab.id);
-              }}
-              onDragStart={(event) => handleTabDragStart(event, tab.id)}
-              onDragOver={(event) => handleTabDragOver(event, tab.id)}
-              onDrop={(event) => handleTabDrop(event, tab.id)}
-              onDragEnd={handleTabDragEnd}
-            >
-              <button
-                type="button"
-                className="editor-tabs__select"
-                onClick={() => {
-                  if (tab.kind === "diff") {
-                    openDiffTab(tab.targetFile.path);
-                    return;
-                  }
-
-                  focusLine(tab.path);
-                }}
-              >
-                {tab.kind === "diff" ? (
-                  <span className="file-icon file-icon--tab codicon codicon-diff" data-file-kind="git" aria-hidden />
-                ) : (
-                  <span
-                    className={"file-icon file-icon--tab " + getFileIconSpec(tab.file).iconClass}
-                    data-file-kind={getFileIconSpec(tab.file).kind}
-                    aria-hidden
-                  />
-                )}
-                <span>{tab.title}</span>
-                {tab.kind === "file" && unsavedPaths.includes(tab.path) ? <span className="editor-tabs__dot" /> : null}
-              </button>
-              <button
-                type="button"
-                className="editor-tabs__close"
-                aria-label={`${tab.title} 닫기`}
-                onClick={() => handleCloseFileTab(tab.id)}
-              >
-                ×
-              </button>
-            </div>
-          ))}
-        </div>
-        {canPreviewActiveMarkdown ? (
-          <div className="editor-tabs__tools">
-            <button
-              type="button"
-              className={markdownPreviewOpen ? "editor-tabs__mode-button editor-tabs__mode-button--active" : "editor-tabs__mode-button"}
-              onClick={() => setMarkdownPreviewOpen((state) => !state)}
-              aria-pressed={markdownPreviewOpen}
-              aria-label={markdownPreviewOpen ? "Markdown 편집" : "Markdown 미리보기"}
-              title={markdownPreviewOpen ? "Markdown 편집" : "Markdown 미리보기"}
-            >
-              {markdownPreviewOpen ? <PencilLine size={14} strokeWidth={2} /> : <Eye size={14} strokeWidth={2} />}
-              <span>{markdownPreviewOpen ? "편집" : "미리보기"}</span>
-            </button>
-          </div>
-        ) : null}
-      </div>
-
+  const renderEditorTopbar = () => (
+    <div className="editor-tabbar editor-tabbar--global">
       <div className="editor-tabbar__row editor-tabbar__row--meta">
         <div className="editor-tabbar__context">
           {estimateLimitMs > 0 ? (
@@ -3943,6 +4472,256 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       </div>
     </div>
   );
+
+  const renderEditorGroupTabs = (
+    group: EditorGroupState,
+    groupTabs: WorkspaceTab[],
+    groupActiveTab: WorkspaceTab | null,
+    groupCanPreviewMarkdown: boolean
+  ) => (
+    <div className="editor-tabbar editor-tabbar--group">
+      <div className="editor-tabbar__row editor-tabbar__row--tabs">
+        <div className="editor-tabs" onWheel={handleTabRailWheel}>
+          {groupTabs.map((tab) => (
+            <div
+              key={tab.id}
+              className={
+                [
+                  "editor-tabs__item",
+                  activeWorkbenchTab === "code" && group.id === activeEditorGroupId && tab.id === groupActiveTab?.id
+                    ? "editor-tabs__item--active"
+                    : "",
+                  draggedTabId === tab.id ? "editor-tabs__item--dragging" : "",
+                  tabDropHint?.targetId === tab.id
+                    ? tabDropHint.position === "before"
+                      ? "editor-tabs__item--drop-before"
+                      : "editor-tabs__item--drop-after"
+                    : ""
+                ]
+                  .filter(Boolean)
+                  .join(" ")
+              }
+              draggable
+              onMouseDown={(event) => {
+                focusEditorGroup(group.id);
+
+                if (event.button !== 1) {
+                  return;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+                handleCloseFileTab(tab.id, group.id);
+              }}
+              onDragStart={(event) => handleTabDragStart(event, tab.id, group.id)}
+              onDragOver={(event) => handleTabDragOver(event, tab.id)}
+              onDrop={(event) => handleTabDrop(event, tab.id, group.id)}
+              onDragEnd={handleTabDragEnd}
+            >
+              <button
+                type="button"
+                className="editor-tabs__select"
+                onClick={() => {
+                  if (tab.kind === "diff") {
+                    openDiffTab(tab.targetFile.path, group.id);
+                    return;
+                  }
+
+                  focusLine(tab.path, undefined, group.id);
+                }}
+              >
+                {tab.kind === "diff" ? (
+                  <span className="file-icon file-icon--tab codicon codicon-diff" data-file-kind="git" aria-hidden />
+                ) : (
+                  <span
+                    className={"file-icon file-icon--tab " + getFileIconSpec(tab.file).iconClass}
+                    data-file-kind={getFileIconSpec(tab.file).kind}
+                    aria-hidden
+                  />
+                )}
+                <span>{tab.title}</span>
+                {tab.kind === "file" && unsavedPaths.includes(tab.path) ? <span className="editor-tabs__dot" /> : null}
+              </button>
+              <button
+                type="button"
+                className="editor-tabs__close"
+                aria-label={`${tab.title} 닫기`}
+                onClick={() => handleCloseFileTab(tab.id, group.id)}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="editor-tabs__tools">
+          {groupCanPreviewMarkdown ? (
+            <button
+              type="button"
+              className={markdownPreviewOpen ? "editor-tabs__mode-button editor-tabs__mode-button--active" : "editor-tabs__mode-button"}
+              onClick={() => {
+                focusEditorGroup(group.id);
+                setMarkdownPreviewOpen((state) => !state);
+              }}
+              aria-pressed={markdownPreviewOpen}
+              aria-label={markdownPreviewOpen ? "Markdown 편집" : "Markdown 미리보기"}
+              title={markdownPreviewOpen ? "Markdown 편집" : "Markdown 미리보기"}
+            >
+              {markdownPreviewOpen ? <PencilLine size={14} strokeWidth={2} /> : <Eye size={14} strokeWidth={2} />}
+              <span>{markdownPreviewOpen ? "편집" : "미리보기"}</span>
+            </button>
+          ) : null}
+
+          <button
+            type="button"
+            className="editor-tabs__mode-button editor-tabs__mode-button--icon"
+            onClick={() => {
+              focusEditorGroup(group.id);
+              splitActiveEditorGroup(group.id, groupActiveTab?.id ?? null);
+            }}
+            disabled={!groupActiveTab || editorGroups.length >= MAX_EDITOR_GROUPS}
+            aria-label="오른쪽으로 분할"
+            title="오른쪽으로 분할"
+          >
+            <span className="codicon codicon-split-horizontal" aria-hidden />
+          </button>
+
+          {editorGroups.length > 1 ? (
+            <button
+              type="button"
+              className="editor-tabs__mode-button editor-tabs__mode-button--icon"
+              onClick={() => closeEditorGroup(group.id)}
+              aria-label="에디터 그룹 닫기"
+              title="에디터 그룹 닫기"
+            >
+              <span className="codicon codicon-close" aria-hidden />
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderEditorGroup = (group: EditorGroupState) => {
+    const groupTabs = getGroupTabs(group);
+    const groupActiveTab = groupTabs.find((tab) => tab.id === group.activeTabId) ?? groupTabs[0] ?? null;
+    const groupActiveFile =
+      groupActiveTab?.kind === "diff"
+        ? groupActiveTab.sourceFile
+        : groupActiveTab?.kind === "file"
+          ? groupActiveTab.file
+          : null;
+    const groupCanPreviewMarkdown =
+      group.id === activeEditorGroupId && groupActiveTab?.kind === "file" && isMarkdownWorkspaceFile(groupActiveFile);
+    const groupPreviewOpen = groupCanPreviewMarkdown && markdownPreviewOpen;
+    const groupIsActive = group.id === activeEditorGroupId;
+
+    return (
+      <section
+        key={group.id}
+        className={groupIsActive ? "editor-group editor-group--active" : "editor-group"}
+        ref={(node) => {
+          if (node) {
+            editorGroupRefsRef.current.set(group.id, node);
+          } else {
+            editorGroupRefsRef.current.delete(group.id);
+          }
+        }}
+        style={
+          editorGroupSizes[group.id]
+            ? { flex: `0 0 ${editorGroupSizes[group.id]}px` }
+            : undefined
+        }
+        onMouseDown={() => focusEditorGroup(group.id)}
+        onDragOver={handleTabDragOverGroup}
+        onDrop={(event) => handleTabDropToGroup(event, group.id)}
+      >
+        {renderEditorGroupTabs(group, groupTabs, groupActiveTab, groupCanPreviewMarkdown)}
+
+        {!groupActiveFile || !groupActiveTab ? (
+          <div className="editor-empty-state">
+            <strong>열린 탭이 없습니다.</strong>
+            <span>탐색기에서 파일을 열거나 다른 그룹의 탭을 분할하세요.</span>
+          </div>
+        ) : (
+          <div
+            ref={(node) => {
+              if (node) {
+                editorHostRefsRef.current.set(group.id, node);
+                if (groupIsActive) {
+                  editorHostRef.current = node;
+                }
+              } else {
+                editorHostRefsRef.current.delete(group.id);
+              }
+            }}
+            className={groupPreviewOpen ? "editor-host editor-host--preview" : "editor-host"}
+            onMouseDown={() => focusEditorGroup(group.id)}
+          >
+            {groupPreviewOpen ? (
+              <div className="markdown-preview">
+                <Markdown remarkPlugins={[remarkGfm]} components={problemBriefMarkdownComponents}>
+                  {groupActiveFile.content || "_미리볼 Markdown 내용이 없습니다._"}
+                </Markdown>
+              </div>
+            ) : groupActiveTab.kind === "diff" ? (
+              <MonacoDiffEditor
+                key={`${group.id}:${groupActiveTab.id}`}
+                theme={theme === "dark" ? "vs-dark" : "vs"}
+                height="100%"
+                original={groupActiveTab.sourceFile.content}
+                modified={groupActiveTab.targetFile.content}
+                language={groupActiveTab.sourceFile.language}
+                onMount={handleDiffMount(group.id)}
+                options={{
+                  readOnly: true,
+                  renderSideBySide: viewportSize.width > 1480,
+                  originalEditable: false,
+                  fontSize: 13,
+                  scrollBeyondLastLine: false,
+                  fontFamily: "var(--font-mono)",
+                  lineHeight: 22,
+                  automaticLayout: true,
+                  smoothScrolling: true,
+                  stickyScroll: { enabled: false },
+                  overviewRulerBorder: false,
+                  minimap: { enabled: false }
+                }}
+              />
+            ) : (
+              <MonacoEditor
+                key={`${group.id}:${groupActiveFile.path}`}
+                path={`${group.id}:${groupActiveFile.path}`}
+                theme={theme === "dark" ? "vs-dark" : "vs"}
+                height="100%"
+                language={groupActiveFile.language}
+                value={groupActiveFile.content}
+                onMount={handleMount(group.id)}
+                onChange={(value) => {
+                  const nextContent = value ?? "";
+                  if (nextContent !== groupActiveFile.content) {
+                    updateFileContent(groupActiveFile.path, nextContent);
+                  }
+                }}
+                options={{
+                  minimap: { enabled: true, scale: 0.9, showSlider: "mouseover" },
+                  fontSize: 13,
+                  scrollBeyondLastLine: false,
+                  fontFamily: "var(--font-mono)",
+                  lineHeight: 22,
+                  automaticLayout: true,
+                  smoothScrolling: true,
+                  padding: { top: 14 },
+                  stickyScroll: { enabled: false },
+                  overviewRulerBorder: false
+                }}
+              />
+            )}
+          </div>
+        )}
+      </section>
+    );
+  };
 
   if (isLoading || !session || !activeFile) {
     return (
@@ -4102,79 +4881,42 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             )}
 
             <div className="ide-shell__main">
-              {renderEditorTabs()}
+              {renderEditorTopbar()}
 
               <div className="editor-stage">
-                {showEmptyEditor ? (
-                  <div className="editor-empty-state">
-                    <strong>열린 탭이 없습니다.</strong>
-                    <span>왼쪽 탐색기에서 파일을 열거나, 문제 아이콘으로 문제 화면을 확인하세요.</span>
-                  </div>
-                ) : (
-                  <div
-                    ref={editorHostRef}
-                    className={markdownPreviewOpen && canPreviewActiveMarkdown ? "editor-host editor-host--preview" : "editor-host"}
-                  >
-                    {markdownPreviewOpen && canPreviewActiveMarkdown ? (
-                      <div className="markdown-preview">
-                        <Markdown remarkPlugins={[remarkGfm]} components={problemBriefMarkdownComponents}>
-                          {activeFile.content || "_미리볼 Markdown 내용이 없습니다._"}
-                        </Markdown>
-                      </div>
-                    ) : activeTab?.kind === "diff" ? (
-                      <MonacoDiffEditor
-                        key={activeTab.id}
-                        theme={theme === "dark" ? "vs-dark" : "vs"}
-                        height="100%"
-                        original={activeTab.sourceFile.content}
-                        modified={activeTab.targetFile.content}
-                        language={activeTab.sourceFile.language}
-                        onMount={handleDiffMount}
-                        options={{
-                          readOnly: true,
-                          renderSideBySide: viewportSize.width > 1480,
-                          originalEditable: false,
-                          fontSize: 13,
-                          scrollBeyondLastLine: false,
-                          fontFamily: "var(--font-mono)",
-                          lineHeight: 22,
-                          automaticLayout: true,
-                          smoothScrolling: true,
-                          stickyScroll: { enabled: false },
-                          overviewRulerBorder: false,
-                          minimap: { enabled: false }
-                        }}
-                      />
-                    ) : (
-                      <MonacoEditor
-                        path={activeFile.path}
-                        theme={theme === "dark" ? "vs-dark" : "vs"}
-                        height="100%"
-                        language={activeFile.language}
-                        value={activeFile.content}
-                        onMount={handleMount}
-                        onChange={(value) => {
-                          const nextContent = value ?? "";
-                          if (nextContent !== activeFile.content) {
-                            updateFileContent(activeFile.path, nextContent);
-                          }
-                        }}
-                        options={{
-                          minimap: { enabled: true, scale: 0.9, showSlider: "mouseover" },
-                          fontSize: 13,
-                          scrollBeyondLastLine: false,
-                          fontFamily: "var(--font-mono)",
-                          lineHeight: 22,
-                          automaticLayout: false,
-                          smoothScrolling: true,
-                          padding: { top: 14 },
-                          stickyScroll: { enabled: false },
-                          overviewRulerBorder: false
-                        }}
-                      />
-                    )}
-                  </div>
-                )}
+                <div className="editor-groups">
+                  {showEmptyEditor ? (
+                    <div className="editor-empty-state">
+                      <strong>열린 탭이 없습니다.</strong>
+                      <span>왼쪽 탐색기에서 파일을 열거나, 문제 아이콘으로 문제 화면을 확인하세요.</span>
+                    </div>
+                  ) : (
+                    <>
+                      {editorGroups.map((group, index) => (
+                        <Fragment key={group.id}>
+                          {renderEditorGroup(group)}
+                          {index < editorGroups.length - 1 ? (
+                            <div
+                              className="editor-group-resizer"
+                              onMouseDown={beginEditorGroupResize(group.id, editorGroups[index + 1].id)}
+                              aria-hidden="true"
+                            />
+                          ) : null}
+                        </Fragment>
+                      ))}
+                      {draggedTabId && editorGroups.length < MAX_EDITOR_GROUPS ? (
+                        <div
+                          className="editor-split-drop-zone"
+                          onDragOver={handleTabSplitDragOver}
+                          onDrop={handleTabSplitDrop}
+                        >
+                          <span className="codicon codicon-split-horizontal" aria-hidden />
+                          <strong>오른쪽에 분할</strong>
+                        </div>
+                      ) : null}
+                    </>
+                  )}
+                </div>
 
                 {showBottomPanel ? (
                   <>
