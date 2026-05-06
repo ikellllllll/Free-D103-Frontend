@@ -19,13 +19,13 @@ services:
     image: aiground-frontend:latest
     container_name: aiground-frontend
     restart: unless-stopped
+    env_file:
+      - ../.env
     environment:
       - NODE_ENV=production
       - NEXT_TELEMETRY_DISABLED=1
       - PORT=3000
       - HOSTNAME=0.0.0.0
-      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
-      - GITHUB_REDIRECT_URI=${GITHUB_REDIRECT_URI:-}
     ports:
       # localhost만 바인드 — nginx가 외부 노출 담당
       - "127.0.0.1:3000:3000"
