@@ -126,35 +126,34 @@ const AGENT_FILES: AgentFile[] = [
 ];
 
 const TAG_STYLE: Record<AgentFile["tag"], string> = {
-  main: "bg-indigo-100 text-indigo-700",
-  meta: "bg-gray-100 text-gray-600",
-  temp: "bg-amber-100 text-amber-700"
+  main: "harness-file-chip harness-file-chip--main",
+  meta: "harness-file-chip harness-file-chip--meta",
+  temp: "harness-file-chip harness-file-chip--temp"
 };
 
 const STORAGE_KEY = "aig-harness-files-v1";
 
 /* Glass surface preset (Glassmorphism 2.0) */
-const GLASS =
-  "bg-white/70 backdrop-blur-md border border-white/70 ring-1 ring-inset ring-white/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_32px_-18px_rgba(79,70,229,0.25)]";
+const GLASS = "harness-glass";
 
 const IDE_TONE = {
-  workbench: "#ffffff",
-  sidebar: "#ffffff",
-  activity: "#eef3ff",
-  tab: "#eef3ff",
-  tabActive: "#ffffff",
-  border: "#d7def3",
-  hover: "#eef2ff",
-  pill: "#eef2ff",
-  status: "#5b4cf0",
-  accent: "#6d3df5",
-  accentDim: "#eef0ff",
-  text: "#1f2937",
-  muted: "#71809a",
-  muted2: "#9aa6bd",
-  code: "#111827",
-  codeMuted: "#0f7ea5",
-  divider: "#111827"
+  workbench: "var(--harness-ide-workbench)",
+  sidebar: "var(--harness-ide-sidebar)",
+  activity: "var(--harness-ide-activity)",
+  tab: "var(--harness-ide-tab)",
+  tabActive: "var(--harness-ide-tab-active)",
+  border: "var(--harness-ide-border)",
+  hover: "var(--harness-ide-hover)",
+  pill: "var(--harness-ide-pill)",
+  status: "var(--harness-ide-status)",
+  accent: "var(--harness-ide-accent)",
+  accentDim: "var(--harness-ide-accent-dim)",
+  text: "var(--harness-ide-text)",
+  muted: "var(--harness-ide-muted)",
+  muted2: "var(--harness-ide-muted-2)",
+  code: "var(--harness-ide-code)",
+  codeMuted: "var(--harness-ide-code-muted)",
+  divider: "var(--harness-ide-divider)"
 };
 
 function loadFiles(): Partial<Record<AgentFile["id"], string>> {
@@ -239,25 +238,25 @@ export default function Dev2HarnessPage() {
   const lineCount = useMemo(() => activeContent.split("\n").length, [activeContent]);
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#EEF2FF]">
+    <div className="dev2-harness-page relative min-h-screen overflow-hidden bg-[#EEF2FF]">
       {/* ─── Aurora / Mesh background ─── */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
         {/* Base mesh wash */}
         {/* Background grid */}
         {/* Grid pattern overlay */}
-        <div className="absolute inset-0 bg-grid-pattern opacity-[0.18]" />
+        <div className="harness-grid-overlay absolute inset-0 bg-grid-pattern opacity-[0.18]" />
         {/* Bottom fade to solid surface */}
-        <div className="absolute inset-x-0 bottom-0 h-[30vh] bg-gradient-to-b from-transparent to-slate-50" />
+        <div className="harness-page__fade absolute inset-x-0 bottom-0 h-[30vh]" />
       </div>
 
       <div className="relative max-w-6xl mx-auto px-6 pt-28 pb-16 space-y-6">
         {/* ── HEADER ── */}
         <section className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 animate-slide-up">
           <div className="min-w-0">
-            <h1 className="text-4xl md:text-5xl font-display font-bold text-gray-900 tracking-tight leading-[1.05] mb-3 text-balance">
+            <h1 className="harness-page__title text-4xl md:text-5xl font-display font-bold text-gray-900 tracking-tight leading-[1.05] mb-3 text-balance">
               에이전트 실행 환경 관리
             </h1>
-            <p className="text-[15px] text-gray-500 leading-relaxed max-w-2xl">
+            <p className="harness-page__subtitle text-[15px] text-gray-500 leading-relaxed max-w-2xl">
               에이전트가 세션에서 읽는 지침·행동 규칙·스킬 파일을 직접 수정합니다.
               저장된 내용은 새 풀이 세션부터 즉시 반영돼요.
             </p>
@@ -269,8 +268,8 @@ export default function Dev2HarnessPage() {
         {/* ── EDITOR BODY (VS Code style) ── */}
         <section className="relative">
           <div
-            className="rounded-xl overflow-hidden border-4 shadow-[0_0_0_1px_rgba(0,0,0,0.95),0_24px_60px_-24px_rgba(79,70,229,0.28)]"
-            style={{ backgroundColor: IDE_TONE.workbench, borderColor: "#020617" }}
+            className="harness-window rounded-xl overflow-hidden border-4 shadow-[0_0_0_1px_rgba(0,0,0,0.95),0_24px_60px_-24px_rgba(79,70,229,0.28)]"
+            style={{ backgroundColor: IDE_TONE.workbench, borderColor: IDE_TONE.border }}
           >
             {/* Window titlebar — VS Code on Windows style */}
             <div
@@ -548,7 +547,7 @@ export default function Dev2HarnessPage() {
                         lineHeight: "24px",
                         backgroundColor: IDE_TONE.workbench
                       }}
-                      className="flex-1 font-mono text-[13px] outline-none border-0 resize-none pt-4 pb-4 pr-6 overflow-y-auto selection:bg-indigo-200 selection:text-gray-950"
+                      className="harness-textarea-v2 flex-1 font-mono text-[13px] outline-none border-0 resize-none pt-4 pb-4 pr-6 overflow-y-auto selection:bg-indigo-200 selection:text-gray-950"
                     />
                   </div>
                 ) : (
@@ -557,7 +556,7 @@ export default function Dev2HarnessPage() {
                     style={{ minHeight: "460px", backgroundColor: IDE_TONE.workbench }}
                   >
                     <div
-                      className="text-[14px] text-gray-800 leading-relaxed
+                      className="harness-preview text-[14px] text-gray-800 leading-relaxed
                         [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-gray-950 [&_h1]:mb-4 [&_h1]:mt-0 [&_h1]:pb-2 [&_h1]:border-b [&_h1]:border-indigo-100
                         [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-gray-950 [&_h2]:mt-6 [&_h2]:mb-2.5
                         [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-gray-700 [&_h3]:mt-4 [&_h3]:mb-2
@@ -602,13 +601,13 @@ export default function Dev2HarnessPage() {
 
         {/* ── INFO BANNER (glass) ── */}
         <section className={`rounded-2xl px-5 py-4 ${GLASS}`}>
-          <div className="text-sm text-gray-700 leading-relaxed">
+          <div className="harness-info-copy text-sm text-gray-700 leading-relaxed">
             <strong className="font-bold text-gray-900">실행 환경 안내 · </strong>
-            <code className="font-mono text-xs bg-white/70 ring-1 ring-white/80 px-1.5 py-0.5 rounded">HARNESS.md</code>
+            <code className="harness-inline-code font-mono text-xs bg-white/70 ring-1 ring-white/80 px-1.5 py-0.5 rounded">HARNESS.md</code>
             <span className="mx-1">+</span>
-            <code className="font-mono text-xs bg-white/70 ring-1 ring-white/80 px-1.5 py-0.5 rounded">instuction.md</code>
+            <code className="harness-inline-code font-mono text-xs bg-white/70 ring-1 ring-white/80 px-1.5 py-0.5 rounded">instuction.md</code>
             는 모든 세션의 에이전트 프롬프트에 주입됩니다.
-            <code className="font-mono text-xs bg-white/70 ring-1 ring-white/80 px-1.5 py-0.5 rounded ml-1">.sandbox</code>는
+            <code className="harness-inline-code font-mono text-xs bg-white/70 ring-1 ring-white/80 px-1.5 py-0.5 rounded ml-1">.sandbox</code>는
             실험용이며 세션 평가·리포트 생성에 영향을 주지 않아요.
             API 키 관리는{" "}
             <a

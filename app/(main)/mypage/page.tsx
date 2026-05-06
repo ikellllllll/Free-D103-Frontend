@@ -337,7 +337,7 @@ export default function Dev2MyPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#EEF2FF] overflow-hidden">
+    <div className="dev2-mypage-page relative min-h-screen bg-[#EEF2FF] overflow-hidden">
       {/* Background grid */}
       <div className="absolute top-0 left-0 right-0 h-[800px] pointer-events-none overflow-hidden">
         <div className="absolute inset-0 bg-grid-pattern opacity-30" />
@@ -418,11 +418,10 @@ export default function Dev2MyPage() {
                 {/* Top row: profile summary */}
                 <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_1fr] gap-3 items-stretch">
                   {/* Avatar + info */}
-                  <div className="relative overflow-hidden bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 flex items-center gap-4 min-h-[132px]">
+                  <div className="dev2-mypage-profile-card relative overflow-hidden bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 flex items-center gap-4 min-h-[132px]">
                     {/* Subtle gradient top */}
                     <div
-                      className="absolute inset-y-0 left-0 w-24 opacity-60"
-                      style={{ background: "linear-gradient(90deg, #eef2ff 0%, transparent 100%)" }}
+                      className="dev2-mypage-profile-card__wash absolute inset-y-0 left-0 w-24 opacity-60"
                       aria-hidden="true"
                     />
                     <div className="relative shrink-0">

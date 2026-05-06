@@ -11921,6 +11921,341 @@ html[data-theme="light"] .dev2-ide-shell .monaco-editor .margin,
   background-color: #ffffff !important;
 }
 
+/* ─── Dev2 Dark UX refinements ───────────────────────────────── */
+.dev2-auth-page-lite {
+  background:
+    radial-gradient(circle at 14% 0%, rgba(79, 70, 229, 0.15), transparent 28%),
+    radial-gradient(circle at 88% 18%, rgba(20, 184, 166, 0.10), transparent 24%),
+    #0f1221 !important;
+  color: #eef2ff;
+}
+
+html[data-theme="light"] .dev2-auth-page-lite {
+  background:
+    radial-gradient(circle at 14% 0%, rgba(79, 70, 229, 0.10), transparent 28%),
+    radial-gradient(circle at 88% 18%, rgba(20, 184, 166, 0.08), transparent 24%),
+    linear-gradient(180deg, #f8fbff 0%, #eef2ff 100%) !important;
+  color: #111827;
+}
+
+html[data-theme="light"] .dev2-auth-page-lite__brand {
+  color: #111827 !important;
+}
+
+html[data-theme="dark"] .login-v0-lite__card {
+  border-color: rgba(148, 163, 184, 0.18) !important;
+  background:
+    linear-gradient(180deg, rgba(23, 29, 49, 0.98), rgba(16, 21, 39, 0.97)) !important;
+  box-shadow:
+    0 28px 70px -28px rgba(0, 0, 0, 0.62),
+    0 16px 38px -26px rgba(99, 102, 241, 0.42) !important;
+}
+
+html[data-theme="dark"] .login-v0-lite__card::before {
+  background:
+    radial-gradient(circle at top, rgba(139, 140, 255, 0.18), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 30%);
+}
+
+html[data-theme="dark"] .login-v0-lite__card:hover {
+  border-color: rgba(139, 140, 255, 0.36) !important;
+  box-shadow:
+    0 34px 78px -30px rgba(0, 0, 0, 0.72),
+    0 18px 42px -26px rgba(139, 140, 255, 0.48) !important;
+}
+
+html[data-theme="dark"] .login-v0-lite__card :is(.text-gray-900, .text-gray-800) {
+  color: #eef2ff !important;
+}
+
+html[data-theme="dark"] .login-v0-lite__card :is(.text-gray-700, .text-gray-600) {
+  color: #cbd5e1 !important;
+}
+
+html[data-theme="dark"] .login-v0-lite__card :is(.text-gray-500, .text-gray-400),
+html[data-theme="dark"] .login-v0-lite__intro,
+html[data-theme="dark"] .login-v0-lite__divider {
+  color: #94a3b8 !important;
+}
+
+html[data-theme="dark"] .login-v0-lite__divider > div {
+  background: #2c344d !important;
+}
+
+html[data-theme="dark"] .auth-input,
+html[data-theme="dark"] .login-v0-lite__input {
+  border-color: #303a59 !important;
+  background: rgba(15, 23, 42, 0.72) !important;
+  color: #eef2ff !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+}
+
+html[data-theme="dark"] .auth-input::placeholder {
+  color: #77829e !important;
+}
+
+html[data-theme="dark"] .auth-input:hover,
+html[data-theme="dark"] .login-v0-lite__input:hover {
+  border-color: rgba(139, 140, 255, 0.42) !important;
+}
+
+html[data-theme="dark"] .auth-input:focus,
+html[data-theme="dark"] .login-v0-lite__input:focus {
+  border-color: #8b8cff !important;
+  background: rgba(23, 29, 49, 0.92) !important;
+  box-shadow:
+    0 0 0 4px rgba(139, 140, 255, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+html[data-theme="dark"] .login-v0-lite__field-label {
+  color: #e2e8f0 !important;
+}
+
+html[data-theme="dark"] .login-v0-lite__field:focus-within .login-v0-lite__field-label,
+html[data-theme="dark"] .login-v0-lite__text-link {
+  color: #a5b4fc !important;
+}
+
+html[data-theme="dark"] .login-v0-lite__text-link:hover {
+  color: #c4b5fd !important;
+}
+
+html[data-theme="dark"] .login-v0-lite__social,
+html[data-theme="dark"] .login-v0-lite__secondary-button {
+  border-color: #303a59 !important;
+  background:
+    linear-gradient(180deg, rgba(32, 40, 64, 0.98), rgba(23, 29, 49, 0.98)) !important;
+  color: #eef2ff !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+html[data-theme="dark"] .login-v0-lite__social:hover,
+html[data-theme="dark"] .login-v0-lite__secondary-button:hover:not(:disabled) {
+  border-color: rgba(139, 140, 255, 0.48) !important;
+  background:
+    linear-gradient(180deg, rgba(40, 50, 79, 0.98), rgba(23, 29, 49, 0.98)) !important;
+}
+
+html[data-theme="dark"] .login-v0-lite__social img {
+  filter: invert(1) brightness(1.05);
+}
+
+html[data-theme="dark"] .login-v0-lite__social-arrow,
+html[data-theme="dark"] .login-v0-lite__peek {
+  color: #94a3b8 !important;
+}
+
+html[data-theme="dark"] .login-v0-lite__social:hover .login-v0-lite__social-arrow,
+html[data-theme="dark"] .login-v0-lite__peek:hover {
+  color: #eef2ff !important;
+}
+
+.dev2-problem-detail {
+  background: var(--dev2-app-bg) !important;
+}
+
+.dev2-problem-detail__hero-wash {
+  background-image:
+    linear-gradient(135deg, rgba(238, 242, 255, 0.9) 0%, rgba(250, 245, 255, 0.6) 60%, rgba(255, 255, 255, 0) 100%);
+}
+
+html[data-theme="dark"] .dev2-problem-detail__hero {
+  border-color: #2c344d !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 46%),
+    #171b2d !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 42px -24px rgba(0, 0, 0, 0.62) !important;
+}
+
+html[data-theme="dark"] .dev2-problem-detail__hero-wash {
+  opacity: 1 !important;
+  background-image:
+    radial-gradient(circle at 10% 0%, rgba(139, 140, 255, 0.14), transparent 38%),
+    linear-gradient(135deg, rgba(94, 234, 212, 0.08) 0%, rgba(139, 140, 255, 0.09) 54%, transparent 100%);
+}
+
+html[data-theme="dark"] .dev2-problem-detail__hero :is(h1, p) {
+  color: #eef2ff !important;
+}
+
+.dev2-mypage-page {
+  background: var(--dev2-app-bg) !important;
+}
+
+.dev2-mypage-profile-card__wash {
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.14) 0%, transparent 100%);
+}
+
+html[data-theme="dark"] .dev2-mypage-profile-card {
+  border-color: #2c344d !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 44%),
+    #171b2d !important;
+}
+
+html[data-theme="dark"] .dev2-mypage-profile-card__wash {
+  opacity: 0.36 !important;
+  background:
+    linear-gradient(90deg, rgba(139, 140, 255, 0.20) 0%, rgba(94, 234, 212, 0.06) 58%, transparent 100%);
+}
+
+.dev2-harness-page {
+  --harness-title: #111827;
+  --harness-muted: #64748b;
+  --harness-page-bg: #f6f7fb;
+  --harness-page-fade: linear-gradient(180deg, transparent 0%, #f6f7fb 100%);
+  --harness-glass-bg: rgba(255, 255, 255, 0.74);
+  --harness-glass-border: rgba(255, 255, 255, 0.78);
+  --harness-glass-ring: rgba(255, 255, 255, 0.62);
+  --harness-inline-bg: rgba(255, 255, 255, 0.78);
+  --harness-inline-border: rgba(255, 255, 255, 0.84);
+  --harness-ide-workbench: #ffffff;
+  --harness-ide-sidebar: #ffffff;
+  --harness-ide-activity: #eef3ff;
+  --harness-ide-tab: #eef3ff;
+  --harness-ide-tab-active: #ffffff;
+  --harness-ide-border: #0f172a;
+  --harness-ide-hover: #eef2ff;
+  --harness-ide-pill: #eef2ff;
+  --harness-ide-status: #5b4cf0;
+  --harness-ide-accent: #6d3df5;
+  --harness-ide-accent-dim: #eef0ff;
+  --harness-ide-text: #1f2937;
+  --harness-ide-muted: #71809a;
+  --harness-ide-muted-2: #9aa6bd;
+  --harness-ide-code: #111827;
+  --harness-ide-code-muted: #0f7ea5;
+  --harness-ide-divider: #d7def3;
+  background: var(--harness-page-bg) !important;
+  color: var(--harness-title);
+}
+
+html[data-theme="dark"] .dev2-harness-page {
+  --harness-title: #eef2ff;
+  --harness-muted: #a6b0cb;
+  --harness-page-bg: #0f1221;
+  --harness-page-fade: linear-gradient(180deg, transparent 0%, #0f1221 100%);
+  --harness-glass-bg: rgba(23, 29, 49, 0.82);
+  --harness-glass-border: rgba(148, 163, 184, 0.18);
+  --harness-glass-ring: rgba(255, 255, 255, 0.04);
+  --harness-inline-bg: rgba(32, 40, 64, 0.94);
+  --harness-inline-border: rgba(148, 163, 184, 0.18);
+  --harness-ide-workbench: #111827;
+  --harness-ide-sidebar: #171d31;
+  --harness-ide-activity: #202840;
+  --harness-ide-tab: #202840;
+  --harness-ide-tab-active: #111827;
+  --harness-ide-border: #303a59;
+  --harness-ide-hover: rgba(139, 140, 255, 0.12);
+  --harness-ide-pill: rgba(139, 140, 255, 0.10);
+  --harness-ide-status: #4f46e5;
+  --harness-ide-accent: #8b8cff;
+  --harness-ide-accent-dim: rgba(139, 140, 255, 0.18);
+  --harness-ide-text: #eef2ff;
+  --harness-ide-muted: #a6b0cb;
+  --harness-ide-muted-2: #77829e;
+  --harness-ide-code: #eef2ff;
+  --harness-ide-code-muted: #5eead4;
+  --harness-ide-divider: #303a59;
+  color-scheme: dark;
+}
+
+.dev2-harness-page .harness-page__fade {
+  background: var(--harness-page-fade);
+}
+
+.dev2-harness-page .harness-page__title {
+  color: var(--harness-title) !important;
+}
+
+.dev2-harness-page .harness-page__subtitle,
+.dev2-harness-page .harness-info-copy {
+  color: var(--harness-muted) !important;
+}
+
+.dev2-harness-page .harness-window {
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.18),
+    0 24px 60px -24px rgba(79, 70, 229, 0.28) !important;
+}
+
+html[data-theme="dark"] .dev2-harness-page .harness-window {
+  box-shadow:
+    0 0 0 1px rgba(148, 163, 184, 0.12),
+    0 24px 64px -26px rgba(0, 0, 0, 0.72) !important;
+}
+
+.dev2-harness-page .harness-glass {
+  border: 1px solid var(--harness-glass-border);
+  background: var(--harness-glass-bg);
+  box-shadow:
+    inset 0 1px 0 var(--harness-glass-ring),
+    0 12px 32px -18px rgba(79, 70, 229, 0.25);
+  backdrop-filter: blur(14px);
+}
+
+.dev2-harness-page .harness-info-copy strong {
+  color: var(--harness-title) !important;
+}
+
+.dev2-harness-page .harness-inline-code {
+  border-color: var(--harness-inline-border) !important;
+  background: var(--harness-inline-bg) !important;
+  color: var(--harness-title) !important;
+  box-shadow: 0 0 0 1px var(--harness-inline-border) !important;
+}
+
+.dev2-harness-page .harness-file-chip {
+  border: 1px solid rgba(139, 140, 255, 0.18);
+}
+
+.dev2-harness-page .harness-file-chip--main {
+  background: var(--harness-ide-accent-dim);
+  color: var(--harness-ide-accent);
+}
+
+.dev2-harness-page .harness-file-chip--meta {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--harness-ide-muted);
+}
+
+.dev2-harness-page .harness-file-chip--temp {
+  background: rgba(251, 191, 36, 0.14);
+  color: #fbbf24;
+}
+
+.dev2-harness-page .harness-textarea-v2 {
+  color: var(--harness-ide-code) !important;
+}
+
+.dev2-harness-page .harness-preview,
+.dev2-harness-page .harness-preview :is(h1, h2, h3, p, li, strong) {
+  color: var(--harness-ide-code) !important;
+}
+
+.dev2-harness-page .harness-preview :is(h1, hr) {
+  border-color: var(--harness-ide-divider) !important;
+}
+
+.dev2-harness-page .harness-preview :is(ol, ul) ::marker {
+  color: var(--harness-ide-muted) !important;
+}
+
+.dev2-harness-page .harness-preview code {
+  background: var(--harness-inline-bg) !important;
+  color: var(--harness-ide-accent) !important;
+  box-shadow: 0 0 0 1px var(--harness-inline-border) !important;
+}
+
+.dev2-harness-page .harness-preview pre {
+  background: var(--harness-ide-sidebar) !important;
+  color: var(--harness-ide-code) !important;
+  box-shadow: 0 0 0 1px var(--harness-ide-divider) !important;
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in,

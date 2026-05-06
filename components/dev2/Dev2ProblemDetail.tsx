@@ -187,7 +187,7 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
   }
 
   return (
-    <div className="relative bg-[#EEF2FF] min-h-screen overflow-hidden">
+    <div className="dev2-problem-detail relative bg-[#EEF2FF] min-h-screen overflow-hidden">
       {/* Background grid */}
       <div className="absolute top-0 left-0 right-0 h-[700px] pointer-events-none overflow-hidden">
         <div className="absolute inset-0 bg-grid-pattern opacity-30" />
@@ -208,14 +208,10 @@ export function Dev2ProblemDetail({ problemId }: { problemId: string }) {
           <div className="space-y-6">
             {/* Hero Card */}
             <section
-              className="relative bg-white rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)] p-8 md:p-10 overflow-hidden animate-slide-up"
+              className="dev2-problem-detail__hero relative bg-white rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)] p-8 md:p-10 overflow-hidden animate-slide-up"
             >
               <div
-                className="absolute inset-0 pointer-events-none opacity-70"
-                style={{
-                  backgroundImage:
-                    "linear-gradient(135deg, rgba(238,242,255,0.9) 0%, rgba(250,245,255,0.6) 60%, rgba(255,255,255,0) 100%)"
-                }}
+                className="dev2-problem-detail__hero-wash absolute inset-0 pointer-events-none opacity-70"
               />
               <div className="relative flex items-start justify-between gap-4 mb-4">
                 <h1 className="text-3xl md:text-4xl font-display font-bold text-gray-900 tracking-tight leading-[1.15]">

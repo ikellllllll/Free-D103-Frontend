@@ -176,7 +176,7 @@ export default function SignupPage() {
                   type="button"
                   onClick={() => void checkEmailAvailability(true)}
                   disabled={emailChecking || emailChecked}
-                  className="shrink-0 rounded-2xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 transition-colors hover:border-indigo-300 hover:text-indigo-600 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
+                  className="login-v0-lite__secondary-button shrink-0 rounded-2xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 transition-colors hover:border-indigo-300 hover:text-indigo-600 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
                 >
                   {emailChecking ? "확인 중" : emailChecked ? "확인됨" : "중복 확인"}
                 </button>
