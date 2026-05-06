@@ -18,7 +18,7 @@ export async function createGithubOAuthAuthorizeUrl() {
   const state = createRandomState();
   window.sessionStorage.setItem(GITHUB_OAUTH_STATE_KEY, state);
 
-  const response = await fetch(`/api/auth/github/start?state=${encodeURIComponent(state)}`, {
+  const response = await fetch(`/oauth/github/start?state=${encodeURIComponent(state)}`, {
     headers: { Accept: "application/json" },
     cache: "no-store"
   });
