@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/common/Badge";
 import { Card } from "@/components/common/Card";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
-import { mockApi } from "@/lib/api/mockApi";
+import { feedbackApi } from "@/lib/api/feedbackApi";
 
 const toneMap = {
   good: "green",
@@ -18,7 +18,7 @@ export function FeedbackReport({ submissionId }: { submissionId: string }) {
   const { withPrefix } = useRouteScope();
   const { data: report, isLoading } = useQuery({
     queryKey: ["report", submissionId],
-    queryFn: () => mockApi.getReport(submissionId),
+    queryFn: () => feedbackApi.getFeedbackReport(submissionId),
     refetchInterval: (query) => (query.state.data?.status === "COMPLETED" ? false : 1500)
   });
 
@@ -49,7 +49,7 @@ export function FeedbackReport({ submissionId }: { submissionId: string }) {
       <Card className="report-hero">
         <div>
           <span className="eyebrow">제출 #{submissionId}</span>
-          <h1>피드백 리포트</h1>
+          <h1>{report.problemTitle ?? "피드백 리포트"}</h1>
           <p className="muted-copy">
             테스트 결과와 AI 활용 흐름을 함께 정리해, 무엇을 잘했고 무엇을 더 보완해야 하는지 한눈에 볼 수 있습니다.
           </p>

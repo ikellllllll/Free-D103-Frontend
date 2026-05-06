@@ -11,6 +11,7 @@ import { Card } from "@/components/common/Card";
 import { LangIcon } from "@/components/common/LangIcon";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
+import { problemApi } from "@/lib/api/problemApi";
 import { isBackendProblemId, sessionApi } from "@/lib/api/sessionApi";
 import type { ProblemDetail as ProblemDetailType } from "@/lib/types/problem";
 import type { ProblemLanguage } from "@/lib/types/session";
@@ -64,7 +65,10 @@ export function ProblemDetail({ problemId }: { problemId: string }) {
   const [byokKeys, setByokKeys] = useState<Record<string, string>>({});
   const { data: problem, isLoading, isError } = useQuery({
     queryKey: ["problem", problemId],
-    queryFn: () => mockApi.getProblemDetail(problemId)
+    queryFn: () =>
+      isBackendProblemId(problemId)
+        ? problemApi.getProblemDetail(problemId)
+        : mockApi.getProblemDetail(problemId)
   });
 
   useEffect(() => {

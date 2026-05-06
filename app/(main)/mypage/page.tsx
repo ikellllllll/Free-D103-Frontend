@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Key,
   Trophy,
@@ -125,6 +125,7 @@ const NAV_GROUPS: NavGroup[] = [
 
 export default function Dev2MyPage() {
   const { withPrefix } = useRouteScope();
+  const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const setAuthUser = useAuthStore((s) => s.setUser);
   const addToast = useUiStore((s) => s.addToast);
@@ -145,8 +146,25 @@ export default function Dev2MyPage() {
     enabled: !!user
   });
 
-  const name = data?.user.name ?? user?.name ?? "사용자";
-  const email = data?.user.email ?? user?.email ?? "user@email.com";
+  const { data: profile } = useQuery({
+    queryKey: ["me"],
+    queryFn: () => authApi.getMe(),
+    enabled: !!user
+  });
+
+  useEffect(() => {
+    if (!profile) return;
+    setAuthUser({
+      id: String(profile.userId),
+      name: profile.nickname,
+      email: profile.email,
+      provider: profile.provider,
+      createdAt: profile.createdAt
+    });
+  }, [profile, setAuthUser]);
+
+  const name = profile?.nickname ?? user?.name ?? data?.user.name ?? "사용자";
+  const email = profile?.email ?? user?.email ?? data?.user.email ?? "user@email.com";
   const initials = name.slice(0, 2).toUpperCase();
 
   const skills = useMemo(() => {
@@ -323,6 +341,7 @@ export default function Dev2MyPage() {
     try {
       const res = await authApi.updateNickname(next);
       setAuthUser({ name: res.nickname });
+      await queryClient.invalidateQueries({ queryKey: ["me"] });
       addToast("닉네임이 변경되었습니다.", "success");
       setEditingNickname(false);
       setNicknameInput("");

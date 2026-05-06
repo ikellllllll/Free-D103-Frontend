@@ -3,7 +3,7 @@ import { mockApi } from "@/lib/api/mockApi";
 import { normalizeApiDateTime, parseApiDateTime } from "@/lib/dateTime";
 import { createInitialSession } from "@/lib/mock-data";
 import type { AiMessage, TraceEvent } from "@/lib/types/ai";
-import type { ProblemLanguage, SolveSession, WorkspaceFile } from "@/lib/types/session";
+import type { ProblemLanguage, RunResult, SolveSession, TestRunResult, WorkspaceFile } from "@/lib/types/session";
 import type { AgentLlmCall, AgentPatch, AgentRunTrace, AgentSpan, AgentToolCall } from "@/lib/types/trace";
 
 interface ApiResponse<T> {
@@ -25,6 +25,39 @@ interface EndSessionResponse {
   problemSessionId: number;
   status?: "IN_PROGRESS" | "ENDED" | "EXPIRED";
   endedAt: string;
+}
+
+interface ExecutionResponse {
+  executionId: number;
+}
+
+interface ExecutionResultItemResponse {
+  testName: string;
+  status: string;
+  durationMs?: number | null;
+  message?: string | null;
+}
+
+interface GetExecutionResultResponse {
+  executionId: number;
+  status: "RUNNING" | "COMPLETED" | "FAILED" | string;
+  stdout?: string | null;
+  stderr?: string | null;
+  exitCode?: number | null;
+  total: number;
+  passed: number;
+  failed: number;
+  passRate?: number | null;
+  results: ExecutionResultItemResponse[];
+}
+
+interface HarnessBuildResponse {
+  sessionHarnessVersionId: number;
+  parentVersionId?: number | null;
+  versionNo: number;
+  compileStatus: string;
+  validErrors?: Array<{ path?: string | null; code?: string | null; message?: string | null }> | null;
+  runtimeConfig?: Record<string, unknown> | null;
 }
 
 interface FileTreeItemResponse {
@@ -160,6 +193,8 @@ interface AgentTraceListResult {
 }
 
 const EXTERNAL_SESSION_READY_DELAY_MS = 1600;
+const EXECUTION_POLL_INTERVAL_MS = 900;
+const EXECUTION_POLL_MAX_ATTEMPTS = 60;
 const WORKTREE_PREFIX = ".worktree/";
 const externalFileIdBySession = new Map<string, Map<string, number>>();
 
@@ -204,6 +239,7 @@ const normalizeWorktreePath = (path: string) =>
   path.startsWith(WORKTREE_PREFIX) ? path : `${WORKTREE_PREFIX}${path}`;
 const getFileName = (path: string) => path.split("/").pop() ?? path;
 const getFolderPath = (path: string) => path.split("/").slice(0, -1).join("/") || null;
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const resolveRememberedFileId = async (sessionId: string, path: string) => {
   const remembered = externalFileIdBySession.get(sessionId)?.get(path);
@@ -531,6 +567,37 @@ const toProblemLanguage = (language: StartSessionResponse["language"] | null | u
   return null;
 };
 
+const normalizeExecutionStatus = (status: string): RunResult["status"] =>
+  status === "COMPLETED" ? "COMPLETED" : "ERROR";
+
+const normalizeTestStatus = (status: string): "PASS" | "FAIL" => {
+  const normalized = status.toUpperCase();
+  return normalized === "PASS" || normalized === "PASSED" || normalized === "SUCCESS" || normalized === "SUCCESSFUL"
+    ? "PASS"
+    : "FAIL";
+};
+
+const toRunResult = (payload: GetExecutionResultResponse): RunResult => ({
+  status: normalizeExecutionStatus(payload.status),
+  stdout: payload.stdout ?? "",
+  stderr: payload.stderr ?? "",
+  exitCode: payload.exitCode ?? (payload.status === "COMPLETED" ? 0 : -1),
+  durationMs: payload.results.reduce((sum, item) => sum + (item.durationMs ?? 0), 0)
+});
+
+const toTestRunResult = (payload: GetExecutionResultResponse): TestRunResult => ({
+  total: payload.total,
+  passed: payload.passed,
+  failed: payload.failed,
+  results: payload.results.map((item, index) => ({
+    id: `${payload.executionId}-${index}`,
+    name: item.testName || `Test ${index + 1}`,
+    status: normalizeTestStatus(item.status),
+    time: item.durationMs == null ? "-" : `${item.durationMs}ms`,
+    detail: item.message ?? undefined
+  }))
+});
+
 export const sessionApi = {
   async startSession(
     problemId: string,
@@ -751,6 +818,53 @@ export const sessionApi = {
       content: input.content,
       language
     };
+  },
+
+  async startExecution(sessionId: string) {
+    const res = await authClient
+      .post(`api/v1/sessions/${sessionId}/executions`)
+      .json<ApiResponse<ExecutionResponse>>();
+
+    return String(res.data.executionId);
+  },
+
+  async getExecutionResult(executionId: string) {
+    const res = await authClient
+      .get(`api/v1/executions/${executionId}/results`)
+      .json<ApiResponse<GetExecutionResultResponse>>();
+
+    return res.data;
+  },
+
+  async runExecution(sessionId: string) {
+    const executionId = await this.startExecution(sessionId);
+    let payload = await this.getExecutionResult(executionId);
+
+    for (let attempt = 0; payload.status === "RUNNING" && attempt < EXECUTION_POLL_MAX_ATTEMPTS; attempt += 1) {
+      await wait(EXECUTION_POLL_INTERVAL_MS);
+      payload = await this.getExecutionResult(executionId);
+    }
+
+    if (payload.status === "RUNNING") {
+      throw new Error("실행 결과 대기 시간이 초과되었습니다.");
+    }
+
+    return {
+      executionId,
+      raw: payload,
+      runResult: toRunResult(payload),
+      testResult: toTestRunResult(payload)
+    };
+  },
+
+  async buildHarness(sessionId: string, baseModel: string) {
+    const res = await authClient
+      .post(`api/v1/ai/sessions/${sessionId}/harness/build`, {
+        json: { baseModel }
+      })
+      .json<ApiResponse<HarnessBuildResponse>>();
+
+    return res.data;
   },
 
   async endSession(sessionId: string) {

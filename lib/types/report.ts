@@ -12,6 +12,10 @@ export interface ScoreItem {
 export interface FeedbackReport {
   id: string;
   submissionId: string;
+  problemTitle?: string;
+  feedbackReportId?: string;
+  problemSessionId?: string;
+  agentTraceId?: string;
   status: "GENERATING" | "COMPLETED";
   generatedAt: string | null;
   testPassRate: number;

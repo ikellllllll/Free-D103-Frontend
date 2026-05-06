@@ -57,6 +57,16 @@ const bottomTabs: Array<{ id: BottomPanelTab; label: string }> = [
 ];
 
 const AI_REQUEST_QUOTA = 5;
+const DEFAULT_HARNESS_BASE_MODEL = "GPT_5_2";
+const HARNESS_BASE_MODELS = new Set([
+  "GPT_5_2",
+  "GPT_5",
+  "GPT_5_MINI",
+  "GPT_5_NANO",
+  "CLAUDE_4_5_SONNET",
+  "CLAUDE_4_5_OPUS",
+  "CLAUDE_4_5_HAIKU"
+]);
 const SOLVE_TIMER_INTERVAL_MS = 1000;
 const MAX_SELECTED_CODE_CHARS = 12000;
 const SIDEBAR_MIN_WIDTH = 220;
@@ -243,6 +253,8 @@ const reorderItems = (items: string[], fromId: string, toId: string, position: "
 const areStringArraysEqual = (left: string[], right: string[]) =>
   left.length === right.length && left.every((value, index) => value === right[index]);
 const getEditorLayoutStorageKey = (sessionId: string) => `${EDITOR_LAYOUT_STORAGE_PREFIX}:${sessionId}`;
+const resolveHarnessBaseModel = (model?: string | null) =>
+  model && HARNESS_BASE_MODELS.has(model) ? model : DEFAULT_HARNESS_BASE_MODEL;
 const pad2 = (value: number) => String(value).padStart(2, "0");
 const toTimestamp = (value?: string | null) => {
   if (!value) return Date.now();
@@ -1238,6 +1250,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const [testLoading, setTestLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [endSessionLoading, setEndSessionLoading] = useState(false);
+  const [agentBuildLoading, setAgentBuildLoading] = useState(false);
   const [extensionQuery, setExtensionQuery] = useState("");
   const [agentSnapshotVersion, setAgentSnapshotVersion] = useState(INITIAL_AGENT_SNAPSHOT_VERSION);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
@@ -2753,15 +2766,27 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const executeRun = useCallback(async () => {
     setRunLoading(true);
     try {
-      const result = await mockApi.runCode(sessionId);
-      setRunResult(result);
+      if (isBackendSessionId(sessionId)) {
+        const result = await sessionApi.runExecution(sessionId);
+        setRunResult(result.runResult);
+        setTestResult(result.testResult);
+        addToast(
+          result.raw.status === "COMPLETED"
+            ? `실행 완료: 공개 테스트 ${result.testResult.passed}/${result.testResult.total} 통과`
+            : "실행이 실패했습니다. 출력 패널을 확인하세요.",
+          result.raw.status === "COMPLETED" ? "success" : "error"
+        );
+      } else {
+        const result = await mockApi.runCode(sessionId);
+        setRunResult(result);
+      }
       refreshSession();
     } catch (error) {
       addToast(error instanceof Error ? error.message : "실행에 실패했습니다.", "error");
     } finally {
       setRunLoading(false);
     }
-  }, [addToast, sessionId, setRunResult]);
+  }, [addToast, sessionId, setRunResult, setTestResult]);
 
 
   const toggleExplorerSection = (key: ExplorerSectionKey) => {
@@ -3652,10 +3677,29 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   }, []);
 
   const handleTest = async () => {
+    if (unsavedPaths.length) {
+      const didSave = await savePaths([...unsavedPaths]);
+      if (!didSave) {
+        return;
+      }
+    }
+
     setTestLoading(true);
     try {
-      const result = await mockApi.runTests(sessionId);
-      setTestResult(result);
+      if (isBackendSessionId(sessionId)) {
+        const result = await sessionApi.runExecution(sessionId);
+        setRunResult(result.runResult);
+        setTestResult(result.testResult);
+        addToast(
+          result.raw.status === "COMPLETED"
+            ? `공개 테스트 ${result.testResult.passed}/${result.testResult.total} 통과`
+            : "테스트 실행이 실패했습니다. 출력 패널을 확인하세요.",
+          result.raw.status === "COMPLETED" ? "success" : "error"
+        );
+      } else {
+        const result = await mockApi.runTests(sessionId);
+        setTestResult(result);
+      }
       refreshSession();
     } catch (error) {
       addToast(error instanceof Error ? error.message : "테스트 실행에 실패했습니다.", "error");
@@ -3677,11 +3721,38 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     }
   };
 
-  const handleAgentBuild = () => {
-    const nextVersion = agentSnapshotVersion + 1;
+  const handleAgentBuild = async () => {
+    if (agentBuildLoading) {
+      return;
+    }
 
-    setAgentSnapshotVersion(nextVersion);
-    addToast(`Agent Build를 준비했습니다. 스냅샷 v0.${nextVersion}`, "success");
+    if (!isBackendSessionId(sessionId)) {
+      const nextVersion = agentSnapshotVersion + 1;
+      setAgentSnapshotVersion(nextVersion);
+      addToast(`Agent Build를 준비했습니다. 스냅샷 v0.${nextVersion}`, "success");
+      return;
+    }
+
+    setAgentBuildLoading(true);
+    try {
+      const baseModel = resolveHarnessBaseModel(session?.aiModel);
+      const result = await sessionApi.buildHarness(sessionId, baseModel);
+      setAgentSnapshotVersion(result.versionNo);
+      const errorCount = result.validErrors?.length ?? 0;
+
+      addToast(
+        result.compileStatus === "COMPLETED"
+          ? `Agent Build 완료: v0.${result.versionNo} (${baseModel})`
+          : `Agent Build 실패: 검증 오류 ${errorCount}개`,
+        result.compileStatus === "COMPLETED" ? "success" : "error"
+      );
+      await queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
+      await queryClient.invalidateQueries({ queryKey: ["agentTraces", sessionId] });
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : "Agent Build에 실패했습니다.", "error");
+    } finally {
+      setAgentBuildLoading(false);
+    }
   };
 
   const handleSend = async () => {
@@ -4192,7 +4263,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   <div key={result.id} className="test-row">
                     <span>{result.name}</span>
                     <Badge tone={result.status === "PASS" ? "green" : "red"}>{result.status}</Badge>
-                    <small>{result.time}</small>
+                    <small>{result.detail ? `${result.time} · ${result.detail}` : result.time}</small>
                   </div>
                 ))
               : null}
@@ -4434,13 +4505,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               type="button"
               className="ide-toolbar__btn"
               onClick={handleRun}
-              disabled={runLoading}
+              disabled={runLoading || testLoading}
               aria-label="실행"
               title="실행"
             >
               <Play size={13} strokeWidth={2} />
             </button>
-            <button type="button" className="ide-toolbar__btn" onClick={handleTest} disabled={testLoading}>
+            <button type="button" className="ide-toolbar__btn" onClick={handleTest} disabled={testLoading || runLoading}>
               {testLoading ? "..." : "테스트"}
             </button>
 
@@ -4997,9 +5068,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                     <button
                       type="button"
                       className="button button--primary button--tiny assistant-build-button"
-                      onClick={handleAgentBuild}
+                      onClick={() => void handleAgentBuild()}
+                      disabled={agentBuildLoading}
                     >
-                      Agent Build
+                      {agentBuildLoading ? "Build..." : "Agent Build"}
                     </button>
                   </div>
 

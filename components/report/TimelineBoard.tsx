@@ -4,12 +4,19 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { Card } from "@/components/common/Card";
+import { feedbackApi, isBackendFeedbackReportId } from "@/lib/api/feedbackApi";
 import { mockApi } from "@/lib/api/mockApi";
 
 export function TimelineBoard({ submissionId }: { submissionId: string }) {
   const { data: timeline = [], isLoading } = useQuery({
     queryKey: ["timeline", submissionId],
-    queryFn: () => mockApi.getTimeline(submissionId),
+    queryFn: async () => {
+      if (!isBackendFeedbackReportId(submissionId)) {
+        return mockApi.getTimeline(submissionId);
+      }
+      const report = await feedbackApi.getFeedbackReport(submissionId);
+      return report.timeline;
+    },
     refetchInterval: (query) => (query.state.data?.length ? false : 1500)
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);

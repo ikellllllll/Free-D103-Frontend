@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
-import { mockApi } from "@/lib/api/mockApi";
+import { feedbackApi } from "@/lib/api/feedbackApi";
 import { useAuthStore } from "@/store/authStore";
 import type { ScoreItem } from "@/lib/types/report";
 
@@ -61,20 +61,13 @@ export default function Dev2FeedbackReportPage({
 
   const { data: report, isLoading, isError } = useQuery({
     queryKey: ["report", submissionId],
-    queryFn: () => mockApi.getReport(submissionId),
+    queryFn: () => feedbackApi.getFeedbackReport(submissionId),
     refetchInterval: (q) => (q.state.data?.status === "COMPLETED" ? false : 1500)
   });
 
-  const { data: submission } = useQuery({
-    queryKey: ["submission", submissionId],
-    queryFn: () => mockApi.getSubmission(submissionId),
-    enabled: report?.status === "COMPLETED"
-  });
-
   const problemTitle = useMemo(() => {
-    // submission.problemId → lookup would require another fetch; fall back to a pleasant label
-    return "JWT 인증 플로우";
-  }, []);
+    return report?.problemTitle ?? "풀이 과제";
+  }, [report?.problemTitle]);
 
   const overallScore = useMemo(() => {
     if (!report?.scores?.length) return null;

@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
+import { feedbackApi, isBackendFeedbackReportId } from "@/lib/api/feedbackApi";
 import { mockApi } from "@/lib/api/mockApi";
 import type { TraceEvent, TraceType } from "@/lib/types/ai";
 
@@ -234,7 +235,13 @@ export default function Dev2TimelinePage({
 
   const { data: timeline = [], isLoading, isError } = useQuery({
     queryKey: ["timeline", submissionId],
-    queryFn: () => mockApi.getTimeline(submissionId),
+    queryFn: async () => {
+      if (!isBackendFeedbackReportId(submissionId)) {
+        return mockApi.getTimeline(submissionId);
+      }
+      const report = await feedbackApi.getFeedbackReport(submissionId);
+      return report.timeline;
+    },
     refetchInterval: (q) => (q.state.data?.length ? false : 1500)
   });
 
