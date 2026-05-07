@@ -224,7 +224,6 @@ interface EditorLayoutSnapshot {
 
 type SavePromptAction =
   | { type: "close-tab"; groupId: string; tabId: string; path: string }
-  | { type: "run" }
   | { type: "end-session" }
   | { type: "navigate"; href: string };
 
@@ -1252,7 +1251,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const [chatInput, setChatInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [editLoading, setEditLoading] = useState(false);
-  const [runLoading, setRunLoading] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [endSessionLoading, setEndSessionLoading] = useState(false);
@@ -2342,17 +2340,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       ? `${getFileName(savePromptAction.path)}을(를) 저장할까요?`
       : savePromptAction?.type === "navigate"
         ? "페이지를 이동하기 전에 저장할까요?"
-        : savePromptAction?.type === "end-session"
-          ? "세션을 종료하기 전에 저장할까요?"
-          : "실행 전에 저장할까요?";
+        : "세션을 종료하기 전에 저장할까요?";
   const savePromptDescription =
     savePromptAction?.type === "close-tab"
       ? "저장하지 않으면 이 파일의 마지막 저장 이후 변경 내용이 사라집니다."
       : savePromptAction?.type === "navigate"
         ? `${unsavedPaths.length}개의 저장되지 않은 파일이 있습니다. 저장하지 않으면 변경 내용이 사라질 수 있습니다.`
-        : savePromptAction?.type === "end-session"
-          ? `${unsavedPaths.length}개의 저장되지 않은 파일이 있습니다. 세션 종료 후에는 파일 저장, 실행, 제출이 차단될 수 있습니다.`
-          : `${unsavedPaths.length}개의 저장되지 않은 파일이 있습니다. 저장 후 실행하면 현재 수정사항으로 실행됩니다.`;
+        : `${unsavedPaths.length}개의 저장되지 않은 파일이 있습니다. 세션 종료 후에는 파일 저장, 실행, 제출이 차단될 수 있습니다.`;
   const solveElapsedMs = solveNow - toTimestamp(session?.createdAt);
   const solveElapsedLabel = formatSolveElapsed(solveElapsedMs);
   const estimateLimitMs = parseEstimateMs(problem?.estimate ?? "");
@@ -2806,32 +2800,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const saveAllDirtyFiles = useCallback(async () => {
     return savePaths(unsavedPaths);
   }, [savePaths, unsavedPaths]);
-
-  const executeRun = useCallback(async () => {
-    setRunLoading(true);
-    try {
-      if (isBackendSessionId(sessionId)) {
-        const result = await sessionApi.runExecution(sessionId);
-        setRunResult(result.runResult);
-        setTestResult(result.testResult);
-        addToast(
-          result.raw.status === "COMPLETED"
-            ? `실행 완료: 공개 테스트 ${result.testResult.passed}/${result.testResult.total} 통과`
-            : "실행이 실패했습니다. 출력 패널을 확인하세요.",
-          result.raw.status === "COMPLETED" ? "success" : "error"
-        );
-      } else {
-        const result = await mockApi.runCode(sessionId);
-        setRunResult(result);
-      }
-      refreshSession();
-    } catch (error) {
-      addToast(error instanceof Error ? error.message : "실행에 실패했습니다.", "error");
-    } finally {
-      setRunLoading(false);
-    }
-  }, [addToast, sessionId, setRunResult, setTestResult]);
-
 
   const toggleExplorerSection = (key: ExplorerSectionKey) => {
     setExplorerSections((state) => ({
@@ -3418,16 +3386,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     addToast("AI 제안을 에디터에 반영했습니다.", "success");
   };
 
-  const handleRun = async () => {
-    if (unsavedPaths.length) {
-      setSavePromptAction({ type: "run" });
-      setSavePromptOpen(true);
-      return;
-    }
-
-    await executeRun();
-  };
-
   const executeEndSession = useCallback(async () => {
     if (endSessionLoading) {
       return;
@@ -3496,12 +3454,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     } else if (savePromptAction.type === "navigate") {
       savedBackTargetRef.current = null;
       router.push(savePromptAction.href);
-    } else if (savePromptAction.type === "end-session") {
-      await executeEndSession();
     } else {
-      await executeRun();
+      await executeEndSession();
     }
-  }, [closeTabImmediate, discardFileChanges, executeEndSession, executeRun, router, savePromptAction, saving]);
+  }, [closeTabImmediate, discardFileChanges, executeEndSession, router, savePromptAction, saving]);
 
   const handleSavePromptSave = useCallback(async () => {
     if (!savePromptAction || saving) {
@@ -3522,12 +3478,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     } else if (savePromptAction.type === "navigate") {
       savedBackTargetRef.current = null;
       router.push(savePromptAction.href);
-    } else if (savePromptAction.type === "end-session") {
-      await executeEndSession();
     } else {
-      await executeRun();
+      await executeEndSession();
     }
-  }, [closeTabImmediate, executeEndSession, executeRun, router, savePaths, savePromptAction, saving, unsavedPaths]);
+  }, [closeTabImmediate, executeEndSession, router, savePaths, savePromptAction, saving, unsavedPaths]);
 
   useEffect(() => {
     const handleWindowKeydown = (event: KeyboardEvent) => {
@@ -5338,12 +5292,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               >
                 {saving
                   ? "저장 중..."
-                  : savePromptAction.type === "run"
-                    ? "저장 후 실행"
-                    : savePromptAction.type === "navigate"
-                      ? "저장 후 이동"
-                      : savePromptAction.type === "end-session"
-                        ? "저장 후 종료"
+                  : savePromptAction.type === "navigate"
+                    ? "저장 후 이동"
+                    : savePromptAction.type === "end-session"
+                      ? "저장 후 종료"
                       : "저장"}
               </button>
             </div>
