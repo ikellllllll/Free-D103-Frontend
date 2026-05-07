@@ -167,19 +167,27 @@ export default function MyPage() {
   const email = profile?.email ?? user?.email ?? data?.user.email ?? "user@email.com";
   const initials = name.slice(0, 2).toUpperCase();
 
+  // 신규 사용자: 제출 기록 + 진행 중 세션이 모두 0 이면 가입 직후로 간주
+  const isNewUser =
+    !data ||
+    ((data.history?.length ?? 0) === 0 && (data.resumableSessions?.length ?? 0) === 0);
+
   const skills = useMemo(() => {
     const base = (data?.avgScores ?? []) as { label: string; score: number }[];
     const find = (l: string, fallback: number) =>
       base.find((b) => b.label.includes(l))?.score ?? fallback;
 
+    // 신규 사용자에겐 가짜 점수 대신 0 표시 (집계 데이터 없음)
+    const fb = isNewUser ? 0 : null;
+
     return [
-      { label: "하네스 품질", score: find("하네스", 72) },
-      { label: "실행 품질", score: find("실행", 64) },
-      { label: "Trace 활용", score: find("트레이스", 58) },
-      { label: "프롬프트 설계", score: Math.round(find("하네스", 72) * 0.9) },
-      { label: "자기 피드백", score: Math.round(find("실행", 64) * 1.05) }
+      { label: "하네스 품질", score: fb ?? find("하네스", 72) },
+      { label: "실행 품질", score: fb ?? find("실행", 64) },
+      { label: "Trace 활용", score: fb ?? find("트레이스", 58) },
+      { label: "프롬프트 설계", score: fb ?? Math.round(find("하네스", 72) * 0.9) },
+      { label: "자기 피드백", score: fb ?? Math.round(find("실행", 64) * 1.05) }
     ];
-  }, [data]);
+  }, [data, isNewUser]);
 
   const avgSkill =
     Math.round(skills.reduce((a, s) => a + s.score, 0) / skills.length) || 0;
@@ -517,13 +525,13 @@ export default function MyPage() {
                   <ProfileStatRow
                     icon={Shield}
                     label="티어"
-                    value="Silver II"
-                    sub="다음 티어까지 조금 더"
+                    value={isNewUser ? "—" : "Silver II"}
+                    sub={isNewUser ? "첫 제출을 완료하면 티어가 부여돼요" : "다음 티어까지 조금 더"}
                     color="text-slate-500"
                     bg="bg-slate-50"
                     ring="ring-slate-200"
                   />
-                  <StreakGrassCard streak={7} />
+                  <StreakGrassCard streak={isNewUser ? 0 : 7} />
                 </div>
 
                 {/* Info row */}
@@ -917,7 +925,9 @@ function StreakGrassCard({ streak }: { streak: number }) {
       <div className="flex items-center justify-between gap-4 mb-3">
         <div>
           <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">연속 출석</div>
-          <div className="text-sm text-gray-500 leading-snug">하루씩 잔디를 심는 중</div>
+          <div className="text-sm text-gray-500 leading-snug">
+            {streak === 0 ? "첫 출석을 시작해보세요" : "하루씩 잔디를 심는 중"}
+          </div>
         </div>
         <div className="text-lg font-bold text-gray-900 tabular-nums shrink-0">{streak}일</div>
       </div>
