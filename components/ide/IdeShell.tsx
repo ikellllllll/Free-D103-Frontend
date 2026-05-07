@@ -1243,8 +1243,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const isDirtyRef = useRef(false);
   const savedBackTargetRef = useRef<string | null>(null);
   const sessionTimeoutHandledRef = useRef(false);
-  // IDE 가 처음 마운트된 시각 — session.createdAt 가 비어있을 때 타이머 fallback 으로 사용
-  const ideMountTimeRef = useRef<number>(Date.now());
+  // IDE 가 처음 마운트된 시각 — session.createdAt 가 비어있을 때 타이머 fallback 으로 사용.
+  // useState lazy init 으로 첫 렌더 한 번만 Date.now() 평가 → 매 렌더에서도 stable 보장.
+  const [ideMountTimeMs] = useState<number>(() => Date.now());
   const routerRef = useRef(router);
   const activeEditorGroupIdRef = useRef(INITIAL_EDITOR_GROUP_ID);
   const editorLayoutHydratedSessionRef = useRef<string | null>(null);
@@ -2396,11 +2397,14 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   // createdAt 이 없거나 파싱 실패면 IDE 마운트 시각으로 fallback.
   // toTimestamp 헬퍼는 비어있을 때 Date.now() 를 반환하는데 그건 매 렌더마다 새로 갱신되어
   // elapsed 가 항상 0 이 되는 함정이라 여기선 직접 createdAt 만 파싱해서 쓴다.
+  // 백엔드 createdAt 이 미래 시각 (timezone 혼동) 으로 해석되는 케이스도 마운트 시각 fallback.
   const parsedCreatedAtMs = session?.createdAt ? parseApiDateTime(session.createdAt)?.getTime() : null;
   const sessionStartMs =
-    typeof parsedCreatedAtMs === "number" && Number.isFinite(parsedCreatedAtMs)
+    typeof parsedCreatedAtMs === "number" &&
+    Number.isFinite(parsedCreatedAtMs) &&
+    parsedCreatedAtMs <= solveNow
       ? parsedCreatedAtMs
-      : ideMountTimeRef.current;
+      : ideMountTimeMs;
   const solveElapsedMs = Math.max(0, solveNow - sessionStartMs);
   const solveElapsedLabel = formatSolveElapsed(solveElapsedMs);
   const estimateLimitMs = parseEstimateMs(problem?.estimate ?? "");
