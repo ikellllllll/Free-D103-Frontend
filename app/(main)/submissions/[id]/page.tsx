@@ -59,12 +59,19 @@ export default function SubmissionProgressPage({
     refetchInterval: (q) => (q.state.data?.status === "COMPLETED" ? false : 1000)
   });
 
-  const submittedAtMs = submission
-    ? new Date(submission.submittedAt).getTime()
-    : Date.now();
+  // 페이지 진입 시점을 한 번만 stamp (어댑터의 submittedAt 이 폴링마다 갱신되는 깜빡임 방지)
+  const [submittedAtMs] = useState(() => Date.now());
   const submissionCompleted = submission?.status === "COMPLETED";
   const reportCompleted = report?.status === "COMPLETED";
   const overallDone = reportCompleted;
+
+  // submissionCompleted 가 처음 true 되는 시점의 시각을 freeze (stage3 시간 표시 안정화)
+  const [submissionCompletedAtMs, setSubmissionCompletedAtMs] = useState<number | null>(null);
+  useEffect(() => {
+    if (submissionCompleted && submissionCompletedAtMs === null) {
+      setSubmissionCompletedAtMs(Date.now());
+    }
+  }, [submissionCompleted, submissionCompletedAtMs]);
 
   // Live clock for running-stage elapsed display
   const [now, setNow] = useState(Date.now());
@@ -88,9 +95,10 @@ export default function SubmissionProgressPage({
   const subLogIndex = Math.floor(now / 1400) % subLogs.length;
 
   const steps: Step[] = useMemo(() => {
-    // Overall elapsed in seconds since submission arrived
-    const elapsedMs = Math.max(0, now - submittedAtMs);
-    // Fake: stage 1 finishes at ~0.3s, stage 2 at ~2.1s total.
+    // 페이지 진입 후 흐른 시간. submissionCompleted 되는 순간 freeze.
+    const liveNow = submissionCompletedAtMs ?? now;
+    const elapsedMs = Math.max(0, liveNow - submittedAtMs);
+    // stage 3 시간은 submission 완료 시점에 freeze.
     const stage3RunningMs = Math.max(0, elapsedMs - 2100);
     const stage3RunningSec = (stage3RunningMs / 1000).toFixed(1);
 
@@ -111,7 +119,12 @@ export default function SubmissionProgressPage({
         title: "코드 업로드",
         description: "소스 파일과 메타데이터를 성공적으로 받았습니다.",
         state: states[0],
-        suffix: states[0] === "done" ? "완료 · 0.3초" : "대기 중"
+        suffix:
+          states[0] === "done"
+            ? "완료 · 0.3초"
+            : states[0] === "running"
+              ? "진행 중"
+              : "대기"
       },
       {
         key: "static",
@@ -154,7 +167,7 @@ export default function SubmissionProgressPage({
               : "대기"
       }
     ];
-  }, [reportCompleted, submissionCompleted, submittedAtMs, now, subLogs, subLogIndex]);
+  }, [reportCompleted, submissionCompleted, submittedAtMs, submissionCompletedAtMs, now, subLogs, subLogIndex]);
 
   // Auto-redirect to report when everything is done
   useEffect(() => {
