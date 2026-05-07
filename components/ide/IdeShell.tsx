@@ -741,7 +741,9 @@ const getMaxBottomPanelHeight = (viewportHeight: number) => {
     return 220;
   }
 
-  return clamp(Math.round(viewportHeight * 0.3), 168, 360);
+  // 사용자가 BottomTray 를 충분히 위로 끌어올릴 수 있도록 max 를 viewport 의 ~55% 까지 허용.
+  // (이전: 0.3 비율 + 360 px 캡 — 너무 작아서 채점 결과 / 출력 보기 빡빡하다는 의견)
+  return clamp(Math.round(viewportHeight * 0.55), 168, 720);
 };
 
 const getFolderIconSpec = (folderName: string, folderPath: string | null, isOpen: boolean) => {
