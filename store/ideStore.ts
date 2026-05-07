@@ -3,7 +3,7 @@
 import { create } from "zustand";
 
 import type { AiEditSuggestion, AiMessage } from "@/lib/types/ai";
-import type { RunResult, TestRunResult, WorkspaceFile } from "@/lib/types/session";
+import type { RunResult, SubmissionResult, TestRunResult, WorkspaceFile } from "@/lib/types/session";
 
 export interface SelectionRange {
   startLineNumber: number;
@@ -13,7 +13,7 @@ export interface SelectionRange {
 }
 
 export type SidebarView = "explorer" | "search" | "extensions" | "trace" | "harness";
-export type BottomPanelTab = "output" | "tests" | "trace";
+export type BottomPanelTab = "output" | "tests" | "trace" | "submission";
 
 const isSameSelectionRange = (left: SelectionRange | null, right: SelectionRange | null) => {
   if (left === right) return true;
@@ -40,6 +40,9 @@ interface IdeState {
   messages: AiMessage[];
   runResult: RunResult | null;
   testResult: TestRunResult | null;
+  submissionResult: SubmissionResult | null;
+  submissionExecutionId: string | null;
+  submissionLoading: boolean;
   lastSavedAt: string | null;
   sidebarView: SidebarView;
   sidebarOpen: boolean;
@@ -66,6 +69,10 @@ interface IdeState {
   appendMessages: (messages: AiMessage[]) => void;
   setRunResult: (result: RunResult | null) => void;
   setTestResult: (result: TestRunResult | null) => void;
+  setSubmissionResult: (result: SubmissionResult | null) => void;
+  setSubmissionExecutionId: (id: string | null) => void;
+  setSubmissionLoading: (value: boolean) => void;
+  resetSubmission: () => void;
   setSidebarView: (value: SidebarView) => void;
   setSidebarOpen: (value: boolean) => void;
   toggleSidebar: () => void;
@@ -92,6 +99,9 @@ export const useIdeStore = create<IdeState>((set) => ({
   messages: [],
   runResult: null,
   testResult: null,
+  submissionResult: null,
+  submissionExecutionId: null,
+  submissionLoading: false,
   lastSavedAt: null,
   sidebarView: "explorer",
   sidebarOpen: true,
@@ -241,6 +251,11 @@ export const useIdeStore = create<IdeState>((set) => ({
     })),
   setRunResult: (result) => set({ runResult: result, bottomPanelOpen: true, bottomPanelTab: "output" }),
   setTestResult: (result) => set({ testResult: result, bottomPanelOpen: true, bottomPanelTab: "tests" }),
+  setSubmissionResult: (result) => set({ submissionResult: result }),
+  setSubmissionExecutionId: (id) => set({ submissionExecutionId: id }),
+  setSubmissionLoading: (value) => set({ submissionLoading: value }),
+  resetSubmission: () =>
+    set({ submissionExecutionId: null, submissionResult: null, submissionLoading: false }),
   setSidebarView: (value) => set({ sidebarView: value, sidebarOpen: true }),
   setSidebarOpen: (value) => set({ sidebarOpen: value }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
@@ -265,6 +280,9 @@ export const useIdeStore = create<IdeState>((set) => ({
       messages: [],
       runResult: null,
       testResult: null,
+      submissionResult: null,
+      submissionExecutionId: null,
+      submissionLoading: false,
       lastSavedAt: null,
       sidebarView: "explorer",
       sidebarOpen: true,

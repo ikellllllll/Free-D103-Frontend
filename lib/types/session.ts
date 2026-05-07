@@ -59,6 +59,22 @@ export interface Submission {
   readyAt: number;
 }
 
+/**
+ * IDE 안에서 보여줄 제출 채점 결과 스냅샷.
+ * - rawStatus 는 백엔드 실제 상태 (RUNNING/COMPLETED/FAILED) 를 그대로 보존.
+ * - startedAt / endedAt 은 elapsed 계산용 (백엔드는 진행률을 안 줘서 프론트가 측정).
+ */
+export interface SubmissionResult {
+  executionId: string;
+  rawStatus: "RUNNING" | "COMPLETED" | "FAILED";
+  total: number;
+  passed: number;
+  failed: number;
+  passRate: number;
+  startedAt: number;
+  endedAt: number | null;
+}
+
 export interface SessionListItem {
   sessionId: string;
   problemId: string;

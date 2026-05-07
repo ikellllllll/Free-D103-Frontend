@@ -16,6 +16,7 @@ import { LangIcon } from "@/components/common/LangIcon";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { TracePanel } from "@/components/ide/TracePanel";
 import { HarnessPanel } from "@/components/ide/HarnessPanel";
+import { SubmissionResultPanel } from "@/components/ide/SubmissionResultPanel";
 import { TraceWorkbench } from "@/components/ide/TraceWorkbench";
 import { useAiChat } from "@/hooks/useAiChat";
 import { mockApi } from "@/lib/api/mockApi";
@@ -52,6 +53,7 @@ const activityItems: Array<{ id: SidebarView; icon: string; label: string; descr
 const bottomTabs: Array<{ id: BottomPanelTab; label: string }> = [
   { id: "output", label: "출력" },
   { id: "tests", label: "테스트" },
+  { id: "submission", label: "제출" },
   { id: "trace", label: "Trace" }
 ];
 
@@ -1214,6 +1216,12 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const setBottomPanelOpen = useIdeStore((state) => state.setBottomPanelOpen);
   const setBottomPanelTab = useIdeStore((state) => state.setBottomPanelTab);
   const setBottomPanelHeight = useIdeStore((state) => state.setBottomPanelHeight);
+  const submissionResult = useIdeStore((state) => state.submissionResult);
+  const submissionExecutionId = useIdeStore((state) => state.submissionExecutionId);
+  const submissionLoading = useIdeStore((state) => state.submissionLoading);
+  const setSubmissionResult = useIdeStore((state) => state.setSubmissionResult);
+  const setSubmissionExecutionId = useIdeStore((state) => state.setSubmissionExecutionId);
+  const setSubmissionLoading = useIdeStore((state) => state.setSubmissionLoading);
   const theme = useThemeStore((state) => state.theme);
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
 
@@ -1312,6 +1320,41 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     queryKey: ["problem", session?.problemId],
     queryFn: () => problemApi.getProblemDetail(session!.problemId),
     enabled: !!session?.problemId && isApiProblem
+  });
+
+  // 제출 채점 결과 폴링 — handleSubmit 에서 submissionExecutionId 가 set 되면 활성화.
+  // terminal (COMPLETED/FAILED) 도달 시 refetchInterval=false 로 알아서 멈춤.
+  useQuery({
+    queryKey: ["submission-poll", submissionExecutionId],
+    queryFn: async () => {
+      const data = await sessionApi.getSubmissionResult(submissionExecutionId!);
+      const rawStatus = (data.rawStatus ?? "RUNNING") as "RUNNING" | "COMPLETED" | "FAILED";
+      const isTerminal = rawStatus === "COMPLETED" || rawStatus === "FAILED";
+
+      // 직전 store 상태에서 startedAt 을 보존해야 elapsed 계산이 안 깨짐.
+      const prev = useIdeStore.getState().submissionResult;
+      setSubmissionResult({
+        executionId: String(data.id),
+        rawStatus,
+        total: data.total ?? 0,
+        passed: data.passed ?? 0,
+        failed: data.failed ?? 0,
+        passRate: data.passRate ?? 0,
+        startedAt: prev?.startedAt ?? Date.now(),
+        endedAt: isTerminal ? Date.now() : null
+      });
+
+      if (isTerminal) {
+        setSubmissionLoading(false);
+      }
+      return data;
+    },
+    enabled: !!submissionExecutionId && submissionLoading && isBackendSessionId(sessionId),
+    refetchInterval: (q) => {
+      const status = q.state.data?.rawStatus;
+      if (status === "COMPLETED" || status === "FAILED") return false;
+      return 1000;
+    }
   });
 
   const activeEditorGroup = useMemo(
@@ -2270,6 +2313,11 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const bottomTabMeta: Record<BottomPanelTab, string> = {
     output: runResult ? `code ${runResult.exitCode}` : "ready",
     tests: testResult ? `${testResult.passed}/${testResult.total}` : "idle",
+    submission: submissionResult
+      ? submissionLoading
+        ? "채점중"
+        : `${submissionResult.passed}/${submissionResult.total}`
+      : "idle",
     trace: `${traces.length}`
   };
   const activityMeta: Record<SidebarView | "ai" | "output", string | null> = {
@@ -3706,12 +3754,30 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     setSubmitLoading(true);
     try {
       if (isBackendSessionId(sessionId)) {
-        // 백엔드 신규 endpoint: POST /sessions/{id}/submissions → executionId 반환.
-        // 그 후 /submissions/{executionId} 로 라우팅하면 폴링 페이지가 GET .../submission-results 호출.
+        // 제출 후 별도 페이지로 라우팅하는 대신 IDE 안 BottomTray "제출" 탭에서 폴링/표시.
+        // 라우팅을 끊은 이유:
+        //   1) 백엔드에 리포트 생성 기능이 아직 미구현이라 "리포트가 준비됐어요" 라는 페이지가 거짓
+        //   2) 제출은 한 세션에서 N번 가능 — 매번 페이지 이동하면 사용자 흐름이 끊김
         const { executionId } = await sessionApi.submitSession(sessionId);
-        addToast("제출이 생성되었습니다.", "success");
-        router.push(withPrefix(`/submissions/${executionId}`));
+        const idStr = String(executionId);
+
+        // 새 제출 시작 — 이전 결과는 마지막 1개만 보여주는 모델이라 덮어쓰기.
+        setSubmissionExecutionId(idStr);
+        setSubmissionResult({
+          executionId: idStr,
+          rawStatus: "RUNNING",
+          total: 0,
+          passed: 0,
+          failed: 0,
+          passRate: 0,
+          startedAt: Date.now(),
+          endedAt: null
+        });
+        setSubmissionLoading(true);
+        setBottomPanelTab("submission"); // 자동 포커스
+        addToast("제출했습니다. 채점 결과를 기다리는 중입니다.", "success");
       } else {
+        // mock 환경은 기존 페이지 흐름 유지 (백엔드 미연결 데모용).
         const submission = await mockApi.submitSession(sessionId);
         addToast("제출이 생성되었습니다.", "success");
         router.push(withPrefix(`/submissions/${submission.id}`));
@@ -4251,6 +4317,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   };
 
   const renderBottomPanel = () => {
+    if (bottomPanelTab === "submission") {
+      return <SubmissionResultPanel result={submissionResult} loading={submissionLoading} />;
+    }
+
     if (bottomPanelTab === "tests") {
       return (
         <div className="bottom-panel__body">
