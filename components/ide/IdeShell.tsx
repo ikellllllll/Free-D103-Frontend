@@ -3708,10 +3708,11 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     setSubmitLoading(true);
     try {
       if (isBackendSessionId(sessionId)) {
-        const result = await sessionApi.endSession(sessionId);
+        // 백엔드 신규 endpoint: POST /sessions/{id}/submissions → executionId 반환.
+        // 그 후 /submissions/{executionId} 로 라우팅하면 폴링 페이지가 GET .../submission-results 호출.
+        const { executionId } = await sessionApi.submitSession(sessionId);
         addToast("제출이 생성되었습니다.", "success");
-        // 백엔드에 별도 submission entity 가 없으므로 sessionId 를 submission key 로 사용
-        router.push(withPrefix(`/submissions/${result.problemSessionId}`));
+        router.push(withPrefix(`/submissions/${executionId}`));
       } else {
         const submission = await mockApi.submitSession(sessionId);
         addToast("제출이 생성되었습니다.", "success");

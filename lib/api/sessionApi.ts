@@ -872,5 +872,43 @@ export const sessionApi = {
       ...res.data,
       endedAt: normalizeApiDateTime(res.data.endedAt) ?? res.data.endedAt
     };
+  },
+
+  /** 코드 제출 — 새 Execution(SUBMISSION) 생성. executionId 반환. */
+  async submitSession(sessionId: string): Promise<{ executionId: number }> {
+    const res = await authClient
+      .post(`api/v1/sessions/${sessionId}/submissions`)
+      .json<ApiResponse<{ executionId: number }>>();
+    return res.data;
+  },
+
+  /** 제출 결과 폴링 — RUNNING/COMPLETED/FAILED + 카운트. */
+  async getSubmissionResult(executionId: string) {
+    const res = await authClient
+      .get(`api/v1/executions/${executionId}/submission-results`)
+      .json<ApiResponse<{
+        executionId: number;
+        status: string;
+        total: number;
+        passed: number;
+        failed: number;
+        passRate: number;
+      }>>();
+
+    // mock Submission 형식과 호환되도록 어댑터
+    const data = res.data;
+    return {
+      id: String(data.executionId),
+      sessionId: "",
+      status: data.status === "COMPLETED" ? "COMPLETED" as const : "PROCESSING" as const,
+      submittedAt: new Date().toISOString(),
+      readyAt: 0,
+      // 백엔드 추가 필드
+      total: data.total,
+      passed: data.passed,
+      failed: data.failed,
+      passRate: data.passRate,
+      rawStatus: data.status
+    };
   }
 };

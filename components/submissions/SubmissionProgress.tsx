@@ -9,15 +9,20 @@ import { Card } from "@/components/common/Card";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { feedbackApi } from "@/lib/api/feedbackApi";
 import { mockApi } from "@/lib/api/mockApi";
+import { isBackendSessionId, sessionApi } from "@/lib/api/sessionApi";
 
 type StepState = "done" | "current" | "pending";
 
 export function SubmissionProgress({ submissionId }: { submissionId: string }) {
   const router = useRouter();
   const { withPrefix } = useRouteScope();
+  const isBackendExecution = isBackendSessionId(submissionId);
   const { data: submission, isLoading, isError } = useQuery({
     queryKey: ["submission", submissionId],
-    queryFn: () => mockApi.getSubmission(submissionId),
+    queryFn: () =>
+      isBackendExecution
+        ? sessionApi.getSubmissionResult(submissionId)
+        : mockApi.getSubmission(submissionId),
     refetchInterval: (query) => (query.state.data?.status === "COMPLETED" ? false : 1200)
   });
   const { data: report } = useQuery({

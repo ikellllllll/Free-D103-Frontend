@@ -18,6 +18,7 @@ import {
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { feedbackApi } from "@/lib/api/feedbackApi";
 import { mockApi } from "@/lib/api/mockApi";
+import { isBackendSessionId, sessionApi } from "@/lib/api/sessionApi";
 
 type StepState = "done" | "running" | "pending";
 
@@ -42,9 +43,14 @@ export default function SubmissionProgressPage({
   const router = useRouter();
   const { withPrefix } = useRouteScope();
 
+  // backend executionId (numeric) 면 신규 endpoint 폴링, 아니면 mock fallback
+  const isBackendExecution = isBackendSessionId(submissionId);
   const { data: submission, isLoading, isError } = useQuery({
     queryKey: ["submission", submissionId],
-    queryFn: () => mockApi.getSubmission(submissionId),
+    queryFn: () =>
+      isBackendExecution
+        ? sessionApi.getSubmissionResult(submissionId)
+        : mockApi.getSubmission(submissionId),
     refetchInterval: (q) => (q.state.data?.status === "COMPLETED" ? false : 1000)
   });
   const { data: report } = useQuery({
