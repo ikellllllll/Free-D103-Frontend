@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Sun, Moon, Copy, Check, LogOut, Play, Save, Eye, PencilLine } from "lucide-react";
+import { Sun, Moon, Copy, Check, LogOut, Save, Eye, PencilLine } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { DragEvent as ReactDragEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
@@ -3388,11 +3388,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     setEndSessionLoading(true);
     try {
       if (isBackendSessionId(sessionId)) {
-        const result = await sessionApi.endSession(sessionId);
-        addToast(`세션이 종료되었습니다. 리포트 생성을 시작합니다. (${result.endedAt})`, "success");
-      } else {
-        addToast("세션이 종료되었습니다.", "success");
+        await sessionApi.endSession(sessionId);
       }
+      addToast("세션이 종료되었습니다.", "success");
 
       await queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
       await queryClient.invalidateQueries({ queryKey: ["sessions"] });
@@ -4505,17 +4503,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
             <span className="ide-toolbar__sep" />
 
-            <button
-              type="button"
-              className="ide-toolbar__btn"
-              onClick={handleRun}
-              disabled={runLoading || testLoading}
-              aria-label="실행"
-              title="실행"
-            >
-              <Play size={13} strokeWidth={2} />
-            </button>
-            <button type="button" className="ide-toolbar__btn" onClick={handleTest} disabled={testLoading || runLoading}>
+            <button type="button" className="ide-toolbar__btn" onClick={handleTest} disabled={testLoading}>
               {testLoading ? "..." : "테스트"}
             </button>
 

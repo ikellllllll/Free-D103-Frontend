@@ -194,7 +194,8 @@ interface AgentTraceListResult {
 
 const EXTERNAL_SESSION_READY_DELAY_MS = 1600;
 const EXECUTION_POLL_INTERVAL_MS = 900;
-const EXECUTION_POLL_MAX_ATTEMPTS = 60;
+// 자바 Gradle 콜드 빌드는 30~60초 흔하고, 테스트까지 합치면 90초 + α 가능. 134 × 900ms ≈ 120초.
+const EXECUTION_POLL_MAX_ATTEMPTS = 134;
 const WORKTREE_PREFIX = ".worktree/";
 const externalFileIdBySession = new Map<string, Map<string, number>>();
 
