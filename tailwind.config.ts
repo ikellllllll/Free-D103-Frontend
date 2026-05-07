@@ -1,6 +1,9 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  // ThemeStore 가 html[data-theme="dark"] 를 set 하므로 selector mode 로 매핑한다.
+  // 이래야 dark:* variant 가 의도대로 동작 (기존 prefers-color-scheme media 대신).
+  darkMode: ["selector", '[data-theme="dark"]'],
   content: [
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}"

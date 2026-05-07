@@ -198,9 +198,9 @@ const EXECUTION_POLL_INTERVAL_MS = 900;
 // 도커 러너 회귀검증 (108분 × 114 fixtures) 실측:
 //   Java: 평균 107s · max 300s (컨테이너 hard cap)
 //   Python: 평균 6.66s
-// runner hard cap 인 300s + 여유 ≈ 324s 로 잡음 (360 × 900ms).
-// 이보다 짧으면 정상 빌드인데도 프론트가 "대기 시간 초과" 로 끊을 위험.
-const EXECUTION_POLL_MAX_ATTEMPTS = 360;
+// 프로덕트 결정: 154초 (171 × 900ms ≈ 153.9s).
+// 너무 짧으면 정상 빌드를 끊을 위험, 너무 길면 사용자가 멈춘 줄 모름 — 평균치(107s) 위 약간 위.
+const EXECUTION_POLL_MAX_ATTEMPTS = 171;
 const WORKTREE_PREFIX = ".worktree/";
 const externalFileIdBySession = new Map<string, Map<string, number>>();
 

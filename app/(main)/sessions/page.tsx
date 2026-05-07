@@ -236,12 +236,12 @@ export default function SessionsPage() {
         </section>
 
         {/* ── FILTER BAR ── */}
-        <section className="relative rounded-2xl bg-white/70 backdrop-blur-md border border-white/70 ring-1 ring-inset ring-white/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_10px_24px_-18px_rgba(79,70,229,0.25)] px-4 sm:px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
+        <section className="relative rounded-2xl bg-white/70 dark:bg-slate-800/60 backdrop-blur-md border border-white/70 dark:border-slate-700/60 ring-1 ring-inset ring-white/60 dark:ring-slate-700/40 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_10px_24px_-18px_rgba(79,70,229,0.25)] px-4 sm:px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-bold uppercase tracking-[0.14em] text-gray-500 mr-1">
+            <span className="text-xs font-bold uppercase tracking-[0.14em] text-gray-500 dark:text-slate-300 mr-1">
               상태
             </span>
-            <div className="relative inline-flex p-1 rounded-full bg-slate-100/80 ring-1 ring-inset ring-slate-200/60">
+            <div className="relative inline-flex p-1 rounded-full bg-slate-100/80 dark:bg-slate-900/60 ring-1 ring-inset ring-slate-200/60 dark:ring-slate-700/60">
               {(["all", "done", "in_progress", "failed"] as Filter[]).map((f) => (
                 <button
                   key={f}
@@ -252,8 +252,8 @@ export default function SessionsPage() {
                   }}
                   className={`relative px-3.5 sm:px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                     filter === f
-                      ? "bg-white text-indigo-700 shadow-[0_1px_2px_rgba(17,24,39,0.06),0_6px_16px_-8px_rgba(79,70,229,0.35)]"
-                      : "text-gray-500 hover:text-gray-800"
+                      ? "bg-white dark:bg-slate-700 text-indigo-700 dark:text-indigo-200 shadow-[0_1px_2px_rgba(17,24,39,0.06),0_6px_16px_-8px_rgba(79,70,229,0.35)]"
+                      : "text-gray-500 dark:text-slate-400 hover:text-gray-800 dark:hover:text-white"
                   }`}
                 >
                   {FILTER_LABELS[f]}

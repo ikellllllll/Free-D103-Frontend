@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   BookOpen,
   History,
@@ -61,6 +61,26 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [paletteIndex, setPaletteIndex] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // 외부 클릭 / Escape 키로 사용자 메뉴 닫기
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setUserMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [userMenuOpen]);
 
   const handleLogout = async () => {
     const { tokens } = useAuthStore.getState();
@@ -218,7 +238,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {shortcutLabel}
               </kbd>
             </button>
-            <div className="relative">
+            <div className="relative" ref={userMenuRef}>
               <button
                 type="button"
                 onClick={() => setUserMenuOpen((v) => !v)}
@@ -242,9 +262,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <div className="w-8 h-8 rounded-full bg-white text-gray-600 border border-gray-200 flex items-center justify-center shrink-0 shadow-sm">
                       <User size={16} strokeWidth={2} />
                     </div>
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-gray-900 truncate">{user?.name ?? "사용자"}</div>
-                      <div className="text-xs text-gray-400 truncate">{user?.email ?? ""}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold text-gray-900 truncate" title={user?.name ?? ""}>
+                        {user?.name ?? "사용자"}
+                      </div>
+                      <div className="text-xs text-gray-400 truncate" title={user?.email ?? ""}>
+                        {user?.email ?? ""}
+                      </div>
                     </div>
                   </div>
 
