@@ -1531,14 +1531,27 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     }
   }, [setWorkspace, workspace]);
 
-  // 안전망: files 가 로드된 직후에도 activePath 가 비어있으면 README/우선 파일을 강제 활성화
-  // (editorGroups sync 가 늦거나, 다른 이펙트가 activePath 를 비워버린 케이스 보강)
+  // 안전망: files 가 로드된 직후에도 열린 탭이 없으면 README/우선 파일을 강제로 탭에 추가.
+  // setActivePath 만으로는 editorGroups (탭) state 가 자동 동기화되지 않아
+  // editorGroups 에도 직접 push.
   useEffect(() => {
     if (!files.length) return;
-    if (activePath && files.some((f) => f.path === activePath)) return;
+
+    const anyGroupHasTab = editorGroups.some((g) => g.tabIds.length > 0);
+    if (anyGroupHasTab) return;
+
     const initial = resolveInitialEditorPath(files);
-    if (initial) setActivePath(initial);
-  }, [activePath, files, setActivePath]);
+    if (!initial) return;
+
+    setActivePath(initial);
+    setEditorGroups((state) => {
+      const firstId = state[0]?.id ?? INITIAL_EDITOR_GROUP_ID;
+      return [
+        { id: firstId, tabIds: [initial], activeTabId: initial },
+        ...state.slice(1)
+      ];
+    });
+  }, [editorGroups, files, setActivePath]);
 
   const ensureBackendFileContent = useCallback(
     async (path: string) => {
@@ -2358,8 +2371,14 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       : savePromptAction?.type === "navigate"
         ? `${unsavedPaths.length}개의 저장되지 않은 파일이 있습니다. 저장하지 않으면 변경 내용이 사라질 수 있습니다.`
         : `${unsavedPaths.length}개의 저장되지 않은 파일이 있습니다. 세션 종료 후에는 파일 저장, 실행, 제출이 차단될 수 있습니다.`;
-  // createdAt 가 없거나 파싱 실패면 IDE 마운트 시각으로 fallback — 0:00 고정 방지
-  const sessionStartMs = toTimestamp(session?.createdAt) || ideMountTimeRef.current;
+  // createdAt 이 없거나 파싱 실패면 IDE 마운트 시각으로 fallback.
+  // toTimestamp 헬퍼는 비어있을 때 Date.now() 를 반환하는데 그건 매 렌더마다 새로 갱신되어
+  // elapsed 가 항상 0 이 되는 함정이라 여기선 직접 createdAt 만 파싱해서 쓴다.
+  const parsedCreatedAtMs = session?.createdAt ? parseApiDateTime(session.createdAt)?.getTime() : null;
+  const sessionStartMs =
+    typeof parsedCreatedAtMs === "number" && Number.isFinite(parsedCreatedAtMs)
+      ? parsedCreatedAtMs
+      : ideMountTimeRef.current;
   const solveElapsedMs = Math.max(0, solveNow - sessionStartMs);
   const solveElapsedLabel = formatSolveElapsed(solveElapsedMs);
   const estimateLimitMs = parseEstimateMs(problem?.estimate ?? "");
