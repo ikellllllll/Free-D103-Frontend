@@ -194,8 +194,12 @@ interface AgentTraceListResult {
 
 const EXTERNAL_SESSION_READY_DELAY_MS = 1600;
 const EXECUTION_POLL_INTERVAL_MS = 900;
-// 자바 Gradle 콜드 빌드는 30~60초 흔하고, 테스트까지 합치면 90초 + α 가능. 134 × 900ms ≈ 120초.
-const EXECUTION_POLL_MAX_ATTEMPTS = 134;
+// 도커 러너 회귀검증 (108분 × 114 fixtures) 실측:
+//   Java: 평균 107s · max 300s (컨테이너 hard cap)
+//   Python: 평균 6.66s
+// runner hard cap 인 300s + 여유 ≈ 324s 로 잡음 (360 × 900ms).
+// 이보다 짧으면 정상 빌드인데도 프론트가 "대기 시간 초과" 로 끊을 위험.
+const EXECUTION_POLL_MAX_ATTEMPTS = 360;
 const WORKTREE_PREFIX = ".worktree/";
 const externalFileIdBySession = new Map<string, Map<string, number>>();
 
