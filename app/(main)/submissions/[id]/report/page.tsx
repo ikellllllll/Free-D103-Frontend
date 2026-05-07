@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { use, useMemo } from "react";
@@ -50,7 +50,7 @@ const METRIC_CONFIG: {
   }
 ];
 
-export default function Dev2FeedbackReportPage({
+export default function FeedbackReportPage({
   params
 }: {
   params: Promise<{ id: string }>;

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -10,17 +10,17 @@ import { useUiStore } from "@/store/uiStore";
 
 export function GithubOAuthCallbackStatus() {
   return (
-    <div className="dev2-auth-gate" role="status" aria-live="polite">
-      <div className="dev2-auth-gate__panel">
-        <div className="dev2-auth-gate__brand">
-          <span className="dev2-auth-gate__mark">A</span>
+    <div className="auth-gate" role="status" aria-live="polite">
+      <div className="auth-gate__panel">
+        <div className="auth-gate__brand">
+          <span className="auth-gate__mark">A</span>
           <span>AIG</span>
         </div>
-        <div className="dev2-auth-gate__copy">
+        <div className="auth-gate__copy">
           <span>GitHub 로그인 처리 중</span>
           <strong>인증 결과를 확인하고 있습니다.</strong>
         </div>
-        <div className="dev2-auth-gate__bar" aria-hidden="true">
+        <div className="auth-gate__bar" aria-hidden="true">
           <span />
         </div>
       </div>

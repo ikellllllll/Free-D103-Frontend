@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { use, useMemo, useState } from "react";
@@ -218,7 +218,7 @@ function bumpTime(t: string, fraction: number) {
 
 /* ─── Component ─── */
 
-export default function Dev2TimelinePage({
+export default function TimelinePage({
   params
 }: {
   params: Promise<{ id: string }>;

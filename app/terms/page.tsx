@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft, Shield, FileText, AlertTriangle } from "lucide-react";
 
-export default function Dev2TermsPage() {
+export default function TermsPage() {
   const updatedAt = "2026년 4월 22일";
 
   return (

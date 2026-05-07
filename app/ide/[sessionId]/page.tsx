@@ -1,6 +1,6 @@
-import { IdeShell } from "@/components/ide/IdeShell";
+﻿import { IdeShell } from "@/components/ide/IdeShell";
 
-export default async function Dev2IdePage({
+export default async function IdePage({
   params
 }: {
   params: Promise<{ sessionId: string }>;

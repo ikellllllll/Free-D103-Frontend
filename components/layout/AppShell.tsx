@@ -41,7 +41,7 @@ type PaletteItem = {
   icon: LucideIcon;
 };
 
-export function Dev2Shell({ children }: { children: ReactNode }) {
+export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { currentPath, withPrefix } = useRouteScope();
   const user = useAuthStore((s) => s.user);
@@ -173,7 +173,7 @@ export function Dev2Shell({ children }: { children: ReactNode }) {
   }, [paletteOpen, filteredItems, paletteIndex, router, withPrefix]);
 
   return (
-    <div className="dev2-app-shell min-h-screen bg-white font-sans">
+    <div className="main-app-shell min-h-screen bg-white font-sans">
       {/* ── Topbar ── */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-b border-gray-200 shadow-sm pointer-events-auto">
         <div className="h-14 max-w-6xl mx-auto flex items-center justify-between px-6">

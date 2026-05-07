@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -25,17 +25,17 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (!hydrated || !user) {
     return (
-      <div className="dev2-auth-gate" role="status" aria-live="polite">
-        <div className="dev2-auth-gate__panel">
-          <div className="dev2-auth-gate__brand">
-            <span className="dev2-auth-gate__mark">A</span>
+      <div className="auth-gate" role="status" aria-live="polite">
+        <div className="auth-gate__panel">
+          <div className="auth-gate__brand">
+            <span className="auth-gate__mark">A</span>
             <span>AIG</span>
           </div>
-          <div className="dev2-auth-gate__copy">
+          <div className="auth-gate__copy">
             <span>세션 확인 중</span>
             <strong>작업 공간을 준비하고 있습니다.</strong>
           </div>
-          <div className="dev2-auth-gate__bar" aria-hidden="true">
+          <div className="auth-gate__bar" aria-hidden="true">
             <span />
           </div>
         </div>

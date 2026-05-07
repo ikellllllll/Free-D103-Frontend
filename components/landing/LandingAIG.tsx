@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -193,7 +193,7 @@ export function LandingAIG() {
   );
 
   return (
-    <div className="dev2-landing-scroll w-full max-w-none bg-[#0F0F2E] font-sans">
+    <div className="landing-scroll w-full max-w-none bg-[#0F0F2E] font-sans">
       {/* ────────────────── HERO SECTION (Dark) ────────────────── */}
       <section
         ref={setSectionRef("hero")}
@@ -265,14 +265,14 @@ export function LandingAIG() {
           </div>
         </div>
 
-        {/* ── Floating preview — extends into showcase section (like /dev) ── */}
+        {/* ── Floating preview — extends into showcase section ── */}
         <div
           ref={previewRef}
           className="relative z-20 flex justify-center px-6 md:px-10"
           style={{ marginBottom: "-160px" }}
         >
           <div className="w-full max-w-5xl">
-            {/* Glass frame — padding + backdrop + deep shadow (like /dev v3-glass-frame) */}
+            {/* Glass frame — padding + backdrop + deep shadow */}
             <div
               className="relative rounded-[20px] overflow-hidden backdrop-blur-sm"
               style={{

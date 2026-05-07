@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { use, useEffect, useMemo, useState } from "react";
@@ -32,7 +32,7 @@ type Step = {
   subLog?: string;
 };
 
-export default function Dev2SubmissionProgressPage({
+export default function SubmissionProgressPage({
   params
 }: {
   params: Promise<{ id: string }>;

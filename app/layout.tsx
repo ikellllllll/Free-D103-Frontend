@@ -4,7 +4,6 @@ import { IBM_Plex_Sans_KR, Inter, JetBrains_Mono, Space_Grotesk } from "next/fon
 import { RouteScopeProvider } from "@/components/routing/RouteScopeProvider";
 
 import "./globals.css";
-import "./v0-dev.css";
 import "monaco-editor/esm/vs/base/browser/ui/codicons/codicon/codicon.css";
 import Providers from "./providers";
 

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -349,7 +349,7 @@ function SkeletonCard() {
 // ────────────────────────────────────────────────
 // Page
 // ────────────────────────────────────────────────
-export default function Dev2ProblemsPage() {
+export default function ProblemsPage() {
   const { withPrefix } = useRouteScope();
   const [search, setSearch] = useState("");
   const [level, setLevel] = useState<ProblemLevel | "ALL">("ALL");
@@ -491,14 +491,14 @@ export default function Dev2ProblemsPage() {
             </div>
             <div className="flex items-center gap-2 sm:gap-3 shrink-0 border-t sm:border-t-0 sm:border-l border-gray-200 px-3 py-2">
               <label
-                htmlFor="dev2-sort"
+                htmlFor="problem-sort"
                 className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-700 whitespace-nowrap"
               >
                 <SlidersHorizontal size={14} strokeWidth={2.2} className="text-gray-400" />
                 정렬
               </label>
               <select
-                id="dev2-sort"
+                id="problem-sort"
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortId)}
                 className="flex-1 sm:flex-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors cursor-pointer focus:outline-none focus:border-indigo-300"

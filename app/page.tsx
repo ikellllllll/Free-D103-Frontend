@@ -1,5 +1,5 @@
 import { LandingAIG } from "@/components/landing/LandingAIG";
 
-export default function Dev2HomePage() {
+export default function HomePage() {
   return <LandingAIG />;
 }

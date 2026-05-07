@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Markdown from "react-markdown";
@@ -20,7 +20,7 @@ import {
 
 import { useUiStore } from "@/store/uiStore";
 
-/* ─── Agent file defs (mirror /dev/harness) ─── */
+/* ─── Agent file defs ─── */
 
 type AgentFile = {
   id: "harness" | "instruction" | "sandbox" | "skills";
@@ -171,7 +171,7 @@ function saveFiles(files: Record<string, string>) {
 
 /* ─── Page ─── */
 
-export default function Dev2HarnessPage() {
+export default function HarnessPage() {
   const addToast = useUiStore((s) => s.addToast);
   const [activeId, setActiveId] = useState<AgentFile["id"]>("harness");
   const [contents, setContents] = useState<Record<string, string>>({});
@@ -238,7 +238,7 @@ export default function Dev2HarnessPage() {
   const lineCount = useMemo(() => activeContent.split("\n").length, [activeContent]);
 
   return (
-    <div className="dev2-harness-page relative min-h-screen overflow-hidden bg-[#EEF2FF]">
+    <div className="harness-page relative min-h-screen overflow-hidden bg-[#EEF2FF]">
       {/* ─── Aurora / Mesh background ─── */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
         {/* Base mesh wash */}

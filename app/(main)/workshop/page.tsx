@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
 import {
@@ -125,7 +125,7 @@ function formatWorkshopElapsed(value: string | null) {
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }
 
-export default function Dev2WorkshopPage() {
+export default function WorkshopPage() {
   const addToast = useUiStore((s) => s.addToast);
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);

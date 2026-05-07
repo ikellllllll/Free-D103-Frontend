@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -81,7 +81,7 @@ function progressFor(s: SessionListItem): number {
 
 /* ─── Page ─── */
 
-export default function Dev2SessionsPage() {
+export default function SessionsPage() {
   const { withPrefix } = useRouteScope();
   const user = useAuthStore((s) => s.user);
   const [filter, setFilter] = useState<Filter>("all");

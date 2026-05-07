@@ -1,10 +1,10 @@
-import Image from "next/image";
+﻿import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-export default function Dev2AuthLayout({ children }: { children: ReactNode }) {
+export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="dev2-auth-page-lite relative min-h-screen bg-[#0F0F2E] font-sans flex flex-col overflow-hidden text-white">
+    <div className="auth-page-lite relative min-h-screen bg-[#0F0F2E] font-sans flex flex-col overflow-hidden text-white">
       {/* Background grid */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute inset-0 bg-grid-pattern opacity-[0.15]" />
@@ -13,7 +13,7 @@ export default function Dev2AuthLayout({ children }: { children: ReactNode }) {
       <header className="relative px-6 py-4 animate-fade-in z-10">
         <Link
           href="/"
-          className="dev2-auth-page-lite__brand inline-flex items-center space-x-2 text-white font-display font-bold text-xl group"
+          className="auth-page-lite__brand inline-flex items-center space-x-2 text-white font-display font-bold text-xl group"
         >
           <Image src="/brand/favicon.png" alt="AIG" width={28} height={28} className="rounded-lg object-cover" />
           <span>AIG</span>

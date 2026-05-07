@@ -13,7 +13,6 @@ import remarkGfm from "remark-gfm";
 import { Badge } from "@/components/common/Badge";
 import { Card } from "@/components/common/Card";
 import { LangIcon } from "@/components/common/LangIcon";
-import { isV0ThemeTone, useDevTheme } from "@/components/dev/DevThemeContext";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { TracePanel } from "@/components/ide/TracePanel";
 import { HarnessPanel } from "@/components/ide/HarnessPanel";
@@ -1169,7 +1168,6 @@ const isAgentConfigExplorerPath = (path: string) => {
 export function IdeShell({ sessionId }: { sessionId: string }) {
   const router = useRouter();
   const { withPrefix } = useRouteScope();
-  const { themeTone } = useDevTheme();
   const queryClient = useQueryClient();
   const addToast = useUiStore((state) => state.addToast);
   const setWorkspace = useIdeStore((state) => state.setWorkspace);
@@ -1291,8 +1289,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       return false;
     }
   });
-  const isV0 = isV0ThemeTone(themeTone);
-
   const { data: session, isLoading } = useQuery({
     queryKey: ["session", sessionId],
     queryFn: () => mockApi.getSession(sessionId)
@@ -4807,8 +4803,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
   return (
     <div
-      className={"ide-route ide-route--workspace" + (isV0 ? " ide-route--v0" : "")}
-      data-v0-ide={isV0 ? themeTone : undefined}
+      className="ide-route ide-route--workspace"
       onContextMenu={handleIdeContextMenu}
     >
       <section className="ide-shell ide-shell--workbench">
