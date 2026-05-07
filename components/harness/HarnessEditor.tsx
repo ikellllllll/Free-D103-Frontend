@@ -26,7 +26,7 @@ const AGENT_FILES: AgentFile[] = [
 
 ## 목적
 - 에이전트가 풀이 세션에서 사용할 기본 지침을 담습니다.
-- \`instuction.md\`와 함께 읽힙니다.
+- \`instruction.md\`와 함께 읽힙니다.
 
 ## 실행 규칙
 - 코드 변경 전 반드시 테스트를 먼저 읽어라.
@@ -36,8 +36,8 @@ const AGENT_FILES: AgentFile[] = [
   },
   {
     id: "instruction",
-    label: "instuction.md",
-    path: "agent/instuction.md",
+    label: "instruction.md",
+    path: "agent/instruction.md",
     tag: "meta",
     defaultContent: `# Instruction
 

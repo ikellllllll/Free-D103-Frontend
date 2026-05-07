@@ -49,7 +49,7 @@ const AGENT_FILES: AgentFile[] = [
 
 ## 목적
 - 에이전트가 풀이 세션에서 사용할 기본 지침을 담습니다.
-- \`instuction.md\`와 함께 읽힙니다.
+- \`instruction.md\`와 함께 읽힙니다.
 
 ## 실행 규칙
 - 코드 변경 전 반드시 테스트를 먼저 읽어라.
@@ -59,8 +59,8 @@ const AGENT_FILES: AgentFile[] = [
   },
   {
     id: "instruction",
-    label: "instuction.md",
-    path: "agent/instuction.md",
+    label: "instruction.md",
+    path: "agent/instruction.md",
     tag: "meta",
     icon: FileText,
     summary: "메타 지침 및 정책",
@@ -605,7 +605,7 @@ export default function HarnessPage() {
             <strong className="font-bold text-gray-900">실행 환경 안내 · </strong>
             <code className="harness-inline-code font-mono text-xs bg-white/70 ring-1 ring-white/80 px-1.5 py-0.5 rounded">HARNESS.md</code>
             <span className="mx-1">+</span>
-            <code className="harness-inline-code font-mono text-xs bg-white/70 ring-1 ring-white/80 px-1.5 py-0.5 rounded">instuction.md</code>
+            <code className="harness-inline-code font-mono text-xs bg-white/70 ring-1 ring-white/80 px-1.5 py-0.5 rounded">instruction.md</code>
             는 모든 세션의 에이전트 프롬프트에 주입됩니다.
             <code className="harness-inline-code font-mono text-xs bg-white/70 ring-1 ring-white/80 px-1.5 py-0.5 rounded ml-1">.sandbox</code>는
             실험용이며 세션 평가·리포트 생성에 영향을 주지 않아요.

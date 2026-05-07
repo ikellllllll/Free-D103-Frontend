@@ -3707,9 +3707,16 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const handleSubmit = async () => {
     setSubmitLoading(true);
     try {
-      const submission = await mockApi.submitSession(sessionId);
-      addToast("제출이 생성되었습니다.", "success");
-      router.push(withPrefix(`/submissions/${submission.id}`));
+      if (isBackendSessionId(sessionId)) {
+        const result = await sessionApi.endSession(sessionId);
+        addToast("제출이 생성되었습니다.", "success");
+        // 백엔드에 별도 submission entity 가 없으므로 sessionId 를 submission key 로 사용
+        router.push(withPrefix(`/submissions/${result.problemSessionId}`));
+      } else {
+        const submission = await mockApi.submitSession(sessionId);
+        addToast("제출이 생성되었습니다.", "success");
+        router.push(withPrefix(`/submissions/${submission.id}`));
+      }
     } catch (error) {
       addToast(error instanceof Error ? error.message : "제출에 실패했습니다.", "error");
     } finally {

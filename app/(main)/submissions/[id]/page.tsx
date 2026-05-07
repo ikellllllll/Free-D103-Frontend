@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
+import { feedbackApi } from "@/lib/api/feedbackApi";
 import { mockApi } from "@/lib/api/mockApi";
 
 type StepState = "done" | "running" | "pending";
@@ -48,7 +49,7 @@ export default function SubmissionProgressPage({
   });
   const { data: report } = useQuery({
     queryKey: ["report", submissionId],
-    queryFn: () => mockApi.getReport(submissionId),
+    queryFn: () => feedbackApi.getFeedbackReport(submissionId),
     refetchInterval: (q) => (q.state.data?.status === "COMPLETED" ? false : 1000)
   });
 

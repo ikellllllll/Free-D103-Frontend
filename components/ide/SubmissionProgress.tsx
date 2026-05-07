@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { Card } from "@/components/common/Card";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
+import { feedbackApi } from "@/lib/api/feedbackApi";
 import { mockApi } from "@/lib/api/mockApi";
 
 type StepState = "done" | "current" | "pending";
@@ -21,7 +22,7 @@ export function SubmissionProgress({ submissionId }: { submissionId: string }) {
   });
   const { data: report } = useQuery({
     queryKey: ["report", submissionId],
-    queryFn: () => mockApi.getReport(submissionId),
+    queryFn: () => feedbackApi.getFeedbackReport(submissionId),
     refetchInterval: (query) => (query.state.data?.status === "COMPLETED" ? false : 1200)
   });
 

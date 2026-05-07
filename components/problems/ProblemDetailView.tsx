@@ -232,10 +232,10 @@ export function ProblemDetailView({ problemId }: { problemId: string }) {
               style={{ animationDelay: "0.05s", animationFillMode: "both" }}
             >
               <span className="block text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 mb-2">
-                Problem Brief
+                문제 요약
               </span>
               <h2 className="text-xl font-display font-bold text-gray-900 mb-4">
-                Requirements
+                요구 사항
               </h2>
               {beforeDescription && (
                 <div className="prose-mini text-[15px] text-gray-700 leading-relaxed mb-5">
