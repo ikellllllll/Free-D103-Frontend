@@ -89,15 +89,16 @@ export function SubmissionResultPanel({ result, loading }: Props) {
 
         {isFailed ? (
           <div className="empty-inline" style={{ borderColor: "rgba(220,38,38,0.32)" }}>
-            실행 중 오류로 채점이 중단됐습니다. 상세 stderr · 실패 테케 리스트는 백엔드 응답 확장 후 표시됩니다.
+            실행 중 오류로 채점이 중단됐습니다. 상세 stderr 는 백엔드 응답 확장 후 표시될 예정입니다.
           </div>
         ) : isRunning ? (
           <div className="empty-inline">
-            도커 러너에서 채점 진행 중입니다. 백엔드가 진행률을 노출하지 않아 경과 시간만 표시합니다.
+            도커 러너에서 공개·비공개 테스트를 함께 채점 중입니다. 백엔드가 진행률을 노출하지 않아 경과 시간만 표시합니다.
           </div>
         ) : (
           <div className="empty-inline">
-            제출 결과 상세 (실패 테케 / 콘솔) 는 백엔드 응답 확장 후 추가될 예정입니다.
+            제출 채점은 비공개(hidden) 테스트가 포함되어 있어, 어느 케이스가 실패했는지는 표시되지 않습니다.
+            공개 테스트 결과만 보고 싶으면 상단 &quot;테스트&quot; 버튼을 사용하세요.
           </div>
         )}
       </div>

@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { Sun, Moon, Copy, Check, LogOut, Save, Eye, PencilLine } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { DragEvent as ReactDragEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, type JSX } from "react";
 import { flushSync } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Markdown from "react-markdown";
@@ -1254,6 +1254,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [editLoading, setEditLoading] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
+  // 테스트 실행 시작 시각 — BottomTray "테스트" 탭에서 RUNNING 경과 시간 표시용
+  const [testStartedAtMs, setTestStartedAtMs] = useState<number | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [endSessionLoading, setEndSessionLoading] = useState(false);
   const [agentBuildLoading, setAgentBuildLoading] = useState(false);
@@ -1275,7 +1277,11 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const [localFolders, setLocalFolders] = useState<string[]>([]);
   const [draggedExplorerPath, setDraggedExplorerPath] = useState<string | null>(null);
   const [folderDropTargetPath, setFolderDropTargetPath] = useState<string | null>(null);
-  const [solveNow, setSolveNow] = useState(() => Date.now());
+  // 타이머: setInterval + setSolveNow(Date.now()) 흐름이 어떤 환경에서 갱신을 멈추는 패턴이라
+  //         useReducer 의 dispatch 로 1초마다 re-render 만 트리거하고
+  //         실제 시각은 매 렌더마다 Date.now() 를 그대로 읽는 단순 모델로 정리.
+  const [, tickTimer] = useReducer((x: number) => x + 1, 0);
+  const solveNow = Date.now();
   const [markdownPreviewOpen, setMarkdownPreviewOpen] = useState(false);
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [explorerSections, setExplorerSections] = useState<Record<ExplorerSectionKey, boolean>>({
@@ -1527,31 +1533,50 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
   useEffect(() => {
     if (workspace?.files?.length) {
-      setWorkspace(workspace.files, resolveInitialEditorPath(workspace.files) ?? workspace.files[0]?.path);
+      const initial = resolveInitialEditorPath(workspace.files) ?? workspace.files[0]?.path;
+      setWorkspace(workspace.files, initial);
+      // workspace 가 처음 들어오는 시점에 editorGroups 도 같이 stamp.
+      // 자동 sync useEffect 가 같은 결과를 만들기로 되어있지만 일부 환경에서 첫 진입에
+      // 빈 탭 상태로 남는 케이스가 있어 여기서 직접 보강.
+      if (initial) {
+        setEditorGroups((state) => {
+          const anyTab = state.some((g) => g.tabIds.length > 0);
+          if (anyTab) return state;
+          const firstId = state[0]?.id ?? INITIAL_EDITOR_GROUP_ID;
+          return [
+            { id: firstId, tabIds: [initial], activeTabId: initial },
+            ...state.slice(1)
+          ];
+        });
+      }
     }
   }, [setWorkspace, workspace]);
 
-  // 안전망: files 가 로드된 직후에도 열린 탭이 없으면 README/우선 파일을 강제로 탭에 추가.
-  // setActivePath 만으로는 editorGroups (탭) state 가 자동 동기화되지 않아
-  // editorGroups 에도 직접 push.
+  // 안전망: files 가 로드된 후에도 열린 탭이 없으면 README/우선 파일을 강제로 탭에 추가.
+  // editorGroups 에도 직접 push 하고 activePath 도 set.
   useEffect(() => {
     if (!files.length) return;
 
     const anyGroupHasTab = editorGroups.some((g) => g.tabIds.length > 0);
-    if (anyGroupHasTab) return;
+    const validActive = activePath && files.some((f) => f.path === activePath);
+    if (anyGroupHasTab && validActive) return;
 
     const initial = resolveInitialEditorPath(files);
     if (!initial) return;
 
-    setActivePath(initial);
-    setEditorGroups((state) => {
-      const firstId = state[0]?.id ?? INITIAL_EDITOR_GROUP_ID;
-      return [
-        { id: firstId, tabIds: [initial], activeTabId: initial },
-        ...state.slice(1)
-      ];
-    });
-  }, [editorGroups, files, setActivePath]);
+    if (!validActive) setActivePath(initial);
+    if (!anyGroupHasTab) {
+      setEditorGroups((state) => {
+        const anyT = state.some((g) => g.tabIds.length > 0);
+        if (anyT) return state;
+        const firstId = state[0]?.id ?? INITIAL_EDITOR_GROUP_ID;
+        return [
+          { id: firstId, tabIds: [initial], activeTabId: initial },
+          ...state.slice(1)
+        ];
+      });
+    }
+  }, [activePath, editorGroups, files, setActivePath]);
 
   const ensureBackendFileContent = useCallback(
     async (path: string) => {
@@ -1595,18 +1620,15 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
   useEffect(() => {
     // 타이머는 createdAt 유무와 무관하게 항상 도는 게 맞다.
-    // (백엔드 응답이 createdAt 를 안 주거나 늦게 주는 케이스에서도 시계는 흘러가야 함)
-    const syncSolveNow = () => setSolveNow(Date.now());
-    syncSolveNow();
-
-    const timerId = window.setInterval(syncSolveNow, SOLVE_TIMER_INTERVAL_MS);
-    document.addEventListener("visibilitychange", syncSolveNow);
+    // dispatch identity 가 stable 해서 effect 안 cleanup 없이도 매번 갱신 보장.
+    const timerId = window.setInterval(tickTimer, SOLVE_TIMER_INTERVAL_MS);
+    document.addEventListener("visibilitychange", tickTimer);
 
     return () => {
       window.clearInterval(timerId);
-      document.removeEventListener("visibilitychange", syncSolveNow);
+      document.removeEventListener("visibilitychange", tickTimer);
     };
-  }, []);
+  }, [tickTimer]);
 
   useEffect(() => {
     setCollapsedFolders(new Set());
@@ -3712,6 +3734,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       }
     }
 
+    // 채점 진행 상태를 사용자가 보게끔 BottomTray "테스트" 탭으로 자동 포커스 + 시작 시각 stamp
+    setBottomPanelTab("tests");
+    setTestStartedAtMs(Date.now());
+    setTestResult(null);  // 이전 결과 초기화 — RUNNING UI 가 깔끔히 뜨도록
     setTestLoading(true);
     try {
       if (isBackendSessionId(sessionId)) {
@@ -3733,6 +3759,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       addToast(error instanceof Error ? error.message : "테스트 실행에 실패했습니다.", "error");
     } finally {
       setTestLoading(false);
+      setTestStartedAtMs(null);
     }
   };
 
@@ -4308,15 +4335,35 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     }
 
     if (bottomPanelTab === "tests") {
+      const testElapsedSec = testStartedAtMs
+        ? ((solveNow - testStartedAtMs) / 1000).toFixed(1)
+        : null;
+
       return (
         <div className="bottom-panel__body">
           <div className="bottom-summary">
-            <strong>{testResult ? `${testResult.passed} / ${testResult.total} 통과` : "테스트 결과 없음"}</strong>
-            <span>{testResult ? `${testResult.failed}개 실패` : "아직 테스트를 실행하지 않았습니다."}</span>
+            {testLoading ? (
+              <>
+                <strong>
+                  채점 중 <Badge tone="amber">진행 중</Badge>
+                </strong>
+                <span>{testElapsedSec ? `${testElapsedSec}초 경과 · ` : ""}도커 러너에서 공개 테스트 케이스를 실행하고 있습니다.</span>
+              </>
+            ) : testResult ? (
+              <>
+                <strong>{testResult.passed} / {testResult.total} 통과</strong>
+                <span>{testResult.failed}개 실패</span>
+              </>
+            ) : (
+              <>
+                <strong>테스트 결과 없음</strong>
+                <span>아직 테스트를 실행하지 않았습니다.</span>
+              </>
+            )}
           </div>
 
           <div className="stack-12">
-            {testResult
+            {!testLoading && testResult
               ? testResult.results.map((result) => (
                   <div key={result.id} className="test-row">
                     <span>{result.name}</span>
