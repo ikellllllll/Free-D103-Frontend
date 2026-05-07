@@ -895,12 +895,14 @@ export const sessionApi = {
         passRate: number;
       }>>();
 
-    // mock Submission 형식과 호환되도록 어댑터
+    // mock Submission 형식과 호환되도록 어댑터.
+    // FAILED 도 terminal state 라 COMPLETED 로 매핑해야 polling 이 중단됨.
     const data = res.data;
+    const isTerminal = data.status === "COMPLETED" || data.status === "FAILED";
     return {
       id: String(data.executionId),
       sessionId: "",
-      status: data.status === "COMPLETED" ? "COMPLETED" as const : "PROCESSING" as const,
+      status: isTerminal ? "COMPLETED" as const : "PROCESSING" as const,
       submittedAt: new Date().toISOString(),
       readyAt: 0,
       // 백엔드 추가 필드
