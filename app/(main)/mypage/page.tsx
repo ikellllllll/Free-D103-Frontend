@@ -381,7 +381,7 @@ export default function MyPage() {
               </div>
               <div className="min-w-0">
                 <div className="text-sm font-bold text-gray-900 truncate">{name}</div>
-                <div className="text-xs text-gray-500 truncate">{email}</div>
+                <div className="text-xs text-gray-500 truncate" title={email}>{email}</div>
               </div>
             </div>
 
@@ -516,7 +516,7 @@ export default function MyPage() {
                               <Pencil size={12} strokeWidth={2.2} />
                             </button>
                           </div>
-                          <p className="text-xs text-gray-500 truncate">{email}</p>
+                          <p className="text-xs text-gray-500 truncate" title={email}>{email}</p>
                         </>
                       )}
                     </div>

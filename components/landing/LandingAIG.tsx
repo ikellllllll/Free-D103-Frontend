@@ -302,7 +302,7 @@ export function LandingAIG() {
                   width={1160}
                   height={700}
                   className="block w-full object-cover object-top"
-                  style={{ maxHeight: "70vh" }}
+                  style={{ height: "auto", maxHeight: "70vh" }}
                   priority
                   sizes="(max-width: 768px) 94vw, 88vw"
                 />
@@ -629,6 +629,7 @@ export function LandingAIG() {
                       fill
                       sizes="260px"
                       className="object-cover"
+                      priority
                     />
                   </div>
                 </div>
