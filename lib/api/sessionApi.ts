@@ -785,10 +785,7 @@ export const sessionApi = {
         .json<ApiResponse<{ messages: Array<{ agentSessionMsgId: number; msgKind: "AI" | "HUMAN"; content: string; createdAt: string }> }>>();
 
       const messages = res.data?.messages ?? [];
-      if (messages.length === 0) {
-        return mockApi.getChatMessages(sessionId);
-      }
-
+      // 백엔드가 정상 응답한 경우 (빈 배열 포함) 그대로 반환 — 신규 세션의 mock 시드 채팅 누설 방지
       return messages.map((m) => ({
         id: String(m.agentSessionMsgId),
         role: m.msgKind === "HUMAN" ? "user" : "assistant",
