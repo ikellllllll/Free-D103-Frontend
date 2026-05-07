@@ -2943,10 +2943,13 @@ body:has(.ide-route--workspace) .page-shell > * {
 }
 
 .editor-empty-state {
+  width: 100%;
+  height: 100%;
   min-height: 100%;
-  display: grid;
-  align-content: center;
-  justify-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 6px;
   padding: 32px;
   color: var(--muted);
