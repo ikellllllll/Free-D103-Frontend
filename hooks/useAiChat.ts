@@ -34,6 +34,56 @@ export function useAiChat(sessionId: string) {
     setMessages(baseMessages);
     setStreaming(true);
 
+    // 백엔드 세션이면 SSE streaming 으로 실 AI 응답을 받는다.
+    // mock 세션이면 기존 페이크 streaming (28ms per 6 chars) 유지.
+    if (isBackendSessionId(sessionId)) {
+      const assistantId = `assistant-${Date.now()}`;
+      const assistantBase: AiMessage = {
+        id: assistantId,
+        role: "assistant",
+        content: "",
+        createdAt: new Date().toISOString()
+      };
+      appendMessages([assistantBase]);
+
+      let accumulated = "";
+      try {
+        await sessionApi.streamChat(
+          sessionId,
+          { chat: message },
+          {
+            onChunk: (content) => {
+              accumulated += content;
+              setMessages([
+                ...baseMessages,
+                { ...assistantBase, content: accumulated }
+              ]);
+            },
+            onError: (_code, msg) => {
+              accumulated = accumulated
+                ? `${accumulated}\n\n[오류] ${msg}`
+                : `[오류] ${msg}`;
+              setMessages([
+                ...baseMessages,
+                { ...assistantBase, content: accumulated }
+              ]);
+            }
+          }
+        );
+        setRequestCount((count) => count + 1);
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : "AI 호출에 실패했습니다.";
+        setMessages([
+          ...baseMessages,
+          { ...assistantBase, content: accumulated ? `${accumulated}\n\n[오류] ${errMsg}` : `[오류] ${errMsg}` }
+        ]);
+      } finally {
+        setStreaming(false);
+      }
+      return;
+    }
+
+    // === mock 세션 (기존 흐름) ===
     const { assistantMessage, requestCount: nextCount } = await mockApi.requestAiChat(
       sessionId,
       message,

@@ -3,7 +3,7 @@ import ky, { isHTTPError, type KyInstance } from "ky";
 import type { AuthUser } from "@/lib/types/auth";
 import { useAuthStore } from "@/store/authStore";
 
-const BASE_URL = "https://k14d103.p.ssafy.io";
+export const BASE_URL = "https://k14d103.p.ssafy.io";
 
 interface ApiResponse<T> {
   httpStatusCode: number;

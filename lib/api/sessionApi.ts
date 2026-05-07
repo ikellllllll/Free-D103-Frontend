@@ -1,4 +1,5 @@
-import { authClient } from "@/lib/api/authApi";
+import { authClient, BASE_URL } from "@/lib/api/authApi";
+import { useAuthStore } from "@/store/authStore";
 import { mockApi } from "@/lib/api/mockApi";
 import { normalizeApiDateTime, parseApiDateTime } from "@/lib/dateTime";
 import { createInitialSession } from "@/lib/mock-data";
@@ -877,6 +878,120 @@ export const sessionApi = {
       ...res.data,
       endedAt: normalizeApiDateTime(res.data.endedAt) ?? res.data.endedAt
     };
+  },
+
+  /**
+   * AI 채팅 SSE streaming.
+   * 백엔드: POST /api/v1/ai/sessions/{id}/chat/stream (text/event-stream).
+   * 응답 프레임: event: {metadata|data|end|error} + data: <json>
+   *   - data: { type: "AIMessageChunk", content, modelName, additional_kwargs }
+   * EventSource 는 GET 만 지원해서 native fetch + ReadableStream 으로 직접 파싱.
+   * authClient (ky) 의 401 자동 refresh 가 SSE 응답에 잘 안 맞아 단순화: 401 이면 에러 throw.
+   */
+  async streamChat(
+    sessionId: string,
+    payload: {
+      chat: string;
+      modelName?: string | null;
+      systemPrompt?: string | null;
+      referenceContents?: string[];
+    },
+    handlers: {
+      onMetadata?: (data: { run_id?: string } & Record<string, unknown>) => void;
+      onChunk: (content: string, modelName: string) => void;
+      onEnd?: () => void;
+      onError?: (code: string, message: string) => void;
+    },
+    signal?: AbortSignal
+  ): Promise<void> {
+    const { tokens } = useAuthStore.getState();
+    if (!tokens?.accessToken) {
+      throw new Error("로그인이 필요합니다.");
+    }
+
+    const body: Record<string, unknown> = { chat: payload.chat };
+    if (payload.modelName) body.modelName = payload.modelName;
+    if (payload.systemPrompt) body.systemPrompt = payload.systemPrompt;
+    if (payload.referenceContents) body.referenceContents = payload.referenceContents;
+
+    const res = await fetch(`${BASE_URL}/api/v1/ai/sessions/${sessionId}/chat/stream`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${tokens.accessToken}`,
+        "Content-Type": "application/json",
+        Accept: "text/event-stream"
+      },
+      body: JSON.stringify(body),
+      signal
+    });
+
+    if (!res.ok) {
+      if (res.status === 401) {
+        throw new Error("세션이 만료됐습니다. 다시 로그인해주세요.");
+      }
+      const text = await res.text().catch(() => "");
+      throw new Error(`AI 응답 실패 (${res.status})${text ? `: ${text.slice(0, 200)}` : ""}`);
+    }
+    if (!res.body) {
+      throw new Error("AI 스트림 응답 본문이 없습니다.");
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // SSE 프레임은 빈 줄 (\n\n) 으로 구분.
+        let sep: number;
+        while ((sep = buffer.indexOf("\n\n")) !== -1) {
+          const frame = buffer.slice(0, sep);
+          buffer = buffer.slice(sep + 2);
+          if (!frame.trim()) continue;
+
+          let eventName = "message";
+          let dataStr = "";
+          for (const line of frame.split("\n")) {
+            if (line.startsWith("event:")) eventName = line.slice(6).trim();
+            else if (line.startsWith("data:")) dataStr += line.slice(5).trim();
+          }
+          if (!dataStr) continue;
+
+          let parsed: any;
+          try {
+            parsed = JSON.parse(dataStr);
+          } catch {
+            continue;
+          }
+
+          if (eventName === "metadata") {
+            handlers.onMetadata?.(parsed);
+          } else if (eventName === "data") {
+            const content = typeof parsed?.content === "string" ? parsed.content : "";
+            const modelName = typeof parsed?.modelName === "string" ? parsed.modelName : "";
+            if (content) handlers.onChunk(content, modelName);
+          } else if (eventName === "end") {
+            handlers.onEnd?.();
+            return;
+          } else if (eventName === "error") {
+            const code = typeof parsed?.code === "string" ? parsed.code : "AI_ERROR";
+            const message = typeof parsed?.message === "string" ? parsed.message : "AI 응답 중 오류가 발생했습니다.";
+            handlers.onError?.(code, message);
+            return;
+          }
+        }
+      }
+    } finally {
+      try {
+        reader.releaseLock();
+      } catch {
+        /* noop */
+      }
+    }
   },
 
   /** 코드 제출 — 새 Execution(SUBMISSION) 생성. executionId 반환. */
