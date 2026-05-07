@@ -7338,8 +7338,17 @@ html[data-theme="dark"] .problem-detail-view__hero :is(h1, p) {
   color: #eef2ff !important;
 }
 
-.mypage-page {
+/* 다크모드만 wrapper 배경을 app-shell-bg 로 덮어씀. 라이트모드는 컴포넌트의 bg-[#EEF2FF] 그대로 사용 */
+html[data-theme="dark"] .mypage-page {
   background: var(--app-shell-bg) !important;
+}
+
+/* 라이트모드에서 카드 분리감 강화 — bg-[#EEF2FF] 위에 흰 카드들이 묻히는 문제 해결 */
+html[data-theme="light"] .mypage-page .bg-white {
+  border-color: rgba(99, 102, 241, 0.16) !important;
+  box-shadow:
+    0 1px 2px rgba(17, 24, 39, 0.04),
+    0 8px 24px -16px rgba(99, 102, 241, 0.22) !important;
 }
 
 .mypage-profile-card__wash {

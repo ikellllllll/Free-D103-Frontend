@@ -905,7 +905,7 @@ function StreakGrassCard({ streak }: { streak: number }) {
         className={`h-3 w-3 rounded-[3px] border ${
           active
             ? `${activeClass} border-emerald-500/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]`
-            : "border-gray-200 bg-gray-100"
+            : "border-emerald-200/80 bg-emerald-100/50"
         }`}
         aria-hidden="true"
       />
