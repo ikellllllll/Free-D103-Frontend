@@ -1243,6 +1243,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const isDirtyRef = useRef(false);
   const savedBackTargetRef = useRef<string | null>(null);
   const sessionTimeoutHandledRef = useRef(false);
+  // IDE 가 처음 마운트된 시각 — session.createdAt 가 비어있을 때 타이머 fallback 으로 사용
+  const ideMountTimeRef = useRef<number>(Date.now());
   const routerRef = useRef(router);
   const activeEditorGroupIdRef = useRef(INITIAL_EDITOR_GROUP_ID);
   const editorLayoutHydratedSessionRef = useRef<string | null>(null);
@@ -1282,6 +1284,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   });
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(() => new Set());
   const [savePromptAction, setSavePromptAction] = useState<SavePromptAction | null>(null);
+  // 테스트 / 제출 / 종료 버튼 실수 방지용 확인 모달
+  const [confirmIntent, setConfirmIntent] = useState<"test" | "submit" | "end-session" | null>(null);
   const [savePromptOpen, setSavePromptOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(() => {
@@ -1527,6 +1531,15 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     }
   }, [setWorkspace, workspace]);
 
+  // 안전망: files 가 로드된 직후에도 activePath 가 비어있으면 README/우선 파일을 강제 활성화
+  // (editorGroups sync 가 늦거나, 다른 이펙트가 activePath 를 비워버린 케이스 보강)
+  useEffect(() => {
+    if (!files.length) return;
+    if (activePath && files.some((f) => f.path === activePath)) return;
+    const initial = resolveInitialEditorPath(files);
+    if (initial) setActivePath(initial);
+  }, [activePath, files, setActivePath]);
+
   const ensureBackendFileContent = useCallback(
     async (path: string) => {
       if (!isBackendSessionId(sessionId)) {
@@ -1568,10 +1581,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   }, [loadMessages, session]);
 
   useEffect(() => {
-    if (!session?.createdAt) {
-      return;
-    }
-
+    // 타이머는 createdAt 유무와 무관하게 항상 도는 게 맞다.
+    // (백엔드 응답이 createdAt 를 안 주거나 늦게 주는 케이스에서도 시계는 흘러가야 함)
     const syncSolveNow = () => setSolveNow(Date.now());
     syncSolveNow();
 
@@ -1582,7 +1593,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       window.clearInterval(timerId);
       document.removeEventListener("visibilitychange", syncSolveNow);
     };
-  }, [session?.createdAt]);
+  }, []);
 
   useEffect(() => {
     setCollapsedFolders(new Set());
@@ -2347,7 +2358,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       : savePromptAction?.type === "navigate"
         ? `${unsavedPaths.length}개의 저장되지 않은 파일이 있습니다. 저장하지 않으면 변경 내용이 사라질 수 있습니다.`
         : `${unsavedPaths.length}개의 저장되지 않은 파일이 있습니다. 세션 종료 후에는 파일 저장, 실행, 제출이 차단될 수 있습니다.`;
-  const solveElapsedMs = solveNow - toTimestamp(session?.createdAt);
+  // createdAt 가 없거나 파싱 실패면 IDE 마운트 시각으로 fallback — 0:00 고정 방지
+  const sessionStartMs = toTimestamp(session?.createdAt) || ideMountTimeRef.current;
+  const solveElapsedMs = Math.max(0, solveNow - sessionStartMs);
   const solveElapsedLabel = formatSolveElapsed(solveElapsedMs);
   const estimateLimitMs = parseEstimateMs(problem?.estimate ?? "");
   const isTimeExpired = estimateLimitMs > 0 && solveElapsedMs >= estimateLimitMs;
@@ -4527,7 +4540,12 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
             <span className="ide-toolbar__sep" />
 
-            <button type="button" className="ide-toolbar__btn" onClick={handleTest} disabled={testLoading}>
+            <button
+              type="button"
+              className="ide-toolbar__btn"
+              onClick={() => setConfirmIntent("test")}
+              disabled={testLoading}
+            >
               {testLoading ? "..." : "테스트"}
             </button>
 
@@ -4536,7 +4554,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             <button
               type="button"
               className="ide-toolbar__btn ide-toolbar__btn--submit"
-              onClick={handleSubmit}
+              onClick={() => setConfirmIntent("submit")}
               disabled={submitLoading}
             >
               {submitLoading ? "제출 중..." : "제출"}
@@ -4547,7 +4565,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             <button
               type="button"
               className="ide-toolbar__btn ide-toolbar__btn--exit"
-              onClick={handleEndSession}
+              onClick={() => setConfirmIntent("end-session")}
               disabled={endSessionLoading}
               aria-label="종료"
               title="종료"
@@ -5297,6 +5315,65 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                     : savePromptAction.type === "end-session"
                       ? "저장 후 종료"
                       : "저장"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* 테스트 / 제출 / 종료 실수 방지 확인 모달 */}
+      {confirmIntent ? (
+        <div
+          className="ide-save-modal-backdrop"
+          role="presentation"
+          onClick={() => setConfirmIntent(null)}
+        >
+          <div
+            className="ide-save-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="ide-save-modal__head">
+              <strong>
+                {confirmIntent === "test"
+                  ? "테스트를 실행할까요?"
+                  : confirmIntent === "submit"
+                    ? "제출하시겠습니까?"
+                    : "세션을 종료할까요?"}
+              </strong>
+              <span>
+                {confirmIntent === "test"
+                  ? "공개 테스트 케이스를 도커 러너에서 실행합니다. 평균 30초~2분 정도 걸립니다."
+                  : confirmIntent === "submit"
+                    ? "현재 코드 스냅샷으로 공개·비공개 테스트를 함께 채점합니다. 한 세션에서 여러 번 제출할 수 있습니다."
+                    : "세션을 종료하면 같은 풀이로 돌아올 수 없습니다. 진행 중인 작업이 있다면 먼저 저장하세요."}
+              </span>
+            </div>
+            <div className="ide-save-modal__actions">
+              <button
+                type="button"
+                className="button"
+                onClick={() => setConfirmIntent(null)}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="button button--primary"
+                onClick={() => {
+                  const intent = confirmIntent;
+                  setConfirmIntent(null);
+                  if (intent === "test") void handleTest();
+                  else if (intent === "submit") void handleSubmit();
+                  else if (intent === "end-session") handleEndSession();
+                }}
+              >
+                {confirmIntent === "test"
+                  ? "테스트 실행"
+                  : confirmIntent === "submit"
+                    ? "제출"
+                    : "종료"}
               </button>
             </div>
           </div>
