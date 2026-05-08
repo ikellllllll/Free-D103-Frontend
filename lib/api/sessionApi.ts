@@ -71,8 +71,16 @@ interface FileTreeItemResponse {
 
 interface GetFileTreeResponse {
   files: FileTreeItemResponse[];
+  // 세션 하네스 파일 (AGENTS.md, prompts/, skills/, sub_agent/ 등) — 백엔드 raw path
+  // 프론트는 explorer 표시 시 'agent/' prefix 를 붙여 폴더로 묶는다.
+  agent?: FileTreeItemResponse[] | null;
   worktree: FileTreeItemResponse[];
 }
+
+const AGENT_PREFIX = "agent/";
+// 백엔드 raw harness path (예: 'AGENTS.md', 'skills/foo/SKILL.md') → 프론트 표시 path ('agent/AGENTS.md').
+const toAgentPrefixedPath = (path: string) =>
+  path.startsWith(AGENT_PREFIX) ? path : `${AGENT_PREFIX}${path}`;
 
 interface GetFileContentResponse {
   fileId?: number;
@@ -308,6 +316,15 @@ const rememberFileIds = (sessionId: string, payload: GetFileTreeResponse) => {
     }
   });
 
+  // 세션 하네스 파일은 raw path + prefixed path 둘 다 등록 (어느 쪽으로 lookup 와도 매칭)
+  (payload.agent ?? []).forEach((item) => {
+    if (item.nodeType === "FILE") {
+      const prefixed = toAgentPrefixedPath(item.path);
+      mapping.set(item.path, item.fileId);
+      mapping.set(prefixed, item.fileId);
+    }
+  });
+
   payload.worktree.forEach((item) => {
     if (item.nodeType === "FILE") {
       mapping.set(normalizeWorktreePath(item.path), item.fileId);
@@ -339,6 +356,18 @@ const toWorkspaceFiles = (
       } satisfies WorkspaceFile;
     });
 
+  // 세션 하네스 파일 — raw path 에 'agent/' prefix 를 붙여 explorer 에서 한 폴더로 묶는다.
+  const agentFiles = (payload.agent ?? [])
+    .filter((item) => item.nodeType === "FILE")
+    .map((item) => {
+      const nextPath = toAgentPrefixedPath(item.path);
+      return {
+        path: nextPath,
+        language: item.language?.toLowerCase() || inferLanguageFromPath(item.path),
+        content: existingContent.get(nextPath) ?? ""
+      } satisfies WorkspaceFile;
+    });
+
   const worktreeFiles = payload.worktree
     .filter((item) => item.nodeType === "FILE")
     .map((item) => {
@@ -352,7 +381,7 @@ const toWorkspaceFiles = (
       } satisfies WorkspaceFile;
     });
 
-  return [...sourceFiles, ...worktreeFiles];
+  return [...sourceFiles, ...agentFiles, ...worktreeFiles];
 };
 
 const formatTraceTime = (iso: string) =>
@@ -994,6 +1023,107 @@ export const sessionApi = {
             const message = typeof parsed?.message === "string" ? parsed.message : "AI 응답 중 오류가 발생했습니다.";
             handlers.onError?.(code, message);
             return;
+          }
+        }
+      }
+    } finally {
+      try {
+        reader.releaseLock();
+      } catch {
+        /* noop */
+      }
+    }
+  },
+
+  /**
+   * Agent (DeepAgent) 실행 SSE streaming.
+   * 백엔드: POST /api/v1/ai/sessions/{id}/agent-runs (text/event-stream).
+   * 백엔드가 AI 서비스의 NDJSON stream 을 SSE 로 변환해 relay.
+   * 응답 프레임: event 타입별로 분기 (RUN/LLM/TOOL/VFS) — 백엔드 AgentRelayEventMapper 참고.
+   * 사전조건: 세션 IN_PROGRESS + sessionHarness 빌드 완료. 미빌드면 400 ("AGENT가 빌드되지 않은 상태").
+   */
+  async streamAgentChat(
+    sessionId: string,
+    payload: { message: string },
+    handlers: {
+      onMetadata?: (data: Record<string, unknown>) => void;
+      onEvent: (eventName: string, data: Record<string, unknown>) => void;
+      onEnd?: () => void;
+      onError?: (code: string, message: string) => void;
+    },
+    signal?: AbortSignal
+  ): Promise<void> {
+    const { tokens } = useAuthStore.getState();
+    if (!tokens?.accessToken) {
+      throw new Error("로그인이 필요합니다.");
+    }
+
+    const res = await fetch(`${BASE_URL}/api/v1/ai/sessions/${sessionId}/agent-runs`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${tokens.accessToken}`,
+        "Content-Type": "application/json",
+        Accept: "text/event-stream"
+      },
+      body: JSON.stringify({ message: payload.message }),
+      signal
+    });
+
+    if (!res.ok) {
+      if (res.status === 401) {
+        throw new Error("세션이 만료됐습니다. 다시 로그인해주세요.");
+      }
+      const text = await res.text().catch(() => "");
+      throw new Error(`Agent 실행 실패 (${res.status})${text ? `: ${text.slice(0, 200)}` : ""}`);
+    }
+    if (!res.body) {
+      throw new Error("Agent 스트림 응답 본문이 없습니다.");
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let sep: number;
+        while ((sep = buffer.indexOf("\n\n")) !== -1) {
+          const frame = buffer.slice(0, sep);
+          buffer = buffer.slice(sep + 2);
+          if (!frame.trim()) continue;
+
+          let eventName = "message";
+          let dataStr = "";
+          for (const line of frame.split("\n")) {
+            if (line.startsWith("event:")) eventName = line.slice(6).trim();
+            else if (line.startsWith("data:")) dataStr += line.slice(5).trim();
+          }
+          if (!dataStr) continue;
+
+          let parsed: any;
+          try {
+            parsed = JSON.parse(dataStr);
+          } catch {
+            continue;
+          }
+
+          if (eventName === "metadata") {
+            handlers.onMetadata?.(parsed);
+          } else if (eventName === "end") {
+            handlers.onEnd?.();
+            return;
+          } else if (eventName === "error") {
+            const code = typeof parsed?.code === "string" ? parsed.code : "AGENT_ERROR";
+            const message =
+              typeof parsed?.message === "string" ? parsed.message : "Agent 실행 중 오류가 발생했습니다.";
+            handlers.onError?.(code, message);
+            return;
+          } else {
+            handlers.onEvent(eventName, parsed);
           }
         }
       }

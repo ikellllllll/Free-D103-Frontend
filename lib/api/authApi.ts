@@ -58,6 +58,27 @@ export interface UserProfileResponse {
   inProgressCount: number;
 }
 
+/** GET /api/v1/users/me/reports 응답 (백엔드 UserReportListResponse, 2026-05-08~) */
+export interface UserReportItem {
+  feedbackReportId: number;
+  problemId: number;
+  problemTitle: string;
+  /** BigDecimal — 백엔드 직렬화는 number */
+  overallScore: number | string | null;
+  passedCount: number;
+  failedCount: number;
+  totalCount: number;
+  createdAt: string; // LocalDateTime ISO
+}
+export interface UserReportListResponse {
+  totalCount: number;
+  page: number;
+  size: number;
+  totalPages: number;
+  hasNext: boolean;
+  reports: UserReportItem[];
+}
+
 interface JwtPayload {
   sub?: string;
   email?: string;
@@ -206,6 +227,14 @@ export const authApi = {
   async getUserProfile(): Promise<UserProfileResponse> {
     const res = await authClient.get("api/v1/users/me/profile")
       .json<ApiResponse<UserProfileResponse>>();
+    return res.data;
+  },
+
+  /** 리포트 목록 조회 — GET /api/v1/users/me/reports (2026-05-08~) */
+  async getUserReports(page = 0, size = 20): Promise<UserReportListResponse> {
+    const res = await authClient
+      .get("api/v1/users/me/reports", { searchParams: { page, size } })
+      .json<ApiResponse<UserReportListResponse>>();
     return res.data;
   },
 

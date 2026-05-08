@@ -1012,34 +1012,40 @@ const buildExplorerFiles = (files: WorkspaceFile[], injectedVirtualFiles: Explor
   const sourceFiles = files.map((file) => ({
     ...file,
     isVirtual: file.path.startsWith(".worktree/"),
-    badge: file.path.startsWith(".worktree/") ? "ai" : undefined
+    // 'agent/' 로 시작하는 세션 하네스 파일도 메타 배지 표시 (백엔드 SessionHarnessFile)
+    badge: file.path.startsWith(".worktree/") ? "ai" : file.path.startsWith("agent/") ? "meta" : undefined
   }));
   const existingPaths = new Set(sourceFiles.map((file) => file.path));
   const previewFiles = injectedVirtualFiles.filter((file) => !existingPaths.has(file.path));
 
-  const agentSupportFiles: ExplorerFile[] = [
-    {
-      path: "agent/skills/README.md",
-      language: "markdown",
-      content: "# Agent Skills\n\n가상 탐색기 구조용 보조 파일입니다.",
-      isVirtual: true,
-      badge: "meta"
-    },
-    {
-      path: "agent/.sandbox/README.md",
-      language: "markdown",
-      content: "# Agent Sandbox\n\n임시 실행 흔적을 두는 가상 디렉터리입니다.",
-      isVirtual: true,
-      badge: "temp"
-    },
-    {
-      path: "agent/instruction.md",
-      language: "markdown",
-      content: "# Agent Instruction\n\n에이전트 보조 지시를 두는 가상 파일입니다.",
-      isVirtual: true,
-      badge: "meta"
-    }
-  ].filter((file) => !existingPaths.has(file.path));
+  // 백엔드 세션 하네스 파일이 이미 존재하면 mock virtual files 안 넣음.
+  // 빈 세션이거나 mock 세션일 때만 placeholder fallback.
+  const hasRealAgentFiles = sourceFiles.some((file) => file.path.startsWith("agent/"));
+  const agentSupportFiles: ExplorerFile[] = hasRealAgentFiles
+    ? []
+    : [
+        {
+          path: "agent/skills/README.md",
+          language: "markdown",
+          content: "# Agent Skills\n\n가상 탐색기 구조용 보조 파일입니다.",
+          isVirtual: true,
+          badge: "meta"
+        },
+        {
+          path: "agent/.sandbox/README.md",
+          language: "markdown",
+          content: "# Agent Sandbox\n\n임시 실행 흔적을 두는 가상 디렉터리입니다.",
+          isVirtual: true,
+          badge: "temp"
+        },
+        {
+          path: "agent/instruction.md",
+          language: "markdown",
+          content: "# Agent Instruction\n\n에이전트 보조 지시를 두는 가상 파일입니다.",
+          isVirtual: true,
+          badge: "meta"
+        }
+      ].filter((file) => !existingPaths.has(file.path));
 
   return [...sourceFiles, ...previewFiles, ...agentSupportFiles];
 };
@@ -5265,7 +5271,15 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                             key={message.id}
                             className={message.role === "user" ? "chat-bubble chat-bubble--user" : "chat-bubble"}
                           >
-                            {message.content}
+                            {message.role === "user" ? (
+                              // user 메시지는 입력 그대로 (줄바꿈 보존만 — 마크다운 해석 X)
+                              <div className="chat-bubble__plain">{message.content}</div>
+                            ) : (
+                              // assistant 응답은 GFM 마크다운 렌더 (줄바꿈, 코드블록, 리스트, 표 등)
+                              <div className="chat-bubble__markdown">
+                                <Markdown remarkPlugins={[remarkGfm]}>{message.content}</Markdown>
+                              </div>
+                            )}
                           </div>
                         ))}
                         {streaming ? <div className="chat-status">AI 응답 생성 중...</div> : null}
