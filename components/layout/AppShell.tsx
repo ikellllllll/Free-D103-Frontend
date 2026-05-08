@@ -374,7 +374,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
 
       {/* ── Content (nav floats over top; pages manage their own top padding) ── */}
-      <main className="min-h-screen">{children}</main>
+      {/* key=currentPath 로 페이지 진입 시마다 animate-fade-in 재실행 → 통일된 transition */}
+      <main className="min-h-screen">
+        <div key={currentPath} className="animate-fade-in">
+          {children}
+        </div>
+      </main>
 
       {/* ── Command Palette ── */}
       {paletteOpen && (
