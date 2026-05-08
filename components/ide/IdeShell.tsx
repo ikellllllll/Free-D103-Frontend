@@ -2225,6 +2225,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
     const nextPath = activeTab.kind === "diff" ? activeTab.sourcePath : activeTab.path;
 
+    // 가드: diff 탭이 가리키는 sourcePath 가 실제 files 에 없으면 setActivePath 호출 금지.
+    // (mock fallback / stale localStorage snapshot 으로 가짜 worktree 파일이 explorerFiles 에 들어왔을 때
+    //  effect 1568 와 oscillate 하며 React #185 (Maximum update depth) 발생.)
+    if (activeTab.kind === "diff" && !files.some((file) => file.path === nextPath)) {
+      return;
+    }
+
     if (nextPath !== activePath) {
       setActivePath(nextPath);
     }
@@ -2234,7 +2241,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       setSuggestion(null);
       setAiMode("chat");
     }
-  }, [activePath, activeTab, setActivePath, setAiMode, setSelection, setSuggestion]);
+  }, [activePath, activeTab, files, setActivePath, setAiMode, setSelection, setSuggestion]);
 
   useEffect(() => {
     if (!activeFile?.path) {

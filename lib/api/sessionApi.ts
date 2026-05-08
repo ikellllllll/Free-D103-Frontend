@@ -717,13 +717,16 @@ export const sessionApi = {
   },
 
   async getAgentTraces(sessionId: string) {
+    // ⚠️ 백엔드 세션은 mockApi fallback 절대 금지.
+    // mock 의 user-sort 패치 (`starter/src/main/java/...`) 가 explorerFiles 에 가짜 worktree 파일로 inject 되어,
+    // localStorage editorLayout 에 저장된 diff 탭이 활성 상태로 복원되면 effect 가 activePath 를 mock sourcePath ↔ real README 로 무한 토글 → React #185.
     try {
       const result = await this.getAgentTraceList(sessionId, 1, 10);
-      if (result.runs.length === 0) return mockApi.getAgentTraces(sessionId);
+      if (result.runs.length === 0) return [];
       await mockApi.syncExternalTraces(sessionId, toSessionTraces(result.runs));
       return result.runs;
     } catch {
-      return mockApi.getAgentTraces(sessionId);
+      return [];
     }
   },
 
