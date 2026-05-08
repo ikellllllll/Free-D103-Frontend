@@ -48,6 +48,16 @@ export interface UpdateNicknameResponse {
   nickname: string;
 }
 
+/** GET /api/v1/users/me/profile 응답 (백엔드 UserProfileResponse) */
+export interface UserProfileResponse {
+  /** 총 제출 횟수 (executions WHERE run_type=SUBMISSION) */
+  totalSubmissionCount: number;
+  /** 평균 점수 (feedback_report.overall_score 평균, 정수 반올림). 리포트 없으면 0. */
+  averageScore: number;
+  /** 진행 중 세션 수 (problem_sessions WHERE status=IN_PROGRESS) */
+  inProgressCount: number;
+}
+
 interface JwtPayload {
   sub?: string;
   email?: string;
@@ -189,6 +199,13 @@ export const authApi = {
   async updateNickname(nickname: string): Promise<UpdateNicknameResponse> {
     const res = await authClient.patch("api/v1/users", { json: { nickname } })
       .json<ApiResponse<UpdateNicknameResponse>>();
+    return res.data;
+  },
+
+  /** 프로필 활동 요약 조회 — GET /api/v1/users/me/profile (2026-05-08~) */
+  async getUserProfile(): Promise<UserProfileResponse> {
+    const res = await authClient.get("api/v1/users/me/profile")
+      .json<ApiResponse<UserProfileResponse>>();
     return res.data;
   },
 

@@ -152,6 +152,20 @@ export default function MyPage() {
     enabled: !!user
   });
 
+  // 프로필 활동 요약 (총 제출 / 평균 점수 / 진행 중) — 백엔드 endpoint.
+  // 실패 시 mock dashboard 값으로 자연스럽게 fallback 되도록 catch.
+  const { data: profileSummary } = useQuery({
+    queryKey: ["userProfile", user?.id],
+    queryFn: async () => {
+      try {
+        return await authApi.getUserProfile();
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!user
+  });
+
   useEffect(() => {
     if (!profile) return;
     setAuthUser({
@@ -167,10 +181,12 @@ export default function MyPage() {
   const email = profile?.email ?? user?.email ?? data?.user.email ?? "user@email.com";
   const initials = name.slice(0, 2).toUpperCase();
 
-  // 신규 사용자: 제출 기록 + 진행 중 세션이 모두 0 이면 가입 직후로 간주
-  const isNewUser =
-    !data ||
-    ((data.history?.length ?? 0) === 0 && (data.resumableSessions?.length ?? 0) === 0);
+  // 신규 사용자: 제출 기록 + 진행 중 세션이 모두 0 이면 가입 직후로 간주.
+  // 백엔드 profileSummary 가 있으면 그걸 우선 보고, 없으면 mock dashboard 데이터로 폴백.
+  const isNewUser = profileSummary
+    ? profileSummary.totalSubmissionCount === 0 && profileSummary.inProgressCount === 0
+    : !data ||
+      ((data.history?.length ?? 0) === 0 && (data.resumableSessions?.length ?? 0) === 0);
 
   const skills = useMemo(() => {
     const base = (data?.avgScores ?? []) as { label: string; score: number }[];
@@ -534,12 +550,24 @@ export default function MyPage() {
                   <StreakGrassCard streak={isNewUser ? 0 : 7} />
                 </div>
 
-                {/* Info row */}
+                {/* Info row — 백엔드 GET /users/me/profile 우선, 없으면 mock dashboard */}
                 <div className="grid grid-cols-3 gap-4">
                   {[
-                    { label: "총 제출", value: data?.history.length ?? 0, unit: "회" },
-                    { label: "평균 점수", value: avgSkill, unit: "점" },
-                    { label: "이어가기", value: data?.resumableSessions.length ?? 0, unit: "개" }
+                    {
+                      label: "총 제출",
+                      value: profileSummary?.totalSubmissionCount ?? data?.history.length ?? 0,
+                      unit: "회"
+                    },
+                    {
+                      label: "평균 점수",
+                      value: profileSummary?.averageScore ?? avgSkill,
+                      unit: "점"
+                    },
+                    {
+                      label: "이어가기",
+                      value: profileSummary?.inProgressCount ?? data?.resumableSessions.length ?? 0,
+                      unit: "개"
+                    }
                   ].map((item) => (
                     <div key={item.label} className="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4 text-center">
                       <div className="text-2xl font-bold text-indigo-600 tabular-nums">{item.value}<span className="text-sm font-semibold text-gray-400 ml-1">{item.unit}</span></div>
