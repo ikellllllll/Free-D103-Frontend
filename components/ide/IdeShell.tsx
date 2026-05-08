@@ -1245,6 +1245,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const isDirtyRef = useRef(false);
   const savedBackTargetRef = useRef<string | null>(null);
   const sessionTimeoutHandledRef = useRef(false);
+  // 메시지 hydrate 가 sessionId 별로 한 번만 일어나도록 — chat streaming 중 백엔드 refetch 로
+  // 메시지가 덮어씌워지는 패턴 방지.
+  const messagesHydratedSessionRef = useRef<string | null>(null);
   // IDE 가 처음 마운트된 시각 — session.createdAt 가 비어있을 때 타이머 fallback 으로 사용.
   // useState lazy init 으로 첫 렌더 한 번만 Date.now() 평가 → 매 렌더에서도 stable 보장.
   const [ideMountTimeMs] = useState<number>(() => Date.now());
@@ -1620,10 +1623,14 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   );
 
   useEffect(() => {
-    if (session) {
-      void loadMessages();
-    }
-  }, [loadMessages, session]);
+    // 메시지 hydrate — sessionId 별로 한 번만. session 객체 reference 변동
+    // (useQuery refetch 등) 에 의존하면 chat 도중 백엔드에서 다시 fetch 해서
+    // streaming 중인 assistant 메시지를 덮어씌워 사라지게 한다.
+    if (!session) return;
+    if (messagesHydratedSessionRef.current === sessionId) return;
+    messagesHydratedSessionRef.current = sessionId;
+    void loadMessages();
+  }, [session, sessionId, loadMessages]);
 
   useEffect(() => {
     // 타이머는 createdAt 유무와 무관하게 항상 도는 게 맞다.
