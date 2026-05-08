@@ -230,8 +230,10 @@ export const authApi = {
     return res.data;
   },
 
-  /** 리포트 목록 조회 — GET /api/v1/users/me/reports (2026-05-08~) */
-  async getUserReports(page = 0, size = 20): Promise<UserReportListResponse> {
+  /** 리포트 목록 조회 — GET /api/v1/users/me/reports (2026-05-08~).
+   * 백엔드는 page 1-indexed (page<1 이면 400). resolvedPage-1 로 내부 변환.
+   */
+  async getUserReports(page = 1, size = 20): Promise<UserReportListResponse> {
     const res = await authClient
       .get("api/v1/users/me/reports", { searchParams: { page, size } })
       .json<ApiResponse<UserReportListResponse>>();

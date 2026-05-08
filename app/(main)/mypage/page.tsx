@@ -154,7 +154,8 @@ export default function MyPage() {
   });
 
   // 풀이 기록 (제출 후 리포트 목록) — 백엔드 endpoint. 실패 시 null 로 폴백.
-  const [reportsPage, setReportsPage] = useState(0);
+  // 백엔드 page 1-indexed.
+  const [reportsPage, setReportsPage] = useState(1);
   const REPORTS_PAGE_SIZE = 10;
   const { data: reportsData, isLoading: reportsLoading } = useQuery({
     queryKey: ["userReports", user?.id, reportsPage],
@@ -886,13 +887,13 @@ function ReportsTable({
       {totalPages > 1 && (
         <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50">
           <div className="text-xs text-gray-500 dark:text-slate-400">
-            총 <span className="font-bold text-gray-700 dark:text-slate-200 tabular-nums">{data.totalCount}</span>개 · {page + 1}/{totalPages} 페이지
+            총 <span className="font-bold text-gray-700 dark:text-slate-200 tabular-nums">{data.totalCount}</span>개 · {page}/{totalPages} 페이지
           </div>
           <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={() => setPage(Math.max(0, page - 1))}
-              disabled={page === 0}
+              onClick={() => setPage(Math.max(1, page - 1))}
+              disabled={page <= 1}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             >
               이전
