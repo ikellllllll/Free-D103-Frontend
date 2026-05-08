@@ -6,7 +6,6 @@ import {
   createInitialSession,
   createRunResult,
   createStarterFiles,
-  createWorktreeFiles,
   createSubmission,
   createTestResults,
   defaultUser,
@@ -147,13 +146,9 @@ const normalizeWorkspaceFiles = (files: SolveSession["files"]) => {
       return true;
     });
 
-  const sourceFiles = normalized.filter((file) => file.path.startsWith("src/"));
-  const worktreeFiles = createWorktreeFiles(sourceFiles).filter((file) => !seen.has(file.path));
-
-  worktreeFiles.forEach((file) => {
-    seen.add(file.path);
-    normalized.push(file);
-  });
+  // ⚠️ 백엔드 세션에서 가짜 worktree 파일이 inject 되는 버그 방지.
+  // mock 세션은 createStarterFiles 가 이미 worktree 포함 — 여기서 추가 inject 안 함.
+  // 백엔드 세션은 backend payload.worktree 만 반영 (sessionApi.toWorkspaceFiles 에서 처리).
 
   if (harnessFile && !seen.has(harnessFile.path)) {
     normalized.push(clone(harnessFile));
