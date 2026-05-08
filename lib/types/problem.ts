@@ -1,6 +1,6 @@
 export type ProblemLevel = 1 | 2 | 3;
 export type ProblemCategory = "API 구현" | "버그 수정";
-export type ProblemStatus = "완료" | "도전 중" | "미시작" | "잠김";
+export type ProblemStatus = "풀이한 문제" | "시도한 문제" | "미시작" | "잠김";
 
 export interface PublicTestCase {
   id: string;

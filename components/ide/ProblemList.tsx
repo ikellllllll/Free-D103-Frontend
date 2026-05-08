@@ -13,8 +13,8 @@ const levelTone = { 1: "level1", 2: "level2", 3: "level3" } as const;
 const levelAccent = { 1: "var(--level1)", 2: "var(--level2)", 3: "var(--level3)" } as const;
 
 const statusTone: Record<ProblemStatus, "green" | "amber" | "neutral" | "red"> = {
-  완료: "green",
-  "도전 중": "amber",
+  "풀이한 문제": "green",
+  "시도한 문제": "amber",
   미시작: "neutral",
   잠김: "red"
 };

@@ -20,7 +20,7 @@ export const problems: ProblemDetail[] = [
     level: 1,
     category: "API 구현",
     passRate: 78,
-    status: "완료",
+    status: "풀이한 문제",
     summary: "간단한 Todo CRUD API를 설계하고 예외 처리를 포함해 구현합니다.",
     estimate: "60분",
     description: `# Todo API 구현
@@ -61,7 +61,7 @@ export const problems: ProblemDetail[] = [
     level: 2,
     category: "API 구현",
     passRate: 54,
-    status: "도전 중",
+    status: "시도한 문제",
     summary: "로그인, 토큰 발급, 인증 필터까지 포함한 인증 플로우를 구현합니다.",
     estimate: "90분",
     description: `# JWT 인증 구현

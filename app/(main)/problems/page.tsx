@@ -27,7 +27,7 @@ import type {
 
 const LEVEL_OPTIONS = [1, 2, 3] as const;
 const CATEGORY_OPTIONS = ["API 구현", "버그 수정"] as const;
-const STATUS_OPTIONS = ["미시작", "도전 중", "완료"] as const;
+const STATUS_OPTIONS = ["미시작", "시도한 문제", "풀이한 문제"] as const;
 const SORT_OPTIONS = [
   { id: "default", label: "기본 순서" },
   { id: "pass-desc", label: "통과율 높은 순" },
@@ -122,22 +122,22 @@ function FilterGroup({
 function StatusBadge({ status }: { status: ProblemStatus }) {
   const base =
     "inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full";
-  if (status === "완료") {
+  if (status === "풀이한 문제") {
     return (
       <span className={`${base} bg-violet-600 text-white ring-1 ring-violet-700/50 shadow-sm shadow-violet-600/30`}>
         <CheckCircle2 size={12} strokeWidth={2.8} />
-        <span>완료</span>
+        <span>풀이한 문제</span>
       </span>
     );
   }
-  if (status === "도전 중") {
+  if (status === "시도한 문제") {
     return (
       <span className={`${base} bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100`}>
         <span className="relative flex h-2 w-2">
           <span className="absolute inset-0 rounded-full bg-indigo-500 animate-ping opacity-70" />
           <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-500" />
         </span>
-        <span>도전 중</span>
+        <span>시도한 문제</span>
       </span>
     );
   }
@@ -396,8 +396,8 @@ export default function ProblemsPage() {
 
   const stats = useMemo(() => {
     const total = all.length;
-    const done = all.filter((p) => p.status === "완료").length;
-    const inProgress = all.filter((p) => p.status === "도전 중").length;
+    const done = all.filter((p) => p.status === "풀이한 문제").length;
+    const inProgress = all.filter((p) => p.status === "시도한 문제").length;
     const avgPass = total
       ? Math.round(all.reduce((s, p) => s + p.passRate, 0) / total)
       : 0;
@@ -454,8 +454,8 @@ export default function ProblemsPage() {
           style={{ animationDelay: "0.05s", animationFillMode: "both" }}
         >
           <StatCard label="전체 과제" value={stats.total} suffix="개" />
-          <StatCard label="완료" value={stats.done} suffix="개" />
-          <StatCard label="도전 중" value={stats.inProgress} suffix="개" />
+          <StatCard label="풀이한 문제" value={stats.done} suffix="개" />
+          <StatCard label="시도한 문제" value={stats.inProgress} suffix="개" />
           <StatCard label="평균 통과율" value={stats.avgPass} suffix="%" />
         </div>
 

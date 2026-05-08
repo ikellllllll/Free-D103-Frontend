@@ -450,7 +450,7 @@ export default function MyPage() {
                         </div>
                       ) : (
                         <>
-                          <div className="flex items-center gap-2 flex-wrap">
+                          <div className="flex items-center gap-2 flex-wrap -mb-[1rem]">
                             <h2 className="font-bold text-gray-900 dark:text-slate-100 text-2xl leading-none truncate">{name}</h2>
                             <button
                               type="button"
@@ -786,7 +786,7 @@ export default function MyPage() {
 function SectionHeader({ title, desc }: { title: string; desc: string }) {
   return (
     <div className="mb-3">
-      <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100 tracking-tight">{title}</h2>
+      <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100 tracking-tight -mb-[0.1rem]">{title}</h2>
       <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">{desc}</p>
     </div>
   );
