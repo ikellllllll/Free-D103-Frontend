@@ -2254,12 +2254,16 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       return;
     }
 
-    if (activeTab?.kind === "diff") {
-      return;
-    }
-
     void ensureBackendFileContent(activeFile.path);
-  }, [activeFile?.path, activeTab?.kind, ensureBackendFileContent]);
+
+    // diff 탭일 때 sourcePath 도 미리 hydrate (mock preset → real content 점프 깜빡임 방지, #7).
+    if (activeTab?.kind === "diff") {
+      const sourcePath = activeTab.sourcePath;
+      if (sourcePath && sourcePath !== activeFile.path) {
+        void ensureBackendFileContent(sourcePath);
+      }
+    }
+  }, [activeFile?.path, activeTab, ensureBackendFileContent]);
 
   const searchMatches = useMemo(() => {
     const keyword = searchQuery.trim().toLowerCase();
@@ -3101,6 +3105,21 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     const targetKind = explorerContextMenu.targetKind;
     setExplorerContextMenu(null);
 
+    // 변경되지 않은 (dirty 없는) 파일/폴더는 즉시 삭제. dirty 가 있으면 confirm (#9).
+    const dirtyPaths =
+      targetKind === "file"
+        ? unsavedPaths.filter((p) => p === targetPath)
+        : unsavedPaths.filter((p) => p === targetPath || p.startsWith(`${targetPath}/`));
+    if (dirtyPaths.length > 0) {
+      const message =
+        targetKind === "file"
+          ? `'${getFileName(targetPath)}' 에 저장되지 않은 변경이 있습니다. 그대로 삭제할까요?`
+          : `'${getFileName(targetPath)}' 안에 저장되지 않은 변경이 ${dirtyPaths.length}개 있습니다. 그대로 삭제할까요?`;
+      if (!window.confirm(message)) {
+        return;
+      }
+    }
+
     if (targetKind === "file") {
       setLocalFolders((state) => appendLocalFolder(state, getFolderPath(targetPath) || null));
       removeWorkspaceFile(targetPath);
@@ -3133,7 +3152,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       })
     );
     addToast(`폴더 '${getFileName(targetPath)}'을 삭제했어요.`, "success");
-  }, [addToast, explorerContextMenu, files, removeWorkspaceFile]);
+  }, [addToast, explorerContextMenu, files, removeWorkspaceFile, unsavedPaths]);
 
   const handleExplorerFileDragStart = useCallback((event: ReactDragEvent<HTMLElement>, path: string) => {
     event.stopPropagation();
@@ -3482,6 +3501,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         await sessionApi.endSession(sessionId);
       }
       addToast("세션이 종료되었습니다.", "success");
+
+      // 종료된 세션의 localStorage editor-layout snapshot cleanup (#10).
+      try {
+        window.localStorage.removeItem(getEditorLayoutStorageKey(sessionId));
+      } catch {
+        /* noop */
+      }
 
       await queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
       await queryClient.invalidateQueries({ queryKey: ["sessions"] });

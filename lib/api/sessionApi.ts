@@ -212,6 +212,19 @@ const EXECUTION_POLL_MAX_ATTEMPTS = 171;
 const WORKTREE_PREFIX = ".worktree/";
 const externalFileIdBySession = new Map<string, Map<string, number>>();
 
+// createFile / 그 외 mutation 직렬화 큐 (#11) — concurrent createFile race 방지.
+// 같은 sessionId 에 대해 mutation 이 in-flight 면 chain.
+const sessionMutationQueues = new Map<string, Promise<unknown>>();
+function enqueueSessionMutation<T>(sessionId: string, fn: () => Promise<T>): Promise<T> {
+  const previous = sessionMutationQueues.get(sessionId) ?? Promise.resolve();
+  const next = previous.then(fn, fn);
+  sessionMutationQueues.set(
+    sessionId,
+    next.catch(() => undefined)
+  );
+  return next;
+}
+
 const inferLanguageFromPath = (path: string): string => {
   const lower = path.toLowerCase();
 
@@ -673,44 +686,45 @@ export const sessionApi = {
   },
 
   async createFile(sessionId: string, input: CreateFileRequest) {
-    const resolvedLanguage =
-      input.nodeType === "DIRECTORY"
-        ? null
-        : input.language ?? toSessionFileLanguage(input.path) ?? inferLanguageFromPath(input.path);
-    const resolvedContent = input.nodeType === "DIRECTORY" ? null : input.content ?? "";
+    // 같은 세션의 mutation 이 직렬화되도록 큐에 삽입 (#11) — POST → getWorkspace 사이에 다른 mutation 끼어들기 방지.
+    return enqueueSessionMutation(sessionId, async () => {
+      const resolvedLanguage =
+        input.nodeType === "DIRECTORY"
+          ? null
+          : input.language ?? toSessionFileLanguage(input.path) ?? inferLanguageFromPath(input.path);
+      const resolvedContent = input.nodeType === "DIRECTORY" ? null : input.content ?? "";
 
-    await authClient.post(`api/v1/sessions/${sessionId}/files`, {
-      json: {
-        path: input.path,
-        name: getFileName(input.path),
-        nodeType: input.nodeType,
-        language: resolvedLanguage,
-        content: resolvedContent
+      await authClient.post(`api/v1/sessions/${sessionId}/files`, {
+        json: {
+          path: input.path,
+          name: getFileName(input.path),
+          nodeType: input.nodeType,
+          language: resolvedLanguage,
+          content: resolvedContent
+        }
+      });
+
+      const workspace = await this.getWorkspace(sessionId);
+
+      if (input.nodeType === "FILE") {
+        await mockApi.syncExternalFileContent(
+          sessionId,
+          input.path,
+          resolvedContent ?? "",
+          resolvedLanguage ?? inferLanguageFromPath(input.path)
+        );
       }
+
+      return workspace;
     });
-
-    const workspace = await this.getWorkspace(sessionId);
-
-    if (input.nodeType === "FILE") {
-      await mockApi.syncExternalFileContent(
-        sessionId,
-        input.path,
-        resolvedContent ?? "",
-        resolvedLanguage ?? inferLanguageFromPath(input.path)
-      );
-    }
-
-    return workspace;
   },
 
   async getWorktreeFileContent(sessionId: string, worktreeFileId: number) {
-    try {
-      const res = await authClient.get(`api/v1/sessions/${sessionId}/worktrees/${worktreeFileId}`)
-        .json<ApiResponse<GetWorktreeFileResponse>>();
-      return res.data as GetFileContentResponse;
-    } catch {
-      return null;
-    }
+    // ⚠️ silent failure 시 throw — 호출 측 (getFileContent) 의 catch 가 loadedBackendFilesRef 에서 path 를 제거해서
+    // 다음에 retry 가능하도록 함. 이전엔 null 반환 + 빈 content cache 로 영구 빈 파일로 보였음 (#12).
+    const res = await authClient.get(`api/v1/sessions/${sessionId}/worktrees/${worktreeFileId}`)
+      .json<ApiResponse<GetWorktreeFileResponse>>();
+    return res.data as GetFileContentResponse;
   },
 
   async getFileContent(sessionId: string, path: string) {

@@ -111,12 +111,47 @@ export const useIdeStore = create<IdeState>((set) => ({
   bottomPanelOpen: true,
   bottomPanelTab: "output",
   bottomPanelHeight: 220,
+  // 백엔드에서 받은 files 와 store 의 기존 files 를 머지.
+  // 사유:
+  //  (a) sessionApi.createFile 후 setWorkspace 가 호출되면 백엔드 응답의 content (대부분 빈 문자열) 가
+  //      기존 store 의 content 를 덮어써서 다른 파일들 내용이 사라지는 버그 방지 (#1).
+  //  (b) savedContents (saved baseline) 도 같이 덮어쓰면 dirty 가 baseline 으로 굳어버려 discardChanges 불가 + autosave 가 dirty 를 영구 저장 (#1).
+  //  (c) caller 가 activePath 를 안 주면 store 의 기존 activePath 가 valid 한 동안은 보존, invalidate 시 random 점프 방지 (#3).
   setWorkspace: (files, activePath) =>
-    set({
-      files,
-      activePath: activePath ?? files[0]?.path ?? null,
-      unsavedPaths: [],
-      savedContents: Object.fromEntries(files.map((file) => [file.path, file.content]))
+    set((state) => {
+      const existingContent = new Map(state.files.map((file) => [file.path, file.content]));
+      const mergedFiles = files.map((file) => {
+        const existing = existingContent.get(file.path);
+        // 기존 content 가 있고 비어있지 않으면 보존. 그 외엔 백엔드 응답 사용.
+        return existing && existing.length > 0 ? { ...file, content: existing } : file;
+      });
+      const validPaths = new Set(mergedFiles.map((f) => f.path));
+      const nextUnsavedPaths = state.unsavedPaths.filter((p) => validPaths.has(p));
+      // activePath 우선순위: caller 명시 > store 의 기존 activePath (valid 한 경우) > files[0] > null
+      const nextActivePath =
+        activePath ??
+        (state.activePath && validPaths.has(state.activePath) ? state.activePath : mergedFiles[0]?.path ?? null);
+      // savedContents: 기존 baseline 보존 + 새로 들어온 파일 (또는 빈 baseline 이었던 파일) 만 새 content 로 등록.
+      // dirty 가 있는 파일의 baseline 을 dirty content 로 덮어쓰지 않도록 방어.
+      const nextSavedContents = { ...state.savedContents };
+      mergedFiles.forEach((file) => {
+        const existingBaseline = nextSavedContents[file.path];
+        if (existingBaseline === undefined) {
+          // 신규 파일 또는 기존 baseline 없음 — 백엔드 content 를 baseline 으로.
+          nextSavedContents[file.path] = file.content;
+        }
+        // 기존 baseline 있으면 그대로 유지 (dirty 보존).
+      });
+      // 사라진 파일의 baseline prune.
+      Object.keys(nextSavedContents).forEach((path) => {
+        if (!validPaths.has(path)) delete nextSavedContents[path];
+      });
+      return {
+        files: mergedFiles,
+        activePath: nextActivePath,
+        unsavedPaths: nextUnsavedPaths,
+        savedContents: nextSavedContents
+      };
     }),
   createWorkspaceFile: (file, activate) =>
     set((state) => {
@@ -176,23 +211,39 @@ export const useIdeStore = create<IdeState>((set) => ({
         unsavedPaths: nextUnsavedPaths
       };
     }),
+  // 백엔드에서 받은 file content 로 store 채우기 (lazy load).
+  // ⚠️ 사용자가 그 사이에 편집 중이면 (dirty) skip — race condition 으로 dirty 덮어쓰기 방지 (#8).
   hydrateFileContent: (path, content, language) =>
-    set((state) => ({
-      files: state.files.map((file) =>
-        file.path === path
-          ? {
-              ...file,
-              content,
-              language: language ?? file.language
-            }
-          : file
-      ),
-      savedContents: {
-        ...state.savedContents,
-        [path]: content
-      },
-      unsavedPaths: state.unsavedPaths.filter((item) => item !== path)
-    })),
+    set((state) => {
+      const isDirty = state.unsavedPaths.includes(path);
+      if (isDirty) {
+        // 사용자가 편집 중. content 만 덮어쓰지 않고 language 만 갱신 (있으면).
+        if (language) {
+          return {
+            files: state.files.map((file) =>
+              file.path === path ? { ...file, language } : file
+            )
+          };
+        }
+        return state;
+      }
+      return {
+        files: state.files.map((file) =>
+          file.path === path
+            ? {
+                ...file,
+                content,
+                language: language ?? file.language
+              }
+            : file
+        ),
+        savedContents: {
+          ...state.savedContents,
+          [path]: content
+        },
+        unsavedPaths: state.unsavedPaths.filter((item) => item !== path)
+      };
+    }),
   markSaved: (path, savedAt) =>
     set((state) => {
       const targetPaths = path ? [path] : state.unsavedPaths;
