@@ -89,7 +89,8 @@ export function SubmissionResultPanel({ result, loading }: Props) {
 
         {isFailed ? (
           <div className="empty-inline" style={{ borderColor: "rgba(220,38,38,0.32)" }}>
-            실행 중 오류로 채점이 중단됐습니다. 상세 stderr 는 백엔드 응답 확장 후 표시될 예정입니다.
+            실행 중 오류로 채점이 중단됐습니다. 비공개 테스트가 섞여 있어 상세 stderr 는 노출되지 않습니다.
+            상단 &quot;테스트&quot; 버튼으로 공개 테스트만 다시 돌리면 stdout · stderr 를 확인할 수 있습니다.
           </div>
         ) : isRunning ? (
           <div className="empty-inline">
