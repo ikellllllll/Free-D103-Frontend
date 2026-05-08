@@ -1308,14 +1308,17 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const [savePromptOpen, setSavePromptOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(() => {
+    // 기본값: ON. 사용자가 명시적으로 OFF 한 적 있으면 그 값을 따름.
     if (typeof window === "undefined") {
-      return false;
+      return true;
     }
 
     try {
-      return window.localStorage.getItem(AUTO_SAVE_STORAGE_KEY) === "1";
+      const raw = window.localStorage.getItem(AUTO_SAVE_STORAGE_KEY);
+      if (raw === null) return true; // 처음 진입 → 기본 ON
+      return raw === "1";
     } catch {
-      return false;
+      return true;
     }
   });
   const { data: session, isLoading } = useQuery({
@@ -3635,21 +3638,28 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     }
   }, [autoSaveEnabled]);
 
+  // 30초 정주기 자동저장 — unsavedPaths/saving 을 ref 로 읽어 dep 에서 빼면 timer 가 reset 안 됨.
+  // 이전엔 dirty 추가될 때마다 effect 재실행되어 timer 리셋 → 빠르게 편집 시 영원히 안 저장될 수 있음.
+  const autoSaveStateRef = useRef({ unsavedPaths, saving });
+  useEffect(() => {
+    autoSaveStateRef.current = { unsavedPaths, saving };
+  }, [unsavedPaths, saving]);
+
   useEffect(() => {
     if (!autoSaveEnabled) {
       return;
     }
 
     const timer = window.setInterval(() => {
-      if (!unsavedPaths.length || saving) {
+      const { unsavedPaths: cur, saving: curSaving } = autoSaveStateRef.current;
+      if (!cur.length || curSaving) {
         return;
       }
-
       void saveAllDirtyFiles();
     }, AUTO_SAVE_INTERVAL_MS);
 
     return () => window.clearInterval(timer);
-  }, [autoSaveEnabled, saveAllDirtyFiles, saving, unsavedPaths.length]);
+  }, [autoSaveEnabled, saveAllDirtyFiles]);
 
   useEffect(() => {
     const handleDocumentClick = (event: MouseEvent) => {
