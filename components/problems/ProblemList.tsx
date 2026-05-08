@@ -15,7 +15,7 @@ const levelAccent = { 1: "var(--level1)", 2: "var(--level2)", 3: "var(--level3)"
 
 const statusTone: Record<ProblemStatus, "green" | "amber" | "neutral" | "red"> = {
   완료: "green",
-  "진행 중": "amber",
+  "도전 중": "amber",
   미시작: "neutral",
   잠김: "red"
 };

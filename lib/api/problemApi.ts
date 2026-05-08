@@ -42,7 +42,9 @@ function mapLevel(difficulty: string): ProblemLevel {
 }
 
 function mapStatus(status: string): ProblemStatus {
-  if (status === "IN_PROGRESS") return "진행 중";
+  // 백엔드 IN_PROGRESS = "한 번이라도 시도 (ATTEMPTED 의미)" → ENDED/EXPIRED 세션도 IN_PROGRESS 로 전송됨.
+  // frontend 라벨은 "도전 중" 으로 — 마이페이지 "이어가기" (실제 IN_PROGRESS 세션 카운트) 와 의미 구분.
+  if (status === "IN_PROGRESS") return "도전 중";
   if (status === "SOLVED") return "완료";
   return "미시작";
 }

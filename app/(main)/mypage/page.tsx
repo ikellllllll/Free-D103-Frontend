@@ -90,7 +90,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "내 정보",
     items: [
       { id: "profile", label: "프로필", icon: User },
-      { id: "history", label: "풀이 기록", icon: FileText }
+      { id: "history", label: "리포트", icon: FileText }
     ]
   },
   {
@@ -538,10 +538,10 @@ export default function MyPage() {
               </div>
             )}
 
-            {/* HISTORY (풀이 기록) — GET /users/me/reports 백엔드 endpoint */}
+            {/* HISTORY (리포트) — GET /users/me/reports 백엔드 endpoint */}
             {activeTab === "history" && (
               <div className="animate-slide-up">
-                <SectionHeader title="풀이 기록" desc="제출 후 생성된 리포트 — 점수 / 통과 / 일자" />
+                <SectionHeader title="리포트" desc="제출 후 생성된 AI 분석 리포트 — 점수 / 통과 / 일자" />
                 <ReportsTable
                   data={reportsData}
                   loading={reportsLoading}

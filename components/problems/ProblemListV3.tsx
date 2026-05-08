@@ -31,8 +31,8 @@ function statusBadge(status: ProblemStatus) {
   if (status === "완료") {
     return <span className="v3-plist-card__status v3-plist-card__status--done">✓ 완료</span>;
   }
-  if (status === "진행 중") {
-    return <span className="v3-plist-card__status v3-plist-card__status--active">진행 중</span>;
+  if (status === "도전 중") {
+    return <span className="v3-plist-card__status v3-plist-card__status--active">도전 중</span>;
   }
   if (status === "잠김") {
     return <span className="v3-plist-card__status v3-plist-card__status--locked">🔒 잠김</span>;

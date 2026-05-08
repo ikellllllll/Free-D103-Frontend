@@ -27,7 +27,7 @@ import type {
 
 const LEVEL_OPTIONS = [1, 2, 3] as const;
 const CATEGORY_OPTIONS = ["API 구현", "버그 수정"] as const;
-const STATUS_OPTIONS = ["미시작", "진행 중", "완료"] as const;
+const STATUS_OPTIONS = ["미시작", "도전 중", "완료"] as const;
 const SORT_OPTIONS = [
   { id: "default", label: "기본 순서" },
   { id: "pass-desc", label: "통과율 높은 순" },
@@ -130,14 +130,14 @@ function StatusBadge({ status }: { status: ProblemStatus }) {
       </span>
     );
   }
-  if (status === "진행 중") {
+  if (status === "도전 중") {
     return (
       <span className={`${base} bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100`}>
         <span className="relative flex h-2 w-2">
           <span className="absolute inset-0 rounded-full bg-indigo-500 animate-ping opacity-70" />
           <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-500" />
         </span>
-        <span>진행 중</span>
+        <span>도전 중</span>
       </span>
     );
   }
@@ -397,7 +397,7 @@ export default function ProblemsPage() {
   const stats = useMemo(() => {
     const total = all.length;
     const done = all.filter((p) => p.status === "완료").length;
-    const inProgress = all.filter((p) => p.status === "진행 중").length;
+    const inProgress = all.filter((p) => p.status === "도전 중").length;
     const avgPass = total
       ? Math.round(all.reduce((s, p) => s + p.passRate, 0) / total)
       : 0;
@@ -455,7 +455,7 @@ export default function ProblemsPage() {
         >
           <StatCard label="전체 과제" value={stats.total} suffix="개" />
           <StatCard label="완료" value={stats.done} suffix="개" />
-          <StatCard label="진행 중" value={stats.inProgress} suffix="개" />
+          <StatCard label="도전 중" value={stats.inProgress} suffix="개" />
           <StatCard label="평균 통과율" value={stats.avgPass} suffix="%" />
         </div>
 

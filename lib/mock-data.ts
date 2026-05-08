@@ -61,7 +61,7 @@ export const problems: ProblemDetail[] = [
     level: 2,
     category: "API 구현",
     passRate: 54,
-    status: "진행 중",
+    status: "도전 중",
     summary: "로그인, 토큰 발급, 인증 필터까지 포함한 인증 플로우를 구현합니다.",
     estimate: "90분",
     description: `# JWT 인증 구현
