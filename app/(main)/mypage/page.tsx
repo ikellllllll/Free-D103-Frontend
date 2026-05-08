@@ -6,20 +6,15 @@ import { useMemo, useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Key,
-  Trophy,
   Shield,
   Check,
   Pencil,
   Trash2,
-  Bell,
   Sun,
   Moon,
   Database,
-  CircleCheck,
-  Wrench,
   FileText,
   User,
-  Activity,
   BarChart2,
   Settings,
   AlertTriangle,
@@ -53,9 +48,6 @@ const PREF_STORAGE_KEY = "aig-user-preferences-v1";
 
 interface UserPreferences {
   defaultLang: "java" | "python";
-  notifyNewProblem: boolean;
-  notifyWeekly: boolean;
-  notifyTier: boolean;
   defaultModel: string;
 }
 
@@ -79,7 +71,8 @@ function maskKey(k: string): string {
 
 /* ─── Nav ─── */
 
-type TabId = "profile" | "activity" | "skills" | "apikeys" | "preferences" | "account";
+// "skills" 탭은 프로필 통합으로 제거. "activity" → 풀이 기록 (reports API) 으로 의미 변경하고 "history" 로 rename.
+type TabId = "profile" | "history" | "apikeys" | "preferences" | "account";
 
 interface NavItem {
   id: TabId;
@@ -97,13 +90,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "내 정보",
     items: [
       { id: "profile", label: "프로필", icon: User },
-      { id: "activity", label: "최근 활동", icon: Activity }
-    ]
-  },
-  {
-    label: "역량",
-    items: [
-      { id: "skills", label: "역량 지표", icon: BarChart2 }
+      { id: "history", label: "풀이 기록", icon: FileText }
     ]
   },
   {
@@ -166,6 +153,21 @@ export default function MyPage() {
     enabled: !!user
   });
 
+  // 풀이 기록 (제출 후 리포트 목록) — 백엔드 endpoint. 실패 시 null 로 폴백.
+  const [reportsPage, setReportsPage] = useState(0);
+  const REPORTS_PAGE_SIZE = 10;
+  const { data: reportsData, isLoading: reportsLoading } = useQuery({
+    queryKey: ["userReports", user?.id, reportsPage],
+    queryFn: async () => {
+      try {
+        return await authApi.getUserReports(reportsPage, REPORTS_PAGE_SIZE);
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!user
+  });
+
   useEffect(() => {
     if (!profile) return;
     setAuthUser({
@@ -208,64 +210,8 @@ export default function MyPage() {
   const avgSkill =
     Math.round(skills.reduce((a, s) => a + s.score, 0) / skills.length) || 0;
 
-  const activity = useMemo(() => {
-    if (!data) return [];
-    type Row = {
-      id: string;
-      time: string;
-      icon: LucideIcon;
-      tint: string;
-      title: React.ReactNode;
-      sub: string;
-      href?: string;
-      action?: string;
-    };
-
-    const rows: Row[] = [];
-
-    data.history.slice(0, 3).forEach((h) => {
-      if (!h) return;
-      rows.push({
-        id: `sub-${h.id}`,
-        time: h.date,
-        icon: CircleCheck,
-        tint: "bg-green-100 text-green-600",
-        title: (
-          <>
-            <strong className="font-bold text-gray-900">{h.title}</strong> 제출 · {h.passRate}
-          </>
-        ),
-        sub: "리포트 업데이트됨",
-        href: h.href,
-        action: "리포트 보기"
-      });
-    });
-
-    data.resumableSessions.slice(0, 2).forEach((s) => {
-      if (!s) return;
-      rows.push({
-        id: `ses-${s.sessionId}`,
-        time: new Date(s.lastSavedAt).toLocaleDateString("ko-KR"),
-        icon: Wrench,
-        tint: "bg-indigo-100 text-indigo-600",
-        title: (
-          <>
-            <strong className="font-bold text-gray-900">{s.title}</strong> 풀이 중
-          </>
-        ),
-        sub: `Lv ${s.level} · ${s.category}`,
-        href: s.href,
-        action: "이어가기"
-      });
-    });
-
-    return rows.slice(0, 5);
-  }, [data]);
 
   const [defaultLang, setDefaultLang] = useState<"java" | "python">("java");
-  const [notifyNewProblem, setNotifyNewProblem] = useState(true);
-  const [notifyWeekly, setNotifyWeekly] = useState(true);
-  const [notifyTier, setNotifyTier] = useState(true);
   const [defaultModel, setDefaultModel] = useState("자동 추천");
   const [prefsHydrated, setPrefsHydrated] = useState(false);
 
@@ -282,9 +228,6 @@ export default function MyPage() {
         if (prefs.defaultLang === "java" || prefs.defaultLang === "python") {
           setDefaultLang(prefs.defaultLang);
         }
-        if (typeof prefs.notifyNewProblem === "boolean") setNotifyNewProblem(prefs.notifyNewProblem);
-        if (typeof prefs.notifyWeekly === "boolean") setNotifyWeekly(prefs.notifyWeekly);
-        if (typeof prefs.notifyTier === "boolean") setNotifyTier(prefs.notifyTier);
         if (typeof prefs.defaultModel === "string" && prefs.defaultModel.trim()) {
           setDefaultModel(prefs.defaultModel);
         }
@@ -298,15 +241,9 @@ export default function MyPage() {
 
   useEffect(() => {
     if (!prefsHydrated) return;
-    const prefs: UserPreferences = {
-      defaultLang,
-      notifyNewProblem,
-      notifyWeekly,
-      notifyTier,
-      defaultModel
-    };
+    const prefs: UserPreferences = { defaultLang, defaultModel };
     localStorage.setItem(PREF_STORAGE_KEY, JSON.stringify(prefs));
-  }, [defaultLang, notifyNewProblem, notifyWeekly, notifyTier, defaultModel, prefsHydrated]);
+  }, [defaultLang, defaultModel, prefsHydrated]);
 
   const openEdit = (id: ProviderId) => {
     setEditingProvider(id);
@@ -458,25 +395,18 @@ export default function MyPage() {
               <div className="animate-slide-up space-y-4">
                 <SectionHeader title="프로필" desc="내 계정 정보와 활동 현황" />
 
-                {/* Top row: profile summary */}
-                <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_1fr] gap-3 items-stretch">
-                  {/* Avatar + info */}
-                  <div className="mypage-profile-card relative overflow-hidden bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 flex items-center gap-4 min-h-[132px]">
-                    {/* Subtle gradient top */}
-                    <div
-                      className="mypage-profile-card__wash absolute inset-y-0 left-0 w-24 opacity-60"
-                      aria-hidden="true"
-                    />
+                {/* Hero — avatar + 닉네임 + 이메일 + provider 배지 */}
+                <div className="relative overflow-hidden rounded-2xl border border-gray-200 dark:border-slate-700 bg-gradient-to-br from-indigo-50 via-white to-violet-50 dark:from-indigo-950/40 dark:via-slate-900 dark:to-violet-950/40 shadow-sm">
+                  <div className="relative px-6 py-7 flex items-center gap-5">
                     <div className="relative shrink-0">
-                      {/* Glow ring */}
-                      <div className="absolute inset-0 rounded-full blur-xl bg-indigo-400/30 scale-110" aria-hidden="true" />
-                      <div className="relative w-14 h-14 rounded-full bg-white text-indigo-700 flex items-center justify-center font-display font-black text-xl shadow-[0_4px_16px_-4px_rgba(99,102,241,0.25)] ring-1 ring-indigo-100">
+                      <div className="absolute inset-0 rounded-full blur-2xl bg-indigo-400/30 scale-110" aria-hidden="true" />
+                      <div className="relative w-20 h-20 rounded-full bg-white dark:bg-slate-800 text-indigo-700 dark:text-indigo-400 flex items-center justify-center font-display font-black text-2xl shadow-[0_8px_24px_-6px_rgba(99,102,241,0.35)] ring-1 ring-indigo-100 dark:ring-indigo-900/60">
                         {initials}
                       </div>
                     </div>
-                    <div className="relative min-w-0 flex-1">
+                    <div className="min-w-0 flex-1">
                       {editingNickname ? (
-                        <div className="flex flex-col gap-1.5">
+                        <div className="flex flex-col gap-2">
                           <input
                             type="text"
                             value={nicknameInput}
@@ -494,14 +424,14 @@ export default function MyPage() {
                             maxLength={20}
                             autoFocus
                             placeholder="닉네임"
-                            className="w-full px-2.5 py-1.5 rounded-lg border border-indigo-200 bg-white text-sm font-semibold text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all disabled:opacity-60"
+                            className="w-full px-3 py-2 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-800 text-base font-bold text-gray-900 dark:text-slate-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all disabled:opacity-60"
                           />
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-2">
                             <button
                               type="button"
                               onClick={() => void saveNickname()}
                               disabled={savingNickname || !nicknameInput.trim()}
-                              className="px-2.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="px-3 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                             >
                               {savingNickname ? "저장 중..." : "저장"}
                             </button>
@@ -509,49 +439,53 @@ export default function MyPage() {
                               type="button"
                               onClick={cancelEditNickname}
                               disabled={savingNickname}
-                              className="px-2.5 py-1 rounded-md border border-gray-200 text-gray-600 text-[11px] font-semibold hover:bg-gray-50 transition-colors disabled:opacity-50"
+                              className="px-3 py-1.5 rounded-md border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 text-xs font-semibold hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50 cursor-pointer"
                             >
                               취소
                             </button>
-                            <span className="text-[10px] text-gray-400 ml-1 tabular-nums">
+                            <span className="text-[11px] text-gray-400 ml-1 tabular-nums">
                               {nicknameInput.length}/20
                             </span>
                           </div>
                         </div>
                       ) : (
                         <>
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <h2 className="font-bold text-gray-900 text-base leading-tight truncate">{name}</h2>
+                          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                            <h2 className="font-bold text-gray-900 dark:text-slate-100 text-2xl leading-tight truncate">{name}</h2>
                             <button
                               type="button"
                               onClick={startEditNickname}
-                              className="shrink-0 p-1 rounded-md text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                              className="shrink-0 p-1.5 rounded-md text-gray-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer"
                               aria-label="닉네임 수정"
                               title="닉네임 수정"
                             >
-                              <Pencil size={12} strokeWidth={2.2} />
+                              <Pencil size={14} strokeWidth={2.2} />
                             </button>
+                            {profile?.provider === "GITHUB" ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-900 dark:bg-slate-700 text-white">
+                                <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                                GitHub 연결
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300">
+                                LOCAL
+                              </span>
+                            )}
                           </div>
-                          <p className="text-xs text-gray-500 truncate" title={email}>{email}</p>
+                          <p className="text-sm text-gray-500 dark:text-slate-400 truncate" title={email}>{email}</p>
+                          {profile?.createdAt && (
+                            <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
+                              {new Date(profile.createdAt).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" })} 가입
+                            </p>
+                          )}
                         </>
                       )}
                     </div>
                   </div>
-
-                  <ProfileStatRow
-                    icon={Shield}
-                    label="티어"
-                    value={isNewUser ? "—" : "Silver II"}
-                    sub={isNewUser ? "첫 제출을 완료하면 티어가 부여돼요" : "다음 티어까지 조금 더"}
-                    color="text-slate-500"
-                    bg="bg-slate-50"
-                    ring="ring-slate-200"
-                  />
-                  <StreakGrassCard streak={isNewUser ? 0 : 7} />
                 </div>
 
-                {/* Info row — 백엔드 GET /users/me/profile 우선, 없으면 mock dashboard */}
-                <div className="grid grid-cols-3 gap-4">
+                {/* Stats — 백엔드 GET /users/me/profile 우선, 없으면 mock dashboard */}
+                <div className="grid grid-cols-3 gap-3">
                   {[
                     {
                       label: "총 제출",
@@ -569,70 +503,30 @@ export default function MyPage() {
                       unit: "개"
                     }
                   ].map((item) => (
-                    <div key={item.label} className="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4 text-center">
-                      <div className="text-2xl font-bold text-indigo-600 tabular-nums">{item.value}<span className="text-sm font-semibold text-gray-400 ml-1">{item.unit}</span></div>
-                      <div className="text-xs text-gray-500 mt-1 font-medium">{item.label}</div>
+                    <div key={item.label} className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm px-5 py-4 text-center">
+                      <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 tabular-nums">{item.value}<span className="text-sm font-semibold text-gray-400 dark:text-slate-500 ml-1">{item.unit}</span></div>
+                      <div className="text-xs text-gray-500 dark:text-slate-400 mt-1 font-medium">{item.label}</div>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
 
-            {/* ACTIVITY */}
-            {activeTab === "activity" && (
-              <div className="animate-slide-up">
-                <SectionHeader title="최근 활동" desc="최근 제출 및 풀이 중인 문제" />
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                  {activity.length === 0 ? (
-                    <p className="text-sm text-gray-400 py-10 text-center">아직 활동 내역이 없어요.</p>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      {activity.map((row) => {
-                        const Icon = row.icon;
-                        return (
-                          <div
-                            key={row.id}
-                            className="group flex items-center gap-3 px-3 py-3 rounded-xl bg-gray-50 border border-gray-100 transition-all duration-300 hover:bg-white hover:-translate-y-0.5 hover:shadow-sm"
-                          >
-                            <span className="shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gray-100 ring-1 ring-gray-200">
-                              <Icon size={15} strokeWidth={2.2} />
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-[11px] text-gray-400 font-mono mb-0.5 tabular-nums">{row.time}</div>
-                              <div className="text-sm text-gray-700">{row.title}</div>
-                              <div className="text-xs text-gray-500 mt-0.5">{row.sub}</div>
-                            </div>
-                            {row.href && row.action && (
-                              <Link
-                                href={withPrefix(row.href)}
-                                className="shrink-0 text-xs font-bold text-gray-600 hover:text-indigo-700 px-3 py-1.5 rounded-lg bg-white ring-1 ring-inset ring-gray-200 hover:ring-indigo-200 transition-colors"
-                              >
-                                {row.action}
-                              </Link>
-                            )}
-                          </div>
-                        );
-                      })}
+                {/* Skills (역량 지표 통합) */}
+                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm p-6">
+                  <div className="flex items-baseline justify-between mb-5">
+                    <div>
+                      <h3 className="text-base font-bold text-gray-900 dark:text-slate-100 tracking-tight inline-flex items-center gap-2">
+                        <BarChart2 size={16} className="text-indigo-500 dark:text-indigo-400" strokeWidth={2.2} />
+                        역량 지표
+                      </h3>
+                      <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">최근 10개 세션 평균 (백엔드 집계 준비 중 — 임시 mock 표시)</p>
                     </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* SKILLS */}
-            {activeTab === "skills" && (
-              <div className="animate-slide-up">
-                <SectionHeader title="역량 지표" desc="최근 10개 세션 평균 점수" />
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                  <div className="flex items-baseline justify-between mb-6">
-                    <p className="text-sm text-gray-500">5개 역량 축의 평균 점수입니다.</p>
                     <div className="text-right">
-                      <div className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">AVG</div>
-                      <div className="font-display font-black text-3xl leading-none text-indigo-600 tabular-nums">{avgSkill}</div>
+                      <div className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400 dark:text-slate-500">AVG</div>
+                      <div className="font-display font-black text-3xl leading-none text-indigo-600 dark:text-indigo-400 tabular-nums">{avgSkill}</div>
                     </div>
                   </div>
                   <SkillRadar skills={skills} />
-                  <div className="flex items-center justify-center gap-5 text-xs text-gray-500 mt-4">
+                  <div className="flex items-center justify-center gap-5 text-xs text-gray-500 dark:text-slate-400 mt-4">
                     <span className="inline-flex items-center gap-1.5">
                       <span className="w-3 h-0.5 bg-indigo-500" />내 평균
                     </span>
@@ -641,6 +535,21 @@ export default function MyPage() {
                     </span>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* HISTORY (풀이 기록) — GET /users/me/reports 백엔드 endpoint */}
+            {activeTab === "history" && (
+              <div className="animate-slide-up">
+                <SectionHeader title="풀이 기록" desc="제출 후 생성된 리포트 — 점수 / 통과 / 일자" />
+                <ReportsTable
+                  data={reportsData}
+                  loading={reportsLoading}
+                  page={reportsPage}
+                  setPage={setReportsPage}
+                  pageSize={REPORTS_PAGE_SIZE}
+                  withPrefix={withPrefix}
+                />
               </div>
             )}
 
@@ -740,7 +649,7 @@ export default function MyPage() {
             {/* PREFERENCES */}
             {activeTab === "preferences" && (
               <div className="animate-slide-up">
-                <SectionHeader title="환경 설정" desc="언어, 모델, 알림, 테마 설정" />
+                <SectionHeader title="환경 설정" desc="기본 언어, AI 모델, 테마" />
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     {/* 기본 언어 */}
@@ -786,16 +695,6 @@ export default function MyPage() {
                         <option>GPT-5 Mini</option>
                         <option>GPT-5 Nano</option>
                       </select>
-                    </div>
-
-                    {/* 알림 */}
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold uppercase tracking-[0.14em] text-gray-500 mb-2">알림</label>
-                      <div className="space-y-1.5">
-                        <ToggleRow icon={Bell} label="새 과제 알림" checked={notifyNewProblem} onChange={setNotifyNewProblem} />
-                        <ToggleRow icon={FileText} label="주간 리포트" checked={notifyWeekly} onChange={setNotifyWeekly} />
-                        <ToggleRow icon={Trophy} label="티어 변동 알림" checked={notifyTier} onChange={setNotifyTier} />
-                      </div>
                     </div>
 
                     {/* 테마 */}
@@ -893,76 +792,131 @@ function SectionHeader({ title, desc }: { title: string; desc: string }) {
   );
 }
 
-function ProfileStatRow({
-  icon: Icon,
-  label,
-  value,
-  sub,
-  color,
-  bg,
-  ring
+/* ─── ReportsTable (풀이 기록) ─── */
+
+function ReportsTable({
+  data,
+  loading,
+  page,
+  setPage,
+  pageSize,
+  withPrefix
 }: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  sub: string;
-  color: string;
-  bg: string;
-  ring: string;
+  data: import("@/lib/api/authApi").UserReportListResponse | null | undefined;
+  loading: boolean;
+  page: number;
+  setPage: (n: number) => void;
+  pageSize: number;
+  withPrefix: (path: string) => string;
 }) {
-  return (
-    <div className="flex items-center gap-4 bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 min-h-[132px] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
-      <span className={`shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl ${bg} ring-1 ${ring} ${color}`}>
-        <Icon size={18} strokeWidth={2} />
-      </span>
-      <div className="flex-1 min-w-0">
-        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">{label}</div>
-        <div className="text-sm text-gray-500 leading-snug">{sub}</div>
+  if (loading) {
+    return (
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm p-10 text-center">
+        <div className="text-sm text-gray-400 dark:text-slate-500">불러오는 중...</div>
       </div>
-      <div className="text-lg font-bold text-gray-900 tabular-nums shrink-0">{value}</div>
+    );
+  }
+
+  if (!data || data.reports.length === 0) {
+    return (
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-gray-200 dark:border-slate-700 shadow-sm p-10 text-center">
+        <div className="text-sm text-gray-400 dark:text-slate-500">아직 제출 후 생성된 리포트가 없어요.</div>
+        <div className="text-xs text-gray-400 dark:text-slate-500 mt-1">문제를 풀고 제출하면 여기에 누적돼요.</div>
+      </div>
+    );
+  }
+
+  const totalPages = Math.max(1, data.totalPages || 1);
+
+  const formatScore = (raw: number | string | null | undefined) => {
+    if (raw == null) return "—";
+    const n = typeof raw === "string" ? parseFloat(raw) : raw;
+    return Number.isFinite(n) ? n.toFixed(1) : "—";
+  };
+
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm overflow-hidden">
+      <ul className="divide-y divide-gray-100 dark:divide-slate-800">
+        {data.reports.map((report) => {
+          const passRate = report.totalCount > 0 ? Math.round((report.passedCount / report.totalCount) * 100) : 0;
+          const scoreColor =
+            passRate >= 80 ? "text-emerald-600 dark:text-emerald-400" :
+            passRate >= 60 ? "text-indigo-600 dark:text-indigo-400" :
+            "text-rose-600 dark:text-rose-400";
+          return (
+            <li key={report.feedbackReportId}>
+              <Link
+                href={withPrefix(`/submissions/${report.feedbackReportId}/report`)}
+                className="group block px-5 py-4 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-mono text-gray-400 dark:text-slate-500 tabular-nums shrink-0">
+                        #{report.problemId}
+                      </span>
+                      <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                        {report.problemTitle}
+                      </h4>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-slate-400">
+                      <span className="tabular-nums">
+                        {new Date(report.createdAt).toLocaleString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                      <span className="text-gray-300 dark:text-slate-600">·</span>
+                      <span className="tabular-nums">
+                        {report.passedCount}<span className="text-gray-300 dark:text-slate-600 mx-0.5">/</span>{report.totalCount} 통과
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className={`text-xl font-bold tabular-nums ${scoreColor}`}>
+                      {formatScore(report.overallScore)}
+                      <span className="text-xs font-semibold text-gray-400 dark:text-slate-500 ml-0.5">점</span>
+                    </div>
+                    <div className="text-[11px] text-gray-400 dark:text-slate-500 tabular-nums">{passRate}% 통과</div>
+                  </div>
+                  <ChevronRightSmall />
+                </div>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50">
+          <div className="text-xs text-gray-500 dark:text-slate-400">
+            총 <span className="font-bold text-gray-700 dark:text-slate-200 tabular-nums">{data.totalCount}</span>개 · {page + 1}/{totalPages} 페이지
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setPage(Math.max(0, page - 1))}
+              disabled={page === 0}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              이전
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage(page + 1)}
+              disabled={!data.hasNext}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              다음
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function StreakGrassCard({ streak }: { streak: number }) {
-  const cells = Array.from({ length: 21 }, (_, index) => {
-    const active = index >= 21 - streak;
-    const strength = index % 4;
-    const activeClass = [
-      "bg-emerald-300",
-      "bg-emerald-400",
-      "bg-green-500",
-      "bg-emerald-600"
-    ][strength];
-
-    return (
-      <span
-        key={index}
-        className={`h-3 w-3 rounded-[3px] border ${
-          active
-            ? `${activeClass} border-emerald-500/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]`
-            : "border-emerald-200/80 bg-emerald-100/50"
-        }`}
-        aria-hidden="true"
-      />
-    );
-  });
-
+function ChevronRightSmall() {
   return (
-    <section className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 min-h-[132px]">
-      <div className="flex items-center justify-between gap-4 mb-3">
-        <div>
-          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">연속 출석</div>
-          <div className="text-sm text-gray-500 leading-snug">
-            {streak === 0 ? "첫 출석을 시작해보세요" : "하루씩 잔디를 심는 중"}
-          </div>
-        </div>
-        <div className="text-lg font-bold text-gray-900 tabular-nums shrink-0">{streak}일</div>
-      </div>
-      <div className="inline-grid grid-cols-7 gap-1 rounded-xl bg-emerald-50/70 p-3 ring-1 ring-emerald-100">
-        {cells}
-      </div>
-    </section>
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-300 dark:text-slate-600 group-hover:text-indigo-500 transition-colors shrink-0">
+      <polyline points="6 4 10 8 6 12" />
+    </svg>
   );
 }
 
