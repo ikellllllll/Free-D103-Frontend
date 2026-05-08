@@ -3744,6 +3744,12 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   }, []);
 
   const handleTest = async () => {
+    // 동시성 가드 — 다른 실행이 돌고 있으면 거절
+    if (testLoading || submitLoading || submissionLoading) {
+      addToast("이미 실행 중인 작업이 있습니다. 끝난 뒤 다시 시도해 주세요.", "warning");
+      return;
+    }
+
     if (unsavedPaths.length) {
       const didSave = await savePaths([...unsavedPaths]);
       if (!didSave) {
@@ -3781,6 +3787,11 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   };
 
   const handleSubmit = async () => {
+    // 동시성 가드 — 다른 실행이 돌고 있으면 거절
+    if (testLoading || submitLoading || submissionLoading) {
+      addToast("이미 실행 중인 작업이 있습니다. 끝난 뒤 다시 시도해 주세요.", "warning");
+      return;
+    }
     setSubmitLoading(true);
     try {
       if (isBackendSessionId(sessionId)) {
@@ -4623,11 +4634,23 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
             <span className="ide-toolbar__sep" />
 
+            {/*
+              실행 동시성 가드 — 같은 세션에서 테스트와 제출은 docker runner 1번에 한 번만.
+              한 쪽이 돌고 있으면 다른 쪽 + 종료 모두 disabled.
+              isAnyExecRunning = testLoading | submitLoading | submissionLoading
+            */}
             <button
               type="button"
               className="ide-toolbar__btn"
               onClick={() => setConfirmIntent("test")}
-              disabled={testLoading}
+              disabled={testLoading || submitLoading || submissionLoading || endSessionLoading}
+              title={
+                testLoading
+                  ? "테스트 채점 중"
+                  : submitLoading || submissionLoading
+                    ? "제출 채점 중에는 테스트 실행할 수 없습니다"
+                    : "공개 테스트 실행"
+              }
             >
               {testLoading ? "..." : "테스트"}
             </button>
@@ -4638,9 +4661,16 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               type="button"
               className="ide-toolbar__btn ide-toolbar__btn--submit"
               onClick={() => setConfirmIntent("submit")}
-              disabled={submitLoading}
+              disabled={submitLoading || submissionLoading || testLoading || endSessionLoading}
+              title={
+                submitLoading || submissionLoading
+                  ? "제출 채점 중"
+                  : testLoading
+                    ? "테스트 실행 중에는 제출할 수 없습니다"
+                    : "제출"
+              }
             >
-              {submitLoading ? "제출 중..." : "제출"}
+              {submitLoading || submissionLoading ? "제출 중..." : "제출"}
             </button>
 
             <span className="ide-toolbar__sep" />
@@ -4649,9 +4679,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               type="button"
               className="ide-toolbar__btn ide-toolbar__btn--exit"
               onClick={() => setConfirmIntent("end-session")}
-              disabled={endSessionLoading}
+              disabled={endSessionLoading || testLoading || submitLoading || submissionLoading}
               aria-label="종료"
-              title="종료"
+              title={
+                testLoading || submitLoading || submissionLoading
+                  ? "실행 / 제출이 끝나야 종료할 수 있습니다"
+                  : "종료"
+              }
             >
               <LogOut size={13} strokeWidth={2} />
             </button>
