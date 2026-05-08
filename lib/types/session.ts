@@ -63,6 +63,7 @@ export interface Submission {
  * IDE 안에서 보여줄 제출 채점 결과 스냅샷.
  * - rawStatus 는 백엔드 실제 상태 (RUNNING/COMPLETED/FAILED) 를 그대로 보존.
  * - startedAt / endedAt 은 elapsed 계산용 (백엔드는 진행률을 안 줘서 프론트가 측정).
+ * - publicPassed / hiddenPassed 등은 백엔드가 분리 카운트를 줄 때만 채워짐. 합산값은 항상 derive.
  */
 export interface SubmissionResult {
   executionId: string;
@@ -71,6 +72,10 @@ export interface SubmissionResult {
   passed: number;
   failed: number;
   passRate: number;
+  publicPassed?: number;
+  publicTotal?: number;
+  hiddenPassed?: number;
+  hiddenTotal?: number;
   startedAt: number;
   endedAt: number | null;
 }

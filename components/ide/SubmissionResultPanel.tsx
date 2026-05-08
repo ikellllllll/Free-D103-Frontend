@@ -14,7 +14,8 @@ interface Props {
 /**
  * IDE 하단 트레이의 "제출" 탭 본문.
  * 백엔드가 진행률을 안 줘서 elapsed 시간만 정직하게 표시한다.
- * 백엔드 응답 확장 (stdout/stderr/results) 후엔 실패 테케 리스트를 추가할 자리.
+ * 응답에 publicPassedCount/hiddenPassedCount 가 들어오면 공개·비공개 카드 분리.
+ * 안 들어오면 합산 카드로 fallback.
  */
 export function SubmissionResultPanel({ result, loading }: Props) {
   const [now, setNow] = useState(() => Date.now());
@@ -44,6 +45,10 @@ export function SubmissionResultPanel({ result, loading }: Props) {
   const passRatePct = Math.round((result.passRate || 0) * (result.passRate <= 1 ? 100 : 1));
   const shortId = result.executionId.length > 8 ? result.executionId.slice(0, 8) : result.executionId;
 
+  // 백엔드가 public/hidden 분리 카운트를 줬는지 — 있으면 split 카드 모드
+  const hasSplit =
+    typeof result.publicTotal === "number" || typeof result.hiddenTotal === "number";
+
   return (
     <div className="bottom-panel__body">
       <div className="bottom-summary">
@@ -63,29 +68,42 @@ export function SubmissionResultPanel({ result, loading }: Props) {
       </div>
 
       <div className="stack-12">
-        <div className="output-grid">
-          <Card className="mini-panel mini-panel--flat">
-            <strong>통과</strong>
-            <pre style={{ fontSize: "1.4rem", margin: 0 }}>
-              {result.passed} / {result.total}
-            </pre>
-            <small>{isCompleted ? `${passRatePct}% 통과` : isFailed ? "채점 중단" : "집계 중"}</small>
-          </Card>
+        {hasSplit ? (
+          <SplitPassCards
+            publicPassed={result.publicPassed ?? 0}
+            publicTotal={result.publicTotal ?? 0}
+            hiddenPassed={result.hiddenPassed ?? 0}
+            hiddenTotal={result.hiddenTotal ?? 0}
+            isCompleted={isCompleted}
+            isFailed={isFailed}
+          />
+        ) : (
+          <div className="output-grid">
+            <Card className="mini-panel mini-panel--flat">
+              <strong>통과</strong>
+              <pre style={{ fontSize: "1.4rem", margin: 0 }}>
+                {result.passed} / {result.total}
+              </pre>
+              <small>
+                {isCompleted ? `${passRatePct}% 통과` : isFailed ? "채점 중단" : "집계 중"}
+              </small>
+            </Card>
 
-          <Card className="mini-panel mini-panel--flat">
-            <strong>실패</strong>
-            <pre style={{ fontSize: "1.4rem", margin: 0 }}>{result.failed}</pre>
-            <small>
-              {isCompleted && result.failed === 0
-                ? "모든 케이스 통과"
-                : isCompleted
-                  ? "비공개 포함"
-                  : isFailed
-                    ? "실행 단계 실패"
-                    : "—"}
-            </small>
-          </Card>
-        </div>
+            <Card className="mini-panel mini-panel--flat">
+              <strong>실패</strong>
+              <pre style={{ fontSize: "1.4rem", margin: 0 }}>{result.failed}</pre>
+              <small>
+                {isCompleted && result.failed === 0
+                  ? "모든 케이스 통과"
+                  : isCompleted
+                    ? "비공개 포함"
+                    : isFailed
+                      ? "실행 단계 실패"
+                      : "—"}
+              </small>
+            </Card>
+          </div>
+        )}
 
         {isFailed ? (
           <div className="empty-inline" style={{ borderColor: "rgba(220,38,38,0.32)" }}>
@@ -103,6 +121,59 @@ export function SubmissionResultPanel({ result, loading }: Props) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+interface SplitProps {
+  publicPassed: number;
+  publicTotal: number;
+  hiddenPassed: number;
+  hiddenTotal: number;
+  isCompleted: boolean;
+  isFailed: boolean;
+}
+
+/**
+ * 공개·비공개 분리 카드.
+ * UX 의도: 사용자가 "공개부터 fail 인지 / 히든만 fail 인지" 한눈에 보고 다음 액션 결정.
+ */
+function SplitPassCards({
+  publicPassed,
+  publicTotal,
+  hiddenPassed,
+  hiddenTotal,
+  isCompleted,
+  isFailed
+}: SplitProps) {
+  const ratio = (passed: number, total: number) =>
+    total > 0 ? Math.round((passed / total) * 100) : 0;
+
+  const subText = (passed: number, total: number) => {
+    if (isFailed) return "채점 중단";
+    if (!isCompleted) return "집계 중";
+    if (total === 0) return "케이스 없음";
+    if (passed === total) return "모두 통과";
+    return `${ratio(passed, total)}% 통과`;
+  };
+
+  return (
+    <div className="output-grid">
+      <Card className="mini-panel mini-panel--flat">
+        <strong>공개 테스트</strong>
+        <pre style={{ fontSize: "1.4rem", margin: 0 }}>
+          {publicPassed} / {publicTotal}
+        </pre>
+        <small>{subText(publicPassed, publicTotal)}</small>
+      </Card>
+
+      <Card className="mini-panel mini-panel--flat">
+        <strong>비공개 테스트</strong>
+        <pre style={{ fontSize: "1.4rem", margin: 0 }}>
+          {hiddenPassed} / {hiddenTotal}
+        </pre>
+        <small>{subText(hiddenPassed, hiddenTotal)}</small>
+      </Card>
     </div>
   );
 }

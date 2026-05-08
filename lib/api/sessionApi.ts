@@ -1002,34 +1002,68 @@ export const sessionApi = {
     return res.data;
   },
 
-  /** 제출 결과 폴링 — RUNNING/COMPLETED/FAILED + 카운트. */
+  /**
+   * 제출 결과 폴링 — RUNNING/COMPLETED/FAILED + public/hidden 분리 카운트.
+   * 백엔드 명세상:
+   *   - total/passed/failed/passRate 는 합산값 (legacy)
+   *   - publicPassedCount/publicTotalCount/hiddenPassedCount/hiddenTotalCount 가 product 의도
+   * 두 형식 모두 옵셔널로 받고, public/hidden 분리값이 있으면 그걸 우선 사용.
+   */
   async getSubmissionResult(executionId: string) {
     const res = await authClient
       .get(`api/v1/executions/${executionId}/submission-results`)
       .json<ApiResponse<{
         executionId: number;
         status: string;
-        total: number;
-        passed: number;
-        failed: number;
-        passRate: number;
+        total?: number;
+        passed?: number;
+        failed?: number;
+        passRate?: number;
+        publicPassedCount?: number;
+        publicTotalCount?: number;
+        hiddenPassedCount?: number;
+        hiddenTotalCount?: number;
       }>>();
 
     // mock Submission 형식과 호환되도록 어댑터.
     // FAILED 도 terminal state 라 COMPLETED 로 매핑해야 polling 이 중단됨.
     const data = res.data;
     const isTerminal = data.status === "COMPLETED" || data.status === "FAILED";
+
+    // public/hidden 분리값이 오면 그걸로 합산값을 derive (백엔드가 합산값을 안 줘도 채워짐).
+    const hasSplit =
+      typeof data.publicTotalCount === "number" || typeof data.hiddenTotalCount === "number";
+    const publicPassed = data.publicPassedCount ?? 0;
+    const publicTotal = data.publicTotalCount ?? 0;
+    const hiddenPassed = data.hiddenPassedCount ?? 0;
+    const hiddenTotal = data.hiddenTotalCount ?? 0;
+
+    const totalDerived = hasSplit ? publicTotal + hiddenTotal : data.total ?? 0;
+    const passedDerived = hasSplit ? publicPassed + hiddenPassed : data.passed ?? 0;
+    const failedDerived = hasSplit
+      ? totalDerived - passedDerived
+      : data.failed ?? 0;
+    const passRateDerived =
+      hasSplit && totalDerived > 0
+        ? (passedDerived / totalDerived) * 100
+        : data.passRate ?? 0;
+
     return {
       id: String(data.executionId),
       sessionId: "",
       status: isTerminal ? "COMPLETED" as const : "PROCESSING" as const,
       submittedAt: new Date().toISOString(),
       readyAt: 0,
-      // 백엔드 추가 필드
-      total: data.total,
-      passed: data.passed,
-      failed: data.failed,
-      passRate: data.passRate,
+      // 합산값
+      total: totalDerived,
+      passed: passedDerived,
+      failed: failedDerived,
+      passRate: passRateDerived,
+      // public/hidden 분리값 (있을 때만)
+      publicPassed: hasSplit ? publicPassed : undefined,
+      publicTotal: hasSplit ? publicTotal : undefined,
+      hiddenPassed: hasSplit ? hiddenPassed : undefined,
+      hiddenTotal: hasSplit ? hiddenTotal : undefined,
       rawStatus: data.status
     };
   }

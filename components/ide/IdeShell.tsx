@@ -1351,6 +1351,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         passed: data.passed ?? 0,
         failed: data.failed ?? 0,
         passRate: data.passRate ?? 0,
+        publicPassed: data.publicPassed,
+        publicTotal: data.publicTotal,
+        hiddenPassed: data.hiddenPassed,
+        hiddenTotal: data.hiddenTotal,
         startedAt: prev?.startedAt ?? Date.now(),
         endedAt: isTerminal ? Date.now() : null
       });
