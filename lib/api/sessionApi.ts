@@ -243,6 +243,10 @@ const toSessionFileLanguage = (path: string): string | null => {
 
 const normalizeWorktreePath = (path: string) =>
   path.startsWith(WORKTREE_PREFIX) ? path : `${WORKTREE_PREFIX}${path}`;
+// 백엔드는 src/main/java/, src/test/java/ 풀 경로를 사용하지만 프론트는 src/ 로 단축한다 (mockApi.normalizeWorkspaceFiles 와 동일 규칙).
+// fileId 매핑도 같은 단축 경로를 키로 써야 클릭한 파일을 GET /files/{fileId} 로 매핑할 수 있다.
+const normalizeBackendPath = (path: string) =>
+  path.replace(/^src\/main\/java\//, "src/").replace(/^src\/test\/java\//, "src/");
 const getFileName = (path: string) => path.split("/").pop() ?? path;
 const getFolderPath = (path: string) => path.split("/").slice(0, -1).join("/") || null;
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -295,7 +299,12 @@ const rememberFileIds = (sessionId: string, payload: GetFileTreeResponse) => {
 
   payload.files.forEach((item) => {
     if (item.nodeType === "FILE") {
+      // src/main/java 경로 단축 + 원본 경로 둘 다 등록 (어느 쪽으로 lookup 와도 매칭)
+      const normalized = normalizeBackendPath(item.path);
       mapping.set(item.path, item.fileId);
+      if (normalized !== item.path) {
+        mapping.set(normalized, item.fileId);
+      }
     }
   });
 
