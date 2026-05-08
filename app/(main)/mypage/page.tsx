@@ -392,19 +392,19 @@ export default function MyPage() {
 
             {/* PROFILE */}
             {activeTab === "profile" && (
-              <div className="animate-slide-up space-y-4">
+              <div className="animate-slide-up space-y-3">
                 <SectionHeader title="프로필" desc="내 계정 정보와 활동 현황" />
 
                 {/* Hero — avatar + 닉네임 + 이메일 + provider 배지 */}
                 <div className="relative overflow-hidden rounded-2xl border border-gray-200 dark:border-slate-700 bg-gradient-to-br from-indigo-50 via-white to-violet-50 dark:from-indigo-950/40 dark:via-slate-900 dark:to-violet-950/40 shadow-sm">
-                  <div className="relative px-6 py-7 flex items-center gap-5">
+                  <div className="relative px-6 py-5 flex items-center gap-5">
                     <div className="relative shrink-0">
                       <div className="absolute inset-0 rounded-full blur-2xl bg-indigo-400/30 scale-110" aria-hidden="true" />
                       <div className="relative w-20 h-20 rounded-full bg-white dark:bg-slate-800 text-indigo-700 dark:text-indigo-400 flex items-center justify-center font-display font-black text-2xl shadow-[0_8px_24px_-6px_rgba(99,102,241,0.35)] ring-1 ring-indigo-100 dark:ring-indigo-900/60">
                         {initials}
                       </div>
                     </div>
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1 leading-tight">
                       {editingNickname ? (
                         <div className="flex flex-col gap-2">
                           <input
@@ -450,16 +450,16 @@ export default function MyPage() {
                         </div>
                       ) : (
                         <>
-                          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                            <h2 className="font-bold text-gray-900 dark:text-slate-100 text-2xl leading-tight truncate">{name}</h2>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h2 className="font-bold text-gray-900 dark:text-slate-100 text-2xl leading-none truncate">{name}</h2>
                             <button
                               type="button"
                               onClick={startEditNickname}
-                              className="shrink-0 p-1.5 rounded-md text-gray-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer"
+                              className="shrink-0 p-1 rounded-md text-gray-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer"
                               aria-label="닉네임 수정"
                               title="닉네임 수정"
                             >
-                              <Pencil size={14} strokeWidth={2.2} />
+                              <Pencil size={13} strokeWidth={2.2} />
                             </button>
                             {profile?.provider === "GITHUB" ? (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-900 dark:bg-slate-700 text-white">
@@ -472,9 +472,9 @@ export default function MyPage() {
                               </span>
                             )}
                           </div>
-                          <p className="text-sm text-gray-500 dark:text-slate-400 truncate" title={email}>{email}</p>
+                          <p className="text-sm text-gray-500 dark:text-slate-400 truncate mt-1.5" title={email}>{email}</p>
                           {profile?.createdAt && (
-                            <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
+                            <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">
                               {new Date(profile.createdAt).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" })} 가입
                             </p>
                           )}
@@ -785,9 +785,9 @@ export default function MyPage() {
 
 function SectionHeader({ title, desc }: { title: string; desc: string }) {
   return (
-    <div className="mb-4">
-      <h2 className="text-xl font-bold text-gray-900 tracking-tight">{title}</h2>
-      <p className="text-sm text-gray-500 mt-0.5">{desc}</p>
+    <div className="mb-3">
+      <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100 tracking-tight">{title}</h2>
+      <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">{desc}</p>
     </div>
   );
 }
