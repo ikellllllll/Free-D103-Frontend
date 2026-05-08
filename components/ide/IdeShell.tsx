@@ -17,6 +17,7 @@ import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { TracePanel } from "@/components/ide/TracePanel";
 import { HarnessPanel } from "@/components/ide/HarnessPanel";
 import { SubmissionResultPanel } from "@/components/ide/SubmissionResultPanel";
+import { TestResultRow } from "@/components/ide/TestResultRow";
 import { TraceWorkbench } from "@/components/ide/TraceWorkbench";
 import { useAiChat } from "@/hooks/useAiChat";
 import { mockApi } from "@/lib/api/mockApi";
@@ -4393,11 +4394,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           <div className="stack-12">
             {!testLoading && testResult
               ? testResult.results.map((result) => (
-                  <div key={result.id} className="test-row">
-                    <span>{result.name}</span>
-                    <Badge tone={result.status === "PASS" ? "green" : "red"}>{result.status}</Badge>
-                    <small>{result.detail ? `${result.time} · ${result.detail}` : result.time}</small>
-                  </div>
+                  <TestResultRow key={result.id} result={result} />
                 ))
               : null}
           </div>
