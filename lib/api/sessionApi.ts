@@ -737,6 +737,15 @@ export const sessionApi = {
 
     if (path.startsWith(WORKTREE_PREFIX)) {
       payload = await this.getWorktreeFileContent(sessionId, fileId);
+    } else if (path.startsWith(AGENT_PREFIX)) {
+      // SessionHarnessFile — 별도 endpoint (2026-05-09~).
+      try {
+        const res = await authClient.get(`api/v1/session/${sessionId}/harness/${fileId}`)
+          .json<ApiResponse<GetFileContentResponse>>();
+        payload = res.data;
+      } catch {
+        payload = null;
+      }
     } else {
       try {
         const res = await authClient.get(`api/v1/sessions/${sessionId}/files/${fileId}`)
@@ -866,7 +875,15 @@ export const sessionApi = {
 
     const language = input.language ?? toSessionFileLanguage(input.path) ?? inferLanguageFromPath(input.path);
 
-    await authClient.patch(`api/v1/sessions/${sessionId}/files/${fileId}/content`, {
+    // agent/* 경로는 SessionHarnessFile — 별도 endpoint (2026-05-09~).
+    // 그 외는 기존 SessionFile endpoint.
+    // 백엔드 URL prefix 가 다름: 하네스는 /session (단수), 일반은 /sessions (복수).
+    const isHarnessFile = input.path.startsWith(AGENT_PREFIX);
+    const url = isHarnessFile
+      ? `api/v1/session/${sessionId}/harness/${fileId}/content`
+      : `api/v1/sessions/${sessionId}/files/${fileId}/content`;
+
+    await authClient.patch(url, {
       json: { content: input.content }
     });
 

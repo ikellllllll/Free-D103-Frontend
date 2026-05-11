@@ -79,6 +79,29 @@ export interface UserReportListResponse {
   reports: UserReportItem[];
 }
 
+/** GET /api/v1/users/me/sessions 응답 (백엔드 GetActiveSessionResponse, 2026-05-09~) */
+export interface ActiveSession {
+  problemSessionId: number;
+  problemId: number;
+  problemTitle: string;
+  problemDifficulty: string;          // "level1" | "level2" | "level3"
+  problemCategory: "API" | "BUG";
+  language: "JAVA" | "PYTHON";
+  status: "IN_PROGRESS";              // 엔드포인트가 IN_PROGRESS 만 반환
+  startedAt: string;                  // LocalDateTime ISO
+}
+
+/** 비밀번호 변경 요청 (PATCH /api/v1/auth/password, 2026-05-09~) */
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+/** 회원 탈퇴 요청 (DELETE /api/v1/users, 2026-05-09~) */
+export interface WithdrawRequest {
+  password?: string;  // LOCAL provider 만 필요
+}
+
 interface JwtPayload {
   sub?: string;
   email?: string;
@@ -238,6 +261,25 @@ export const authApi = {
       .get("api/v1/users/me/reports", { searchParams: { page, size } })
       .json<ApiResponse<UserReportListResponse>>();
     return res.data;
+  },
+
+  /** 진행 중 세션 목록 조회 — GET /api/v1/users/me/sessions (2026-05-09~) */
+  async getActiveSessions(): Promise<ActiveSession[]> {
+    const res = await authClient.get("api/v1/users/me/sessions")
+      .json<ApiResponse<ActiveSession[]>>();
+    return res.data;
+  },
+
+  /** 비밀번호 변경 — PATCH /api/v1/auth/password (2026-05-09~) */
+  async changePassword(request: ChangePasswordRequest): Promise<void> {
+    await authClient.patch("api/v1/auth/password", { json: request });
+  },
+
+  /** 회원 탈퇴 — DELETE /api/v1/users (2026-05-09~).
+   * LOCAL provider: password 필수. GITHUB: 생략 가능.
+   */
+  async withdraw(request: WithdrawRequest = {}): Promise<void> {
+    await authClient.delete("api/v1/users", { json: request });
   },
 
   async githubOAuthLogin(code: string): Promise<OAuthLoginResponse> {

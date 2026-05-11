@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -112,9 +113,13 @@ const NAV_GROUPS: NavGroup[] = [
 
 export default function MyPage() {
   const { withPrefix } = useRouteScope();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const setAuthUser = useAuthStore((s) => s.setUser);
+  const signOut = useAuthStore((s) => s.signOut);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
   const addToast = useUiStore((s) => s.addToast);
   const theme = useThemeStore((s) => s.theme);
   const hydrated = useThemeStore((s) => s.hydrated);
@@ -164,6 +169,19 @@ export default function MyPage() {
         return await authApi.getUserReports(reportsPage, REPORTS_PAGE_SIZE);
       } catch {
         return null;
+      }
+    },
+    enabled: !!user
+  });
+
+  // 진행 중 세션 목록 — 마이페이지 "이어가기" 카드 클릭 동선 + 첫 세션 IDE 직행용.
+  const { data: activeSessions = [] } = useQuery({
+    queryKey: ["activeSessions", user?.id],
+    queryFn: async () => {
+      try {
+        return await authApi.getActiveSessions();
+      } catch {
+        return [];
       }
     },
     enabled: !!user
@@ -487,28 +505,67 @@ export default function MyPage() {
 
                 {/* Stats — 백엔드 GET /users/me/profile 우선, 없으면 mock dashboard */}
                 <div className="grid grid-cols-3 gap-3">
-                  {[
-                    {
-                      label: "총 제출",
-                      value: profileSummary?.totalSubmissionCount ?? data?.history.length ?? 0,
-                      unit: "회"
-                    },
-                    {
-                      label: "평균 점수",
-                      value: profileSummary?.averageScore ?? avgSkill,
-                      unit: "점"
-                    },
-                    {
-                      label: "이어가기",
-                      value: profileSummary?.inProgressCount ?? data?.resumableSessions.length ?? 0,
-                      unit: "개"
-                    }
-                  ].map((item) => (
-                    <div key={item.label} className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm px-5 py-4 text-center">
-                      <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 tabular-nums">{item.value}<span className="text-sm font-semibold text-gray-400 dark:text-slate-500 ml-1">{item.unit}</span></div>
-                      <div className="text-xs text-gray-500 dark:text-slate-400 mt-1 font-medium">{item.label}</div>
-                    </div>
-                  ))}
+                  {(() => {
+                    const items: Array<{
+                      label: string;
+                      value: number | string;
+                      unit: string;
+                      onClick?: () => void;
+                      hint?: string;
+                    }> = [
+                      {
+                        label: "총 제출",
+                        value: profileSummary?.totalSubmissionCount ?? data?.history.length ?? 0,
+                        unit: "회",
+                        onClick: () => setActiveTab("history"),
+                        hint: "리포트 보기"
+                      },
+                      {
+                        label: "평균 점수",
+                        value: profileSummary?.averageScore ?? avgSkill,
+                        unit: "점"
+                      },
+                      {
+                        label: "이어가기",
+                        value: profileSummary?.inProgressCount ?? data?.resumableSessions.length ?? 0,
+                        unit: "개",
+                        onClick: activeSessions.length > 0
+                          ? () => router.push(withPrefix(`/ide/${activeSessions[0].problemSessionId}`))
+                          : undefined,
+                        hint: activeSessions.length > 0 ? `${activeSessions[0].problemTitle} 이어가기` : undefined
+                      }
+                    ];
+                    return items.map((item) => {
+                      const clickable = !!item.onClick;
+                      const cardClass = `bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm px-5 py-4 text-center transition-all duration-200 ${
+                        clickable ? "hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 cursor-pointer" : ""
+                      }`;
+                      const inner = (
+                        <>
+                          <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 tabular-nums">
+                            {item.value}
+                            <span className="text-sm font-semibold text-gray-400 dark:text-slate-500 ml-1">{item.unit}</span>
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-slate-400 mt-1 font-medium">{item.label}</div>
+                          {item.hint && clickable ? (
+                            <div className="text-[10px] text-indigo-500 dark:text-indigo-400 mt-1 truncate">→ {item.hint}</div>
+                          ) : null}
+                        </>
+                      );
+                      return clickable ? (
+                        <button
+                          key={item.label}
+                          type="button"
+                          onClick={item.onClick}
+                          className={cardClass + " text-left w-full"}
+                        >
+                          {inner}
+                        </button>
+                      ) : (
+                        <div key={item.label} className={cardClass}>{inner}</div>
+                      );
+                    });
+                  })()}
                 </div>
 
                 {/* Skills (역량 지표 통합) */}
@@ -734,44 +791,91 @@ export default function MyPage() {
             {/* ACCOUNT */}
             {activeTab === "account" && (
               <div className="animate-slide-up">
-                <SectionHeader title="계정 관리" desc="계정 데이터를 관리하거나 삭제할 수 있습니다." />
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                  <div className="flex items-center gap-2.5 p-4 mb-4 rounded-xl bg-rose-50 border border-rose-100">
-                    <AlertTriangle size={15} className="text-rose-500 shrink-0" strokeWidth={2} />
-                    <p className="text-sm text-rose-700">이 작업들은 되돌릴 수 없습니다. 신중하게 진행해 주세요.</p>
-                  </div>
+                <SectionHeader title="계정 관리" desc="비밀번호 변경 / 계정 삭제 / 로컬 데이터 초기화" />
+                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm p-6">
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50 border border-gray-100">
+                    {/* 비밀번호 변경 (LOCAL provider 만) */}
+                    {profile?.provider === "LOCAL" && (
+                      <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-700">
+                        <div>
+                          <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">비밀번호 변경</div>
+                          <div className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">현재 비밀번호 확인 후 변경합니다.</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPasswordModalOpen(true)}
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-slate-800 ring-1 ring-inset ring-gray-300 dark:ring-slate-600 text-gray-700 dark:text-slate-200 text-sm font-semibold transition-all hover:bg-gray-50 dark:hover:bg-slate-700 active:scale-[0.97] cursor-pointer"
+                        >
+                          <Key size={14} strokeWidth={2.2} />
+                          변경
+                        </button>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-700">
                       <div>
-                        <div className="text-sm font-semibold text-gray-900">데이터 초기화</div>
-                        <div className="text-xs text-gray-500 mt-0.5">모든 mock 데이터와 저장된 API 키를 삭제합니다.</div>
+                        <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">로컬 데이터 초기화</div>
+                        <div className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">브라우저에 저장된 mock 데이터 / API 키 / 환경 설정을 삭제합니다 (계정은 유지).</div>
                       </div>
                       <button
                         type="button"
                         onClick={resetMockData}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white ring-1 ring-inset ring-gray-300 text-gray-700 text-sm font-semibold transition-all hover:bg-gray-50 active:scale-[0.97]"
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-slate-800 ring-1 ring-inset ring-gray-300 dark:ring-slate-600 text-gray-700 dark:text-slate-200 text-sm font-semibold transition-all hover:bg-gray-50 dark:hover:bg-slate-700 active:scale-[0.97] cursor-pointer"
                       >
                         <Database size={14} strokeWidth={2.2} />
                         초기화
                       </button>
                     </div>
-                    <div className="flex items-center justify-between p-4 rounded-xl bg-rose-50/60 border border-rose-100">
-                      <div>
-                        <div className="text-sm font-semibold text-rose-800">계정 삭제</div>
-                        <div className="text-xs text-rose-600 mt-0.5">계정을 영구적으로 삭제합니다.</div>
+                    {/* 위험 영역 */}
+                    <div className="mt-6 pt-6 border-t border-gray-100 dark:border-slate-800">
+                      <div className="flex items-center gap-2.5 p-4 mb-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/60">
+                        <AlertTriangle size={15} className="text-rose-500 shrink-0" strokeWidth={2} />
+                        <p className="text-sm text-rose-700 dark:text-rose-300">아래 작업은 되돌릴 수 없습니다.</p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => addToast("프로토타입에서는 계정 삭제가 제한됩니다.", "warning")}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white ring-1 ring-inset ring-rose-200 text-rose-600 text-sm font-semibold transition-all hover:bg-rose-50 active:scale-[0.97]"
-                      >
-                        <Trash2 size={14} strokeWidth={2.2} />
-                        삭제
-                      </button>
+                      <div className="flex items-center justify-between p-4 rounded-xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/60">
+                        <div>
+                          <div className="text-sm font-semibold text-rose-800 dark:text-rose-300">계정 삭제</div>
+                          <div className="text-xs text-rose-600 dark:text-rose-400 mt-0.5">계정과 모든 풀이 기록이 영구 삭제됩니다.</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setWithdrawModalOpen(true)}
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-slate-800 ring-1 ring-inset ring-rose-200 dark:ring-rose-900/60 text-rose-600 dark:text-rose-400 text-sm font-semibold transition-all hover:bg-rose-50 dark:hover:bg-rose-950/40 active:scale-[0.97] cursor-pointer"
+                        >
+                          <Trash2 size={14} strokeWidth={2.2} />
+                          삭제
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* 비밀번호 변경 모달 */}
+            {passwordModalOpen && (
+              <PasswordChangeModal
+                onClose={() => setPasswordModalOpen(false)}
+                onSuccess={() => {
+                  setPasswordModalOpen(false);
+                  addToast("비밀번호가 변경되었습니다.", "success");
+                }}
+                addToast={addToast}
+              />
+            )}
+
+            {/* 회원 탈퇴 모달 */}
+            {withdrawModalOpen && (
+              <WithdrawModal
+                provider={profile?.provider ?? "LOCAL"}
+                onClose={() => setWithdrawModalOpen(false)}
+                onSuccess={() => {
+                  setWithdrawModalOpen(false);
+                  addToast("계정이 삭제되었습니다.", "success");
+                  signOut();
+                  router.replace(withPrefix("/login"));
+                }}
+                addToast={addToast}
+              />
             )}
 
           </main>
@@ -918,6 +1022,198 @@ function ChevronRightSmall() {
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-300 dark:text-slate-600 group-hover:text-indigo-500 transition-colors shrink-0">
       <polyline points="6 4 10 8 6 12" />
     </svg>
+  );
+}
+
+/* ─── PasswordChangeModal ─── */
+
+function PasswordChangeModal({
+  onClose,
+  onSuccess,
+  addToast
+}: {
+  onClose: () => void;
+  onSuccess: () => void;
+  addToast: (msg: string, level?: "success" | "error" | "warning" | "info") => void;
+}) {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!currentPassword.trim() || !newPassword.trim()) {
+      addToast("현재 비밀번호와 새 비밀번호를 입력해 주세요.", "warning");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      addToast("새 비밀번호 확인이 일치하지 않습니다.", "warning");
+      return;
+    }
+    if (newPassword.length < 8) {
+      addToast("새 비밀번호는 8자 이상이어야 합니다.", "warning");
+      return;
+    }
+    setSaving(true);
+    try {
+      await authApi.changePassword({ currentPassword, newPassword });
+      onSuccess();
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : "비밀번호 변경에 실패했습니다.", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4" role="dialog" aria-modal="true">
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-700 p-6">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100 mb-1">비밀번호 변경</h3>
+        <p className="text-sm text-gray-500 dark:text-slate-400 mb-4">현재 비밀번호를 입력하고 새 비밀번호를 설정해 주세요.</p>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1">현재 비밀번호</label>
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              disabled={saving}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-gray-900 dark:text-slate-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all disabled:opacity-50"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1">새 비밀번호 (8자 이상)</label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              disabled={saving}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-gray-900 dark:text-slate-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all disabled:opacity-50"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1">새 비밀번호 확인</label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && void handleSubmit()}
+              disabled={saving}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-gray-900 dark:text-slate-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all disabled:opacity-50"
+            />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 mt-5">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="px-4 py-2 rounded-lg border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-slate-200 text-sm font-semibold hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50 cursor-pointer"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleSubmit()}
+            disabled={saving}
+            className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            {saving ? "변경 중..." : "변경"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── WithdrawModal ─── */
+
+function WithdrawModal({
+  provider,
+  onClose,
+  onSuccess,
+  addToast
+}: {
+  provider: "LOCAL" | "GITHUB";
+  onClose: () => void;
+  onSuccess: () => void;
+  addToast: (msg: string, level?: "success" | "error" | "warning" | "info") => void;
+}) {
+  const [password, setPassword] = useState("");
+  const [confirmText, setConfirmText] = useState("");
+  const [working, setWorking] = useState(false);
+
+  const isConfirmValid = confirmText === "탈퇴";
+  const canSubmit = isConfirmValid && (provider !== "LOCAL" || password.length > 0);
+
+  const handleSubmit = async () => {
+    if (!canSubmit) return;
+    setWorking(true);
+    try {
+      await authApi.withdraw(provider === "LOCAL" ? { password } : {});
+      onSuccess();
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : "회원 탈퇴에 실패했습니다.", "error");
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4" role="dialog" aria-modal="true">
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-700 p-6">
+        <h3 className="text-lg font-bold text-rose-700 dark:text-rose-400 mb-1">계정 삭제</h3>
+        <p className="text-sm text-gray-500 dark:text-slate-400 mb-4">
+          계정과 모든 풀이 기록이 영구 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
+        </p>
+        <div className="space-y-3">
+          {provider === "LOCAL" && (
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1">비밀번호</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={working}
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-gray-900 dark:text-slate-100 focus:border-rose-500 focus:ring-2 focus:ring-rose-100 outline-none transition-all disabled:opacity-50"
+              />
+            </div>
+          )}
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1">
+              확인을 위해 <span className="text-rose-600 dark:text-rose-400 font-mono">탈퇴</span> 를 입력해 주세요
+            </label>
+            <input
+              type="text"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && canSubmit && void handleSubmit()}
+              disabled={working}
+              placeholder="탈퇴"
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-gray-900 dark:text-slate-100 focus:border-rose-500 focus:ring-2 focus:ring-rose-100 outline-none transition-all disabled:opacity-50"
+            />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 mt-5">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={working}
+            className="px-4 py-2 rounded-lg border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-slate-200 text-sm font-semibold hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50 cursor-pointer"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleSubmit()}
+            disabled={!canSubmit || working}
+            className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            {working ? "삭제 중..." : "계정 삭제"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
