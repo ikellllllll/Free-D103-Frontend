@@ -125,8 +125,29 @@ export function AppHeader() {
                   overflow: "hidden"
                 }}
               >
-                {/* User info */}
-                <div style={{ padding: "14px 16px 12px", borderBottom: "1px solid var(--line, rgba(0,0,0,0.08))" }}>
+                {/* User info — clickable to navigate to mypage */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    router.push(withPrefix("/mypage"));
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "14px 16px 12px",
+                    borderBottom: "1px solid var(--line, rgba(0,0,0,0.08))",
+                    background: "none",
+                    border: "none",
+                    borderBottomLeftRadius: 0,
+                    borderBottomRightRadius: 0,
+                    cursor: "pointer",
+                    textAlign: "left",
+                    transition: "background 0.15s"
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--hover, rgba(0,0,0,0.04))")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                  aria-label="마이페이지로 이동"
+                >
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <div style={{
                       width: 32, height: 32, borderRadius: "50%",
@@ -145,7 +166,7 @@ export function AppHeader() {
                       </div>
                     </div>
                   </div>
-                </div>
+                </button>
 
                 {/* Theme toggle */}
                 {hydrated && (

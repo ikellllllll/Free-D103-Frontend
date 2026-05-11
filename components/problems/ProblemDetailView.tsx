@@ -228,9 +228,11 @@ export function ProblemDetailView({ problemId }: { problemId: string }) {
 
             {/* Problem Brief */}
             <section
-              className="bg-white rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)] p-8 animate-slide-up"
+              className="relative bg-white rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)] p-8 animate-slide-up overflow-hidden"
               style={{ animationDelay: "0.05s", animationFillMode: "both" }}
             >
+              <div className="problem-detail-view__hero-wash absolute inset-0 pointer-events-none opacity-30" />
+              <div className="relative">
               <span className="block text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 mb-2">
                 문제 요약
               </span>
@@ -292,6 +294,7 @@ export function ProblemDetailView({ problemId }: { problemId: string }) {
                   </div>
                 ))}
               </div>
+              </div>
 
             </section>
           </div>
@@ -299,9 +302,11 @@ export function ProblemDetailView({ problemId }: { problemId: string }) {
           {/* ── Side Column ── */}
           <aside className="lg:sticky lg:top-24 self-start">
             <section
-              className="bg-white rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)] p-6 space-y-5 animate-slide-up"
+              className="relative bg-white rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)] p-6 animate-slide-up overflow-hidden"
               style={{ animationDelay: "0.1s", animationFillMode: "both" }}
             >
+              <div className="problem-detail-view__hero-wash absolute inset-0 pointer-events-none opacity-30" />
+              <div className="relative space-y-5">
               {/* Header */}
               <div className="flex items-center space-x-2.5 pb-4 border-b border-gray-100">
                 <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-700">
@@ -395,6 +400,7 @@ export function ProblemDetailView({ problemId }: { problemId: string }) {
                 <span className="text-[15px]">풀이 시작</span>
                 <ArrowRight size={16} strokeWidth={2.4} className="group-hover:translate-x-0.5 transition-transform" />
               </button>
+              </div>
             </section>
           </aside>
         </div>

@@ -1546,9 +1546,11 @@ body:has(.ide-route--workspace) .page-shell > * {
 .activity-bar__icon.codicon-circuit-board::before { content: "\eabe"; }
 .activity-bar__icon.codicon-terminal::before { content: "\ea85"; }
 .activity-bar__icon.codicon-hubot::before { content: "\eb08"; }
+.activity-bar__icon.codicon-question::before { content: "\eb32"; }
 
 .codicon-chevron-down::before { content: "\eab4"; }
 .codicon-chevron-right::before { content: "\eab6"; }
+.codicon-chevron-up::before { content: "\eab7"; }
 .codicon-book::before { content: "\eaa4"; }
 .codicon-files::before { content: "\eaf0"; }
 .codicon-search::before { content: "\ea6d"; }
@@ -1569,6 +1571,11 @@ body:has(.ide-route--workspace) .page-shell > * {
 .codicon-file::before { content: "\ea7b"; }
 .codicon-edit::before { content: "\ea73"; }
 .codicon-trash::before { content: "\ea81"; }
+.codicon-question::before { content: "\eb32"; }
+.codicon-split-horizontal::before { content: "\eb56"; }
+.codicon-check::before { content: "\eab2"; }
+.codicon-lightbulb::before { content: "\ea61"; }
+.codicon-rocket::before { content: "\eb44"; }
 
 .activity-bar__badge {
   position: absolute;
@@ -2763,6 +2770,26 @@ body:has(.ide-route--workspace) .page-shell > * {
   color: var(--text);
   border-color: color-mix(in srgb, var(--accent) 44%, var(--ide-border) 56%);
   background: var(--ide-hover-bg);
+}
+
+html[data-theme="light"] .editor-tabs__mode-button {
+  color: var(--muted);
+  border-color: transparent;
+  background: transparent;
+}
+
+html[data-theme="light"] .editor-tabs__mode-button:hover,
+html[data-theme="light"] .editor-tabs__mode-button--active {
+  color: var(--text);
+  border-color: transparent;
+  background: color-mix(in srgb, var(--ide-border) 55%, transparent);
+}
+
+html[data-theme="light"] .editor-tabs__mode-button:disabled {
+  color: color-mix(in srgb, var(--muted) 50%, transparent);
+  border-color: transparent;
+  background: transparent;
+  cursor: not-allowed;
 }
 
 .editor-tabs__item {
@@ -7738,4 +7765,490 @@ html[data-theme="dark"] .harness-page .harness-window {
 ─────────────────────────────────────────────────────────────── */
 .stat-inner-bg {
   background-color: #f1f3f6; /* gray-100에 근접 */
+}
+
+/* ─── IDE Tutorial Tour Overlay ─────────────────────────────────
+   IdeShell 좌측 활동바의 ? 아이콘 → 화면 위에 떠서 영역을 강조하는 투어
+─────────────────────────────────────────────────────────────── */
+.tour-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  pointer-events: none;
+}
+
+.tour-overlay__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 18, 32, 0.55);
+  pointer-events: none;
+}
+
+.tour-overlay__mask {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.tour-spotlight-ring-path {
+  pointer-events: none;
+  filter: drop-shadow(0 0 10px rgba(139, 140, 255, 0.55));
+  animation: tour-ring-pulse 2s ease-in-out infinite;
+  transition: d 0.25s ease;
+}
+
+@keyframes tour-ring-pulse {
+  0%, 100% { stroke-width: 2; filter: drop-shadow(0 0 10px rgba(139, 140, 255, 0.55)); }
+  50% { stroke-width: 3; filter: drop-shadow(0 0 16px rgba(139, 140, 255, 0.75)); }
+}
+
+.tour-tooltip {
+  position: fixed;
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  background: var(--ide-sidebar-bg);
+  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--ide-border));
+  border-radius: 12px;
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.55), 0 8px 20px -10px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px 12px;
+  animation: tour-tooltip-in 0.18s ease-out;
+}
+
+.tour-tooltip--center {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 420px;
+}
+
+@keyframes tour-tooltip-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.tour-tooltip--center { animation: tour-tooltip-in-center 0.18s ease-out; }
+@keyframes tour-tooltip-in-center {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 4px)); }
+  to { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+.tour-tooltip__head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.tour-tooltip__icon-wrap {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.tour-tooltip__icon {
+  font-size: 16px;
+  color: var(--accent);
+}
+
+.tour-tooltip__head-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tour-tooltip__head-text strong {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.tour-tooltip__head-text small {
+  font-size: 0.76rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.tour-tooltip__close {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.tour-tooltip__close:hover {
+  background: color-mix(in srgb, var(--ide-border) 60%, transparent);
+  color: var(--text);
+}
+
+.tour-tooltip__body {
+  display: grid;
+  gap: 8px;
+}
+
+.tour-tooltip__p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.tour-tooltip__li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.tour-tooltip__bullet {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  margin-top: 8px;
+  background: var(--accent);
+}
+
+.tour-tooltip__tip {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: color-mix(in srgb, #f59e0b 12%, transparent);
+  border: 1px solid color-mix(in srgb, #f59e0b 25%, transparent);
+  font-size: 0.78rem;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.tour-tooltip__tip .codicon {
+  color: #f59e0b;
+  font-size: 14px;
+  margin-top: 2px;
+}
+
+.tour-tooltip__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed color-mix(in srgb, var(--ide-border) 70%, transparent);
+}
+
+.tour-tooltip__progress {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.tour-tooltip__actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tour-tooltip__btn {
+  padding: 7px 12px;
+  border-radius: 7px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, filter 0.15s ease;
+}
+
+.tour-tooltip__btn--ghost {
+  background: transparent;
+  border: 1px solid var(--ide-border);
+  color: var(--text);
+}
+
+.tour-tooltip__btn--ghost:hover {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--ide-border));
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.tour-tooltip__btn--primary {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: white;
+}
+
+.tour-tooltip__btn--primary:hover {
+  filter: brightness(1.08);
+}
+
+/* Light-mode tooltip refinement */
+html[data-theme="light"] .tour-tooltip {
+  background: white;
+}
+
+/* ─── (legacy) sidebar tutorial panel — kept for reference ────── */
+.tutorial-panel {
+  gap: 14px;
+}
+
+.tutorial-panel__summary {
+  gap: 8px;
+}
+
+.tutorial-panel__progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.tutorial-panel__progress-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ide-border) 60%, transparent);
+  overflow: hidden;
+}
+
+.tutorial-panel__progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.tutorial-panel__progress-label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.tutorial-panel__list {
+  display: grid;
+  gap: 8px;
+}
+
+.tutorial-card {
+  border: 1px solid var(--ide-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.tutorial-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--ide-border));
+}
+
+.tutorial-card--completed {
+  border-color: color-mix(in srgb, #10b981 35%, var(--ide-border));
+  background: color-mix(in srgb, #10b981 6%, transparent);
+}
+
+.tutorial-card--expanded {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--ide-border));
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.tutorial-card__head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+}
+
+.tutorial-card__icon-wrap {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.tutorial-card__icon {
+  font-size: 14px;
+  color: var(--accent);
+}
+
+.tutorial-card--completed .tutorial-card__icon-wrap {
+  background: color-mix(in srgb, #10b981 18%, transparent);
+}
+
+.tutorial-card--completed .tutorial-card__icon {
+  color: #10b981;
+}
+
+.tutorial-card__head-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tutorial-card__head-text strong {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.tutorial-card__head-text small {
+  font-size: 0.74rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.tutorial-card__check {
+  font-size: 14px;
+  color: #10b981;
+}
+
+.tutorial-card__chevron {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.tutorial-card__body {
+  display: grid;
+  gap: 8px;
+  padding: 4px 12px 12px;
+  border-top: 1px dashed color-mix(in srgb, var(--ide-border) 70%, transparent);
+}
+
+.tutorial-card__p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.tutorial-card__li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  font-size: 0.78rem;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.tutorial-card__bullet {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  margin-top: 8px;
+  background: var(--accent);
+}
+
+.tutorial-card__tip {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: color-mix(in srgb, #f59e0b 10%, transparent);
+  border: 1px solid color-mix(in srgb, #f59e0b 25%, transparent);
+  font-size: 0.76rem;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.tutorial-card__tip .codicon {
+  color: #f59e0b;
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.tutorial-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.tutorial-card__action {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: white;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.tutorial-card__action:hover {
+  filter: brightness(1.08);
+}
+
+.tutorial-card__mark {
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--ide-border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.tutorial-card__mark:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--ide-border));
+}
+
+.tutorial-panel__reset {
+  align-self: start;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--ide-border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.tutorial-panel__reset:hover {
+  color: var(--text);
+}
+
+html[data-theme="light"] .tutorial-card {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+html[data-theme="light"] .tutorial-card--completed {
+  background: color-mix(in srgb, #10b981 10%, white);
+}
+
+html[data-theme="light"] .tutorial-card--expanded {
+  background: color-mix(in srgb, var(--accent) 8%, white);
 }

@@ -58,6 +58,309 @@ const bottomTabs: Array<{ id: BottomPanelTab; label: string }> = [
   { id: "trace", label: "Trace" }
 ];
 
+type TutorialStepAction =
+  | { type: "openProblem" }
+  | { type: "openTrace" }
+  | { type: "openSidebar"; view: SidebarView }
+  | { type: "toggleBottomPanel" }
+  | { type: "toggleAi" }
+  | { type: "scrollToTopBar" };
+
+interface TutorialStep {
+  id: string;
+  icon: string;
+  title: string;
+  summary: string;
+  body: Array<{ kind: "p" | "li" | "tip"; text: string }>;
+  action?: { label: string; intent: TutorialStepAction };
+  /** CSS selector(s) for spotlight targets. First entry is the "main" target used to position the tooltip. Pass null for centered description steps. */
+  targetSelector?: string | string[] | null;
+  /** Tooltip placement relative to the main target. */
+  placement?: "right" | "bottom" | "left" | "top" | "center";
+}
+
+const tutorialSteps: TutorialStep[] = [
+  {
+    id: "intro",
+    icon: "codicon-question",
+    title: "AIG IDE 둘러보기",
+    summary: "각 영역을 직접 클릭하며 사용법을 익혀 보세요.",
+    body: [
+      { kind: "p", text: "이 안내는 IDE 위에 떠 있는 오버레이입니다. 강조된 영역을 직접 클릭해도 되고, '다음' 버튼으로 넘겨도 됩니다." },
+      { kind: "li", text: "9단계로 풀이 흐름을 따라갑니다" },
+      { kind: "li", text: "강조된 영역은 그대로 사용 가능 (클릭·드래그 OK)" },
+      { kind: "li", text: "언제든 X 버튼으로 종료할 수 있습니다" }
+    ],
+    targetSelector: null,
+    placement: "center"
+  },
+  {
+    id: "problem",
+    icon: "codicon-book",
+    title: "1. 문제 파악하기",
+    summary: "문제 탭에서 요구사항·엔드포인트·테스트를 확인합니다.",
+    body: [
+      { kind: "p", text: "문제 탭을 자동으로 열어드렸습니다. 화면 위쪽에 문제 요구사항이 보입니다." },
+      { kind: "li", text: "요구 사항: 구현해야 할 기능 목록" },
+      { kind: "li", text: "엔드포인트: HTTP 메서드와 경로" },
+      { kind: "li", text: "공개 테스트: 통과 기준 미리보기" },
+      { kind: "tip", text: "아이콘의 숫자 뱃지는 요구사항 개수입니다." }
+    ],
+    action: { label: "다시 열기", intent: { type: "openProblem" } },
+    targetSelector: [".ide-shell__problem", '[data-tutorial-target="problem"]'],
+    placement: "center"
+  },
+  {
+    id: "explorer",
+    icon: "codicon-files",
+    title: "2. 코드 둘러보기",
+    summary: "왼쪽 탐색기에 파일 트리가 열렸습니다.",
+    body: [
+      { kind: "p", text: "일반 소스 파일은 자유롭게 편집·실행 가능합니다. 추가로 AIG 전용 폴더가 두 가지 있습니다." },
+      { kind: "li", text: ".worktree/ (ai 뱃지) — Agent 모드가 만든 패치 미리보기" },
+      { kind: "li", text: "agent/instruction.md (meta) — 에이전트 보조 지시문" },
+      { kind: "li", text: "agent/skills/ (meta) — 에이전트 보조 스킬 정의" },
+      { kind: "li", text: "agent/.sandbox/ (temp) — 임시 실행 산출물" },
+      { kind: "tip", text: "탐색기에서 파일을 클릭하면 에디터에 열립니다." }
+    ],
+    action: { label: "탐색기 열기", intent: { type: "openSidebar", view: "explorer" } },
+    targetSelector: [".ide-shell__sidebar", '[data-tutorial-target="explorer"]'],
+    placement: "right"
+  },
+  {
+    id: "search",
+    icon: "codicon-search",
+    title: "3. 빠른 검색",
+    summary: "사이드바가 검색 탭으로 전환됐습니다.",
+    body: [
+      { kind: "p", text: "왼쪽 검색창에 키워드를 입력하면 파일명과 코드 내용을 동시에 찾습니다." },
+      { kind: "li", text: "결과 클릭 시 해당 라인으로 점프" },
+      { kind: "tip", text: "지금 직접 검색어를 입력해 보세요." }
+    ],
+    action: { label: "검색 열기", intent: { type: "openSidebar", view: "search" } },
+    targetSelector: [".ide-shell__sidebar", '[data-tutorial-target="search"]'],
+    placement: "right"
+  },
+  {
+    id: "editor",
+    icon: "codicon-edit",
+    title: "4. 코드 작성",
+    summary: "중앙 에디터에서 직접 코드를 작성합니다.",
+    body: [
+      { kind: "p", text: "Monaco 에디터로 작성하면 30초마다 자동저장됩니다." },
+      { kind: "li", text: "미저장 파일은 탭/트리에 점(•)으로 표시" },
+      { kind: "li", text: "Ctrl+S 로 즉시 저장 가능" },
+      { kind: "tip", text: "상단 탭의 '오른쪽으로 분할' 버튼으로 화면을 둘로 나눌 수도 있습니다." }
+    ],
+    targetSelector: ".ide-shell__main",
+    placement: "center"
+  },
+  {
+    id: "ai",
+    icon: "codicon-hubot",
+    title: "5. AI에게 묻기",
+    summary: "오른쪽에 AI 보조 패널이 열렸습니다.",
+    body: [
+      { kind: "p", text: "AI 패널에서 두 가지 모드를 상황에 맞게 사용하세요." },
+      { kind: "li", text: "Chat 모드: 질문/설명/코드 조각 받기 — 적용은 본인이 직접" },
+      { kind: "li", text: "Agent 모드: 작업 위임 → AI가 .worktree/에 패치 생성, Trace 기록" },
+      { kind: "li", text: "메시지 입력창 위 토글로 모드 전환" },
+      { kind: "tip", text: "활동바 hubot 아이콘 뱃지는 남은 AI quota입니다. 지금 메시지를 입력해 보세요." }
+    ],
+    action: { label: "AI 패널 열기", intent: { type: "toggleAi" } },
+    targetSelector: [".ide-shell__ai", '[data-tutorial-target="ai"]'],
+    placement: "left"
+  },
+  {
+    id: "trace",
+    icon: "codicon-pulse",
+    title: "6. 에이전트 실행 흐름 확인",
+    summary: "Trace 워크벤치로 전환됐습니다.",
+    body: [
+      { kind: "p", text: "에이전트가 호출한 도구·만진 파일을 시간순으로 볼 수 있습니다." },
+      { kind: "li", text: "각 step의 입력·출력 확인" },
+      { kind: "li", text: ".worktree/ 패치 결과와 묶어서 검토" },
+      { kind: "tip", text: "리포트의 'Trace 활용도' 점수가 여기서 산정됩니다." }
+    ],
+    action: { label: "Trace 워크벤치 열기", intent: { type: "openTrace" } },
+    targetSelector: [".ide-shell__trace-wb", '[data-tutorial-target="trace"]'],
+    placement: "center"
+  },
+  {
+    id: "console",
+    icon: "codicon-terminal",
+    title: "7. 테스트 실행",
+    summary: "하단 콘솔 패널이 열렸습니다.",
+    body: [
+      { kind: "p", text: "콘솔에는 4개 탭이 있어 각각 다른 정보를 보여줍니다." },
+      { kind: "li", text: "출력 — 실행 stdout/stderr" },
+      { kind: "li", text: "테스트 — 공개 테스트 케이스 결과" },
+      { kind: "li", text: "제출 — 채점 진행 상황" },
+      { kind: "li", text: "Trace — 도커 러너 실행 로그" },
+      { kind: "tip", text: "탭을 클릭해서 직접 전환해 보세요." }
+    ],
+    action: { label: "콘솔 열기", intent: { type: "toggleBottomPanel" } },
+    targetSelector: [".bottom-panel", '[data-tutorial-target="console"]'],
+    placement: "top"
+  },
+  {
+    id: "harness",
+    icon: "codicon-circuit-board",
+    title: "8. 하네스 구성 (선택)",
+    summary: "하네스 패널이 열렸습니다.",
+    body: [
+      { kind: "p", text: "기본 하네스로도 풀이는 가능합니다. 커스텀이 필요할 때만 사용하세요." },
+      { kind: "li", text: "에이전트 베이스 모델 변경" },
+      { kind: "li", text: "스킬 활성/비활성" },
+      { kind: "li", text: "instruction.md 편집" },
+      { kind: "tip", text: "이 단계는 건너뛰어도 무방합니다." }
+    ],
+    action: { label: "하네스 열기", intent: { type: "openSidebar", view: "harness" } },
+    targetSelector: [".ide-shell__sidebar", '[data-tutorial-target="harness"]'],
+    placement: "right"
+  },
+  {
+    id: "submit",
+    icon: "codicon-rocket",
+    title: "9. 제출하고 리포트 받기",
+    summary: "상단 제출 버튼으로 최종 채점을 받습니다.",
+    body: [
+      { kind: "p", text: "코드를 다 작성했다면 상단의 제출 버튼을 누르세요." },
+      { kind: "li", text: "공개·비공개 테스트가 함께 채점됨" },
+      { kind: "li", text: "한 세션에서 여러 번 제출 가능" },
+      { kind: "tip", text: "제출 직후 피드백 리포트가 자동 생성됩니다." }
+    ],
+    targetSelector: '[data-tutorial-target="submit"]',
+    placement: "bottom"
+  }
+];
+
+const TUTORIAL_PROGRESS_KEY = "aig-ide-tutorial-progress-v1";
+const TUTORIAL_FIRST_VISIT_KEY = "aig-ide-tutorial-first-visit-v1";
+
+type TourRect = { top: number; left: number; width: number; height: number };
+
+const SPOT_PAD = 6;
+const SPOT_RADIUS = 8;
+const ADJACENCY_THRESHOLD = 24;
+
+function tourRectsAreAdjacent(a: TourRect, b: TourRect): boolean {
+  const aR = a.left + a.width;
+  const aB = a.top + a.height;
+  const bR = b.left + b.width;
+  const bB = b.top + b.height;
+  const hGap = Math.max(0, Math.max(a.left, b.left) - Math.min(aR, bR));
+  const vGap = Math.max(0, Math.max(a.top, b.top) - Math.min(aB, bB));
+  if (hGap === 0 && vGap === 0) return true;
+  if (hGap === 0 && vGap <= ADJACENCY_THRESHOLD) return true;
+  if (vGap === 0 && hGap <= ADJACENCY_THRESHOLD) return true;
+  return false;
+}
+
+function groupAdjacentTourRects(rects: TourRect[]): TourRect[][] {
+  const groups: TourRect[][] = [];
+  const visited = new Set<number>();
+  for (let i = 0; i < rects.length; i++) {
+    if (visited.has(i)) continue;
+    const group: TourRect[] = [rects[i]];
+    visited.add(i);
+    const queue = [i];
+    while (queue.length > 0) {
+      const idx = queue.shift()!;
+      for (let j = 0; j < rects.length; j++) {
+        if (visited.has(j)) continue;
+        if (rects.some((_, k) => k === idx || (group.includes(rects[k]) && tourRectsAreAdjacent(rects[k], rects[j])))) {
+          if (tourRectsAreAdjacent(rects[idx], rects[j])) {
+            visited.add(j);
+            group.push(rects[j]);
+            queue.push(j);
+          }
+        }
+      }
+    }
+    groups.push(group);
+  }
+  return groups;
+}
+
+function roundedRectPath(rect: TourRect, pad = SPOT_PAD, radius = SPOT_RADIUS): string {
+  const x = rect.left - pad;
+  const y = rect.top - pad;
+  const w = rect.width + 2 * pad;
+  const h = rect.height + 2 * pad;
+  const r = Math.min(radius, w / 2, h / 2);
+  return [
+    `M ${x + r} ${y}`,
+    `L ${x + w - r} ${y}`,
+    `A ${r} ${r} 0 0 1 ${x + w} ${y + r}`,
+    `L ${x + w} ${y + h - r}`,
+    `A ${r} ${r} 0 0 1 ${x + w - r} ${y + h}`,
+    `L ${x + r} ${y + h}`,
+    `A ${r} ${r} 0 0 1 ${x} ${y + h - r}`,
+    `L ${x} ${y + r}`,
+    `A ${r} ${r} 0 0 1 ${x + r} ${y}`,
+    "Z"
+  ].join(" ");
+}
+
+/**
+ * Builds a single rounded-corner path that outlines two horizontally-adjacent rects as one
+ * connected shape (L-shape). Assumes `small` is to the LEFT of `big` and small's y-range fits
+ * entirely within big's y-range. Returns null if assumption fails.
+ */
+function lShapePath(small: TourRect, big: TourRect, pad = SPOT_PAD, radius = SPOT_RADIUS): string | null {
+  if (small.top < big.top || small.top + small.height > big.top + big.height) return null;
+  if (small.left + small.width > big.left) return null; // overlap or wrong order
+
+  const r = radius;
+  const Lx = small.left - pad;
+  const Ly = small.top - pad;
+  const Lw = small.width + 2 * pad;
+  const Lh = small.height + 2 * pad;
+  const Rx = big.left - pad;
+  const Ry = big.top - pad;
+  const Rw = big.width + 2 * pad;
+  const Rh = big.height + 2 * pad;
+
+  // Guard: ensure radius doesn't exceed available space
+  const safeR = Math.min(r, Lw / 2, Lh / 2, Rw / 2, Rh / 2);
+
+  return [
+    `M ${Rx + safeR} ${Ry}`,
+    `L ${Rx + Rw - safeR} ${Ry}`,
+    `A ${safeR} ${safeR} 0 0 1 ${Rx + Rw} ${Ry + safeR}`,
+    `L ${Rx + Rw} ${Ry + Rh - safeR}`,
+    `A ${safeR} ${safeR} 0 0 1 ${Rx + Rw - safeR} ${Ry + Rh}`,
+    `L ${Rx + safeR} ${Ry + Rh}`,
+    `A ${safeR} ${safeR} 0 0 1 ${Rx} ${Ry + Rh - safeR}`,
+    `L ${Rx} ${Ly + Lh + safeR}`,
+    `A ${safeR} ${safeR} 0 0 0 ${Rx - safeR} ${Ly + Lh}`,
+    `L ${Lx + safeR} ${Ly + Lh}`,
+    `A ${safeR} ${safeR} 0 0 1 ${Lx} ${Ly + Lh - safeR}`,
+    `L ${Lx} ${Ly + safeR}`,
+    `A ${safeR} ${safeR} 0 0 1 ${Lx + safeR} ${Ly}`,
+    `L ${Rx - safeR} ${Ly}`,
+    `A ${safeR} ${safeR} 0 0 0 ${Rx} ${Ly - safeR}`,
+    `L ${Rx} ${Ry + safeR}`,
+    `A ${safeR} ${safeR} 0 0 1 ${Rx + safeR} ${Ry}`,
+    "Z"
+  ].join(" ");
+}
+
+function pathForGroup(group: TourRect[]): string {
+  if (group.length === 0) return "";
+  if (group.length === 1) return roundedRectPath(group[0]);
+  if (group.length === 2) {
+    const sorted = [...group].sort((a, b) => a.width * a.height - b.width * b.height);
+    const small = sorted[0];
+    const big = sorted[1];
+    const merged = lShapePath(small, big);
+    if (merged) return merged;
+  }
+  // Fallback: separate rounded paths joined into one string (still renders as 2 shapes)
+  return group.map((rect) => roundedRectPath(rect)).join(" ");
+}
+
 const AI_REQUEST_QUOTA = 5;
 const DEFAULT_HARNESS_BASE_MODEL = "GPT_5_2";
 const HARNESS_BASE_MODELS = new Set([
@@ -1273,6 +1576,19 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const [endSessionLoading, setEndSessionLoading] = useState(false);
   const [agentBuildLoading, setAgentBuildLoading] = useState(false);
   const [extensionQuery, setExtensionQuery] = useState("");
+  const [completedTutorialSteps, setCompletedTutorialSteps] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = window.localStorage.getItem(TUTORIAL_PROGRESS_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return new Set(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      return new Set();
+    }
+  });
+  const [tourActive, setTourActive] = useState(false);
+  const [tourStepIndex, setTourStepIndex] = useState(0);
+  const [tourTargetRects, setTourTargetRects] = useState<Array<{ top: number; left: number; width: number; height: number }>>([]);
   const [agentSnapshotVersion, setAgentSnapshotVersion] = useState(INITIAL_AGENT_SNAPSHOT_VERSION);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
   const [activeWorkbenchTab, setActiveWorkbenchTab] = useState<"code" | "problem" | "trace">("code");
@@ -1407,13 +1723,18 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     }
   }, [activeEditorGroupId, editorGroups]);
 
+  const editorGroupIdsKey = useMemo(
+    () => editorGroups.map((group) => group.id).join("|"),
+    [editorGroups]
+  );
+
   useEffect(() => {
-    const validGroupIds = new Set(editorGroups.map((group) => group.id));
     setEditorGroupSizes((state) => {
-      const next = Object.fromEntries(Object.entries(state).filter(([groupId]) => validGroupIds.has(groupId)));
+      const validIds = editorGroupIdsKey ? new Set(editorGroupIdsKey.split("|")) : new Set<string>();
+      const next = Object.fromEntries(Object.entries(state).filter(([groupId]) => validIds.has(groupId)));
       return Object.keys(next).length === Object.keys(state).length ? state : next;
     });
-  }, [editorGroups]);
+  }, [editorGroupIdsKey]);
 
   const maxSidebarWidth = getMaxSidebarWidth(viewportSize.width);
   const maxAiPanelWidth = getMaxAiPanelWidth(viewportSize.width);
@@ -2756,6 +3077,150 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     }
 
     setSidebarView(view);
+  };
+
+  const tutorialFirstVisitFiredRef = useRef(false);
+  useEffect(() => {
+    if (tutorialFirstVisitFiredRef.current) return;
+    if (typeof window === "undefined") return;
+    tutorialFirstVisitFiredRef.current = true;
+    try {
+      const seen = window.localStorage.getItem(TUTORIAL_FIRST_VISIT_KEY);
+      if (seen) return;
+      window.localStorage.setItem(TUTORIAL_FIRST_VISIT_KEY, "1");
+      addToast("처음이신가요? 왼쪽 ? 아이콘으로 IDE 투어를 시작할 수 있습니다.", "info");
+    } catch {
+      /* noop */
+    }
+  }, [addToast]);
+
+  const currentTourStep = tourActive ? tutorialSteps[tourStepIndex] ?? null : null;
+
+  useEffect(() => {
+    if (!tourActive) return;
+    const step = tutorialSteps[tourStepIndex];
+    if (!step?.action) return;
+    const intent = step.action.intent;
+    switch (intent.type) {
+      case "openProblem":
+        setActiveWorkbenchTab("problem");
+        break;
+      case "openTrace":
+        setActiveWorkbenchTab("trace");
+        break;
+      case "openSidebar":
+        setActiveWorkbenchTab("code");
+        setSidebarView(intent.view);
+        setSidebarOpen(true);
+        break;
+      case "toggleBottomPanel":
+        setActiveWorkbenchTab("code");
+        setBottomPanelOpen(true);
+        break;
+      case "toggleAi":
+        setActiveWorkbenchTab("code");
+        setAiOpen(true);
+        break;
+      case "scrollToTopBar":
+        break;
+    }
+  // Intentionally narrow deps so the action fires only when the tour step changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tourActive, tourStepIndex]);
+
+  useEffect(() => {
+    if (!tourActive) {
+      setTourTargetRects([]);
+      return;
+    }
+    const step = tutorialSteps[tourStepIndex];
+    if (!step?.targetSelector) {
+      setTourTargetRects([]);
+      return;
+    }
+    const selectors = Array.isArray(step.targetSelector) ? step.targetSelector : [step.targetSelector];
+
+    const measure = () => {
+      const rects = selectors
+        .map((selector) => {
+          const el = document.querySelector(selector);
+          if (!el) return null;
+          const rect = el.getBoundingClientRect();
+          return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+        })
+        .filter((rect): rect is { top: number; left: number; width: number; height: number } => rect !== null);
+      setTourTargetRects(rects);
+    };
+
+    measure();
+    const id1 = window.setTimeout(measure, 50);
+    const id2 = window.setTimeout(measure, 200);
+    window.addEventListener("resize", measure);
+    window.addEventListener("scroll", measure, true);
+    return () => {
+      window.clearTimeout(id1);
+      window.clearTimeout(id2);
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure, true);
+    };
+  }, [tourActive, tourStepIndex]);
+
+  const closeTour = () => {
+    setTourActive(false);
+    setTourStepIndex(0);
+  };
+
+  const advanceTour = () => {
+    const step = tutorialSteps[tourStepIndex];
+    if (step) {
+      setCompletedTutorialSteps((current) => {
+        if (current.has(step.id)) return current;
+        const next = new Set(current);
+        next.add(step.id);
+        try {
+          window.localStorage.setItem(TUTORIAL_PROGRESS_KEY, JSON.stringify(Array.from(next)));
+        } catch {}
+        return next;
+      });
+    }
+    if (tourStepIndex >= tutorialSteps.length - 1) {
+      closeTour();
+      return;
+    }
+    setTourStepIndex((idx) => idx + 1);
+  };
+
+  const retreatTour = () => {
+    if (tourStepIndex <= 0) return;
+    setTourStepIndex((idx) => idx - 1);
+  };
+
+  const performTourAction = (step: TutorialStep) => {
+    if (!step.action) return;
+    const intent = step.action.intent;
+    switch (intent.type) {
+      case "openProblem":
+        handleOpenProblemTab();
+        break;
+      case "openTrace":
+        setActiveWorkbenchTab("trace");
+        break;
+      case "openSidebar":
+        handleOpenCodeWorkbench();
+        setSidebarView(intent.view);
+        setSidebarOpen(true);
+        break;
+      case "toggleBottomPanel":
+        handleOpenCodeWorkbench();
+        if (!showBottomPanel) handleToggleBottomPanel();
+        break;
+      case "toggleAi":
+        handleOpenCodeWorkbench();
+        if (!aiOpen) handleToggleAiPanel();
+        break;
+      case "scrollToTopBar":
+        break;
+    }
   };
 
   const handleToggleSidebarPanel = () => {
@@ -4705,6 +5170,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
             <button
               type="button"
+              data-tutorial-target="submit"
               className="ide-toolbar__btn ide-toolbar__btn--submit"
               onClick={() => setConfirmIntent("submit")}
               disabled={submitLoading || submissionLoading || testLoading || endSessionLoading}
@@ -5012,6 +5478,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           <div className="activity-bar__group">
             <button
               type="button"
+              data-tutorial-target="problem"
               className={activeWorkbenchTab === "problem" ? "activity-bar__item activity-bar__item--active" : "activity-bar__item"}
               title="문제"
               onClick={handleOpenProblemTab}
@@ -5027,6 +5494,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                 <button
                   key={item.id}
                   type="button"
+                  data-tutorial-target={item.id}
                   className={
                     activeWorkbenchTab === "trace"
                       ? "activity-bar__item activity-bar__item--active"
@@ -5044,6 +5512,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                 <button
                   key={item.id}
                   type="button"
+                  data-tutorial-target={item.id}
                   className={
                     activeWorkbenchTab === "code" && sidebarOpen && sidebarView === item.id
                       ? "activity-bar__item activity-bar__item--active"
@@ -5062,6 +5531,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
             <button
               type="button"
+              data-tutorial-target="console"
               className={activeWorkbenchTab === "code" && showBottomPanel ? "activity-bar__item activity-bar__item--active" : "activity-bar__item"}
               title="콘솔"
               onClick={handleToggleBottomPanel}
@@ -5074,6 +5544,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
             <button
               type="button"
+              data-tutorial-target="ai"
               className={activeWorkbenchTab === "code" && aiOpen ? "activity-bar__item activity-bar__item--active" : "activity-bar__item"}
               title="AI 보조 패널"
               onClick={handleToggleAiPanel}
@@ -5085,6 +5556,24 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             </button>
           </div>
           <div className="activity-bar__group" style={{ marginTop: "auto" }}>
+            <button
+              type="button"
+              className={tourActive ? "activity-bar__item activity-bar__item--active" : "activity-bar__item"}
+              title="튜토리얼 투어"
+              onClick={() => {
+                setTourStepIndex(0);
+                setTourActive(true);
+              }}
+            >
+              <span className="activity-bar__label activity-bar__icon-wrap">
+                <span className="codicon codicon-question activity-bar__icon" aria-hidden="true" />
+              </span>
+              {completedTutorialSteps.size > 0 && completedTutorialSteps.size < tutorialSteps.length ? (
+                <span className="activity-bar__badge">
+                  {completedTutorialSteps.size}/{tutorialSteps.length}
+                </span>
+              ) : null}
+            </button>
             <button
               type="button"
               className="activity-bar__item"
@@ -5550,6 +6039,158 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           </div>
         </div>
       ) : null}
+
+      {tourActive && currentTourStep ? (() => {
+        const groups = groupAdjacentTourRects(tourTargetRects);
+        const groupPaths = groups.map((g) => pathForGroup(g));
+        return (
+        <div className="tour-overlay" role="dialog" aria-modal="true" aria-label="IDE 튜토리얼 투어">
+          {tourTargetRects.length > 0 ? (
+            <svg className="tour-overlay__mask" width="100%" height="100%">
+              <defs>
+                <mask id="tour-mask">
+                  <rect fill="white" x="0" y="0" width="100%" height="100%" />
+                  {groupPaths.map((d, idx) => (
+                    <path key={`mask-${idx}`} fill="black" d={d} />
+                  ))}
+                </mask>
+              </defs>
+              <rect
+                fill="rgba(15, 18, 32, 0.6)"
+                x="0"
+                y="0"
+                width="100%"
+                height="100%"
+                mask="url(#tour-mask)"
+              />
+              {groupPaths.map((d, idx) => (
+                <path
+                  key={`ring-${idx}`}
+                  className="tour-spotlight-ring-path"
+                  d={d}
+                  fill="none"
+                  stroke="#8b8cff"
+                  strokeWidth={2}
+                />
+              ))}
+            </svg>
+          ) : (
+            <div className="tour-overlay__backdrop" />
+          )}
+
+          {(() => {
+            const mainRect = tourTargetRects[0] ?? null;
+            const tooltipClass =
+              currentTourStep.placement === "center" || !mainRect
+                ? "tour-tooltip tour-tooltip--center"
+                : `tour-tooltip tour-tooltip--${currentTourStep.placement ?? "right"}`;
+            const tooltipStyle =
+              mainRect && currentTourStep.placement !== "center"
+                ? (() => {
+                    const placement = currentTourStep.placement ?? "right";
+                    const gap = 16;
+                    if (placement === "right") {
+                      return { top: Math.max(16, mainRect.top), left: mainRect.left + mainRect.width + gap };
+                    }
+                    if (placement === "left") {
+                      return { top: Math.max(16, mainRect.top), right: window.innerWidth - mainRect.left + gap };
+                    }
+                    if (placement === "bottom") {
+                      return { top: mainRect.top + mainRect.height + gap, left: Math.max(16, mainRect.left) };
+                    }
+                    if (placement === "top") {
+                      return { bottom: window.innerHeight - mainRect.top + gap, left: Math.max(16, mainRect.left) };
+                    }
+                    return undefined;
+                  })()
+                : undefined;
+            return (
+          <div
+            className={tooltipClass}
+            style={tooltipStyle}
+          >
+            <div className="tour-tooltip__head">
+              <div className="tour-tooltip__icon-wrap">
+                <span className={`codicon ${currentTourStep.icon} tour-tooltip__icon`} aria-hidden="true" />
+              </div>
+              <div className="tour-tooltip__head-text">
+                <strong>{currentTourStep.title}</strong>
+                <small>{currentTourStep.summary}</small>
+              </div>
+              <button
+                type="button"
+                className="tour-tooltip__close"
+                onClick={closeTour}
+                aria-label="튜토리얼 종료"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="tour-tooltip__body">
+              {currentTourStep.body.map((block, idx) => {
+                if (block.kind === "li") {
+                  return (
+                    <div key={idx} className="tour-tooltip__li">
+                      <span className="tour-tooltip__bullet" aria-hidden="true" />
+                      <span>{block.text}</span>
+                    </div>
+                  );
+                }
+                if (block.kind === "tip") {
+                  return (
+                    <div key={idx} className="tour-tooltip__tip">
+                      <span className="codicon codicon-lightbulb" aria-hidden="true" />
+                      <span>{block.text}</span>
+                    </div>
+                  );
+                }
+                return (
+                  <p key={idx} className="tour-tooltip__p">
+                    {block.text}
+                  </p>
+                );
+              })}
+            </div>
+
+            <div className="tour-tooltip__footer">
+              <span className="tour-tooltip__progress">
+                {tourStepIndex + 1} / {tutorialSteps.length}
+              </span>
+              <div className="tour-tooltip__actions">
+                {currentTourStep.action ? (
+                  <button
+                    type="button"
+                    className="tour-tooltip__btn tour-tooltip__btn--ghost"
+                    onClick={() => performTourAction(currentTourStep)}
+                  >
+                    {currentTourStep.action.label}
+                  </button>
+                ) : null}
+                {tourStepIndex > 0 ? (
+                  <button
+                    type="button"
+                    className="tour-tooltip__btn tour-tooltip__btn--ghost"
+                    onClick={retreatTour}
+                  >
+                    이전
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="tour-tooltip__btn tour-tooltip__btn--primary"
+                  onClick={advanceTour}
+                >
+                  {tourStepIndex >= tutorialSteps.length - 1 ? "완료" : "다음"}
+                </button>
+              </div>
+            </div>
+          </div>
+            );
+          })()}
+        </div>
+        );
+      })() : null}
     </div>
   );
 }

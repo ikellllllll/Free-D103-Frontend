@@ -282,19 +282,7 @@ export function LandingAIG() {
                 boxShadow: "0 0 0 1px rgba(165,180,252,0.07), 0 40px 80px rgba(0,0,0,0.65), 0 8px 24px rgba(0,0,0,0.45)"
               }}
             >
-              {/* floating feature badges */}
-              <div className="absolute left-5 top-4 z-20 flex gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/40 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-sm">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Harness IDE
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-400/30 bg-indigo-500/20 px-2.5 py-1 text-[10px] font-semibold text-indigo-200 backdrop-blur-sm">
-                  Diff · Trace
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-teal-400/30 bg-teal-500/20 px-2.5 py-1 text-[10px] font-semibold text-teal-200 backdrop-blur-sm">
-                  AI 피드백 리포트
-                </span>
-              </div>
+
               <div className="relative overflow-hidden rounded-[14px]">
                 <Image
                   src="/problemsDIFF.png"
@@ -563,9 +551,6 @@ export function LandingAIG() {
 
         <div className="relative max-w-6xl mx-auto px-6 w-full">
           <div className="text-center mb-10">
-            <div className="inline-block bg-white/10 text-white/50 text-xs font-semibold tracking-[0.12em] px-2.5 py-1 rounded mb-4">
-              라이브 데모
-            </div>
             <h2 className="text-3xl md:text-5xl font-display font-bold tracking-tight mb-3">
               하네스 과제를 실제로 풀어보면
             </h2>
