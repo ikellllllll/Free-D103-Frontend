@@ -1330,7 +1330,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     queryFn: () => (isBackendSessionId(sessionId) ? sessionApi.getWorkspace(sessionId) : mockApi.getWorkspace(sessionId)),
     enabled: !!session
   });
-  const { data: mockAgentRuns = [] } = useQuery({
+  const { data: mockAgentRuns = [] } = useQuery<AgentRunTrace[]>({
     queryKey: ["agentTraces", sessionId],
     queryFn: () =>
       isBackendSessionId(sessionId)
