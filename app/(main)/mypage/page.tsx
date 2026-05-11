@@ -1044,7 +1044,7 @@ function PasswordChangeModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 dark:bg-black/80 backdrop-blur-md px-4 animate-fade-in" role="dialog" aria-modal="true" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-[0_25px_60px_-12px_rgba(0,0,0,0.6)] dark:shadow-[0_25px_60px_-12px_rgba(99,102,241,0.35)] ring-1 ring-gray-200 dark:ring-indigo-500/30 p-6 animate-modal-pop-in">
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-[0_25px_60px_-12px_rgba(0,0,0,0.5)] ring-1 ring-gray-200 dark:ring-slate-700 p-6 animate-modal-pop-in">
         <div className="flex items-center gap-2.5 mb-1">
           <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 ring-1 ring-inset ring-indigo-100 dark:ring-indigo-900/60">
             <Key size={15} strokeWidth={2.2} />
@@ -1060,7 +1060,7 @@ function PasswordChangeModal({
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               disabled={saving}
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-gray-900 dark:text-slate-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all disabled:opacity-50"
+              className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-950/70 text-sm text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 shadow-inner shadow-gray-100/50 dark:shadow-black/20 focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-500/30 focus:bg-white dark:focus:bg-slate-950 outline-none transition-all disabled:opacity-50"
             />
           </div>
           <div>
@@ -1070,7 +1070,7 @@ function PasswordChangeModal({
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               disabled={saving}
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-gray-900 dark:text-slate-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all disabled:opacity-50"
+              className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-950/70 text-sm text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 shadow-inner shadow-gray-100/50 dark:shadow-black/20 focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-500/30 focus:bg-white dark:focus:bg-slate-950 outline-none transition-all disabled:opacity-50"
             />
           </div>
           <div>
@@ -1081,7 +1081,7 @@ function PasswordChangeModal({
               onChange={(e) => setConfirmPassword(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && void handleSubmit()}
               disabled={saving}
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-gray-900 dark:text-slate-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all disabled:opacity-50"
+              className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-950/70 text-sm text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 shadow-inner shadow-gray-100/50 dark:shadow-black/20 focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-500/30 focus:bg-white dark:focus:bg-slate-950 outline-none transition-all disabled:opacity-50"
             />
           </div>
         </div>
@@ -1143,7 +1143,7 @@ function WithdrawModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 dark:bg-black/80 backdrop-blur-md px-4 animate-fade-in" role="dialog" aria-modal="true" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-[0_25px_60px_-12px_rgba(244,63,94,0.4)] dark:shadow-[0_25px_60px_-12px_rgba(244,63,94,0.45)] ring-1 ring-rose-200 dark:ring-rose-500/40 p-6 animate-modal-pop-in">
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-[0_25px_60px_-12px_rgba(0,0,0,0.5)] ring-1 ring-rose-100 dark:ring-rose-900/50 p-6 animate-modal-pop-in">
         <div className="flex items-center gap-2.5 mb-1">
           <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 ring-1 ring-inset ring-rose-100 dark:ring-rose-900/60">
             <AlertTriangle size={15} strokeWidth={2.2} />
@@ -1162,7 +1162,7 @@ function WithdrawModal({
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={working}
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-gray-900 dark:text-slate-100 focus:border-rose-500 focus:ring-2 focus:ring-rose-100 outline-none transition-all disabled:opacity-50"
+                className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-950/70 text-sm text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 shadow-inner shadow-gray-100/50 dark:shadow-black/20 focus:border-rose-500 dark:focus:border-rose-400 focus:ring-2 focus:ring-rose-100 dark:focus:ring-rose-500/30 focus:bg-white dark:focus:bg-slate-950 outline-none transition-all disabled:opacity-50"
               />
             </div>
           )}
@@ -1177,7 +1177,7 @@ function WithdrawModal({
               onKeyDown={(e) => e.key === "Enter" && canSubmit && void handleSubmit()}
               disabled={working}
               placeholder="탈퇴"
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-gray-900 dark:text-slate-100 focus:border-rose-500 focus:ring-2 focus:ring-rose-100 outline-none transition-all disabled:opacity-50"
+              className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-950/70 text-sm text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 shadow-inner shadow-gray-100/50 dark:shadow-black/20 focus:border-rose-500 dark:focus:border-rose-400 focus:ring-2 focus:ring-rose-100 dark:focus:ring-rose-500/30 focus:bg-white dark:focus:bg-slate-950 outline-none transition-all disabled:opacity-50"
             />
           </div>
         </div>
