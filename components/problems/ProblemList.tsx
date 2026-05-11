@@ -6,7 +6,6 @@ import { useQuery } from "@tanstack/react-query";
 
 import { Badge } from "@/components/common/Badge";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
-import { mockApi } from "@/lib/api/mockApi";
 import { problemApi } from "@/lib/api/problemApi";
 import type { ProblemCategory, ProblemLevel, ProblemStatus, ProblemSummary } from "@/lib/types/problem";
 
@@ -39,7 +38,7 @@ export function ProblemList() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["problems"],
-    queryFn: () => problemApi.getProblems().catch(() => mockApi.getProblems())
+    queryFn: () => problemApi.getProblems()
   });
 
   const filtered = useMemo(() => {

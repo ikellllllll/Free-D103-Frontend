@@ -737,19 +737,24 @@ export const sessionApi = {
 
     if (path.startsWith(WORKTREE_PREFIX)) {
       payload = await this.getWorktreeFileContent(sessionId, fileId);
+    } else if (path.startsWith(AGENT_PREFIX)) {
+      // SessionHarnessFile — 별도 endpoint (2026-05-09~).
+      try {
+        const res = await authClient.get(`api/v1/session/${sessionId}/harness/${fileId}`)
+          .json<ApiResponse<GetFileContentResponse>>();
+        payload = res.data;
+      } catch {
+        payload = null;
+      }
     } else {
+      // 일반 SessionFile — GET /sessions/{id}/files/{fileId} 단일 경로.
+      // 과거에 /files/{fileId}/content fallback 이 있었으나 백엔드엔 그 GET 경로가 없음 (PATCH 만) — 항상 404 → 제거.
       try {
         const res = await authClient.get(`api/v1/sessions/${sessionId}/files/${fileId}`)
           .json<ApiResponse<GetFileContentResponse>>();
         payload = res.data;
       } catch {
-        try {
-          const res = await authClient.get(`api/v1/sessions/${sessionId}/files/${fileId}/content`)
-            .json<ApiResponse<GetFileContentResponse>>();
-          payload = res.data;
-        } catch {
-          payload = null;
-        }
+        payload = null;
       }
     }
 
@@ -810,15 +815,16 @@ export const sessionApi = {
         hasNext: false
       } satisfies AgentTraceListResult;
     } catch {
-      const runs = await mockApi.getAgentTraces(sessionId);
-      return {
-        runs,
-        totalCount: runs.length,
+      // 백엔드 호출 실패 시 mockApi 폴백 금지 — 일시적 장애에 가짜 trace 가 inject 되는 누수 패턴 (worktree 누수 #75481de 와 동일).
+      const empty: AgentTraceListResult = {
+        runs: [],
+        totalCount: 0,
         page,
         size,
         totalPages: 1,
         hasNext: false
-      } satisfies AgentTraceListResult;
+      };
+      return empty;
     }
   },
 
@@ -833,9 +839,10 @@ export const sessionApi = {
       }
 
       return normalizeAgentRuns([data as AgentRunTrace])[0];
-    } catch {
-      const runs = await mockApi.getAgentTraces(sessionId);
-      return runs.find((run) => run.agentTraceId === traceId) ?? runs[0];
+    } catch (error) {
+      // mockApi 폴백 금지 — 위 getAgentTraceList 와 동일 사유.
+      // React Query 가 isError 로 처리하도록 그대로 throw.
+      throw error;
     }
   },
 
@@ -854,7 +861,8 @@ export const sessionApi = {
         createdAt: m.createdAt
       }));
     } catch {
-      return mockApi.getChatMessages(sessionId);
+      // mockApi 폴백 금지 — 일시적 장애에 가짜 시드 채팅 누설 방지.
+      return [];
     }
   },
 
@@ -866,7 +874,15 @@ export const sessionApi = {
 
     const language = input.language ?? toSessionFileLanguage(input.path) ?? inferLanguageFromPath(input.path);
 
-    await authClient.patch(`api/v1/sessions/${sessionId}/files/${fileId}/content`, {
+    // agent/* 경로는 SessionHarnessFile — 별도 endpoint (2026-05-09~).
+    // 그 외는 기존 SessionFile endpoint.
+    // 백엔드 URL prefix 가 다름: 하네스는 /session (단수), 일반은 /sessions (복수).
+    const isHarnessFile = input.path.startsWith(AGENT_PREFIX);
+    const url = isHarnessFile
+      ? `api/v1/session/${sessionId}/harness/${fileId}/content`
+      : `api/v1/sessions/${sessionId}/files/${fileId}/content`;
+
+    await authClient.patch(url, {
       json: { content: input.content }
     });
 
