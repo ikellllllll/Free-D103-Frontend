@@ -5064,9 +5064,15 @@ html[data-theme="light"] .toast { background: var(--panel-strong); }
   to   { opacity: 1; transform: translateX(0); }
 }
 
+@keyframes modal-pop-in {
+  from { opacity: 0; transform: scale(0.94) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
 .animate-fade-up  { animation: fade-up 0.22s ease both; }
 .animate-fade-in  { animation: fade-in 0.18s ease both; }
 .animate-slide-in { animation: slide-in-left 0.2s ease both; }
+.animate-modal-pop-in { animation: modal-pop-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
 /* Stagger utility — apply via inline style: animation-delay: calc(var(--i) * 0.06s) */
 .page-shell > * { animation: fade-up 0.2s ease both; }
@@ -7719,6 +7725,7 @@ html[data-theme="dark"] .harness-page .harness-window {
   .animate-slide-up,
   .animate-slide-up-sm,
   .animate-scale-in,
+  .animate-modal-pop-in,
   .animate-shimmer,
   .animate-gradient-shift,
   .animate-float,

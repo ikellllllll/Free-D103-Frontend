@@ -13,7 +13,6 @@ import {
   Trash2,
   Sun,
   Moon,
-  Database,
   FileText,
   User,
   BarChart2,
@@ -283,14 +282,6 @@ export default function MyPage() {
     setByokKeys(next);
     saveByokKeys(next);
     addToast(`${id} 키가 삭제되었습니다.`, "success");
-  };
-
-  const resetMockData = () => {
-    if (!window.confirm("모든 mock 데이터를 초기화할까요? 되돌릴 수 없습니다.")) return;
-    localStorage.removeItem("aig-mock-db-v2");
-    localStorage.removeItem(BYOK_STORAGE_KEY);
-    localStorage.removeItem(PREF_STORAGE_KEY);
-    addToast("mock 데이터가 초기화되었습니다. 새로고침해 주세요.", "success");
   };
 
   const startEditNickname = () => {
@@ -811,20 +802,6 @@ export default function MyPage() {
                         </button>
                       </div>
                     )}
-                    <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-700">
-                      <div>
-                        <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">로컬 데이터 초기화</div>
-                        <div className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">브라우저에 저장된 mock 데이터 / API 키 / 환경 설정을 삭제합니다 (계정은 유지).</div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={resetMockData}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-slate-800 ring-1 ring-inset ring-gray-300 dark:ring-slate-600 text-gray-700 dark:text-slate-200 text-sm font-semibold transition-all hover:bg-gray-50 dark:hover:bg-slate-700 active:scale-[0.97] cursor-pointer"
-                      >
-                        <Database size={14} strokeWidth={2.2} />
-                        초기화
-                      </button>
-                    </div>
                     {/* 위험 영역 */}
                     <div className="mt-6 pt-6 border-t border-gray-100 dark:border-slate-800">
                       <div className="flex items-center gap-2.5 p-4 mb-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/60">
@@ -1066,9 +1043,14 @@ function PasswordChangeModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4" role="dialog" aria-modal="true">
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-700 p-6">
-        <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100 mb-1">비밀번호 변경</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 dark:bg-black/80 backdrop-blur-md px-4 animate-fade-in" role="dialog" aria-modal="true" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-[0_25px_60px_-12px_rgba(0,0,0,0.6)] dark:shadow-[0_25px_60px_-12px_rgba(99,102,241,0.35)] ring-1 ring-gray-200 dark:ring-indigo-500/30 p-6 animate-modal-pop-in">
+        <div className="flex items-center gap-2.5 mb-1">
+          <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 ring-1 ring-inset ring-indigo-100 dark:ring-indigo-900/60">
+            <Key size={15} strokeWidth={2.2} />
+          </span>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100">비밀번호 변경</h3>
+        </div>
         <p className="text-sm text-gray-500 dark:text-slate-400 mb-4">현재 비밀번호를 입력하고 새 비밀번호를 설정해 주세요.</p>
         <div className="space-y-3">
           <div>
@@ -1160,9 +1142,14 @@ function WithdrawModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4" role="dialog" aria-modal="true">
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-700 p-6">
-        <h3 className="text-lg font-bold text-rose-700 dark:text-rose-400 mb-1">계정 삭제</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 dark:bg-black/80 backdrop-blur-md px-4 animate-fade-in" role="dialog" aria-modal="true" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-[0_25px_60px_-12px_rgba(244,63,94,0.4)] dark:shadow-[0_25px_60px_-12px_rgba(244,63,94,0.45)] ring-1 ring-rose-200 dark:ring-rose-500/40 p-6 animate-modal-pop-in">
+        <div className="flex items-center gap-2.5 mb-1">
+          <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 ring-1 ring-inset ring-rose-100 dark:ring-rose-900/60">
+            <AlertTriangle size={15} strokeWidth={2.2} />
+          </span>
+          <h3 className="text-lg font-bold text-rose-700 dark:text-rose-400">계정 삭제</h3>
+        </div>
         <p className="text-sm text-gray-500 dark:text-slate-400 mb-4">
           계정과 모든 풀이 기록이 영구 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
         </p>
