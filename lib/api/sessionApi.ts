@@ -738,9 +738,9 @@ export const sessionApi = {
     if (path.startsWith(WORKTREE_PREFIX)) {
       payload = await this.getWorktreeFileContent(sessionId, fileId);
     } else if (path.startsWith(AGENT_PREFIX)) {
-      // SessionHarnessFile — 별도 endpoint (2026-05-09~).
+      // SessionHarnessFile — 별도 endpoint (2026-05-09~). 백엔드가 단수→복수로 통일 (2026-05-11~).
       try {
-        const res = await authClient.get(`api/v1/session/${sessionId}/harness/${fileId}`)
+        const res = await authClient.get(`api/v1/sessions/${sessionId}/harness/${fileId}`)
           .json<ApiResponse<GetFileContentResponse>>();
         payload = res.data;
       } catch {
@@ -876,10 +876,10 @@ export const sessionApi = {
 
     // agent/* 경로는 SessionHarnessFile — 별도 endpoint (2026-05-09~).
     // 그 외는 기존 SessionFile endpoint.
-    // 백엔드 URL prefix 가 다름: 하네스는 /session (단수), 일반은 /sessions (복수).
+    // 백엔드가 단수→복수로 통일됨 (2026-05-11~) — 둘 다 `/sessions` (복수).
     const isHarnessFile = input.path.startsWith(AGENT_PREFIX);
     const url = isHarnessFile
-      ? `api/v1/session/${sessionId}/harness/${fileId}/content`
+      ? `api/v1/sessions/${sessionId}/harness/${fileId}/content`
       : `api/v1/sessions/${sessionId}/files/${fileId}/content`;
 
     await authClient.patch(url, {
@@ -939,6 +939,64 @@ export const sessionApi = {
       .json<ApiResponse<HarnessBuildResponse>>();
 
     return res.data;
+  },
+
+  /**
+   * 세션 하네스 파일 생성 — POST /api/v1/sessions/{id}/harness (2026-05-11~).
+   * body: { path, name, nodeType: FILE|DIRECTORY, fileType: INSTRUCTION|SKILL|MEMORY|RULE|OTHER, content? }
+   */
+  async addHarnessFile(sessionId: string, input: {
+    path: string;
+    name: string;
+    nodeType: "FILE" | "DIRECTORY";
+    fileType: string;          // HarnessFileType enum 값 (백엔드와 정합)
+    content?: string;
+  }) {
+    const res = await authClient
+      .post(`api/v1/sessions/${sessionId}/harness`, {
+        json: input
+      })
+      .json<ApiResponse<{
+        sessionHarnessFileId: number;
+        path: string;
+        name: string;
+        fileType: string;
+        nodeType: "FILE" | "DIRECTORY";
+        content: string;
+        sizeBytes: number;
+        createdAt: string;
+      }>>();
+
+    return res.data;
+  },
+
+  /**
+   * AI 부분 수정 승인 또는 거절 — POST /api/v1/ai/sessions/{id}/chat/edit?isApproved={t|f} (2026-05-11~).
+   * body: { originFileId, worktreeFileId }.
+   *
+   * 사용처는 worktree path (`.worktree/src/...`) 만 들고 있으므로 path → fileId 매핑은 내부에서 처리.
+   * - worktreeFileId = lookup(`.worktree/src/...`)        → AgentWorktreeFile.worktreeFileId
+   * - originFileId   = lookup(`src/...`)                  → SessionFile.fileId
+   */
+  async partialEdit(sessionId: string, input: {
+    worktreePath: string;          // ".worktree/src/..."
+    isApproved: boolean;
+  }) {
+    const worktreePath = input.worktreePath.startsWith(WORKTREE_PREFIX)
+      ? input.worktreePath
+      : `${WORKTREE_PREFIX}${input.worktreePath}`;
+    const sourcePath = worktreePath.slice(WORKTREE_PREFIX.length);
+
+    const worktreeFileId = await resolveRememberedFileId(sessionId, worktreePath);
+    const originFileId = await resolveRememberedFileId(sessionId, sourcePath);
+    if (!worktreeFileId || !originFileId) {
+      throw new Error("적용할 파일 정보를 찾지 못했습니다. 워크스페이스를 새로고침해 주세요.");
+    }
+
+    await authClient.post(`api/v1/ai/sessions/${sessionId}/chat/edit`, {
+      json: { originFileId, worktreeFileId },
+      searchParams: { isApproved: String(input.isApproved) }
+    });
   },
 
   async endSession(sessionId: string) {
