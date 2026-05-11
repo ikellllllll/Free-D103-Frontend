@@ -6,6 +6,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { useAuthStore } from "@/store/authStore";
 
+const isPublicPath = (path: string) =>
+  path === "/login" ||
+  path === "/signup" ||
+  path === "/problems" ||
+  path.startsWith("/problems/");
+
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((state) => state.user);
   const hydrated = useAuthStore((state) => state.hydrated);
@@ -18,12 +24,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (!user && currentPath !== "/login" && currentPath !== "/signup") {
+    if (!user && !isPublicPath(currentPath)) {
       router.replace(withPrefix("/login"));
     }
   }, [currentPath, hydrated, pathname, router, user, withPrefix]);
 
-  if (!hydrated || !user) {
+  if (!hydrated || (!user && !isPublicPath(currentPath))) {
     return (
       <div className="auth-gate" role="status" aria-live="polite">
         <div className="auth-gate__panel">

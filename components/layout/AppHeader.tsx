@@ -59,8 +59,7 @@ export function AppHeader() {
     <header className="app-header">
       <div className="app-header__inner">
         <Link href={withPrefix("/problems")} className="brand">
-          <BrandLogo variant="app-icon" height={28} />
-          <BrandLogo variant="primary-word" height={26} />
+          <BrandLogo variant="app-icon" height={35} />
           <span className="brand__meta">
             <strong>AI Interview Guide</strong>
             <span>과제 풀이, AI 활용 흐름, 피드백 리포트를 한 곳에서 다룹니다.</span>

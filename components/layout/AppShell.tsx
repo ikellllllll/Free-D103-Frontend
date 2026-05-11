@@ -29,7 +29,7 @@ type NavItem = { href: string; icon: LucideIcon; label: string };
 const NAV_ITEMS: NavItem[] = [
   { href: "/problems", icon: BookOpen, label: "과제 목록" },
   { href: "/sessions", icon: History, label: "풀이 기록" },
-  { href: "/harness", icon: TestTube, label: "하네스" },
+  { href: "/harness", icon: TestTube, label: "하네스 설정" },
   { href: "/mypage", icon: User, label: "마이페이지" }
 ];
 
@@ -148,18 +148,20 @@ export function AppShell({ children }: { children: ReactNode }) {
         }
       });
     }
-    items.push({
-      id: "action-logout",
-      label: "로그아웃",
-      icon: LogOut,
-      action: () => {
-        closePalette();
-        void handleLogout();
-      }
-    });
+    if (user) {
+      items.push({
+        id: "action-logout",
+        label: "로그아웃",
+        icon: LogOut,
+        action: () => {
+          closePalette();
+          void handleLogout();
+        }
+      });
+    }
     return items;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, theme]);
+  }, [hydrated, theme, user]);
 
   const filteredItems = useMemo(() => {
     const q = paletteQuery.trim().toLowerCase();
@@ -201,8 +203,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             href={withPrefix("/problems")}
             className="group flex items-center space-x-2 font-display font-bold text-lg shrink-0"
           >
-            <Image src="/brand/favicon.png" alt="AIG" width={28} height={28} className="rounded-lg object-cover" />
-            <span className="text-indigo-600">AIG</span>
+            <Image src="/brand/favicon.png" alt="AIG" width={35} height={35} className="rounded-lg object-cover" />
           </Link>
 
           <nav className="hidden md:flex items-center space-x-1 text-sm font-medium text-gray-600 mx-6">
@@ -238,20 +239,21 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {shortcutLabel}
               </kbd>
             </button>
-            <div className="relative" ref={userMenuRef}>
-              <button
-                type="button"
-                onClick={() => setUserMenuOpen((v) => !v)}
-                className={`w-9 h-9 rounded-full bg-white text-gray-600 border border-gray-200 flex items-center justify-center transition-all shadow-sm ${
-                  userMenuOpen ? "ring-2 ring-indigo-200 ring-offset-1" : "hover:border-indigo-200 hover:bg-indigo-50"
-                }`}
-                aria-haspopup="menu"
-                aria-expanded={userMenuOpen}
-              >
-                <User size={18} strokeWidth={2} />
-              </button>
+            {user ? (
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setUserMenuOpen((v) => !v)}
+                  className={`w-9 h-9 rounded-full bg-white text-gray-600 border border-gray-200 flex items-center justify-center transition-all shadow-sm ${
+                    userMenuOpen ? "ring-2 ring-indigo-200 ring-offset-1" : "hover:border-indigo-200 hover:bg-indigo-50"
+                  }`}
+                  aria-haspopup="menu"
+                  aria-expanded={userMenuOpen}
+                >
+                  <User size={18} strokeWidth={2} />
+                </button>
 
-              {userMenuOpen && (
+                {userMenuOpen && (
                 <div
                   className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-[0_8px_32px_-8px_rgba(17,24,39,0.18),0_2px_8px_rgba(17,24,39,0.06)] border border-gray-100 overflow-hidden z-50"
                   role="menu"
@@ -294,8 +296,16 @@ export function AppShell({ children }: { children: ReactNode }) {
                     </button>
                   </div>
                 </div>
-              )}
-            </div>
+                )}
+              </div>
+            ) : (
+              <Link
+                href={withPrefix("/login")}
+                className="inline-flex h-9 items-center justify-center rounded-md bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700"
+              >
+                로그인
+              </Link>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -357,17 +367,28 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <span>{theme === "dark" ? "라이트 모드" : "다크 모드"}</span>
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  void handleLogout();
-                }}
-                className="w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
-              >
-                <LogOut size={16} strokeWidth={2} />
-                <span>로그아웃</span>
-              </button>
+              {user ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    void handleLogout();
+                  }}
+                  className="w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
+                >
+                  <LogOut size={16} strokeWidth={2} />
+                  <span>로그아웃</span>
+                </button>
+              ) : (
+                <Link
+                  href={withPrefix("/login")}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-sm text-indigo-700 bg-indigo-50"
+                >
+                  <User size={16} strokeWidth={2} />
+                  <span>로그인</span>
+                </Link>
+              )}
             </nav>
           </div>
         )}

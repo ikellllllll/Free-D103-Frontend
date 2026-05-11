@@ -157,49 +157,6 @@ function StatusBadge({ status }: { status: ProblemStatus }) {
   );
 }
 
-function LevelRing({ level }: { level: ProblemLevel }) {
-  const meta = LEVEL_META[level];
-  const radius = 14;
-  const circ = 2 * Math.PI * radius;
-  const pct = level / 3;
-  const offset = circ * (1 - pct);
-  return (
-    <span className="relative inline-flex items-center justify-center w-9 h-9 shrink-0">
-      <svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true">
-        <circle
-          cx="18"
-          cy="18"
-          r={radius}
-          fill="none"
-          strokeWidth="2.5"
-          className={meta.ringTrack}
-        />
-        <circle
-          cx="18"
-          cy="18"
-          r={radius}
-          fill="none"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          className={meta.ringFill}
-          style={{
-            strokeDasharray: circ,
-            strokeDashoffset: offset,
-            transform: "rotate(-90deg)",
-            transformOrigin: "18px 18px",
-            transition: "stroke-dashoffset 500ms ease"
-          }}
-        />
-      </svg>
-      <span
-        className={`absolute inset-0 flex items-center justify-center text-xs font-bold ${meta.chipText}`}
-      >
-        {level}
-      </span>
-    </span>
-  );
-}
-
 // ────────────────────────────────────────────────
 // Stat card (glassmorphism, 2026 trend)
 // ────────────────────────────────────────────────
@@ -227,6 +184,24 @@ function StatCard({
   );
 }
 
+function LevelBars({ level }: { level: ProblemLevel }) {
+  const meta = LEVEL_META[level];
+  const heights = ["h-[6px]", "h-[9px]", "h-[12px]"];
+  return (
+    <span className={`inline-flex items-center gap-1.5 ${meta.chipText}`} aria-label={`Lv ${level} ${meta.label}`}>
+      <span className="inline-flex items-end gap-[3px]">
+        {heights.map((h, i) => (
+          <span
+            key={i}
+            className={`inline-block w-[4px] rounded-sm ${h} ${i < level ? "bg-current" : "bg-current opacity-20"}`}
+          />
+        ))}
+      </span>
+      <span className="text-[11px] font-bold">{meta.label}</span>
+    </span>
+  );
+}
+
 // ────────────────────────────────────────────────
 // Problem card (the star of the redesign)
 // ────────────────────────────────────────────────
@@ -243,16 +218,13 @@ function ProblemCard({
   const inner = (
     <>
       <div className="relative flex flex-col flex-1 p-5 sm:p-6">
-        {/* Header: Ring + order + status */}
+        {/* Header: order + level + status */}
         <div className="flex items-center gap-3 mb-4">
-          <LevelRing level={problem.level} />
-          <div className="flex items-baseline gap-2 min-w-0 flex-1">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <span className="text-sm font-mono font-bold text-gray-900 tabular-nums">
               #{problem.order.toString().padStart(2, "0")}
             </span>
-            <span className={`text-[11px] font-semibold ${meta.chipText} uppercase tracking-wide`}>
-              {meta.label}
-            </span>
+            <LevelBars level={problem.level} />
           </div>
           <StatusBadge status={problem.status} />
         </div>

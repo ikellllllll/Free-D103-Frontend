@@ -12,8 +12,6 @@ import {
   X
 } from "lucide-react";
 
-import { useAuthStore } from "@/store/authStore";
-
 const SECTION_IDS = ["hero", "showcase", "features", "workflow", "demo", "reports", "cta"] as const;
 type SectionId = (typeof SECTION_IDS)[number];
 
@@ -100,9 +98,6 @@ const SHOWCASE_STATS = [
 ];
 
 export function LandingAIG() {
-  // 로그인 유저는 "시작하기" 버튼 → /problems, 비로그인은 "로그인" → /login
-  const user = useAuthStore((s) => s.user);
-
   const sectionRefs = useRef<Record<SectionId, HTMLElement | null>>({
     hero: null,
     showcase: null,
@@ -210,8 +205,7 @@ export function LandingAIG() {
         <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-white/70 shadow-sm">
           <nav className="mx-auto h-14 max-w-6xl flex items-center justify-between px-6">
             <Link href="/" className="flex items-center space-x-2 font-display font-bold text-lg group cursor-pointer">
-              <Image src="/brand/favicon.png" alt="AIG" width={28} height={28} className="rounded-lg object-cover" />
-              <span className="text-indigo-600">AIG</span>
+              <Image src="/brand/favicon.png" alt="AIG" width={35} height={35} className="rounded-lg object-cover" />
             </Link>
             <div className="hidden md:flex items-center space-x-8 text-sm font-medium text-gray-700">
               <a href="#showcase" onClick={handleAnchorJump("showcase")} className="hover:text-indigo-600 transition-colors cursor-pointer">미리보기</a>
@@ -220,10 +214,10 @@ export function LandingAIG() {
               <a href="#reports" onClick={handleAnchorJump("reports")} className="hover:text-indigo-600 transition-colors cursor-pointer">리포트</a>
             </div>
             <Link
-              href={user ? "/problems" : "/login"}
+              href="/login"
               className="inline-flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-md transition-colors shadow-sm cursor-pointer"
             >
-              <span>{user ? "시작하기" : "로그인"}</span>
+              <span>로그인</span>
               <ArrowRight size={14} strokeWidth={2.4} />
             </Link>
           </nav>
@@ -248,10 +242,10 @@ export function LandingAIG() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
-              href={user ? "/problems" : "/login"}
+              href="/problems"
               className="inline-flex items-center space-x-2 bg-white text-indigo-900 hover:bg-indigo-50 font-semibold px-6 py-3.5 rounded-full transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 cursor-pointer"
             >
-              <span>무료로 시작하기</span>
+              <span>문제 보기</span>
               <ArrowRight size={16} strokeWidth={2.4} />
             </Link>
             <a
@@ -858,10 +852,10 @@ export function LandingAIG() {
           </p>
           <div className="flex justify-center">
             <Link
-              href={user ? "/problems" : "/login"}
+              href="/problems"
               className="inline-flex items-center space-x-2 bg-white text-indigo-900 hover:bg-indigo-50 font-semibold px-8 py-4 rounded-full transition-all shadow-2xl hover:-translate-y-0.5 cursor-pointer"
             >
-              <span>AIG 시작하기</span>
+              <span>문제 보기</span>
               <ArrowRight size={16} strokeWidth={2.4} />
             </Link>
           </div>

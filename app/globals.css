@@ -7660,6 +7660,12 @@ html[data-theme="dark"] .harness-page {
   color: var(--harness-muted) !important;
 }
 
+@media (max-width: 768px) {
+  .harness-page .harness-page__subtitle {
+    white-space: normal;
+  }
+}
+
 .harness-page .harness-window {
   box-shadow:
     0 0 0 1px rgba(15, 23, 42, 0.18),
@@ -7765,6 +7771,54 @@ html[data-theme="dark"] .harness-page .harness-window {
 ─────────────────────────────────────────────────────────────── */
 .stat-inner-bg {
   background-color: #f1f3f6; /* gray-100에 근접 */
+}
+
+/* ─── Problem level stack icon ───────────────────────────────── */
+.level-stack-icon {
+  position: relative;
+  display: inline-flex;
+  width: auto;
+  min-width: max-content;
+  height: auto;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.level-stack-icon--1 { color: #6366f1; }
+.level-stack-icon--2 { color: #8b5cf6; }
+.level-stack-icon--3 { color: #c026d3; }
+
+.level-stack-icon__dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 5px;
+}
+
+.level-stack-icon__dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  border: 1.5px solid currentColor;
+  transition: background 0.15s;
+}
+
+.level-stack-icon__dot--filled {
+  background: currentColor;
+}
+
+.level-stack-icon__dot--empty {
+  background: transparent;
+  opacity: 0.3;
 }
 
 /* ─── IDE Tutorial Tour Overlay ─────────────────────────────────
