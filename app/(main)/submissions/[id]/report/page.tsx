@@ -142,12 +142,7 @@ export default function FeedbackReportPage({
     .sort((a, b) => b.severity - a.severity);
 
   return (
-    <div className="relative bg-gradient-to-b from-indigo-50/20 via-white to-white min-h-screen overflow-hidden">
-      {/* Background grid */}
-      <div className="absolute top-0 left-0 right-0 h-[900px] pointer-events-none overflow-hidden">
-        <div className="absolute inset-0 bg-grid-pattern opacity-25" />
-      </div>
-
+    <div className="relative min-h-screen">
       <div className="relative max-w-6xl mx-auto px-6 pt-28 pb-16 space-y-6">
         {/* ── HERO ── */}
         <section
@@ -642,17 +637,17 @@ function BasisStat({
   items: { k: string; v: number | string }[];
 }) {
   return (
-    <div className="rounded-xl bg-gray-50/60 border border-gray-100 p-4">
-      <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-500 mb-2.5">
+    <div className="rounded-xl bg-gray-50 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 p-4">
+      <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-600 dark:text-slate-300 mb-2.5">
         {label}
       </div>
       <div className="grid" style={{ gridTemplateColumns: `repeat(${items.length}, 1fr)` }}>
         {items.map((it) => (
           <div key={it.k} className="text-center">
-            <div className="text-[10px] uppercase tracking-[0.1em] text-gray-400 mb-0.5">
+            <div className="text-[10px] uppercase tracking-[0.1em] text-gray-500 dark:text-slate-400 mb-0.5 font-semibold">
               {it.k}
             </div>
-            <div className="font-display font-bold text-gray-900 text-lg tabular-nums leading-none">
+            <div className="font-display font-bold text-gray-900 dark:text-slate-100 text-lg tabular-nums leading-none">
               {it.v}
             </div>
           </div>
