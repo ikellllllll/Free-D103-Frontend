@@ -384,7 +384,9 @@ const CHAT_MODEL_OPTIONS: ReadonlyArray<{ id: string; label: string; provider: "
   { id: "GPT_5_MINI",        label: "GPT-5 Mini",        provider: "openai" },
   { id: "GPT_5_NANO",        label: "GPT-5 Nano",        provider: "openai" }
 ];
-const DEFAULT_CHAT_MODEL = "CLAUDE_4_5_SONNET";
+// 싸피 GMS 게이트웨이에 Claude 모델군은 미등록 (2026-05-12 확인) — GPT_5_MINI 가 동작 확인된 default.
+// Claude 활성화되면 CLAUDE_4_5_SONNET 등으로 복귀 가능.
+const DEFAULT_CHAT_MODEL = "GPT_5_MINI";
 const SOLVE_TIMER_INTERVAL_MS = 1000;
 const MAX_SELECTED_CODE_CHARS = 12000;
 const SIDEBAR_MIN_WIDTH = 220;
@@ -1470,9 +1472,9 @@ const buildFileTree = (files: ExplorerFile[], extraFolders: string[] = []) => {
     [...nodes]
       .sort((left, right) => {
         const rootFolderOrder: Record<string, number> = {
-          src: 0,
-          agent: 1,
-          ".worktree": 2,
+          ".worktree": 0,   // AI worktree 변경분 — 항상 최상단 (사용자 주목 영역)
+          src: 1,
+          agent: 2,
           starter: 3
         };
 
@@ -5917,18 +5919,28 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                             </p>
                           </div>
                         ) : null}
-                        {messages.map((message) => (
-                          <div
-                            key={message.id}
-                            className={message.role === "user" ? "chat-bubble chat-bubble--user" : "chat-bubble"}
-                          >
-                            <div className="chat-bubble__markdown">
-                              <Markdown remarkPlugins={[remarkGfm]}>{message.content}</Markdown>
+                        {messages.map((message) => {
+                          const isEmptyAssistant = message.role === "assistant" && !message.content;
+                          return (
+                            <div
+                              key={message.id}
+                              className={message.role === "user" ? "chat-bubble chat-bubble--user" : "chat-bubble"}
+                            >
+                              {isEmptyAssistant ? (
+                                <span className="chat-typing" aria-label="AI 응답 생성 중">
+                                  <span className="chat-typing__dot" />
+                                  <span className="chat-typing__dot" />
+                                  <span className="chat-typing__dot" />
+                                </span>
+                              ) : (
+                                <div className="chat-bubble__markdown">
+                                  <Markdown remarkPlugins={[remarkGfm]}>{message.content}</Markdown>
+                                </div>
+                              )}
+                              {message.attachedCode ? <AttachedCodeChip data={message.attachedCode} /> : null}
                             </div>
-                            {message.attachedCode ? <AttachedCodeChip data={message.attachedCode} /> : null}
-                          </div>
-                        ))}
-                        {streaming ? <div className="chat-status">AI 응답 생성 중...</div> : null}
+                          );
+                        })}
                       </div>
 
                       <div className="chat-input-row">
