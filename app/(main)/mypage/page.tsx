@@ -199,6 +199,21 @@ export default function MyPage() {
     : !data ||
       ((data.history?.length ?? 0) === 0 && (data.resumableSessions?.length ?? 0) === 0);
 
+  /**
+   * 역량 지표 5축 — AI evaluator (feedback_report) 의 권장 메트릭 그대로.
+   * 백엔드 GET /api/v1/users/me/stats 가 만들어지면 자연스럽게 교체:
+   *   응답 예상: { harness_goal_clarity, harness_workflow_design, harness_context_quality,
+   *               harness_skill_modularity, harness_verification_loop }
+   *
+   * 매핑:
+   *   목표 명확도           → harness_goal_clarity_score        (HARNESS_GOAL_CLARITY)
+   *   작업 흐름 설계도      → harness_workflow_design_score     (HARNESS_WORKFLOW_DESIGN)
+   *   정보 제공 적절도      → harness_context_quality_score     (HARNESS_CONTEXT_QUALITY)
+   *   스킬 구성도           → harness_skill_modularity_score    (HARNESS_SKILL_MODULARITY)
+   *   검증 루프 설계도      → harness_verification_loop_score   (HARNESS_VERIFICATION_LOOP)
+   *
+   * 현재는 mockApi.avgScores 기반 (백엔드 endpoint 미존재) — endpoint 들어오면 매핑만 교체.
+   */
   const skills = useMemo(() => {
     const base = (data?.avgScores ?? []) as { label: string; score: number }[];
     const find = (l: string, fallback: number) =>
@@ -208,11 +223,11 @@ export default function MyPage() {
     const fb = isNewUser ? 0 : null;
 
     return [
-      { label: "하네스 품질", score: fb ?? find("하네스", 72) },
-      { label: "실행 품질", score: fb ?? find("실행", 64) },
-      { label: "Trace 활용", score: fb ?? find("트레이스", 58) },
-      { label: "프롬프트 설계", score: fb ?? Math.round(find("하네스", 72) * 0.9) },
-      { label: "자기 피드백", score: fb ?? Math.round(find("실행", 64) * 1.05) }
+      { label: "목표 명확도",      key: "harness_goal_clarity_score",     score: fb ?? find("하네스", 72) },
+      { label: "작업 흐름 설계도", key: "harness_workflow_design_score",  score: fb ?? find("실행", 64) },
+      { label: "정보 제공 적절도", key: "harness_context_quality_score",  score: fb ?? find("트레이스", 58) },
+      { label: "스킬 구성도",      key: "harness_skill_modularity_score", score: fb ?? Math.round(find("하네스", 72) * 0.9) },
+      { label: "검증 루프 설계도", key: "harness_verification_loop_score", score: fb ?? Math.round(find("실행", 64) * 1.05) }
     ];
   }, [data, isNewUser]);
 
@@ -605,7 +620,7 @@ export default function MyPage() {
                         <BarChart2 size={16} className="text-indigo-500 dark:text-indigo-400" strokeWidth={2.2} />
                         역량 지표
                       </h3>
-                      <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">최근 10개 세션 평균 (백엔드 집계 준비 중 — 임시 mock 표시)</p>
+                      <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">AI 평가 5축 — 집계 endpoint (GET /me/stats) 준비 중, 임시 mock 표시</p>
                     </div>
                     <div className="text-right">
                       <div className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400 dark:text-slate-500">AVG</div>
@@ -1324,7 +1339,7 @@ function ToggleRow({
 function SkillRadar({
   skills
 }: {
-  skills: { label: string; score: number }[];
+  skills: { label: string; score: number; key?: string }[];
 }) {
   const SIZE = 280;
   const CENTER = SIZE / 2;
