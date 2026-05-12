@@ -468,10 +468,10 @@ function ModelSelect({
             onClick={() => setOpen(false)}
             aria-hidden
           />
-          <div className="absolute left-0 right-0 mt-2 bg-white rounded-xl border border-gray-200 shadow-xl z-40 overflow-hidden max-h-[320px] overflow-y-auto">
+          <div className="absolute left-0 right-0 mt-2 bg-white rounded-xl border border-gray-200 shadow-xl z-40 overflow-hidden max-h-[min(560px,calc(100vh-160px))] overflow-y-auto">
             {/* Default group */}
-            <div className="py-2">
-              <div className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">
+            <div className="py-1.5">
+              <div className="px-4 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 sticky top-0 bg-white">
                 AIG
               </div>
               {MODEL_OPTIONS.default.map((m) => (
@@ -492,8 +492,8 @@ function ModelSelect({
               .map(([provider, models]) => {
                 const providerHasKey = hasKey(provider as ApiKeyProvider);
                 return (
-                  <div key={provider} className="py-2 border-t border-gray-100">
-                    <div className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 flex items-center justify-between">
+                  <div key={provider} className="py-1.5 border-t border-gray-100">
+                    <div className="px-4 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 flex items-center justify-between sticky top-0 bg-white">
                       <span>{PROVIDER_LABELS[provider]}</span>
                       {!providerHasKey && (
                         <span className="inline-flex items-center space-x-1 text-amber-600 normal-case tracking-normal font-semibold text-[10px]">
@@ -541,7 +541,7 @@ function ModelRow({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`w-full flex items-center justify-between px-4 py-2.5 text-left transition-colors ${
+      className={`w-full flex items-center justify-between px-4 py-2 text-left transition-colors ${
         disabled
           ? "opacity-50 cursor-not-allowed"
           : active
@@ -549,15 +549,15 @@ function ModelRow({
             : "hover:bg-gray-50"
       }`}
     >
-      <div>
+      <div className="min-w-0">
         <div
-          className={`text-sm font-semibold ${
+          className={`text-[13px] font-semibold leading-tight ${
             active ? "text-indigo-700" : "text-gray-900"
           }`}
         >
           {model.label}
         </div>
-        <div className="text-xs text-gray-500 mt-0.5">{model.note}</div>
+        <div className="text-[11px] text-gray-500 leading-tight">{model.note}</div>
       </div>
       {active && <Check size={14} strokeWidth={3} className="text-indigo-600" />}
     </button>
