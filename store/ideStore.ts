@@ -276,20 +276,18 @@ export const useIdeStore = create<IdeState>((set) => ({
     }),
   setSelection: (code, range) =>
     set((state) => {
-      const nextAiMode = code ? "edit" : state.aiMode;
-
+      // 코드 선택만 한다고 aiMode 를 자동 변경하지 않는다 — chat 모드에서도 선택 코드를
+      // 컨텍스트로 사용할 수 있어야 자연스러움. 모드 전환은 사용자가 직접 토글.
       if (
         state.selectedCode === code &&
-        isSameSelectionRange(state.selectedRange, range) &&
-        state.aiMode === nextAiMode
+        isSameSelectionRange(state.selectedRange, range)
       ) {
         return state;
       }
 
       return {
         selectedCode: code,
-        selectedRange: range,
-        aiMode: nextAiMode
+        selectedRange: range
       };
     }),
   setEditInstruction: (value) => set({ editInstruction: value }),

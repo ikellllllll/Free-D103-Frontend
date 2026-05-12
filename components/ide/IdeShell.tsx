@@ -932,6 +932,34 @@ const appendLocalFolder = (folders: string[], folderPath: string | null) => {
   return [...folders, folderPath];
 };
 
+// 사용자 메시지에 첨부된 코드 스니펫 — 클릭으로 펼칠 수 있는 chip.
+// VSCode 확장 (Continue / Cline / Copilot Chat) 패턴.
+function AttachedCodeChip({ data }: { data: { path: string; code: string; lineRange?: string } }) {
+  const [open, setOpen] = useState(false);
+  const fileName = data.path.split(/[\\/]/).pop() ?? data.path;
+  const lineCount = data.code.split("\n").length;
+
+  return (
+    <div className={open ? "attached-code attached-code--open" : "attached-code"}>
+      <button
+        type="button"
+        className="attached-code__toggle"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <span className="attached-code__caret" aria-hidden>{open ? "▾" : "▸"}</span>
+        <span className="attached-code__name">{fileName}</span>
+        <span className="attached-code__meta">
+          {data.lineRange ? `${data.lineRange} · ` : ""}{lineCount}줄
+        </span>
+      </button>
+      {open ? (
+        <pre className="attached-code__body"><code>{data.code}</code></pre>
+      ) : null}
+    </div>
+  );
+}
+
 function ProblemBriefCodeBlock({ language, code }: { language?: string; code: string }) {
   const [isCopied, setIsCopied] = useState(false);
   const lines = code.trimEnd().split("\n");
@@ -1581,6 +1609,20 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
   const [chatInput, setChatInput] = useState("");
   const [chatModel, setChatModel] = useState<string>(DEFAULT_CHAT_MODEL);
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const modelDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  // 모델 드롭다운 외부 클릭 닫기
+  useEffect(() => {
+    if (!modelDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (modelDropdownRef.current && !modelDropdownRef.current.contains(e.target as Node)) {
+        setModelDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [modelDropdownOpen]);
   const [searchQuery, setSearchQuery] = useState("");
   const [editLoading, setEditLoading] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
@@ -4422,11 +4464,22 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       return;
     }
 
-    const message = chatInput.trim();
+    const question = chatInput.trim();
+    // 에디터 선택 코드 → 별도 collapsible chip 으로 렌더 (UI), 백엔드 전송 시엔 fenced block 으로 포함 (LLM).
+    const attachedCode = selectedCode
+      ? {
+          path: activeFile?.path ?? "현재 파일",
+          code: selectedCode,
+          lineRange: selectedRange
+            ? `L${selectedRange.startLineNumber}-L${selectedRange.endLineNumber}`
+            : undefined
+        }
+      : undefined;
+
     setChatInput("");
 
     try {
-      await send(message, activeFile?.path, chatModel);
+      await send(question, activeFile?.path, chatModel, attachedCode);
       refreshSession();
     } catch (error) {
       addToast(error instanceof Error ? error.message : "AI 요청에 실패했습니다.", "error");
@@ -5856,20 +5909,23 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                       </div>
 
                       <div ref={chatScrollRef} className="chat-stack chat-stack--panel">
+                        {messages.length === 0 && !streaming ? (
+                          <div className="chat-empty">
+                            <strong>AI와 대화를 시작해 보세요</strong>
+                            <p className="muted-copy">
+                              현재 열린 파일과 선택한 코드를 컨텍스트로 질문할 수 있어요.
+                            </p>
+                          </div>
+                        ) : null}
                         {messages.map((message) => (
                           <div
                             key={message.id}
                             className={message.role === "user" ? "chat-bubble chat-bubble--user" : "chat-bubble"}
                           >
-                            {message.role === "user" ? (
-                              // user 메시지는 입력 그대로 (줄바꿈 보존만 — 마크다운 해석 X)
-                              <div className="chat-bubble__plain">{message.content}</div>
-                            ) : (
-                              // assistant 응답은 GFM 마크다운 렌더 (줄바꿈, 코드블록, 리스트, 표 등)
-                              <div className="chat-bubble__markdown">
-                                <Markdown remarkPlugins={[remarkGfm]}>{message.content}</Markdown>
-                              </div>
-                            )}
+                            <div className="chat-bubble__markdown">
+                              <Markdown remarkPlugins={[remarkGfm]}>{message.content}</Markdown>
+                            </div>
+                            {message.attachedCode ? <AttachedCodeChip data={message.attachedCode} /> : null}
                           </div>
                         ))}
                         {streaming ? <div className="chat-status">AI 응답 생성 중...</div> : null}
@@ -5891,17 +5947,47 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                           placeholder="현재 문제나 코드에 대해 질문하세요  (Ctrl+Enter 전송)"
                         />
                         <div className="chat-composer-actions">
-                          <label className="model-selector" title="응답 모델 선택">
-                            <select
-                              className="model-selector__select"
-                              value={chatModel}
-                              onChange={(event) => setChatModel(event.target.value)}
+                          <div className="model-dropdown" ref={modelDropdownRef}>
+                            <button
+                              type="button"
+                              className="model-dropdown__trigger"
+                              onClick={() => setModelDropdownOpen((v) => !v)}
+                              aria-haspopup="listbox"
+                              aria-expanded={modelDropdownOpen}
                             >
-                              {CHAT_MODEL_OPTIONS.map((option) => (
-                                <option key={option.id} value={option.id}>{option.label}</option>
-                              ))}
-                            </select>
-                          </label>
+                              <span className="model-dropdown__label">
+                                {CHAT_MODEL_OPTIONS.find((o) => o.id === chatModel)?.label ?? chatModel}
+                              </span>
+                              <span className="model-dropdown__caret" aria-hidden>▾</span>
+                            </button>
+                            {modelDropdownOpen ? (
+                              <ul className="model-dropdown__menu" role="listbox">
+                                {CHAT_MODEL_OPTIONS.map((option) => {
+                                  const active = option.id === chatModel;
+                                  return (
+                                    <li key={option.id}>
+                                      <button
+                                        type="button"
+                                        role="option"
+                                        aria-selected={active}
+                                        className={active ? "model-dropdown__option model-dropdown__option--active" : "model-dropdown__option"}
+                                        onClick={() => {
+                                          setChatModel(option.id);
+                                          setModelDropdownOpen(false);
+                                        }}
+                                      >
+                                        <span className={`model-dropdown__badge model-dropdown__badge--${option.provider}`}>
+                                          {option.provider === "anthropic" ? "C" : "G"}
+                                        </span>
+                                        <span className="model-dropdown__option-label">{option.label}</span>
+                                        {active ? <span className="model-dropdown__check" aria-hidden>✓</span> : null}
+                                      </button>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            ) : null}
+                          </div>
                           <button
                             className="button button--primary chat-composer-actions__send"
                             onClick={handleSend}
