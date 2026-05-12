@@ -102,6 +102,22 @@ export interface WithdrawRequest {
   password?: string;  // LOCAL provider 만 필요
 }
 
+/** BYOK — 사용자가 본인 LLM API 키를 등록/관리 (POST/GET/DELETE /api/v1/api-keys, 2026-05-12~).
+ *  보안: 백엔드는 AES-256-GCM 으로 암호화 저장. 평문은 응답에 절대 X.
+ *  마스킹된 prefix/suffix 도 응답 X — 사용자는 vendor + 등록일 만으로 식별. */
+export type ApiKeyVendor = "OPENAI" | "ANTHROPIC";
+
+export interface CreateAPIKeyRequest {
+  vendor: ApiKeyVendor;
+  apiKey: string;
+}
+
+export interface APIKeyItem {
+  apiKeyId: number;
+  vendor: ApiKeyVendor;
+  createdAt: string;  // LocalDateTime ISO
+}
+
 interface JwtPayload {
   sub?: string;
   email?: string;
@@ -280,6 +296,26 @@ export const authApi = {
    */
   async withdraw(request: WithdrawRequest = {}): Promise<void> {
     await authClient.delete("api/v1/users", { json: request });
+  },
+
+  /** BYOK 목록 조회 — GET /api/v1/api-keys (2026-05-12~).
+   *  평문 키는 응답에 X — vendor + 등록일만 표시용. */
+  async getApiKeys(): Promise<APIKeyItem[]> {
+    const res = await authClient.get("api/v1/api-keys")
+      .json<ApiResponse<APIKeyItem[]>>();
+    return res.data;
+  },
+
+  /** BYOK 등록 — POST /api/v1/api-keys. 동일 vendor 면 덮어쓰기 (백엔드 UNIQUE 제약). */
+  async createApiKey(request: CreateAPIKeyRequest): Promise<APIKeyItem> {
+    const res = await authClient.post("api/v1/api-keys", { json: request })
+      .json<ApiResponse<APIKeyItem>>();
+    return res.data;
+  },
+
+  /** BYOK 삭제 — DELETE /api/v1/api-keys/{apiKeyId}. */
+  async deleteApiKey(apiKeyId: number): Promise<void> {
+    await authClient.delete(`api/v1/api-keys/${apiKeyId}`);
   },
 
   async githubOAuthLogin(code: string): Promise<OAuthLoginResponse> {
