@@ -58,6 +58,23 @@ export interface UserProfileResponse {
   inProgressCount: number;
 }
 
+/** GET /api/v1/users/me/stats 응답 (백엔드 UserStatsResponse, 2026-05-12~).
+ *  feedback_report 최근 N개 평균 기반 5축 역량 지표.
+ *  - 리포트 한 번도 없으면 sampleCount=0, dimensions[].score 모두 0.
+ *  - code: HARNESS_GOAL_CLARITY / HARNESS_WORKFLOW_DESIGN / HARNESS_CONTEXT_QUALITY
+ *          / HARNESS_SKILL_MODULARITY / HARNESS_VERIFICATION_LOOP
+ */
+export interface UserStatsDimension {
+  code: string;
+  label: string;
+  score: number;
+}
+export interface UserStatsResponse {
+  sampleCount: number;
+  averageScore: number;
+  dimensions: UserStatsDimension[];
+}
+
 /** GET /api/v1/users/me/reports 응답 (백엔드 UserReportListResponse, 2026-05-08~) */
 export interface UserReportItem {
   feedbackReportId: number;
@@ -276,6 +293,15 @@ export const authApi = {
     const res = await authClient
       .get("api/v1/users/me/reports", { searchParams: { page, size } })
       .json<ApiResponse<UserReportListResponse>>();
+    return res.data;
+  },
+
+  /** AI 역량 지표 5축 조회 — GET /api/v1/users/me/stats (2026-05-12~).
+   *  feedback_report 최근 10개 기준 평균. 리포트 0개면 sampleCount=0, 점수 0.
+   */
+  async getUserStats(): Promise<UserStatsResponse> {
+    const res = await authClient.get("api/v1/users/me/stats")
+      .json<ApiResponse<UserStatsResponse>>();
     return res.data;
   },
 

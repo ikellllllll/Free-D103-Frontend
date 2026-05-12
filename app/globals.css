@@ -3366,6 +3366,16 @@ html[data-theme="light"] .problem-brief-codeblock__content .text-slate-200 {
   gap: 8px;
 }
 
+.diff-pane__divider {
+  color: rgba(255, 255, 255, 0.18);
+  user-select: none;
+  font-size: 12px;
+  margin: 0 2px;
+}
+html[data-theme="light"] .diff-pane__divider {
+  color: rgba(0, 0, 0, 0.18);
+}
+
 .diff-pane > :nth-child(2) {
   /* MonacoDiffEditor wrapper — flex 1 로 남은 영역 채움 */
   flex: 1 1 auto;
@@ -4440,6 +4450,285 @@ html[data-theme="light"] .chat-bubble__markdown code {
   margin: 0;
   font-size: 1rem;
   line-height: 1.7;
+}
+
+/* ─── Report — 종합 점수 hero ──────────────────────────────────── */
+
+.report-hero {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 24px;
+}
+@media (max-width: 720px) {
+  .report-hero {
+    grid-template-columns: 1fr;
+  }
+}
+
+.report-hero__score {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.report-overall {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 16px 22px;
+  border-radius: 18px;
+  background: var(--subtle-bg-2);
+  border: 1px solid rgba(127, 127, 127, 0.18);
+}
+
+.report-overall__label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+  margin-right: 4px;
+}
+.report-overall__value {
+  font-size: 2.4rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.report-overall__grade {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.report-overall--good { border-color: rgba(16, 185, 129, 0.45); }
+.report-overall--mid  { border-color: rgba(14, 165, 233, 0.45); }
+.report-overall--warn { border-color: rgba(245, 158, 11, 0.45); }
+
+/* ─── Report — 5축 dimension 행 ────────────────────────────────── */
+
+.report-dimension {
+  border: 1px solid rgba(127, 127, 127, 0.18);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--subtle-bg);
+}
+
+.report-dimension[open] {
+  background: var(--panel-highlight-bg);
+}
+
+.report-dimension__head {
+  cursor: pointer;
+  display: grid;
+  gap: 8px;
+  list-style: none;
+}
+.report-dimension__head::-webkit-details-marker { display: none; }
+
+.report-dimension__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.report-dimension__rationale {
+  display: block;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.report-dimension__detail {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed rgba(127, 127, 127, 0.18);
+}
+
+.report-dimension__detail p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.eyebrow--good { color: #059669; }
+.eyebrow--warn { color: #c2410c; }
+html[data-theme="dark"] .eyebrow--good { color: #34d399; }
+html[data-theme="dark"] .eyebrow--warn { color: #fbbf24; }
+
+/* ─── Report — 액션 가이드 카드 ─────────────────────────────────── */
+
+.report-action-list {
+  display: grid;
+  gap: 12px;
+}
+
+.report-action-card {
+  position: relative;
+  padding: 14px 16px 14px 56px;
+  border: 1px solid rgba(127, 127, 127, 0.18);
+  border-radius: 14px;
+  background: var(--subtle-bg);
+}
+
+.report-action-card__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.report-action-card__head strong {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.report-action-priority {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.report-action-card p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.report-action-impact {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.1);
+  color: #4f46e5;
+  font-weight: 600;
+  font-size: 11px;
+}
+html[data-theme="dark"] .report-action-impact {
+  background: rgba(129, 140, 248, 0.15);
+  color: #a5b4fc;
+}
+
+/* ─── Report — Finding 카드 ─────────────────────────────────────── */
+
+.report-finding-list {
+  display: grid;
+  gap: 10px;
+}
+
+.report-finding-card {
+  padding: 12px 14px;
+  border: 1px solid rgba(127, 127, 127, 0.18);
+  border-radius: 12px;
+  background: var(--subtle-bg);
+}
+.report-finding-card--strength {
+  border-left: 3px solid #10b981;
+}
+.report-finding-card--improvement {
+  border-left: 3px solid #f59e0b;
+}
+
+.report-finding-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.report-finding-card__head strong {
+  font-size: 14px;
+}
+
+.report-finding-card p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.report-finding-card__rec {
+  display: block;
+  margin-top: 8px;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+/* ─── Report — 평가 근거 (basis) ────────────────────────────────── */
+
+.report-basis-block {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(127, 127, 127, 0.18);
+}
+
+.report-basis-list {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.report-basis-list--compact {
+  grid-template-columns: repeat(3, 1fr);
+}
+.report-basis-list li {
+  display: grid;
+  gap: 2px;
+  padding: 8px 6px;
+  border-radius: 8px;
+  background: var(--subtle-bg-2);
+  text-align: center;
+}
+.report-basis-list li span {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+.report-basis-list li strong {
+  font-variant-numeric: tabular-nums;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.report-harness-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.report-harness-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--subtle-bg-2);
+  border: 1px solid rgba(127, 127, 127, 0.18);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  color: var(--muted);
 }
 
 /* ─── Timeline ───────────────────────────────────────────────── */

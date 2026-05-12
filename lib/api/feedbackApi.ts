@@ -1,6 +1,15 @@
 import { authClient } from "@/lib/api/authApi";
 import { mockApi } from "@/lib/api/mockApi";
-import type { FeedbackReport, ScoreItem, ScoreTone } from "@/lib/types/report";
+import type {
+  ActionGuideItem,
+  DimensionScoreItem,
+  EvaluationBasis,
+  FeedbackReport,
+  FindingCategory,
+  FindingItem,
+  ScoreItem,
+  ScoreTone
+} from "@/lib/types/report";
 import type { TraceEvent } from "@/lib/types/ai";
 
 interface ApiResponse<T> {
@@ -9,27 +18,28 @@ interface ApiResponse<T> {
   data: T;
 }
 
+/** 백엔드 FeedbackReportResponse (2026-05-12~ feedback_report 5축 점수 컬럼 직접 노출). */
 interface BackendFeedbackReportResponse {
   report: {
     feedbackReportId: number;
     reportTitle?: string | null;
-    sessionHarnessVersionId?: number | null;
     problemSessionId?: number | null;
     agentTraceId?: number | null;
     overallScore?: number | string | null;
     scoreGrade?: string | null;
     diagnosisLevel?: string | null;
-    harnessQualityScore?: number | string | null;
-    executionQualityScore?: number | string | null;
-    traceUtilizationScore?: number | string | null;
+    /** 5축 점수 — 0~100 정수 (백엔드 NOT NULL DEFAULT 0) */
+    harnessGoalClarityScore?: number | null;
+    harnessWorkflowDesignScore?: number | null;
+    harnessContextQualityScore?: number | null;
+    harnessSkillModularityScore?: number | null;
+    harnessVerificationLoopScore?: number | null;
     summary?: string | null;
     createdAt?: string | null;
   };
   evaluationBasis?: {
     problemTitle?: string | null;
-    harnessVersionNo?: number | null;
     runStatus?: string | null;
-    executionStatus?: string | null;
     usedHarnessFiles?: string[] | null;
     usedRunTrace?: {
       traceId?: number | null;
@@ -64,7 +74,7 @@ interface BackendFeedbackReportResponse {
   }> | null;
   findings?: Array<{
     feedbackFindingId: number;
-    category: "STRENGTH" | "IMPROVEMENT" | string;
+    category: FindingCategory | string;
     severity: number;
     title: string;
     description?: string | null;
@@ -97,39 +107,30 @@ const scoreTone = (score: number): ScoreTone => {
   return "warn";
 };
 
-const scaleScore = (score: number, maxScore = 100): number => {
-  if (maxScore <= 0) return clampScore(score);
-  if (maxScore === 100) return clampScore(score);
-  return clampScore((score / maxScore) * 100);
+/** 점수 → 등급 ("A+" / "A" / "B+" / "B" / "C+" / "C" / "D" / "F"). 백엔드가 scoreGrade 안 줄 때만 사용. */
+const deriveScoreGrade = (score: number): string => {
+  if (score >= 95) return "A+";
+  if (score >= 90) return "A";
+  if (score >= 85) return "B+";
+  if (score >= 75) return "B";
+  if (score >= 65) return "C+";
+  if (score >= 55) return "C";
+  if (score >= 40) return "D";
+  return "F";
 };
 
-const textFromTarget = (value?: Record<string, unknown> | null): string | null => {
-  if (!value) return null;
-  const candidates = ["label", "name", "dimension", "category", "type", "target"];
-  for (const key of candidates) {
-    const candidate = value[key];
-    if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
-  }
-  return null;
+/** 점수 → 진단. 백엔드 diagnosisLevel 없을 때 폴백. */
+const deriveDiagnosisLevel = (score: number): string => {
+  if (score >= 80) return "우수";
+  if (score >= 60) return "양호";
+  if (score >= 40) return "보완 필요";
+  return "심각";
 };
 
-const metricScore = (label: string, scoreValue: number | string | null | undefined, note: string): ScoreItem => {
-  const score = clampScore(toNumber(scoreValue));
-  return {
-    label,
-    score,
-    tone: scoreTone(score),
-    note
-  };
-};
-
-const formatFinding = (finding: NonNullable<BackendFeedbackReportResponse["findings"]>[number]) => {
-  const description = finding.description?.trim();
-  const recommendation = finding.recommendation?.trim();
-  if (description && recommendation) return `${finding.title} - ${description} ${recommendation}`;
-  if (description) return `${finding.title} - ${description}`;
-  if (recommendation) return `${finding.title} - ${recommendation}`;
-  return finding.title;
+const passRatePercent = (rate: number | null | undefined): number => {
+  const value = toNumber(rate);
+  if (value <= 1) return clampScore(value * 100);
+  return clampScore(value);
 };
 
 const latestExecution = (payload: BackendFeedbackReportResponse) => {
@@ -137,10 +138,110 @@ const latestExecution = (payload: BackendFeedbackReportResponse) => {
   return results.at(-1) ?? null;
 };
 
-const passRatePercent = (rate: number | null | undefined): number => {
-  const value = toNumber(rate);
-  if (value <= 1) return clampScore(value * 100);
-  return clampScore(value);
+/** 5축 메트릭 정의 — code → 한글 라벨 + 한 줄 보조 설명 (rationale 없을 때 폴백). */
+const DIMENSION_AXES: Array<{
+  code: string;
+  label: string;
+  /** 백엔드 응답 키 — report 객체에서 점수 추출 */
+  reportKey: keyof BackendFeedbackReportResponse["report"];
+  fallbackNote: string;
+}> = [
+  { code: "HARNESS_GOAL_CLARITY",      label: "목표 명확도",      reportKey: "harnessGoalClarityScore",      fallbackNote: "에이전트에게 전달된 목표·제약·완료 조건의 명확도" },
+  { code: "HARNESS_WORKFLOW_DESIGN",   label: "작업 흐름 설계도", reportKey: "harnessWorkflowDesignScore",   fallbackNote: "단계 구성, 분기·복귀, 도구 호출 순서의 설계 품질" },
+  { code: "HARNESS_CONTEXT_QUALITY",   label: "정보 제공 적절도", reportKey: "harnessContextQualityScore",   fallbackNote: "컨텍스트·예시·참조 자료가 시점에 맞게 전달되었는지" },
+  { code: "HARNESS_SKILL_MODULARITY",  label: "스킬 구성도",      reportKey: "harnessSkillModularityScore",  fallbackNote: "스킬·서브에이전트의 책임 분리와 재사용성" },
+  { code: "HARNESS_VERIFICATION_LOOP", label: "검증 루프 설계도", reportKey: "harnessVerificationLoopScore", fallbackNote: "테스트·재실행·자체 검증 루프의 견고함" }
+];
+
+/** dimensionScores 응답의 evalTarget Map 안에서 code 식별자를 추출. */
+const extractDimensionCode = (evalTarget?: Record<string, unknown> | null): string | null => {
+  if (!evalTarget) return null;
+  const candidates = ["id", "code", "axis", "target", "evalTarget"];
+  for (const key of candidates) {
+    const candidate = evalTarget[key];
+    if (typeof candidate === "string" && candidate.trim()) return candidate.trim().toUpperCase();
+  }
+  return null;
+};
+
+const toDimensions = (payload: BackendFeedbackReportResponse): DimensionScoreItem[] => {
+  // dimensionScores 배열의 항목들을 code 기준으로 인덱싱.
+  const dimensionByCode = new Map<string, NonNullable<BackendFeedbackReportResponse["dimensionScores"]>[number]>();
+  for (const item of payload.dimensionScores ?? []) {
+    const code = extractDimensionCode(item.evalTarget);
+    if (code) dimensionByCode.set(code, item);
+  }
+
+  // 5축 고정 순서로 출력 — report 5개 컬럼을 기본 점수 source로 쓰고, dimensionScores 가 있으면 더 풍부한 정보 덮어씀.
+  return DIMENSION_AXES.map((axis): DimensionScoreItem => {
+    const rawScore = payload.report[axis.reportKey];
+    const score = clampScore(toNumber(rawScore));
+    const detail = dimensionByCode.get(axis.code);
+
+    return {
+      code: axis.code,
+      label: axis.label,
+      score,
+      tone: scoreTone(score),
+      rationale: detail?.rationale?.trim() || axis.fallbackNote,
+      strengthSummary: detail?.strengthSummary?.trim() || undefined,
+      improvementSummary: detail?.improvementSummary?.trim() || undefined,
+      recommendedActions: (detail?.recommendedActions ?? []).filter((a) => a?.trim()).map((a) => a.trim())
+    };
+  });
+};
+
+const toFindings = (payload: BackendFeedbackReportResponse): FindingItem[] =>
+  (payload.findings ?? []).map((finding) => ({
+    id: String(finding.feedbackFindingId),
+    category: (finding.category === "STRENGTH" ? "STRENGTH" : "IMPROVEMENT") as FindingCategory,
+    severity: finding.severity,
+    title: finding.title,
+    description: finding.description?.trim() || undefined,
+    recommendation: finding.recommendation?.trim() || undefined
+  }));
+
+const toActionGuides = (payload: BackendFeedbackReportResponse): ActionGuideItem[] =>
+  (payload.actionGuides ?? [])
+    .map((guide) => ({
+      priority: guide.priority,
+      title: guide.title,
+      description: guide.description?.trim() || undefined,
+      expectedImpact: guide.expectedImpact?.trim() || undefined
+    }))
+    .sort((a, b) => a.priority - b.priority);
+
+const toBasis = (payload: BackendFeedbackReportResponse): EvaluationBasis | undefined => {
+  const b = payload.evaluationBasis;
+  if (!b) return undefined;
+  return {
+    problemTitle: b.problemTitle ?? undefined,
+    runStatus: b.runStatus ?? undefined,
+    usedHarnessFiles: b.usedHarnessFiles ?? undefined,
+    usedRunTrace: b.usedRunTrace
+      ? {
+          traceId: b.usedRunTrace.traceId ?? undefined,
+          spanCount: b.usedRunTrace.spanCount ?? undefined,
+          toolCallCount: b.usedRunTrace.toolCallCount ?? undefined,
+          llmCallCount: b.usedRunTrace.llmCallCount ?? undefined,
+          patchCount: b.usedRunTrace.patchCount ?? undefined
+        }
+      : undefined,
+    usedExecutionResults: (b.usedExecutionResults ?? []).map((r) => ({
+      totalTestCount: r.totalTestCount ?? undefined,
+      passedTestCount: r.passedTestCount ?? undefined,
+      passRate: r.passRate ?? undefined,
+      buildSucceeded: r.buildSucceeded ?? undefined
+    })),
+    usedFileChangeReviews: b.usedFileChangeReviews
+      ? {
+          changeRequestCount: b.usedFileChangeReviews.changeRequestCount ?? undefined,
+          approvedCount: b.usedFileChangeReviews.approvedCount ?? undefined,
+          rejectedCount: b.usedFileChangeReviews.rejectedCount ?? undefined,
+          appliedCount: b.usedFileChangeReviews.appliedCount ?? undefined
+        }
+      : undefined
+  };
 };
 
 const toTimeline = (payload: BackendFeedbackReportResponse): TraceEvent[] => {
@@ -151,13 +252,13 @@ const toTimeline = (payload: BackendFeedbackReportResponse): TraceEvent[] => {
   const time = createdAt.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
   const rows: TraceEvent[] = [];
 
-  if (basis?.harnessVersionNo) {
+  if (basis?.usedHarnessFiles && basis.usedHarnessFiles.length > 0) {
     rows.push({
       id: "harness",
       time,
       type: "코드 수정",
-      summary: `하네스 v${basis.harnessVersionNo} 기준 평가`,
-      detail: basis.executionStatus ? `컴파일 상태: ${basis.executionStatus}` : undefined
+      summary: `하네스 파일 ${basis.usedHarnessFiles.length}개 기반 평가`,
+      detail: basis.usedHarnessFiles.slice(0, 3).join(", ") + (basis.usedHarnessFiles.length > 3 ? " 외" : "")
     });
   }
 
@@ -186,52 +287,40 @@ const toTimeline = (payload: BackendFeedbackReportResponse): TraceEvent[] => {
 
 function toFeedbackReport(payload: BackendFeedbackReportResponse): FeedbackReport {
   const execution = latestExecution(payload);
-  const dimensionScores = payload.dimensionScores ?? [];
-  const findings = payload.findings ?? [];
-  const actionGuides = payload.actionGuides ?? [];
-  const scores = [
-    metricScore("하네스 품질", payload.report.harnessQualityScore, "테스트 하네스 구성과 검증 가능성을 평가했습니다."),
-    metricScore("실행 품질", payload.report.executionQualityScore, "빌드와 테스트 실행 결과를 종합했습니다."),
-    metricScore("Trace 활용", payload.report.traceUtilizationScore, "AI 실행 Trace와 변경 흐름을 평가했습니다.")
-  ];
+  const dimensions = toDimensions(payload);
+  const findings = toFindings(payload);
+  const actionGuides = toActionGuides(payload);
+  const basis = toBasis(payload);
 
-  const extraScores = dimensionScores
-    .map((item, index): ScoreItem | null => {
-      const label = textFromTarget(item.evalTarget) ?? textFromTarget(item.metric) ?? `평가 항목 ${index + 1}`;
-      const score = scaleScore(toNumber(item.score), toNumber(item.maxScore, 100));
-      if (!Number.isFinite(score)) return null;
-      return {
-        label,
-        score,
-        tone: scoreTone(score),
-        note: item.rationale?.trim() || "세부 평가 항목입니다."
-      };
-    })
-    .filter((item): item is ScoreItem => item !== null);
+  // 종합 점수 — 백엔드가 주면 그대로, 없으면 5축 평균.
+  const overallScoreRaw = toNumber(payload.report.overallScore, NaN);
+  const overallScore = Number.isFinite(overallScoreRaw) && overallScoreRaw > 0
+    ? clampScore(overallScoreRaw)
+    : clampScore(dimensions.reduce((sum, d) => sum + d.score, 0) / Math.max(dimensions.length, 1));
 
-  const strengths = findings
-    .filter((finding) => finding.category === "STRENGTH")
-    .map(formatFinding);
+  const scoreGrade = payload.report.scoreGrade?.trim() || deriveScoreGrade(overallScore);
+  const diagnosisLevel = payload.report.diagnosisLevel?.trim() || deriveDiagnosisLevel(overallScore);
 
-  const improvements = [
-    ...findings
-      .filter((finding) => finding.category !== "STRENGTH")
-      .sort((a, b) => b.severity - a.severity)
-      .map(formatFinding),
-    ...dimensionScores.flatMap((item) => [
-      ...(item.improvementSummary ? [item.improvementSummary] : []),
-      ...(item.recommendedActions ?? [])
-    ]),
-    ...actionGuides.map((guide) =>
-      guide.description?.trim()
-        ? `${guide.title} - ${guide.description}`
-        : guide.title
-    )
-  ];
+  // legacy scores 배열 — 기존 화면에서 grid로 보여주던 score bar 들. 5축으로 옮겨감.
+  const legacyScores: ScoreItem[] = dimensions.map((d) => ({
+    label: d.label,
+    score: d.score,
+    tone: d.tone,
+    note: d.rationale ?? ""
+  }));
 
   const total = execution?.totalTestCount ?? 0;
   const passed = execution?.passedTestCount ?? 0;
   const testPassRate = passRatePercent(execution?.passRate);
+
+  // legacy strengths/improvements — findings 에서 derive. 새 화면은 findings 원본을 직접 쓰지만 하위 호환용.
+  const strengths = findings
+    .filter((f) => f.category === "STRENGTH")
+    .map((f) => f.description ? `${f.title} — ${f.description}` : f.title);
+  const improvements = findings
+    .filter((f) => f.category !== "STRENGTH")
+    .sort((a, b) => b.severity - a.severity)
+    .map((f) => f.description ? `${f.title} — ${f.description}` : f.title);
 
   return {
     id: String(payload.report.feedbackReportId),
@@ -239,12 +328,20 @@ function toFeedbackReport(payload: BackendFeedbackReportResponse): FeedbackRepor
     submissionId: String(payload.report.feedbackReportId),
     problemSessionId: payload.report.problemSessionId == null ? undefined : String(payload.report.problemSessionId),
     agentTraceId: payload.report.agentTraceId == null ? undefined : String(payload.report.agentTraceId),
-    problemTitle: payload.evaluationBasis?.problemTitle ?? undefined,
+    problemTitle: payload.evaluationBasis?.problemTitle ?? payload.report.reportTitle ?? undefined,
     status: "COMPLETED",
     generatedAt: payload.report.createdAt ?? null,
+    overallScore,
+    scoreGrade,
+    diagnosisLevel,
     testPassRate,
     testSummary: total > 0 ? `${passed}/${total} 통과` : "실행 결과 없음",
-    scores: [...scores, ...extraScores],
+    buildSucceeded: execution?.buildSucceeded ?? undefined,
+    dimensions,
+    scores: legacyScores,
+    findings,
+    actionGuides,
+    basis,
     strengths: strengths.length > 0 ? strengths : ["평가 리포트가 정상 생성되었습니다."],
     improvements: improvements.length > 0 ? improvements : ["추가 개선 포인트가 없습니다."],
     summary: payload.report.summary?.trim() || "하네스, 실행 결과, Trace를 종합해 생성된 피드백입니다.",

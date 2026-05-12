@@ -4083,6 +4083,43 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     }
   }, [activeEditorGroupId, addToast, handleCloseFileTab, queryClient, sessionId]);
 
+  /**
+   * 현재 세션의 모든 worktree 파일을 일괄 승인/거절 — 백엔드 allEdit API.
+   * 현재 보고 있는 diff 탭 외에도 큐에 쌓인 다른 AI 수정 제안을 한 번에 처리할 때 사용.
+   */
+  const handleAllEdit = useCallback(async (isApproved: boolean) => {
+    if (!isBackendSessionId(sessionId)) {
+      addToast("로컬 mock 세션에는 적용 동작이 없습니다.", "warning");
+      return;
+    }
+    const worktreePaths = files
+      .filter((file) => file.path.startsWith(".worktree/"))
+      .map((file) => file.path);
+    if (worktreePaths.length === 0) {
+      addToast("처리할 AI 수정이 없습니다.", "warning");
+      return;
+    }
+    try {
+      await sessionApi.allEdit(sessionId, { worktreePaths, isApproved });
+      addToast(
+        isApproved
+          ? `AI 수정 ${worktreePaths.length}개를 모두 적용했습니다.`
+          : `AI 수정 ${worktreePaths.length}개를 모두 거절했습니다.`,
+        "success"
+      );
+
+      // 모든 diff 탭 닫기
+      for (const path of worktreePaths) {
+        const diffTabId = createDiffTabId(path);
+        handleCloseFileTab(diffTabId, activeEditorGroupId);
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : "AI 수정 일괄 처리에 실패했습니다.", "error");
+    }
+  }, [activeEditorGroupId, addToast, files, handleCloseFileTab, queryClient, sessionId]);
+
   const handleApplyEdit = async () => {
     if (!editorRef.current || !selectedRange || !suggestion || !activeFile) {
       return;
@@ -5578,6 +5615,28 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                     <span>AI 워크트리 수정 제안 — 적용 시 원본 파일이 덮어써집니다</span>
                   </div>
                   <div className="diff-pane__buttons">
+                    {/* worktree 파일이 2개 이상일 때만 일괄 처리 노출 — 한 개면 단일 [적용]/[거절] 만으로 충분 */}
+                    {files.filter((file) => file.path.startsWith(".worktree/")).length >= 2 ? (
+                      <>
+                        <button
+                          type="button"
+                          className="button button--ghost"
+                          onClick={() => void handleAllEdit(false)}
+                          title="이 세션의 모든 AI 수정 제안 거절"
+                        >
+                          모두 거절
+                        </button>
+                        <button
+                          type="button"
+                          className="button button--ghost"
+                          onClick={() => void handleAllEdit(true)}
+                          title="이 세션의 모든 AI 수정 제안 일괄 적용"
+                        >
+                          모두 적용
+                        </button>
+                        <span className="diff-pane__divider" aria-hidden>|</span>
+                      </>
+                    ) : null}
                     <button
                       type="button"
                       className="button button--ghost"

@@ -177,6 +177,20 @@ export default function MyPage() {
     enabled: !!user
   });
 
+  // AI 역량 지표 5축 — 백엔드 GET /api/v1/users/me/stats (feedback_report 최근 10개 평균).
+  // 백엔드가 sampleCount=0 (리포트 한 번도 없음)이면 점수 0 으로 그대로 노출 (신규 사용자 대응).
+  const { data: userStats } = useQuery({
+    queryKey: ["userStats", user?.id],
+    queryFn: async () => {
+      try {
+        return await authApi.getUserStats();
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!user
+  });
+
   useEffect(() => {
     if (!profile) return;
     setAuthUser({
@@ -200,39 +214,59 @@ export default function MyPage() {
       ((data.history?.length ?? 0) === 0 && (data.resumableSessions?.length ?? 0) === 0);
 
   /**
-   * 역량 지표 5축 — AI evaluator (feedback_report) 의 권장 메트릭 그대로.
-   * 백엔드 GET /api/v1/users/me/stats 가 만들어지면 자연스럽게 교체:
-   *   응답 예상: { harness_goal_clarity, harness_workflow_design, harness_context_quality,
-   *               harness_skill_modularity, harness_verification_loop }
+   * 역량 지표 5축 — AI evaluator (feedback_report) 의 권장 메트릭.
+   * 1순위: 백엔드 GET /api/v1/users/me/stats (feedback_report 최근 10개 평균).
+   * 2순위: mockApi.avgScores 휴리스틱 (백엔드 호출 실패 시 폴백).
    *
-   * 매핑:
-   *   목표 명확도           → harness_goal_clarity_score        (HARNESS_GOAL_CLARITY)
-   *   작업 흐름 설계도      → harness_workflow_design_score     (HARNESS_WORKFLOW_DESIGN)
-   *   정보 제공 적절도      → harness_context_quality_score     (HARNESS_CONTEXT_QUALITY)
-   *   스킬 구성도           → harness_skill_modularity_score    (HARNESS_SKILL_MODULARITY)
-   *   검증 루프 설계도      → harness_verification_loop_score   (HARNESS_VERIFICATION_LOOP)
-   *
-   * 현재는 mockApi.avgScores 기반 (백엔드 endpoint 미존재) — endpoint 들어오면 매핑만 교체.
+   * 백엔드 code → 화면 라벨 매핑:
+   *   HARNESS_GOAL_CLARITY        → 목표 명확도
+   *   HARNESS_WORKFLOW_DESIGN     → 작업 흐름 설계도
+   *   HARNESS_CONTEXT_QUALITY     → 정보 제공 적절도
+   *   HARNESS_SKILL_MODULARITY    → 스킬 구성도
+   *   HARNESS_VERIFICATION_LOOP   → 검증 루프 설계도
    */
+  const SKILL_ORDER: Array<{ code: string; label: string; key: string }> = [
+    { code: "HARNESS_GOAL_CLARITY",      label: "목표 명확도",      key: "harness_goal_clarity_score" },
+    { code: "HARNESS_WORKFLOW_DESIGN",   label: "작업 흐름 설계도", key: "harness_workflow_design_score" },
+    { code: "HARNESS_CONTEXT_QUALITY",   label: "정보 제공 적절도", key: "harness_context_quality_score" },
+    { code: "HARNESS_SKILL_MODULARITY",  label: "스킬 구성도",      key: "harness_skill_modularity_score" },
+    { code: "HARNESS_VERIFICATION_LOOP", label: "검증 루프 설계도", key: "harness_verification_loop_score" }
+  ];
+
   const skills = useMemo(() => {
+    // 백엔드 응답이 있고 sampleCount > 0 이면 백엔드 점수 사용 (라벨은 우리 측 한글 그대로).
+    if (userStats && userStats.sampleCount > 0) {
+      const byCode = new Map(userStats.dimensions.map((d) => [d.code, d.score]));
+      return SKILL_ORDER.map((axis) => ({
+        label: axis.label,
+        key: axis.key,
+        score: byCode.get(axis.code) ?? 0
+      }));
+    }
+
+    // 백엔드 응답이 sampleCount=0 (리포트 한 번도 없음) 이거나 호출 실패 — 신규 사용자는 0.
+    if (isNewUser || (userStats && userStats.sampleCount === 0)) {
+      return SKILL_ORDER.map((axis) => ({ label: axis.label, key: axis.key, score: 0 }));
+    }
+
+    // 백엔드 응답 자체가 아직 도착 전 — mockApi.avgScores 휴리스틱으로 임시 표시.
     const base = (data?.avgScores ?? []) as { label: string; score: number }[];
     const find = (l: string, fallback: number) =>
       base.find((b) => b.label.includes(l))?.score ?? fallback;
-
-    // 신규 사용자에겐 가짜 점수 대신 0 표시 (집계 데이터 없음)
-    const fb = isNewUser ? 0 : null;
-
     return [
-      { label: "목표 명확도",      key: "harness_goal_clarity_score",     score: fb ?? find("하네스", 72) },
-      { label: "작업 흐름 설계도", key: "harness_workflow_design_score",  score: fb ?? find("실행", 64) },
-      { label: "정보 제공 적절도", key: "harness_context_quality_score",  score: fb ?? find("트레이스", 58) },
-      { label: "스킬 구성도",      key: "harness_skill_modularity_score", score: fb ?? Math.round(find("하네스", 72) * 0.9) },
-      { label: "검증 루프 설계도", key: "harness_verification_loop_score", score: fb ?? Math.round(find("실행", 64) * 1.05) }
+      { label: "목표 명확도",      key: "harness_goal_clarity_score",     score: find("하네스", 72) },
+      { label: "작업 흐름 설계도", key: "harness_workflow_design_score",  score: find("실행", 64) },
+      { label: "정보 제공 적절도", key: "harness_context_quality_score",  score: find("트레이스", 58) },
+      { label: "스킬 구성도",      key: "harness_skill_modularity_score", score: Math.round(find("하네스", 72) * 0.9) },
+      { label: "검증 루프 설계도", key: "harness_verification_loop_score", score: Math.round(find("실행", 64) * 1.05) }
     ];
-  }, [data, isNewUser]);
+  }, [data, userStats, isNewUser]);
 
+  // 백엔드가 averageScore를 직접 줌 — 있으면 그대로 쓰고, 없으면 클라이언트 계산으로 폴백.
   const avgSkill =
-    Math.round(skills.reduce((a, s) => a + s.score, 0) / skills.length) || 0;
+    userStats?.sampleCount && userStats.sampleCount > 0
+      ? userStats.averageScore
+      : Math.round(skills.reduce((a, s) => a + s.score, 0) / skills.length) || 0;
 
 
   const [defaultLang, setDefaultLang] = useState<"java" | "python">("java");

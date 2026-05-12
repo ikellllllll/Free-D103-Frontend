@@ -1042,6 +1042,32 @@ export const sessionApi = {
     });
   },
 
+  /**
+   * AI 전체 수정 승인/거절 — POST /api/v1/ai/sessions/{id}/chat/edit-all?isApproved={t|f} (2026-05-12~).
+   * body: { worktreeFileIds: number[] }.
+   *
+   * worktree path 목록(`.worktree/src/...` 등) 을 받아서 fileId 배열로 변환 후 호출.
+   * 한 번에 여러 파일을 일괄 승인/거절할 때 사용.
+   */
+  async allEdit(sessionId: string, input: {
+    worktreePaths: string[];     // [".worktree/src/...", ...]
+    isApproved: boolean;
+  }) {
+    const ids: number[] = [];
+    for (const raw of input.worktreePaths) {
+      const path = raw.startsWith(WORKTREE_PREFIX) ? raw : `${WORKTREE_PREFIX}${raw}`;
+      const id = await resolveRememberedFileId(sessionId, path);
+      if (id) ids.push(id);
+    }
+    if (ids.length === 0) {
+      throw new Error("적용할 파일 정보를 찾지 못했습니다. 워크스페이스를 새로고침해 주세요.");
+    }
+    await authClient.post(`api/v1/ai/sessions/${sessionId}/chat/edit-all`, {
+      json: { worktreeFileIds: ids },
+      searchParams: { isApproved: String(input.isApproved) }
+    });
+  },
+
   async endSession(sessionId: string) {
     const res = await authClient.post(`api/v1/sessions/${sessionId}/end`)
       .json<ApiResponse<EndSessionResponse>>();

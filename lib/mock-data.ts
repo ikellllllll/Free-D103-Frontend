@@ -1,7 +1,13 @@
 import type { AiEditSuggestion, AiMessage, TraceEvent } from "@/lib/types/ai";
 import type { AuthUser } from "@/lib/types/auth";
 import type { ProblemDetail } from "@/lib/types/problem";
-import type { FeedbackReport, ScoreItem } from "@/lib/types/report";
+import type {
+  ActionGuideItem,
+  DimensionScoreItem,
+  FeedbackReport,
+  FindingItem,
+  ScoreItem
+} from "@/lib/types/report";
 import type {
   ProblemLanguage,
   RunResult,
@@ -455,24 +461,103 @@ export const starterTracesSeed: TraceEvent[] = [
   }
 ];
 
-export const reportScores: ScoreItem[] = [
+/** mock 리포트의 5축 점수 + 축별 강점/약점. 백엔드 evaluator(feedback_report)와 같은 구조. */
+export const reportDimensions: DimensionScoreItem[] = [
   {
-    label: "하네스 품질 점수",
-    score: 82,
-    tone: "good",
-    note: "HARNESS.md에 작성된 에이전트 지시 품질과 문제 문맥 명확성이 우수했습니다."
+    code: "HARNESS_GOAL_CLARITY",
+    label: "목표 명확도",
+    score: 78,
+    tone: "mid",
+    rationale: "HARNESS.md에 작성된 목표·제약·완료 조건이 명확하지만 일부 케이스에서 모호함이 남았습니다.",
+    strengthSummary: "에러 메시지와 현재 파일을 함께 제시해 AI가 상황을 빠르게 이해할 수 있었습니다.",
+    improvementSummary: "404 처리의 완료 조건을 더 분명히 적어주면 좋겠습니다.",
+    recommendedActions: ["HARNESS.md의 \"성공 기준\" 섹션에 명시적 status code 명시"]
   },
   {
-    label: "실행 품질 점수",
+    code: "HARNESS_WORKFLOW_DESIGN",
+    label: "작업 흐름 설계도",
+    score: 64,
+    tone: "mid",
+    rationale: "단계 구성은 자연스럽지만 분기/롤백 처리가 누락된 구간이 있습니다.",
+    improvementSummary: "예외 분기마다 명시적 단계를 추가하세요.",
+    recommendedActions: ["테스트 실패 시 되돌아갈 단계 정의"]
+  },
+  {
+    code: "HARNESS_CONTEXT_QUALITY",
+    label: "정보 제공 적절도",
+    score: 70,
+    tone: "mid",
+    rationale: "AI가 필요한 시점에 컨텍스트가 잘 전달되었습니다.",
+    strengthSummary: "관련 파일을 단계별로 묶어서 제공한 흐름이 좋습니다."
+  },
+  {
+    code: "HARNESS_SKILL_MODULARITY",
+    label: "스킬 구성도",
+    score: 58,
+    tone: "warn",
+    rationale: "스킬·서브에이전트 분리가 부족해 한 프롬프트에 책임이 몰려 있습니다.",
+    recommendedActions: ["검증 단계를 별도 스킬로 분리", "예외 처리 스킬 추가"]
+  },
+  {
+    code: "HARNESS_VERIFICATION_LOOP",
+    label: "검증 루프 설계도",
     score: 46,
     tone: "warn",
-    note: "AI 제안 코드를 실행·테스트로 검증하고 결과를 반영하는 빈도를 높일 필요가 있습니다."
+    rationale: "테스트·재실행 루프가 미흡합니다. 통과 여부 확인 빈도를 높이세요.",
+    improvementSummary: "AI 제안 코드를 실행·테스트로 검증하는 빈도를 높일 필요가 있습니다.",
+    recommendedActions: ["수정 직후 단위 테스트 자동 실행", "실패 케이스 별 후처리 정의"]
+  }
+];
+
+/** 하위 호환용 — 기존 화면에서 reportScores 참조하는 곳이 있으면 dimensions에서 derive. */
+export const reportScores: ScoreItem[] = reportDimensions.map((d) => ({
+  label: d.label,
+  score: d.score,
+  tone: d.tone,
+  note: d.rationale ?? ""
+}));
+
+/** mock 리포트 findings — STRENGTH / IMPROVEMENT */
+export const reportFindings: FindingItem[] = [
+  {
+    id: "f-mock-1",
+    category: "STRENGTH",
+    severity: 1,
+    title: "단계적 검증",
+    description: "AI 응답 이후 테스트를 다시 실행하면서 수정 흐름을 단계적으로 검증했습니다.",
+    recommendation: "이 패턴을 다른 과제에서도 유지하세요."
   },
   {
-    label: "트레이스 활용 점수",
-    score: 65,
-    tone: "mid",
-    note: "에이전트 트레이스를 참고하는 흐름은 있으나 일부 구간에서 활용도가 다소 낮았습니다."
+    id: "f-mock-2",
+    category: "IMPROVEMENT",
+    severity: 3,
+    title: "응답 검증 부족",
+    description: "AI 제안 코드를 붙이기 전에 예상 상태 코드와 실패 원인을 직접 정리하지 않고 진행한 구간이 있습니다.",
+    recommendation: "수정 전 \"예상 상태 코드 / 실패 원인\" 체크리스트를 적어두세요."
+  },
+  {
+    id: "f-mock-3",
+    category: "IMPROVEMENT",
+    severity: 2,
+    title: "케이스 분리",
+    description: "예외 처리 케이스를 한 번에 묶어 다뤘습니다.",
+    recommendation: "기능 단위로 나눠 확인하면 수정 범위를 더 잘 통제할 수 있습니다."
+  }
+];
+
+/** mock action guides — priority 낮을수록 우선 */
+export const reportActionGuides: ActionGuideItem[] = [
+  {
+    priority: 1,
+    title: "검증 루프 강화",
+    description: "수정 직후 단위 테스트를 자동 실행하도록 스킬에 등록하세요.",
+    expectedImpact: "통과율 +15%, 회귀 버그 -30%"
+  },
+  {
+    priority: 2,
+    title: "스킬 모듈 분리",
+    description: "한 프롬프트에 몰린 책임을 \"검증\" / \"예외 처리\" 스킬로 분리하세요.",
+    expectedImpact: "프롬프트 길이 -40%, 재사용성 ↑"
   }
 ];
 
@@ -541,19 +626,41 @@ export const createTestResults = (passCount: number): TestRunResult => {
   };
 };
 
-export const createFeedbackReport = (submissionId: string, timeline: TraceEvent[]): FeedbackReport => ({
-  id: `report-${submissionId}`,
-  submissionId,
-  status: "COMPLETED",
-  generatedAt: new Date().toISOString(),
-  testPassRate: 60,
-  testSummary: "3 / 5 통과",
-  scores: reportScores,
-  strengths: reportStrengths,
-  improvements: reportImprovements,
-  summary: reportSummary,
-  timeline
-});
+export const createFeedbackReport = (submissionId: string, timeline: TraceEvent[]): FeedbackReport => {
+  const overallScore = Math.round(
+    reportDimensions.reduce((sum, d) => sum + d.score, 0) / Math.max(reportDimensions.length, 1)
+  );
+  return {
+    id: `report-${submissionId}`,
+    submissionId,
+    status: "COMPLETED",
+    generatedAt: new Date().toISOString(),
+    overallScore,
+    scoreGrade: overallScore >= 80 ? "B+" : overallScore >= 60 ? "B" : "C+",
+    diagnosisLevel: overallScore >= 80 ? "우수" : overallScore >= 60 ? "양호" : "보완 필요",
+    testPassRate: 60,
+    testSummary: "3 / 5 통과",
+    buildSucceeded: true,
+    dimensions: reportDimensions,
+    scores: reportScores,
+    findings: reportFindings,
+    actionGuides: reportActionGuides,
+    basis: {
+      problemTitle: "Todo API 404 처리",
+      runStatus: "ENDED",
+      usedHarnessFiles: ["agent/HARNESS.md", "agent/skills/validation.md"],
+      usedRunTrace: { traceId: 1024, spanCount: 24, toolCallCount: 12, llmCallCount: 8, patchCount: 3 },
+      usedExecutionResults: [
+        { totalTestCount: 5, passedTestCount: 3, passRate: 0.6, buildSucceeded: true }
+      ],
+      usedFileChangeReviews: { changeRequestCount: 7, approvedCount: 5, rejectedCount: 2, appliedCount: 5 }
+    },
+    strengths: reportStrengths,
+    improvements: reportImprovements,
+    summary: reportSummary,
+    timeline
+  };
+};
 
 export const createAiEditSuggestion = (selected: string): AiEditSuggestion => ({
   original: selected,
