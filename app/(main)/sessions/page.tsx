@@ -1,7 +1,8 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Search,
@@ -12,8 +13,9 @@ import {
 
 import { LangIcon } from "@/components/common/LangIcon";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
+import { authApi, type ActiveSession } from "@/lib/api/authApi";
 import { mockApi } from "@/lib/api/mockApi";
-import type { SessionListItem } from "@/lib/types/session";
+import type { ProblemLanguage, SessionListItem } from "@/lib/types/session";
 import { useAuthStore } from "@/store/authStore";
 
 type Filter = "all" | "done" | "in_progress" | "failed";
@@ -84,17 +86,64 @@ function progressFor(s: SessionListItem): number {
 export default function SessionsPage() {
   const { withPrefix } = useRouteScope();
   const user = useAuthStore((s) => s.user);
-  const [filter, setFilter] = useState<Filter>("all");
+  const searchParams = useSearchParams();
+  const initialFilter = (searchParams?.get("filter") as Filter | null) ?? "all";
+  const [filter, setFilter] = useState<Filter>(initialFilter);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [sortOpen, setSortOpen] = useState(false);
   const [sortMode, setSortMode] = useState<"recent" | "score" | "level">("recent");
 
-  const { data: sessions = [], isLoading } = useQuery({
+  // URL ?filter=in_progress 변경 시 동기화 (마이페이지에서 "이어가기" 클릭으로 진입한 케이스)
+  useEffect(() => {
+    const next = searchParams?.get("filter") as Filter | null;
+    if (next && next !== filter) setFilter(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // 백엔드 활성 세션 (IN_PROGRESS) — /api/v1/users/me/sessions
+  const { data: activeSessions = [] } = useQuery<ActiveSession[]>({
+    queryKey: ["activeSessions", user?.id],
+    queryFn: async () => {
+      try { return await authApi.getActiveSessions(); }
+      catch { return []; }
+    },
+    enabled: !!user
+  });
+
+  // mock 시드 (데모용 풍부한 history) — 백엔드 완료 리포트 GET 이 더 안정화되면 교체 예정
+  const { data: mockSessions = [], isLoading } = useQuery({
     queryKey: ["sessions", user?.id],
     queryFn: () => mockApi.getSessions(user!.id),
     enabled: !!user
   });
+
+  // 백엔드 활성 세션 → SessionListItem 호환 형태로 매핑
+  const activeAsList = useMemo<SessionListItem[]>(
+    () => activeSessions.map((s) => ({
+      sessionId: String(s.problemSessionId),
+      problemId: String(s.problemId),
+      problemTitle: s.problemTitle,
+      problemLevel: (s.problemDifficulty === "level1" ? 1 : s.problemDifficulty === "level2" ? 2 : 3) as 1 | 2 | 3,
+      problemCategory: s.problemCategory,
+      difficulty: s.problemDifficulty,
+      language: s.language.toLowerCase() as ProblemLanguage,
+      status: "IN_PROGRESS",
+      startedAt: s.startedAt,
+      endedAt: null,
+      aiRequestCount: 0,
+      submissionId: null,
+      score: null
+    } as SessionListItem)),
+    [activeSessions]
+  );
+
+  // 백엔드 활성 세션 + mock 시드 union. sessionId 중복 시 백엔드 우선.
+  const sessions = useMemo<SessionListItem[]>(() => {
+    const activeIds = new Set(activeAsList.map((s) => s.sessionId));
+    const mockFiltered = mockSessions.filter((s) => !activeIds.has(s.sessionId));
+    return [...activeAsList, ...mockFiltered];
+  }, [activeAsList, mockSessions]);
 
   /* Stats */
   const stats = useMemo(() => {

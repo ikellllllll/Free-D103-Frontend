@@ -971,6 +971,24 @@ export const sessionApi = {
   },
 
   /**
+   * 파일 / 하네스 파일 삭제 — DELETE (2026-05-12~).
+   * - 일반 SessionFile: DELETE /api/v1/sessions/{sessionId}/files/{fileId}
+   * - SessionHarnessFile (agent/* prefix): DELETE /api/v1/sessions/{sessionId}/harness/{fileId}
+   *
+   * UI 는 path 만 들고 있으므로 path 보고 endpoint 분기 + fileId 매핑은 내부에서.
+   */
+  async deleteFile(sessionId: string, path: string): Promise<void> {
+    const fileId = await resolveRememberedFileId(sessionId, path);
+    if (!fileId) {
+      throw new Error("삭제할 파일 정보를 찾지 못했습니다. 워크스페이스를 새로고침해 주세요.");
+    }
+    const url = path.startsWith(AGENT_PREFIX)
+      ? `api/v1/sessions/${sessionId}/harness/${fileId}`
+      : `api/v1/sessions/${sessionId}/files/${fileId}`;
+    await authClient.delete(url);
+  },
+
+  /**
    * AI 부분 수정 승인 또는 거절 — POST /api/v1/ai/sessions/{id}/chat/edit?isApproved={t|f} (2026-05-11~).
    * body: { originFileId, worktreeFileId }.
    *

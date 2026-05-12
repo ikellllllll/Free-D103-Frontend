@@ -3621,7 +3621,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     addToast(`폴더 이름을 '${rawName}'로 변경했어요.`, "success");
   }, [addToast, explorerRenameDraft, files, localFolders, renameWorkspaceFile]);
 
-  const handleExplorerDelete = useCallback(() => {
+  const handleExplorerDelete = useCallback(async () => {
     if (!explorerContextMenu?.targetPath || explorerContextMenu.targetKind === "root") {
       return;
     }
@@ -3630,7 +3630,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     const targetKind = explorerContextMenu.targetKind;
     setExplorerContextMenu(null);
 
-    // 변경되지 않은 (dirty 없는) 파일/폴더는 즉시 삭제. dirty 가 있으면 confirm (#9).
+    // dirty 가 있으면 confirm (#9).
     const dirtyPaths =
       targetKind === "file"
         ? unsavedPaths.filter((p) => p === targetPath)
@@ -3645,6 +3645,24 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       }
     }
 
+    // 삭제할 파일 path 목록 — 파일 1개 또는 폴더 안 모든 파일.
+    const pathsToDelete =
+      targetKind === "file"
+        ? [targetPath]
+        : files.filter((file) => file.path.startsWith(`${targetPath}/`)).map((file) => file.path);
+
+    // 백엔드 세션이면 실제 DELETE 요청. mock 세션은 store 만 갱신 (기존 흐름).
+    if (isBackendSessionId(sessionId) && pathsToDelete.length > 0) {
+      try {
+        await Promise.all(pathsToDelete.map((p) => sessionApi.deleteFile(sessionId, p)));
+      } catch (error) {
+        addToast(error instanceof Error ? error.message : "파일 삭제에 실패했습니다.", "error");
+        // 백엔드 실패 시 store 손대지 않고 종료 — 다음 새로고침에 정합 회복.
+        return;
+      }
+    }
+
+    // 백엔드 성공 (또는 mock) → 로컬 store 갱신
     if (targetKind === "file") {
       setLocalFolders((state) => appendLocalFolder(state, getFolderPath(targetPath) || null));
       removeWorkspaceFile(targetPath);
@@ -3659,25 +3677,27 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         })
       );
       addToast(`파일 '${getFileName(targetPath)}'을 삭제했어요.`, "success");
-      return;
+    } else {
+      setLocalFolders((state) => state.filter((folder) => folder !== targetPath && !folder.startsWith(`${targetPath}/`)));
+      pathsToDelete.forEach((p) => removeWorkspaceFile(p));
+      setEditorGroups((state) =>
+        state.map((group) => {
+          const tabIds = group.tabIds.filter((path) => !path.startsWith(`${targetPath}/`));
+          return {
+            ...group,
+            tabIds,
+            activeTabId: group.activeTabId && group.activeTabId.startsWith(`${targetPath}/`) ? tabIds[0] ?? null : group.activeTabId
+          };
+        })
+      );
+      addToast(`폴더 '${getFileName(targetPath)}'을 삭제했어요.`, "success");
     }
 
-    setLocalFolders((state) => state.filter((folder) => folder !== targetPath && !folder.startsWith(`${targetPath}/`)));
-    files
-      .filter((file) => file.path.startsWith(`${targetPath}/`))
-      .forEach((file) => removeWorkspaceFile(file.path));
-    setEditorGroups((state) =>
-      state.map((group) => {
-        const tabIds = group.tabIds.filter((path) => !path.startsWith(`${targetPath}/`));
-        return {
-          ...group,
-          tabIds,
-          activeTabId: group.activeTabId && group.activeTabId.startsWith(`${targetPath}/`) ? tabIds[0] ?? null : group.activeTabId
-        };
-      })
-    );
-    addToast(`폴더 '${getFileName(targetPath)}'을 삭제했어요.`, "success");
-  }, [addToast, explorerContextMenu, files, removeWorkspaceFile, unsavedPaths]);
+    // workspace 새로고침 — 백엔드 응답으로 fileId 매핑 갱신
+    if (isBackendSessionId(sessionId)) {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
+    }
+  }, [addToast, explorerContextMenu, files, queryClient, removeWorkspaceFile, sessionId, unsavedPaths]);
 
   const handleExplorerFileDragStart = useCallback((event: ReactDragEvent<HTMLElement>, path: string) => {
     event.stopPropagation();
