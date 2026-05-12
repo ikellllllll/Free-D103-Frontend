@@ -551,10 +551,17 @@ export default function MyPage() {
                         label: "이어가기",
                         value: profileSummary?.inProgressCount ?? data?.resumableSessions.length ?? 0,
                         unit: "개",
-                        onClick: activeSessions.length > 0
+                        // 활성 세션 1개 = 바로 IDE 진입. 2개 이상 = /sessions 진행중 탭에서 선택.
+                        onClick: activeSessions.length === 1
                           ? () => router.push(withPrefix(`/ide/${activeSessions[0].problemSessionId}`))
-                          : undefined,
-                        hint: activeSessions.length > 0 ? `${activeSessions[0].problemTitle} 이어가기` : undefined
+                          : activeSessions.length > 1
+                            ? () => router.push(withPrefix(`/sessions?filter=in_progress`))
+                            : undefined,
+                        hint: activeSessions.length === 1
+                          ? `${activeSessions[0].problemTitle} 이어가기`
+                          : activeSessions.length > 1
+                            ? `진행 중 ${activeSessions.length}개 보기`
+                            : undefined
                       }
                     ];
                     return items.map((item) => {

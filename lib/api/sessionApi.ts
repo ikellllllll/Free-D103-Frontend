@@ -1016,6 +1016,48 @@ export const sessionApi = {
   },
 
   /**
+   * 파일 / 하네스 파일 삭제 — DELETE (2026-05-12~).
+   * - 일반 SessionFile: DELETE /api/v1/sessions/{sessionId}/files/{fileId}
+   * - SessionHarnessFile (agent/* prefix): DELETE /api/v1/sessions/{sessionId}/harness/{fileId}
+   *
+   * UI 는 path 만 들고 있으므로 path 보고 endpoint 분기 + fileId 매핑은 내부에서.
+   */
+  async deleteFile(sessionId: string, path: string): Promise<void> {
+    const fileId = await resolveRememberedFileId(sessionId, path);
+    if (!fileId) {
+      throw new Error("삭제할 파일 정보를 찾지 못했습니다. 워크스페이스를 새로고침해 주세요.");
+    }
+    const url = path.startsWith(AGENT_PREFIX)
+      ? `api/v1/sessions/${sessionId}/harness/${fileId}`
+      : `api/v1/sessions/${sessionId}/files/${fileId}`;
+    await authClient.delete(url);
+  },
+
+  /**
+   * 파일 / 하네스 파일 이동 (rename + path 변경) — PATCH (2026-05-12~).
+   * - 일반 SessionFile: PATCH /api/v1/sessions/{sessionId}/files/{fileId}/path
+   * - SessionHarnessFile: PATCH /api/v1/sessions/{sessionId}/harness/{fileId}/path
+   * body: { toPath: string }
+   *
+   * agent/* prefix 는 백엔드 path 에서 stripping (서버는 agent prefix 없이 저장됨).
+   */
+  async moveFile(sessionId: string, fromPath: string, toPath: string): Promise<void> {
+    const fileId = await resolveRememberedFileId(sessionId, fromPath);
+    if (!fileId) {
+      throw new Error("이동할 파일 정보를 찾지 못했습니다. 워크스페이스를 새로고침해 주세요.");
+    }
+    const isHarness = fromPath.startsWith(AGENT_PREFIX);
+    const url = isHarness
+      ? `api/v1/sessions/${sessionId}/harness/${fileId}/path`
+      : `api/v1/sessions/${sessionId}/files/${fileId}/path`;
+    // 하네스 파일이면 toPath 의 agent/ prefix 제거 (백엔드는 raw path 저장)
+    const backendToPath = isHarness && toPath.startsWith(AGENT_PREFIX)
+      ? toPath.slice(AGENT_PREFIX.length)
+      : toPath;
+    await authClient.patch(url, { json: { toPath: backendToPath } });
+  },
+
+  /**
    * AI 부분 수정 승인 또는 거절 — POST /api/v1/ai/sessions/{id}/chat/edit?isApproved={t|f} (2026-05-11~).
    * body: { originFileId, worktreeFileId }.
    *
