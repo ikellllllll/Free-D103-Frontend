@@ -165,7 +165,7 @@ const tutorialSteps: TutorialStep[] = [
       { kind: "li", text: "Chat 모드: 질문/설명/코드 조각 받기 — 적용은 본인이 직접" },
       { kind: "li", text: "Agent 모드: 작업 위임 → AI가 .worktree/에 패치 생성, Trace 기록" },
       { kind: "li", text: "메시지 입력창 위 토글로 모드 전환" },
-      { kind: "tip", text: "활동바 hubot 아이콘 뱃지는 남은 AI quota입니다. 지금 메시지를 입력해 보세요." }
+      { kind: "tip", text: "메시지를 입력해 보세요. AI 사용 횟수에 제한이 없습니다." }
     ],
     action: { label: "AI 패널 열기", intent: { type: "toggleAi" } },
     targetSelector: [".ide-shell__ai", '[data-tutorial-target="ai"]'],
@@ -361,7 +361,8 @@ function pathForGroup(group: TourRect[]): string {
   return group.map((rect) => roundedRectPath(rect)).join(" ");
 }
 
-const AI_REQUEST_QUOTA = 5;
+// AI 사용 횟수 제한은 백엔드에서 더 이상 강제하지 않음 (2026-05-11~).
+// AI_REQUEST_QUOTA 상수 + aiQuotaLabel 변수 모두 unused 상태로 정리됨.
 const DEFAULT_HARNESS_BASE_MODEL = "GPT_5_2";
 const HARNESS_BASE_MODELS = new Set([
   "GPT_5_2",
@@ -372,6 +373,18 @@ const HARNESS_BASE_MODELS = new Set([
   "CLAUDE_4_5_OPUS",
   "CLAUDE_4_5_HAIKU"
 ]);
+
+// AI 채팅 모델 선택지 — 백엔드 ModelName enum 과 일치
+const CHAT_MODEL_OPTIONS: ReadonlyArray<{ id: string; label: string; provider: "anthropic" | "openai" }> = [
+  { id: "CLAUDE_4_5_SONNET", label: "Claude 4.5 Sonnet", provider: "anthropic" },
+  { id: "CLAUDE_4_5_OPUS",   label: "Claude 4.5 Opus",   provider: "anthropic" },
+  { id: "CLAUDE_4_5_HAIKU",  label: "Claude 4.5 Haiku",  provider: "anthropic" },
+  { id: "GPT_5_2",           label: "GPT-5.2",           provider: "openai" },
+  { id: "GPT_5",             label: "GPT-5",             provider: "openai" },
+  { id: "GPT_5_MINI",        label: "GPT-5 Mini",        provider: "openai" },
+  { id: "GPT_5_NANO",        label: "GPT-5 Nano",        provider: "openai" }
+];
+const DEFAULT_CHAT_MODEL = "CLAUDE_4_5_SONNET";
 const SOLVE_TIMER_INTERVAL_MS = 1000;
 const MAX_SELECTED_CODE_CHARS = 12000;
 const SIDEBAR_MIN_WIDTH = 220;
@@ -1567,6 +1580,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const editorLayoutApplyingSnapshotRef = useRef(false);
 
   const [chatInput, setChatInput] = useState("");
+  const [chatModel, setChatModel] = useState<string>(DEFAULT_CHAT_MODEL);
   const [searchQuery, setSearchQuery] = useState("");
   const [editLoading, setEditLoading] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
@@ -2642,8 +2656,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     ? `${Math.abs(selectedRange.endLineNumber - selectedRange.startLineNumber) + 1}줄 선택`
     : `Ln ${cursorPosition.line}, Col ${cursorPosition.column}`;
   const lineCount = activeFile?.content.split("\n").length ?? 0;
-  const requestTotal = requestCount || session?.aiRequestCount || 0;
-  const aiQuotaLabel = `${Math.min(requestTotal, AI_REQUEST_QUOTA)}/${AI_REQUEST_QUOTA}`;
+  // AI 사용 무제한 — quota 변수 제거됨 (2026-05-11~). requestCount 는 다른 곳에서 표시용으로 유지될 수 있음.
   const agentSnapshotLabel = `v0.${agentSnapshotVersion}`;
   const dirtyCount = unsavedPaths.length;
   const canPreviewActiveMarkdown = activeTab?.kind === "file" && isMarkdownWorkspaceFile(activeFile);
@@ -2726,7 +2739,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     trace: null,
     extensions: `${extensionItems.length}`,
     harness: null,
-    ai: aiQuotaLabel,
+    ai: null,        // AI 사용 무제한 — 사이드바 뱃지 숨김
     output: testResult ? `${testResult.failed}` : traces.length ? `${traces.length}` : null
   };
   const lastSavedDate = parseApiDateTime(lastSavedAt);
@@ -3926,6 +3939,31 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     }
   };
 
+  /**
+   * Worktree diff 탭의 [적용] / [거절] — 백엔드 partialEdit API.
+   * - 적용: origin 파일을 worktree 내용으로 덮어쓰고 worktree 제거
+   * - 거절: worktree만 제거 (origin 그대로)
+   */
+  const handlePartialEdit = useCallback(async (worktreePath: string, isApproved: boolean) => {
+    if (!isBackendSessionId(sessionId)) {
+      addToast("로컬 mock 세션에는 적용 동작이 없습니다.", "warning");
+      return;
+    }
+    try {
+      await sessionApi.partialEdit(sessionId, { worktreePath, isApproved });
+      addToast(isApproved ? "AI 수정이 적용되었습니다." : "AI 수정 제안을 거절했습니다.", "success");
+
+      // diff 탭 닫기 (탭 모델은 diff:<path>)
+      const diffTabId = createDiffTabId(worktreePath);
+      handleCloseFileTab(diffTabId, activeEditorGroupId);
+
+      // workspace 새로고침 — worktree 파일 사라지고, 적용한 경우 origin 파일 새 내용 hydrate
+      await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : "AI 수정 적용에 실패했습니다.", "error");
+    }
+  }, [activeEditorGroupId, addToast, handleCloseFileTab, queryClient, sessionId]);
+
   const handleApplyEdit = async () => {
     if (!editorRef.current || !selectedRange || !suggestion || !activeFile) {
       return;
@@ -4388,7 +4426,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     setChatInput("");
 
     try {
-      await send(message, activeFile?.path);
+      await send(message, activeFile?.path, chatModel);
       refreshSession();
     } catch (error) {
       addToast(error instanceof Error ? error.message : "AI 요청에 실패했습니다.", "error");
@@ -5001,7 +5039,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               <li>요구사항 {problemRequirementsCount}개</li>
               <li>공개 테스트 {problemCasesCount}개</li>
               <li>엔드포인트 {problemEndpointCount}개</li>
-              <li>현재 세션 AI quota {aiQuotaLabel}</li>
+              <li>AI 사용 무제한</li>
             </ul>
           </div>
         </aside>
@@ -5399,29 +5437,53 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                 </Markdown>
               </div>
             ) : groupActiveTab.kind === "diff" ? (
-              <MonacoDiffEditor
-                key={`${group.id}:${groupActiveTab.id}`}
-                theme={theme === "dark" ? "vs-dark" : "vs"}
-                height="100%"
-                original={groupActiveTab.sourceFile.content}
-                modified={groupActiveTab.targetFile.content}
-                language={groupActiveTab.sourceFile.language}
-                onMount={handleDiffMount(group.id)}
-                options={{
-                  readOnly: true,
-                  renderSideBySide: viewportSize.width > 1480,
-                  originalEditable: false,
-                  fontSize: 13,
-                  scrollBeyondLastLine: false,
-                  fontFamily: "var(--font-mono)",
-                  lineHeight: 22,
-                  automaticLayout: true,
-                  smoothScrolling: true,
-                  stickyScroll: { enabled: false },
-                  overviewRulerBorder: false,
-                  minimap: { enabled: false }
-                }}
-              />
+              <div className="diff-pane">
+                <div className="diff-pane__actions">
+                  <div className="diff-pane__label">
+                    <span className="codicon codicon-diff" aria-hidden />
+                    <span>AI 워크트리 수정 제안 — 적용 시 원본 파일이 덮어써집니다</span>
+                  </div>
+                  <div className="diff-pane__buttons">
+                    <button
+                      type="button"
+                      className="button button--ghost"
+                      onClick={() => void handlePartialEdit(groupActiveTab.targetFile.path, false)}
+                    >
+                      거절
+                    </button>
+                    <button
+                      type="button"
+                      className="button button--primary"
+                      onClick={() => void handlePartialEdit(groupActiveTab.targetFile.path, true)}
+                    >
+                      적용
+                    </button>
+                  </div>
+                </div>
+                <MonacoDiffEditor
+                  key={`${group.id}:${groupActiveTab.id}`}
+                  theme={theme === "dark" ? "vs-dark" : "vs"}
+                  height="100%"
+                  original={groupActiveTab.sourceFile.content}
+                  modified={groupActiveTab.targetFile.content}
+                  language={groupActiveTab.sourceFile.language}
+                  onMount={handleDiffMount(group.id)}
+                  options={{
+                    readOnly: true,
+                    renderSideBySide: viewportSize.width > 1480,
+                    originalEditable: false,
+                    fontSize: 13,
+                    scrollBeyondLastLine: false,
+                    fontFamily: "var(--font-mono)",
+                    lineHeight: 22,
+                    automaticLayout: true,
+                    smoothScrolling: true,
+                    stickyScroll: { enabled: false },
+                    overviewRulerBorder: false,
+                    minimap: { enabled: false }
+                  }}
+                />
+              </div>
             ) : (
               <MonacoEditor
                 key={`${group.id}:${groupActiveFile.path}`}
@@ -5602,7 +5664,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               </div>
               <div className="status-bar__group">
                 <span>{problem?.estimate ?? "예상 시간 없음"}</span>
-                <span>AI quota {aiQuotaLabel}</span>
+                <span>AI 무제한</span>
                 <span>{dirtyCount ? `미저장 ${dirtyCount}개` : "저장됨"}</span>
               </div>
             </div>
@@ -5763,7 +5825,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   {aiMode === "chat" ? (
                     <div className="ai-panel ai-panel--chat">
                       <div className="ai-panel__head">
-                        <div className="ai-tabs">
+                        <div className="ai-tabs ai-tabs--segmented">
                           <button
                             type="button"
                             className="chip chip--active"
@@ -5772,21 +5834,24 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                               setSuggestion(null);
                             }}
                           >
-                            chat mode
+                            Chat
                           </button>
                           <button
                             type="button"
                             className="chip"
                             onClick={() => setAiMode("edit")}
                           >
-                            agent mode
+                            Agent
                           </button>
                         </div>
 
                         <div className="ai-context-strip">
-                          <span className="ai-context-chip">{getFileName(activeFile.path)}</span>
-                          <span className="ai-context-chip">{selectedRange ? selectionSummary : "선택 없음"}</span>
-                          <span className="ai-context-chip">AI quota {aiQuotaLabel}</span>
+                          <span className="ai-context-chip" title={activeFile.path}>
+                            {getFileName(activeFile.path)}
+                          </span>
+                          <span className="ai-context-chip">
+                            {selectedRange ? selectionSummary : "선택 없음"}
+                          </span>
                         </div>
                       </div>
 
@@ -5817,17 +5882,40 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                           className="input input--textarea"
                           value={chatInput}
                           onChange={(event) => setChatInput(event.target.value)}
-                          placeholder="현재 문제나 코드에 대해 질문하세요"
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                              event.preventDefault();
+                              void handleSend();
+                            }
+                          }}
+                          placeholder="현재 문제나 코드에 대해 질문하세요  (Ctrl+Enter 전송)"
                         />
-                        <button className="button button--primary" onClick={handleSend}>
-                          전송
-                        </button>
+                        <div className="chat-composer-actions">
+                          <label className="model-selector" title="응답 모델 선택">
+                            <select
+                              className="model-selector__select"
+                              value={chatModel}
+                              onChange={(event) => setChatModel(event.target.value)}
+                            >
+                              {CHAT_MODEL_OPTIONS.map((option) => (
+                                <option key={option.id} value={option.id}>{option.label}</option>
+                              ))}
+                            </select>
+                          </label>
+                          <button
+                            className="button button--primary chat-composer-actions__send"
+                            onClick={handleSend}
+                            disabled={!chatInput.trim() || streaming}
+                          >
+                            {streaming ? "전송 중..." : "전송 →"}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ) : (
                     <div className="ai-panel ai-panel--edit">
                       <div className="ai-panel__head">
-                        <div className="ai-tabs">
+                        <div className="ai-tabs ai-tabs--segmented">
                           <button
                             type="button"
                             className="chip"
@@ -5836,21 +5924,24 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                               setSuggestion(null);
                             }}
                           >
-                            chat mode
+                            Chat
                           </button>
                           <button
                             type="button"
                             className="chip chip--active"
                             onClick={() => setAiMode("edit")}
                           >
-                            agent mode
+                            Agent
                           </button>
                         </div>
 
                         <div className="ai-context-strip">
-                          <span className="ai-context-chip">{getFolderPath(activeFile.path) || "workspace"}</span>
-                          <span className="ai-context-chip">{selectionLabel}</span>
-                          <span className="ai-context-chip">AI quota {aiQuotaLabel}</span>
+                          <span className="ai-context-chip" title={activeFile.path}>
+                            {getFolderPath(activeFile.path) || "workspace"}
+                          </span>
+                          <span className="ai-context-chip">
+                            {selectionLabel}
+                          </span>
                         </div>
                       </div>
 
