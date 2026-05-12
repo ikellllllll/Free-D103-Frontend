@@ -7,7 +7,9 @@ import {
   Sparkles,
   ArrowRight,
   PlayCircle,
+  LogOut,
   Minus,
+  Save,
   Square,
   X
 } from "lucide-react";
@@ -96,6 +98,466 @@ const SHOWCASE_STATS = [
   { value: "3개", label: "평가 지표" },
   { value: "14기", label: "SSAFY" }
 ];
+
+const HERO_IDE_PREVIEW_WIDTH = 1440;
+const HERO_IDE_PREVIEW_HEIGHT = 810;
+
+function HeroIdePreviewMock({ step }: { step: number }) {
+  const [activeActivity, setActiveActivity] = useState(1);
+  const [agentOpen, setAgentOpen] = useState(true);
+  const [workspaceOpen, setWorkspaceOpen] = useState(true);
+  const [aiMode, setAiMode] = useState<"chat" | "agent">("chat");
+  const previewFrameRef = useRef<HTMLDivElement | null>(null);
+  const [previewScale, setPreviewScale] = useState(1);
+
+  const activityItems = [
+    { id: "problem", icon: "codicon-book", badge: "0", label: "문제" },
+    { id: "explorer", icon: "codicon-files", badge: "2", label: "탐색기" },
+    { id: "search", icon: "codicon-search", badge: "", label: "검색" },
+    { id: "trace", icon: "codicon-pulse", badge: "", label: "Trace" },
+    { id: "harness", icon: "codicon-circuit-board", badge: "", label: "하네스" },
+    { id: "output", icon: "codicon-terminal", badge: "2", label: "출력" },
+    { id: "ai", icon: "codicon-hubot", badge: "1/5", label: "AI" }
+  ];
+
+  const agentFiles = [
+    ["codicon-chevron-down", "codicon-folder-opened", "agent", 0],
+    ["codicon-chevron-down", "codicon-folder-opened", "prompts", 1],
+    ["", "codicon-book", "harness-authoring.md", 2],
+    ["codicon-chevron-down", "codicon-folder-opened", "skills", 1],
+    ["codicon-chevron-down", "codicon-folder-opened", "harness-creator", 2],
+    ["", "codicon-book", "SKILL.md", 3],
+    ["codicon-chevron-down", "codicon-folder-opened", "sub_agent", 2],
+    ["", "codicon-settings-gear", "harness-reviewer.toml", 3],
+    ["", "codicon-book", "AGENTS.md", 1],
+    ["", "codicon-book", "HARNESS.md", 1]
+  ] as const;
+
+  const workspaceFiles = [
+    ["codicon-chevron-down", "codicon-folder-opened", "worktree", 0, "ai"],
+    ["codicon-chevron-down", "codicon-folder-opened", "problem-1-todo-api-java-starter", 1, ""],
+    ["codicon-chevron-down", "codicon-folder-opened", "src", 2, ""],
+    ["codicon-chevron-down", "codicon-folder-opened", "main", 3, ""],
+    ["", "codicon-symbol-namespace", "java.com.aig.todo", 4, ""],
+    ["codicon-chevron-down", "codicon-folder-opened", "exception", 5, ""],
+    ["", "codicon-symbol-class", "GlobalExceptionHandl...", 6, ""],
+    ["", "codicon-symbol-class", "TodoNotFoundExcepti...", 6, ""],
+    ["codicon-chevron-down", "codicon-folder-opened", "todo", 5, ""],
+    ["codicon-chevron-down", "codicon-folder-opened", "controller", 6, ""],
+    ["", "codicon-symbol-class", "TodoController.java", 7, ""]
+  ] as const;
+
+  const linePulse = step >= 2;
+
+  const getPreviewFileKind = (icon: string, name: string) => {
+    if (icon.includes("symbol-class") || name.endsWith(".java")) return "java";
+    if (icon.includes("settings") || name.endsWith(".toml")) return "config";
+    return "docs";
+  };
+
+  const getPreviewFolderKind = (name: string) => {
+    if (name === "worktree") return "worktree";
+    if (name === "src" || name === "main") return "source";
+    if (name.includes(".")) return "package";
+    return "default";
+  };
+
+  const renderPreviewTreeItem = (
+    item: readonly [string, string, string, number] | readonly [string, string, string, number, string],
+    activeName?: string
+  ) => {
+    const [chevron, icon, name, depth, tag = ""] = item;
+    const isFolderLike = Boolean(chevron) || icon.includes("folder") || icon.includes("symbol-namespace");
+
+    if (isFolderLike) {
+      return (
+        <button
+          key={name}
+          type="button"
+          className="tree-folder tree-folder--open"
+          style={{ paddingLeft: `${7 + depth * 7}px` }}
+        >
+          <span
+            className={`tree-row__twistie codicon ${chevron || "codicon-chevron-down"}`}
+            aria-hidden="true"
+          />
+          <span
+            className={`tree-folder__icon codicon ${icon}`}
+            data-folder-kind={getPreviewFolderKind(name)}
+            aria-hidden="true"
+          />
+          <span className="tree-row__folder">{name}</span>
+          {tag ? <span className="tree-row__badge">{tag}</span> : null}
+        </button>
+      );
+    }
+
+    return (
+      <button
+        key={name}
+        type="button"
+        className={name === activeName ? "tree-row tree-row--file tree-row--active" : "tree-row tree-row--file"}
+        style={{ paddingLeft: `${9 + depth * 7}px` }}
+      >
+        <span className="tree-row__main">
+          <span
+            className={`file-icon codicon ${icon}`}
+            data-file-kind={getPreviewFileKind(icon, name)}
+            data-file-ext={name.split(".").pop()}
+            aria-hidden="true"
+          />
+          <span className="tree-row__label">{name}</span>
+        </span>
+        {tag ? <span className="tree-row__badge">{tag}</span> : null}
+      </button>
+    );
+  };
+
+  useEffect(() => {
+    const frame = previewFrameRef.current;
+    if (!frame) return;
+
+    const syncScale = () => {
+      const { width, height } = frame.getBoundingClientRect();
+      setPreviewScale(Math.min(width / HERO_IDE_PREVIEW_WIDTH, height / HERO_IDE_PREVIEW_HEIGHT));
+    };
+
+    syncScale();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", syncScale);
+      return () => window.removeEventListener("resize", syncScale);
+    }
+
+    const observer = new ResizeObserver(syncScale);
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={previewFrameRef}
+      className="landing-ide-preview ide-theme-blue"
+      style={{ aspectRatio: `${HERO_IDE_PREVIEW_WIDTH} / ${HERO_IDE_PREVIEW_HEIGHT}` }}
+    >
+      <div
+        className="landing-ide-preview__scaled"
+        style={{
+          width: HERO_IDE_PREVIEW_WIDTH,
+          height: HERO_IDE_PREVIEW_HEIGHT,
+          transform: `scale(${previewScale})`
+        }}
+      >
+      <div className="ide-route ide-route--workspace">
+      <div className="ide-shell ide-shell--workbench landing-ide-preview__shell">
+        <aside className="activity-bar landing-ide-preview__activity">
+          <div className="activity-bar__group">
+            {activityItems.map((item, index) => (
+              <button
+                type="button"
+                key={`${item.icon}-${index}`}
+                aria-label={item.label}
+                onClick={() => {
+                  setActiveActivity(index);
+                  if (item.id === "harness") {
+                    setAgentOpen(true);
+                    setWorkspaceOpen(false);
+                  }
+                  if (item.id === "explorer") {
+                    setAgentOpen(true);
+                    setWorkspaceOpen(true);
+                  }
+                  if (item.id === "ai") {
+                    setAiMode("agent");
+                  }
+                }}
+                className={index === activeActivity ? "activity-bar__item activity-bar__item--active" : "activity-bar__item"}
+              >
+                <span className="activity-bar__label activity-bar__icon-wrap">
+                  <span className={`codicon ${item.icon} activity-bar__icon`} aria-hidden="true" />
+                </span>
+                {item.badge ? (
+                  <span className="activity-bar__badge">{item.badge}</span>
+                ) : null}
+              </button>
+            ))}
+          </div>
+          <div className="activity-bar__group" style={{ marginTop: "auto" }}>
+            <button type="button" className="activity-bar__item">
+              <span className="activity-bar__label activity-bar__icon-wrap">
+                <span className="codicon codicon-question activity-bar__icon" aria-hidden="true" />
+              </span>
+            </button>
+          </div>
+        </aside>
+
+        <aside className="ide-shell__sidebar landing-ide-preview__sidebar">
+          <div className="sidebar-header landing-ide-preview__sidebar-header">
+            <div>
+              <div className="panel-title">Explorer</div>
+              <strong>탐색기</strong>
+            </div>
+          </div>
+          <div className="sidebar-section landing-ide-preview__sidebar-section">
+            <div className="agent-section">
+              <button
+                type="button"
+                onClick={() => setAgentOpen((value) => !value)}
+                className="agent-section__header"
+              >
+                <span>
+                  <span className={`codicon ${agentOpen ? "codicon-chevron-down" : "codicon-chevron-right"} mr-[0.35em]`} aria-hidden="true" />
+                  Agent 설정
+                </span>
+                <span className="agent-section__badge">4 files</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAgentOpen((value) => !value)}
+                className="agent-section__subtitle"
+              >
+                agent · skills · instruction · harness
+              </button>
+              <div className="tree-root__children" style={agentOpen ? undefined : { display: "none" }}>
+                {agentFiles.map((item) => renderPreviewTreeItem(item))}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setWorkspaceOpen((value) => !value)}
+              className="section-toggle"
+            >
+              <span>
+                <span className={`codicon ${workspaceOpen ? "codicon-chevron-down" : "codicon-chevron-right"} mr-[0.35em]`} aria-hidden="true" />
+                Workspace
+              </span>
+              <small>ai</small>
+            </button>
+            <div className="tree-root__children" style={workspaceOpen ? undefined : { display: "none" }}>
+              {workspaceFiles.map((item) => renderPreviewTreeItem(item))}
+            </div>
+          </div>
+        </aside>
+
+        <div className="pane-resizer pane-resizer--vertical" aria-hidden="true" />
+
+        <main className="ide-shell__main landing-ide-preview__main">
+          <div className="editor-tabbar editor-tabbar--global landing-ide-preview__global-tabbar">
+            <div className="editor-tabbar__row editor-tabbar__row--meta landing-ide-preview__meta">
+              <div className="editor-tabbar__context">
+                <div className="solve-timer-bar">
+                  <div className="solve-timer-bar__track">
+                    <div className="solve-timer-bar__fill" style={{ width: "18%" }} />
+                  </div>
+                  <span className="solve-timer-bar__label">01:22</span>
+                  <span className="solve-timer-bar__limit">45m</span>
+                </div>
+                <span className="editor-tabbar__meta">자동 저장 대기</span>
+              </div>
+              <div className="editor-tabbar__actions">
+                <div className="ide-toolbar">
+                  <button type="button" className="ide-toolbar__btn ide-toolbar__btn--active">Auto</button>
+                  <button type="button" className="ide-toolbar__btn">
+                    <Save size={13} strokeWidth={2} />
+                  </button>
+                  <span className="ide-toolbar__sep" />
+                  <button type="button" className="ide-toolbar__btn">테스트</button>
+                  <span className="ide-toolbar__sep" />
+                  <button type="button" className="ide-toolbar__btn ide-toolbar__btn--submit">제출</button>
+                  <span className="ide-toolbar__sep" />
+                  <button type="button" className="ide-toolbar__btn ide-toolbar__btn--exit">
+                    <LogOut size={13} strokeWidth={2} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="editor-stage">
+            <div className="editor-groups">
+              <section className="editor-group editor-group--active">
+                <div className="editor-tabbar editor-tabbar--group landing-ide-preview__tabbar">
+                  <div className="editor-tabbar__row editor-tabbar__row--tabs">
+                    <div className="editor-tabs">
+                      <div className="editor-tabs__item editor-tabs__item--active">
+                        <button type="button" className="editor-tabs__select">
+                          <span className="file-icon file-icon--tab codicon codicon-book" data-file-kind="docs" aria-hidden="true" />
+                          <span>README.md</span>
+                        </button>
+                        <button type="button" className="editor-tabs__close" aria-label="README.md 닫기">
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                    <div className="editor-tabs__tools">
+                      <button type="button" className="editor-tabs__mode-button editor-tabs__mode-button--active">
+                        <span className="codicon codicon-edit mr-[0.35em]" aria-hidden="true" />
+                        편집
+                      </button>
+                      <button type="button" className="editor-tabs__mode-button editor-tabs__mode-button--icon" aria-label="오른쪽으로 분할">
+                        <span className="codicon codicon-split-horizontal" aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="editor-host editor-host--preview">
+                  <article className="markdown-preview">
+                    <h1>Todo CRUD API – Starter</h1>
+                    <h2>시작하기</h2>
+                    <pre className={linePulse ? "landing-ide-preview__pulse" : undefined}>
+                      <code>{`# 빌드 + 테스트
+./gradlew test
+# 개발 서버 (포트 8080)
+./gradlew bootRun`}</code>
+                    </pre>
+                    <h2>작성해야 하는 파일</h2>
+                    <pre>
+                      <code>{`src/main/java/com/aig/todo/todo/
+├── TodoService.java        🔧 5개 메서드 구현
+└── TodoController.java     🔧 5개 엔드포인트 구현`}</code>
+                    </pre>
+                    <p>자세한 명세는 과제 설명을 참고하세요.</p>
+                    <h2>구조</h2>
+                  </article>
+                </div>
+              </section>
+            </div>
+
+            <div className="pane-resizer pane-resizer--horizontal" aria-hidden="true" />
+            <section className="bottom-panel landing-ide-preview__bottom-panel" style={{ height: 220 }}>
+              <div className="bottom-panel__tabs">
+                <div className="bottom-panel__tab-list">
+                  <button type="button" className="bottom-panel__tab bottom-panel__tab--active">출력 <small>ready</small></button>
+                  <button type="button" className="bottom-panel__tab">테스트 <small>idle</small></button>
+                  <button type="button" className="bottom-panel__tab">제출 <small>idle</small></button>
+                  <button type="button" className="bottom-panel__tab">Trace <small>2</small></button>
+                </div>
+              </div>
+
+              <div className="bottom-panel__body">
+                <div className="landing-ide-preview__mini-grid">
+                  {["stdout\n아직 실행한 결과가 없습니다.", "stderr\n에러 출력 없음"].map((text) => {
+                    const [title, body] = text.split("\n");
+                    return (
+                      <div key={title} className="mini-panel mini-panel--flat">
+                        <strong>{title}</strong>
+                        <p>{body}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mini-panel mini-panel--flat">
+                  <span className="font-black">실행 대기</span>
+                  <span className="muted-copy">실행 버튼으로 결과를 확인하세요.</span>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div className="status-bar">
+            <div className="status-bar__group"><span>main</span><span>MD</span><span>UTF-8</span><span>LF</span><span>56 lines</span></div>
+            <div className="status-bar__group"><span>저장됨</span><span>Ln 1, Col 1</span><span>AIG Chat</span><span>OUTPUT</span></div>
+          </div>
+        </main>
+
+        <div className="pane-resizer pane-resizer--vertical" aria-hidden="true" />
+
+        <aside className="ide-shell__ai landing-ide-preview__ai">
+          <div className="sidebar-header">
+            <div>
+              <span className="panel-title panel-title--compact">AIG Assistant</span>
+              <div className="assistant-header__title">
+                <strong>AI 보조 패널</strong>
+                <span className="ai-context-chip assistant-version-chip">v0.1</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAiMode("agent")}
+              className="button button--primary button--tiny assistant-build-button"
+            >
+              {aiMode === "agent" ? "Building" : "Agent Build"}
+            </button>
+          </div>
+
+          <div className="ai-panel ai-panel--chat">
+            <div className="ai-panel__head">
+              <div className="ai-tabs">
+                <button
+                  type="button"
+                  onClick={() => setAiMode("chat")}
+                  className={`chip ${aiMode === "chat" ? "chip--active" : ""}`}
+                >
+                  chat mode
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAiMode("agent")}
+                  className={`chip ${aiMode === "agent" ? "chip--active" : ""}`}
+                >
+                  agent mode
+                </button>
+              </div>
+              <div className="ai-context-strip">
+                {["README.md", "선택 없음", "AI quota 1/5"].map((tag) => (
+                  <span key={tag} className="ai-context-chip">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="chat-stack chat-stack--panel">
+              <div className="chat-bubble chat-bubble--user">
+                <div className="chat-bubble__plain">{aiMode === "chat" ? "ㅎㅇ" : "TodoService 기준으로 패치 생성해줘"}</div>
+              </div>
+              <div className={`chat-bubble ${step >= 2 ? "landing-ide-preview__pulse" : ""}`}>
+                <div className="chat-bubble__markdown">
+                  {aiMode === "chat" ? (
+                    <>
+                      <p>안녕! 뭐 도와줄까?</p>
+                      <p>[오류] AI 스트리밍 중 오류가 발생했습니다.</p>
+                    </>
+                  ) : (
+                    <>
+                      <p>Agent Mode가 선택되었습니다. 현재 README.md와 워크스페이스를 바탕으로 `.worktree`에 패치를 만들고 Trace를 남깁니다.</p>
+                      <h3>실행 계획</h3>
+                      <ul>
+                        <li>관련 파일을 읽고 변경 범위를 좁힙니다.</li>
+                        <li>테스트 가능한 단위로 패치를 생성합니다.</li>
+                        <li>Diff와 Trace에서 근거를 확인합니다.</li>
+                      </ul>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="chat-input-row">
+              <textarea
+                className="input input--textarea"
+                readOnly
+                value=""
+                placeholder="현재 문제나 코드에 대해 질문하세요"
+              />
+              <button
+                type="button"
+                onClick={() => setAiMode((mode) => (mode === "chat" ? "agent" : "chat"))}
+                className="button button--primary transition-transform active:scale-[0.98]"
+              >
+                {aiMode === "chat" ? "전송" : "패치 생성"}
+              </button>
+            </div>
+          </div>
+        </aside>
+      </div>
+      </div>
+      </div>
+    </div>
+  );
+}
 
 export function LandingAIG() {
   const sectionRefs = useRef<Record<SectionId, HTMLElement | null>>({
@@ -278,16 +740,7 @@ export function LandingAIG() {
             >
 
               <div className="relative overflow-hidden rounded-[14px]">
-                <Image
-                  src="/problemsDIFF.png"
-                  alt="AIG dev IDE 워크스페이스 미리보기"
-                  width={1160}
-                  height={700}
-                  className="block w-full object-cover object-top"
-                  style={{ height: "auto", maxHeight: "70vh" }}
-                  priority
-                  sizes="(max-width: 768px) 94vw, 88vw"
-                />
+                <HeroIdePreviewMock step={ideStep} />
                 {/* bottom fade */}
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#0a0a20]/70 to-transparent" />
               </div>
@@ -348,7 +801,7 @@ export function LandingAIG() {
               </span>
               ,<br />근거로 설명합니다
             </h2>
-            <p className="text-base text-slate-600 max-w-xl leading-relaxed">
+            <p className="text-base text-slate-600 max-w-none leading-relaxed md:whitespace-nowrap">
               API 구현 과제를 AI와 함께 풀고, 에이전트가 어떻게 사고했는지 Trace로 남깁니다.
             </p>
           </div>
@@ -357,9 +810,18 @@ export function LandingAIG() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
 
             {/* Chat Mode */}
-            <div className="relative min-h-[260px] rounded-3xl border border-gray-200/80 bg-white overflow-hidden group transition-all duration-300 p-8 flex flex-col justify-start shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)] hover:-translate-y-1 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_12px_24px_-12px_rgba(79,70,229,0.25)]">
-              <div>
-                <h3 className="text-3xl font-display font-bold text-slate-950 tracking-tight mb-5">Chat Mode</h3>
+            <div className="relative min-h-[360px] rounded-3xl border border-gray-200/80 bg-white overflow-hidden group transition-all duration-300 flex flex-col justify-start shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)] hover:-translate-y-1 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_12px_24px_-12px_rgba(79,70,229,0.25)]">
+              <div className="relative h-48 overflow-hidden border-b border-slate-100 bg-slate-100">
+                <Image
+                  src="/chatMode.png"
+                  alt="Chat Mode 화면 미리보기"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  className="object-contain object-center transition-transform duration-500 group-hover:scale-[1.03]"
+                />
+              </div>
+              <div className="px-8 pb-8 pt-5">
+                <h3 className="text-3xl font-display font-bold text-slate-950 tracking-tight mb-4">Chat Mode</h3>
                 <p className="text-base text-slate-600 leading-7">하네스 구조와 API 설계에 대해 AI에게 직접 질문하고 코드를 완성합니다. 프롬프트 품질이 곧 풀이 역량입니다.</p>
               </div>
               <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-400/50 to-transparent" />
