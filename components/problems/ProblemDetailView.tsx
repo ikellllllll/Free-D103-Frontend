@@ -22,6 +22,7 @@ import {
 
 import { LangIcon } from "@/components/common/LangIcon";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
+import { useApiKeys, type ApiKeyProvider } from "@/hooks/useApiKeys";
 import { mockApi } from "@/lib/api/mockApi";
 import { problemApi } from "@/lib/api/problemApi";
 import { isBackendProblemId, sessionApi } from "@/lib/api/sessionApi";
@@ -33,8 +34,6 @@ const LANG_OPTIONS: { value: ProblemLanguage; label: string; desc: string }[] = 
   { value: "java", label: "Java", desc: "Spring Boot · JPA" },
   { value: "python", label: "Python", desc: "Django · SQLite ORM" }
 ];
-
-const BYOK_STORAGE_KEY = "aig-byok-keys-v1";
 
 type ModelOption = { id: string; label: string; note: string; provider: string };
 
@@ -78,26 +77,18 @@ export function ProblemDetailView({ problemId }: { problemId: string }) {
     note: "시스템 제공",
     provider: "default"
   });
-  const [byokKeys, setByokKeys] = useState<Record<string, string>>({});
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const { hasKey } = useApiKeys();
 
   const { data: problem, isLoading, isError } = useQuery({
     queryKey: ["problem", problemId],
     queryFn: () => problemApi.getProblemDetail(problemId)
   });
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(BYOK_STORAGE_KEY);
-      setByokKeys(raw ? JSON.parse(raw) : {});
-    } catch {
-      setByokKeys({});
-    }
-  }, []);
-
   const needsKey =
-    aiModel.provider !== "default" && !byokKeys[aiModel.provider];
+    aiModel.provider !== "default" && !hasKey(aiModel.provider as ApiKeyProvider);
 
   const { parsedEndpoints, beforeDescription, afterDescription } = useMemo(() => {
     if (!problem?.description) return { parsedEndpoints: [], beforeDescription: "", afterDescription: "" };
@@ -369,7 +360,7 @@ export function ProblemDetailView({ problemId }: { problemId: string }) {
                 <ModelSelect
                   aiModel={aiModel}
                   setAiModel={setAiModel}
-                  byokKeys={byokKeys}
+                  hasKey={hasKey}
                   open={modelMenuOpen}
                   setOpen={setModelMenuOpen}
                 />
@@ -423,13 +414,13 @@ function MetaRow({ label, value }: { label: string; value: React.ReactNode }) {
 function ModelSelect({
   aiModel,
   setAiModel,
-  byokKeys,
+  hasKey,
   open,
   setOpen
 }: {
   aiModel: ModelOption;
   setAiModel: (m: ModelOption) => void;
-  byokKeys: Record<string, string>;
+  hasKey: (id: ApiKeyProvider) => boolean;
   open: boolean;
   setOpen: (v: boolean) => void;
 }) {
@@ -499,12 +490,12 @@ function ModelSelect({
             {Object.entries(MODEL_OPTIONS)
               .filter(([p]) => p !== "default")
               .map(([provider, models]) => {
-                const hasKey = Boolean(byokKeys[provider]);
+                const providerHasKey = hasKey(provider as ApiKeyProvider);
                 return (
                   <div key={provider} className="py-2 border-t border-gray-100">
                     <div className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 flex items-center justify-between">
                       <span>{PROVIDER_LABELS[provider]}</span>
-                      {!hasKey && (
+                      {!providerHasKey && (
                         <span className="inline-flex items-center space-x-1 text-amber-600 normal-case tracking-normal font-semibold text-[10px]">
                           <AlertTriangle size={10} strokeWidth={2.4} />
                           <span>Key 미등록</span>
@@ -516,9 +507,9 @@ function ModelSelect({
                         key={m.id}
                         model={m}
                         active={aiModel.id === m.id}
-                        disabled={!hasKey}
+                        disabled={!providerHasKey}
                         onClick={() => {
-                          if (!hasKey) return;
+                          if (!providerHasKey) return;
                           setAiModel(m);
                           setOpen(false);
                         }}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import Markdown from "react-markdown";
@@ -10,6 +10,7 @@ import { Badge } from "@/components/common/Badge";
 import { Card } from "@/components/common/Card";
 import { LangIcon } from "@/components/common/LangIcon";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
+import { useApiKeys, type ApiKeyProvider } from "@/hooks/useApiKeys";
 import { mockApi } from "@/lib/api/mockApi";
 import { problemApi } from "@/lib/api/problemApi";
 import { isBackendProblemId, sessionApi } from "@/lib/api/sessionApi";
@@ -28,8 +29,6 @@ const LANG_OPTIONS: { value: ProblemLanguage; label: string; desc: string }[] = 
   { value: "java",   label: "Java",   desc: "Spring Boot · JPA" },
   { value: "python", label: "Python", desc: "Django · SQLite ORM" }
 ];
-
-const BYOK_STORAGE_KEY = "aig-byok-keys-v1";
 
 type ModelOption = { id: string; label: string; note: string; provider: string };
 
@@ -62,7 +61,7 @@ export function ProblemDetail({ problemId }: { problemId: string }) {
   const addToast = useUiStore((state) => state.addToast);
   const [language, setLanguage] = useState<ProblemLanguage>("java");
   const [aiModel, setAiModel] = useState<ModelOption>({ id: "aig-default", label: "AIG 기본 모델", note: "시스템 제공", provider: "default" });
-  const [byokKeys, setByokKeys] = useState<Record<string, string>>({});
+  const { hasKey } = useApiKeys();
   const { data: problem, isLoading, isError } = useQuery({
     queryKey: ["problem", problemId],
     queryFn: () =>
@@ -70,13 +69,6 @@ export function ProblemDetail({ problemId }: { problemId: string }) {
         ? problemApi.getProblemDetail(problemId)
         : mockApi.getProblemDetail(problemId)
   });
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(BYOK_STORAGE_KEY);
-      setByokKeys(raw ? JSON.parse(raw) : {});
-    } catch { setByokKeys({}); }
-  }, []);
 
   const handleStart = async () => {
     if (!user) {
@@ -125,7 +117,7 @@ export function ProblemDetail({ problemId }: { problemId: string }) {
       onLanguageChange={setLanguage}
       aiModel={aiModel}
       onAiModelChange={setAiModel}
-      byokKeys={byokKeys}
+      hasKey={hasKey}
       onStart={handleStart}
     />
   );
@@ -137,7 +129,7 @@ function ProblemDetailContent({
   onLanguageChange,
   aiModel,
   onAiModelChange,
-  byokKeys,
+  hasKey,
   onStart
 }: {
   problem: ProblemDetailType;
@@ -145,7 +137,7 @@ function ProblemDetailContent({
   onLanguageChange: (l: ProblemLanguage) => void;
   aiModel: ModelOption;
   onAiModelChange: (m: ModelOption) => void;
-  byokKeys: Record<string, string>;
+  hasKey: (id: ApiKeyProvider) => boolean;
   onStart: () => void;
 }) {
   const { withPrefix } = useRouteScope();
@@ -200,20 +192,23 @@ function ProblemDetailContent({
               ))}
               {Object.entries(MODEL_OPTIONS)
                 .filter(([p]) => p !== "default")
-                .map(([provider, models]) => (
-                  <optgroup
-                    key={provider}
-                    label={`${PROVIDER_LABELS[provider]}${!byokKeys[provider] ? " (키 미등록)" : ""}`}
-                  >
-                    {models.map((opt) => (
-                      <option key={opt.id} value={opt.id} disabled={!byokKeys[provider]}>
-                        {opt.label} — {opt.note}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
+                .map(([provider, models]) => {
+                  const providerHasKey = hasKey(provider as ApiKeyProvider);
+                  return (
+                    <optgroup
+                      key={provider}
+                      label={`${PROVIDER_LABELS[provider]}${!providerHasKey ? " (키 미등록)" : ""}`}
+                    >
+                      {models.map((opt) => (
+                        <option key={opt.id} value={opt.id} disabled={!providerHasKey}>
+                          {opt.label} — {opt.note}
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                })}
             </select>
-            {!byokKeys[aiModel.provider] && aiModel.provider !== "default" && (
+            {aiModel.provider !== "default" && !hasKey(aiModel.provider as ApiKeyProvider) && (
               <p className="model-select__warn">선택한 모델의 API 키가 등록되지 않았습니다.</p>
             )}
           </div>

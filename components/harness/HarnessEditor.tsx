@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { Card } from "@/components/common/Card";
+import { useApiKeys, PROVIDER_TO_VENDOR, type ApiKeyProvider } from "@/hooks/useApiKeys";
+import { authApi } from "@/lib/api/authApi";
+import { useAuthStore } from "@/store/authStore";
 import { useUiStore } from "@/store/uiStore";
 
 /* ── Agent file definitions ─────────────────────────────────── */
@@ -95,19 +99,17 @@ const AGENT_FILES: AgentFile[] = [
 
 /* ── BYOK provider definitions ──────────────────────────────── */
 interface ApiProvider {
-  id: string;
+  id: ApiKeyProvider;
   label: string;
   placeholder: string;
-  prefix: string;
 }
 
 const API_PROVIDERS: ApiProvider[] = [
-  { id: "anthropic", label: "Anthropic (Claude)", placeholder: "sk-ant-...", prefix: "sk-ant-" },
-  { id: "openai",    label: "OpenAI (GPT)",       placeholder: "sk-...",     prefix: "sk-" }
+  { id: "anthropic", label: "Anthropic (Claude)", placeholder: "sk-ant-..." },
+  { id: "openai",    label: "OpenAI (GPT)",       placeholder: "sk-..." }
 ];
 
 const STORAGE_KEY = "aig-harness-files-v1";
-const BYOK_STORAGE_KEY = "aig-byok-keys-v1";
 
 function loadFiles(): Record<string, string> {
   if (typeof window === "undefined") return {};
@@ -123,35 +125,18 @@ function saveFiles(files: Record<string, string>) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
 }
 
-function loadByokKeys(): Record<string, string> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = localStorage.getItem(BYOK_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveByokKeys(keys: Record<string, string>) {
-  localStorage.setItem(BYOK_STORAGE_KEY, JSON.stringify(keys));
-}
-
-function maskKey(key: string): string {
-  if (!key || key.length < 8) return key;
-  return key.slice(0, 6) + "••••••••" + key.slice(-4);
-}
-
 /* ── Component ───────────────────────────────────────────────── */
 export function HarnessEditor() {
   const addToast = useUiStore((state) => state.addToast);
+  const user = useAuthStore((s) => s.user);
+  const queryClient = useQueryClient();
+  const { keysByProvider } = useApiKeys();
   const [activeId, setActiveId] = useState<string>(AGENT_FILES[0].id);
   const [contents, setContents] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState<Set<string>>(new Set());
-  const [byokKeys, setByokKeys] = useState<Record<string, string>>({});
-  const [byokVisible, setByokVisible] = useState<Record<string, boolean>>({});
-  const [byokEditing, setByokEditing] = useState<Record<string, string>>({});
-  const [byokEditMode, setByokEditMode] = useState<Record<string, boolean>>({});
+  const [byokEditing, setByokEditing] = useState<Partial<Record<ApiKeyProvider, string>>>({});
+  const [byokEditMode, setByokEditMode] = useState<Partial<Record<ApiKeyProvider, boolean>>>({});
+  const [byokSubmitting, setByokSubmitting] = useState<ApiKeyProvider | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -161,9 +146,6 @@ export function HarnessEditor() {
       initial[f.id] = saved[f.id] ?? f.defaultContent;
     }
     setContents(initial);
-
-    const keys = loadByokKeys();
-    setByokKeys(keys);
   }, []);
 
   const activeFile = AGENT_FILES.find((f) => f.id === activeId)!;
@@ -196,27 +178,49 @@ export function HarnessEditor() {
     setDirty((prev) => new Set(prev).add(id));
   };
 
-  /* BYOK handlers */
-  const handleByokSave = (providerId: string) => {
-    const value = byokEditing[providerId] ?? "";
-    const next = { ...byokKeys, [providerId]: value };
-    setByokKeys(next);
-    saveByokKeys(next);
-    setByokEditMode((prev) => ({ ...prev, [providerId]: false }));
-    addToast("API 키가 저장되었습니다.", "success");
+  /* BYOK handlers — 백엔드 /api/v1/api-keys 연동 */
+  const handleByokSave = async (providerId: ApiKeyProvider) => {
+    const value = (byokEditing[providerId] ?? "").trim();
+    if (!value) {
+      addToast("키를 입력해 주세요.", "warning");
+      return;
+    }
+    setByokSubmitting(providerId);
+    try {
+      await authApi.createApiKey({
+        vendor: PROVIDER_TO_VENDOR[providerId],
+        apiKey: value
+      });
+      await queryClient.invalidateQueries({ queryKey: ["apiKeys", user?.id] });
+      setByokEditMode((prev) => ({ ...prev, [providerId]: false }));
+      setByokEditing((prev) => ({ ...prev, [providerId]: "" }));
+      addToast("API 키가 저장되었습니다.", "success");
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : "API 키 저장에 실패했습니다.", "error");
+    } finally {
+      setByokSubmitting(null);
+    }
   };
 
-  const handleByokDelete = (providerId: string) => {
-    const next = { ...byokKeys };
-    delete next[providerId];
-    setByokKeys(next);
-    saveByokKeys(next);
-    setByokEditMode((prev) => ({ ...prev, [providerId]: false }));
-    addToast("API 키가 삭제되었습니다.", "success");
+  const handleByokDelete = async (providerId: ApiKeyProvider) => {
+    const item = keysByProvider[providerId];
+    if (!item) return;
+    if (!window.confirm(`${providerId === "anthropic" ? "Anthropic" : "OpenAI"} 키를 삭제할까요?`)) return;
+    setByokSubmitting(providerId);
+    try {
+      await authApi.deleteApiKey(item.apiKeyId);
+      await queryClient.invalidateQueries({ queryKey: ["apiKeys", user?.id] });
+      setByokEditMode((prev) => ({ ...prev, [providerId]: false }));
+      addToast("API 키가 삭제되었습니다.", "success");
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : "API 키 삭제에 실패했습니다.", "error");
+    } finally {
+      setByokSubmitting(null);
+    }
   };
 
-  const handleByokEdit = (providerId: string) => {
-    setByokEditing((prev) => ({ ...prev, [providerId]: byokKeys[providerId] ?? "" }));
+  const handleByokEdit = (providerId: ApiKeyProvider) => {
+    setByokEditing((prev) => ({ ...prev, [providerId]: "" }));
     setByokEditMode((prev) => ({ ...prev, [providerId]: true }));
   };
 
@@ -304,15 +308,16 @@ export function HarnessEditor() {
               <span className="eyebrow">BYOK</span>
               <h2 className="harness-byok-title">API 키 설정</h2>
               <p className="muted-copy harness-byok-desc">
-                에이전트가 사용할 LLM 제공사 키를 등록합니다. 브라우저 로컬에만 저장됩니다.
+                에이전트가 사용할 LLM 제공사 키를 등록합니다. AES-256-GCM 으로 암호화 저장되며, 등록 후 평문은 다시 표시되지 않습니다.
               </p>
             </div>
 
             <div className="harness-byok-list">
               {API_PROVIDERS.map((provider) => {
-                const hasKey = !!byokKeys[provider.id];
-                const isEditing = byokEditMode[provider.id];
-                const isVisible = byokVisible[provider.id];
+                const item = keysByProvider[provider.id];
+                const hasKey = !!item;
+                const isEditing = !!byokEditMode[provider.id];
+                const submitting = byokSubmitting === provider.id;
 
                 return (
                   <div key={provider.id} className="harness-byok-item">
@@ -326,45 +331,42 @@ export function HarnessEditor() {
                     {isEditing ? (
                       <div className="harness-byok-item__edit">
                         <input
-                          type={isVisible ? "text" : "password"}
+                          type="password"
                           className="input harness-byok-input"
                           placeholder={provider.placeholder}
                           value={byokEditing[provider.id] ?? ""}
                           onChange={(e) =>
                             setByokEditing((prev) => ({ ...prev, [provider.id]: e.target.value }))
                           }
+                          onKeyDown={(e) => e.key === "Enter" && void handleByokSave(provider.id)}
                           autoComplete="off"
+                          disabled={submitting}
                         />
                         <div className="harness-byok-item__edit-actions">
                           <button
                             className="button"
                             type="button"
-                            onClick={() =>
-                              setByokVisible((prev) => ({ ...prev, [provider.id]: !prev[provider.id] }))
-                            }
-                          >
-                            {isVisible ? "숨기기" : "보기"}
-                          </button>
-                          <button
-                            className="button"
-                            type="button"
                             onClick={() => setByokEditMode((prev) => ({ ...prev, [provider.id]: false }))}
+                            disabled={submitting}
                           >
                             취소
                           </button>
                           <button
                             className="button button--primary"
                             type="button"
-                            onClick={() => handleByokSave(provider.id)}
+                            onClick={() => void handleByokSave(provider.id)}
+                            disabled={submitting || !(byokEditing[provider.id] ?? "").trim()}
                           >
-                            저장
+                            {submitting ? "저장 중..." : "저장"}
                           </button>
                         </div>
                       </div>
                     ) : (
                       <div className="harness-byok-item__display">
                         <code className="harness-byok-value">
-                          {hasKey ? maskKey(byokKeys[provider.id]) : "—"}
+                          {hasKey
+                            ? new Date(item!.createdAt).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" }) + " 등록"
+                            : "—"}
                         </code>
                         <div className="harness-byok-item__display-actions">
                           <button
@@ -378,9 +380,10 @@ export function HarnessEditor() {
                             <button
                               className="button harness-byok-delete"
                               type="button"
-                              onClick={() => handleByokDelete(provider.id)}
+                              onClick={() => void handleByokDelete(provider.id)}
+                              disabled={submitting}
                             >
-                              삭제
+                              {submitting ? "..." : "삭제"}
                             </button>
                           )}
                         </div>
