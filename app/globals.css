@@ -3841,12 +3841,14 @@ html[data-theme="light"] .test-result-card__trace-body {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  min-width: 0;
 }
 
 .ai-context-chip {
   display: inline-flex;
   align-items: center;
   min-height: 28px;
+  max-width: 100%;
   padding: 0 10px;
   border-radius: 999px;
   border: 1px solid var(--ide-border);
@@ -3854,6 +3856,11 @@ html[data-theme="light"] .test-result-card__trace-body {
   color: var(--muted);
   font-size: 0.78rem;
   font-family: var(--font-mono);
+  /* 좁은 패널에서 긴 파일 경로 / 라인 정보가 chip 밖으로 밀고 나가 가로스크롤 만드는 문제 차단 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .chat-presets {
@@ -4278,14 +4285,20 @@ html[data-theme="light"] .chat-bubble__markdown code {
   display: flex;
   width: 100%;
   gap: 4px;
+  min-width: 0;
 }
 
 .ai-tabs--segmented .chip {
   flex: 1 1 0;
+  min-width: 0;
   justify-content: center;
   text-align: center;
   font-weight: 600;
   letter-spacing: 0.01em;
+  padding: 0 8px;       /* 좁은 패널에서 라벨 잘림 방지 (기본 16 → 8) */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ai-context-chip__icon 클래스는 unused (이모지 제거됨, 2026-05-12) */
@@ -4328,8 +4341,9 @@ html[data-theme="light"] .chat-bubble__markdown code {
   display: grid;
   gap: 12px;
   min-height: 0;
+  min-width: 0;       /* 좁은 패널 폭에서 자식 (긴 파일 경로 chip, monaco diff 등) 이 부모 너비 밀고 나가 가로스크롤 만들지 않게 */
   padding: 14px;
-  overflow: auto;
+  overflow: hidden;   /* auto → hidden : 가로 overflow 차단. 내부 컨테이너만 자체 스크롤 허용 */
 }
 
 .ai-panel--chat {
@@ -4339,7 +4353,8 @@ html[data-theme="light"] .chat-bubble__markdown code {
 
 .ai-panel--edit {
   align-content: start;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* ─── Diff ───────────────────────────────────────────────────── */
