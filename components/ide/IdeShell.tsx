@@ -3521,6 +3521,48 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     const nextLanguage = inferLanguageFromPath(nextPath);
 
     if (isBackendSessionId(sessionId)) {
+      // agent/* 경로는 SessionHarnessFile — 별도 endpoint (POST /sessions/{id}/harness).
+      // 그 외는 일반 SessionFile (POST /sessions/{id}/files).
+      const isHarnessPath = nextPath.startsWith("agent/");
+
+      if (isHarnessPath) {
+        // 백엔드 HarnessFileType enum: MARKDOWN / TOML / YAML 만 지원
+        const ext = rawName.toLowerCase().split(".").pop();
+        const fileTypeMap: Record<string, "MARKDOWN" | "TOML" | "YAML"> = {
+          md: "MARKDOWN",
+          markdown: "MARKDOWN",
+          toml: "TOML",
+          yaml: "YAML",
+          yml: "YAML"
+        };
+        const fileType = ext ? fileTypeMap[ext] : undefined;
+        if (!fileType) {
+          addToast("하네스 파일은 .md / .toml / .yaml 만 만들 수 있어요.", "warning");
+          return;
+        }
+
+        try {
+          // 백엔드는 agent/ prefix 없이 raw path 저장 — 매핑은 응답 재조회 시 frontend 가 다시 prefix 붙임
+          const backendPath = nextPath.slice("agent/".length);
+          await sessionApi.addHarnessFile(sessionId, {
+            path: backendPath,
+            name: rawName,
+            nodeType: "FILE",
+            fileType,
+            content: ""
+          });
+          await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
+          openTabInEditorGroup(nextPath);
+          setActivePath(nextPath);
+          setExplorerCreateDraft(null);
+          addToast(`하네스 파일 '${rawName}'을 생성했어요.`, "success");
+          return;
+        } catch (error) {
+          addToast(error instanceof Error ? error.message : "하네스 파일 생성에 실패했습니다.", "error");
+          return;
+        }
+      }
+
       try {
         const workspaceResult = await sessionApi.createFile(sessionId, {
           path: nextPath,
