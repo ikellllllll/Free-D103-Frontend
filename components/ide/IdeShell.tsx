@@ -4597,7 +4597,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     setChatInput("");
 
     try {
-      await send(question, activeFile?.path, chatModel, attachedCode);
+      // aiMode "edit" = Agent 패널 (DeepAgent SSE = streamAgentChat),
+      // aiMode "chat" = 일반 chat 패널 (streamChat).
+      const mode = aiMode === "edit" ? "agent" : "chat";
+      await send(question, activeFile?.path, chatModel, attachedCode, mode);
       refreshSession();
     } catch (error) {
       addToast(error instanceof Error ? error.message : "AI 요청에 실패했습니다.", "error");

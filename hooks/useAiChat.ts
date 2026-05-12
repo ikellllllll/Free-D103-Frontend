@@ -22,11 +22,33 @@ export function useAiChat(sessionId: string) {
     return data;
   }, [sessionId, setMessages]);
 
+  /** agent 이벤트 type 별 prefix — onEvent 에서 받은 frame 을 한 줄씩 메시지에 누적할 때 사용. */
+  const AGENT_EVENT_PREFIX: Record<string, string> = {
+    RUN_STARTED:           "🚀",
+    ASSISTANT_STATUS:      "💬",
+    REASONING_SUMMARY:     "🤔",
+    TOOL_CALL_STARTED:     "🔧",
+    TOOL_CALL_COMPLETED:   "✅",
+    TOOL_CALL_FAILED:      "❌",
+    LLM_CALL_STARTED:      "⚙️",
+    LLM_CALL_COMPLETED:    "⚙️",
+    VFS_FILE_READ:         "📖",
+    VFS_FILE_WRITTEN:      "📝",
+    VFS_FILE_PATCHED:      "✏️",
+    VFS_FILE_DELETED:      "🗑️",
+    PATCH_PROPOSED:        "🩹",
+    PATCH_APPLIED:         "✅",
+    HITL_REVIEW_REQUESTED: "⏸️",
+    RUN_COMPLETED:         "🎉",
+    RUN_FAILED:            "❌"
+  };
+
   const send = useCallback(async (
     question: string,
     currentFile?: string,
     modelName?: string | null,
-    attachedCode?: AiMessage["attachedCode"]
+    attachedCode?: AiMessage["attachedCode"],
+    mode: "chat" | "agent" = "chat"
   ) => {
     // UI 표시용 content (question 만), 백엔드 전송용 content (fenced code 포함)
     const backendContent = attachedCode
@@ -58,6 +80,66 @@ export function useAiChat(sessionId: string) {
       appendMessages([assistantBase]);
 
       let accumulated = "";
+
+      // === Agent 모드 — DeepAgent SSE (RUN_STARTED, TOOL_*, VFS_*, RUN_COMPLETED/FAILED 등). ===
+      if (mode === "agent") {
+        try {
+          await sessionApi.streamAgentChat(
+            sessionId,
+            { message: backendContent },
+            {
+              onEvent: (_eventName, data) => {
+                const type = typeof data?.type === "string" ? data.type : "";
+                const message = typeof data?.message === "string" ? data.message : "";
+                const payload = (data?.payload ?? {}) as Record<string, unknown>;
+                const prefix = AGENT_EVENT_PREFIX[type] ?? "·";
+
+                // RUN_FAILED 는 payload.error_message 가 더 정확.
+                const errorMessage =
+                  type === "RUN_FAILED" && typeof payload?.error_message === "string"
+                    ? `${message}\n\n> ${payload.error_message}`
+                    : message;
+
+                // tool / vfs 이벤트는 payload 안에 path/tool_name 같은 키 추가 노출.
+                const extras: string[] = [];
+                if (typeof payload?.tool_name === "string") extras.push(`\`${payload.tool_name}\``);
+                if (typeof payload?.path === "string") extras.push(`\`${payload.path}\``);
+                const tail = extras.length ? ` — ${extras.join(" ")}` : "";
+
+                const line = `${prefix} ${errorMessage}${tail}`.trim();
+                if (!line) return;
+
+                accumulated = accumulated ? `${accumulated}\n\n${line}` : line;
+                setMessages([
+                  ...baseMessages,
+                  { ...assistantBase, content: accumulated }
+                ]);
+              },
+              onError: (_code, msg) => {
+                accumulated = accumulated
+                  ? `${accumulated}\n\n❌ ${msg}`
+                  : `❌ ${msg}`;
+                setMessages([
+                  ...baseMessages,
+                  { ...assistantBase, content: accumulated }
+                ]);
+              }
+            }
+          );
+          setRequestCount((count) => count + 1);
+        } catch (error) {
+          const errMsg = error instanceof Error ? error.message : "Agent 실행에 실패했습니다.";
+          setMessages([
+            ...baseMessages,
+            { ...assistantBase, content: accumulated ? `${accumulated}\n\n❌ ${errMsg}` : `❌ ${errMsg}` }
+          ]);
+        } finally {
+          setStreaming(false);
+        }
+        return;
+      }
+
+      // === Chat 모드 (기본) — text-only LLM chunks. ===
       try {
         await sessionApi.streamChat(
           sessionId,
