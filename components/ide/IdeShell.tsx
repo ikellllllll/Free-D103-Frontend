@@ -5847,11 +5847,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
                         <div className="ai-context-strip">
                           <span className="ai-context-chip" title={activeFile.path}>
-                            <span className="ai-context-chip__icon" aria-hidden>📄</span>
                             {getFileName(activeFile.path)}
                           </span>
                           <span className="ai-context-chip">
-                            <span className="ai-context-chip__icon" aria-hidden>✏️</span>
                             {selectedRange ? selectionSummary : "선택 없음"}
                           </span>
                         </div>
@@ -5890,11 +5888,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                               void handleSend();
                             }
                           }}
-                          placeholder="현재 문제나 코드에 대해 질문하세요  (Ctrl/⌘+Enter 로 전송)"
+                          placeholder="현재 문제나 코드에 대해 질문하세요  (Ctrl+Enter 전송)"
                         />
                         <div className="chat-composer-actions">
                           <label className="model-selector" title="응답 모델 선택">
-                            <span className="model-selector__icon" aria-hidden>🤖</span>
                             <select
                               className="model-selector__select"
                               value={chatModel}
@@ -5940,11 +5937,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
                         <div className="ai-context-strip">
                           <span className="ai-context-chip" title={activeFile.path}>
-                            <span className="ai-context-chip__icon" aria-hidden>📂</span>
                             {getFolderPath(activeFile.path) || "workspace"}
                           </span>
                           <span className="ai-context-chip">
-                            <span className="ai-context-chip__icon" aria-hidden>✏️</span>
                             {selectionLabel}
                           </span>
                         </div>
