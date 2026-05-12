@@ -665,14 +665,6 @@ export default function MyPage() {
                     </div>
                   </div>
                   <SkillRadar skills={skills} />
-                  <div className="flex items-center justify-center gap-5 text-xs text-gray-500 dark:text-slate-400 mt-4">
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="w-3 h-0.5 bg-indigo-500" />내 평균
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="w-3 h-0.5 border-t border-dashed border-gray-400" />전체 평균
-                    </span>
-                  </div>
                 </div>
               </div>
             )}
@@ -1397,13 +1389,6 @@ function SkillRadar({
     })
     .join(" ");
 
-  const avgPoints = skills
-    .map((_, i) => {
-      const p = pointFor(i, ((55 + ((i * 7) % 18)) / 100) * MAX_RADIUS);
-      return `${p.x},${p.y}`;
-    })
-    .join(" ");
-
   return (
     <div className="flex justify-center">
       <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} className="overflow-visible">
@@ -1429,7 +1414,6 @@ function SkillRadar({
           return <line key={i} x1={CENTER} y1={CENTER} x2={end.x} y2={end.y} stroke="#E5E7EB" strokeWidth={1} />;
         })}
 
-        <polygon points={avgPoints} fill="none" stroke="#9CA3AF" strokeWidth={1.5} strokeDasharray="4 4" />
         <polygon points={myPoints} fill="url(#radarFill)" stroke="#4F46E5" strokeWidth={2} />
         {skills.map((s, i) => {
           const p = pointFor(i, (s.score / 100) * MAX_RADIUS);
