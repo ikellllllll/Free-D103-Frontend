@@ -597,7 +597,7 @@ export const mockApi = {
     db.reports.push({
       id: `report-${submission.id}`,
       submissionId: submission.id,
-      status: "GENERATING",
+      status: "PROCEEDING",
       generatedAt: null,
       overallScore: 0,
       testPassRate: 0,

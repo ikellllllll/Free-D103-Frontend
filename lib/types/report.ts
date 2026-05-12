@@ -82,7 +82,7 @@ export interface FeedbackReport {
   feedbackReportId?: string;
   problemSessionId?: string;
   agentTraceId?: string;
-  status: "GENERATING" | "COMPLETED";
+  status: "PROCEEDING" | "COMPLETED";
   generatedAt: string | null;
 
   /** 종합 점수 (overall_score). 5축 평균 또는 evaluator 자체 합산. */
