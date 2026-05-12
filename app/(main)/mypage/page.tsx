@@ -654,7 +654,10 @@ export default function MyPage() {
                         <BarChart2 size={16} className="text-indigo-500 dark:text-indigo-400" strokeWidth={2.2} />
                         역량 지표
                       </h3>
-                      <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">AI 평가 5축 — 집계 endpoint (GET /me/stats) 준비 중, 임시 mock 표시</p>
+                      <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+                        AI 평가 5축 — 최근 리포트 {userStats?.sampleCount ?? 0}개 평균
+                        {userStats?.sampleCount === 0 ? " · 첫 평가가 생성되면 점수가 표시됩니다" : ""}
+                      </p>
                     </div>
                     <div className="text-right">
                       <div className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400 dark:text-slate-500">AVG</div>

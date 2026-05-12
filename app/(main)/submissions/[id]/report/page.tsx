@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { use, useMemo } from "react";
@@ -10,45 +10,75 @@ import {
   Shield,
   Code2,
   Share2,
+  Layers,
+  RefreshCcw,
   Check,
   AlertTriangle,
   GitBranch,
+  Lightbulb,
+  FileText,
   type LucideIcon
 } from "lucide-react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { feedbackApi } from "@/lib/api/feedbackApi";
 import { useAuthStore } from "@/store/authStore";
-import type { ScoreItem } from "@/lib/types/report";
+import type {
+  ActionGuideItem,
+  DimensionScoreItem,
+  FeedbackReport,
+  FindingItem
+} from "@/lib/types/report";
 
-/** Metric card visual config — maps report.scores[i] by index */
-const METRIC_CONFIG: {
-  key: "harness" | "execution" | "trace";
+/** 5축 시각 설정 — code 기반 매핑. */
+type AxisVisual = {
   icon: LucideIcon;
-  /** Solid background for the icon chip */
   iconBg: string;
-  /** Progress bar fill */
   barFill: string;
-}[] = [
-  {
-    key: "harness",
+};
+const AXIS_VISUAL: Record<string, AxisVisual> = {
+  HARNESS_GOAL_CLARITY: {
     icon: Shield,
     iconBg: "linear-gradient(135deg, #4F46E5, #6366F1)",
     barFill: "linear-gradient(90deg, #4F46E5, #6366F1)"
   },
-  {
-    key: "execution",
+  HARNESS_WORKFLOW_DESIGN: {
     icon: Code2,
     iconBg: "linear-gradient(135deg, #0D9488, #14B8A6)",
     barFill: "linear-gradient(90deg, #0D9488, #14B8A6)"
   },
-  {
-    key: "trace",
+  HARNESS_CONTEXT_QUALITY: {
     icon: Share2,
     iconBg: "linear-gradient(135deg, #7C3AED, #A855F7)",
     barFill: "linear-gradient(90deg, #7C3AED, #A855F7)"
+  },
+  HARNESS_SKILL_MODULARITY: {
+    icon: Layers,
+    iconBg: "linear-gradient(135deg, #DB2777, #EC4899)",
+    barFill: "linear-gradient(90deg, #DB2777, #EC4899)"
+  },
+  HARNESS_VERIFICATION_LOOP: {
+    icon: RefreshCcw,
+    iconBg: "linear-gradient(135deg, #F59E0B, #F97316)",
+    barFill: "linear-gradient(90deg, #F59E0B, #F97316)"
   }
-];
+};
+const FALLBACK_VISUAL: AxisVisual = AXIS_VISUAL.HARNESS_GOAL_CLARITY;
+
+/** severity → tone + label */
+const severityMeta = (severity: number) => {
+  if (severity >= 3) return { tone: "amber", label: "치명" } as const;
+  if (severity >= 2) return { tone: "rose", label: "중요" } as const;
+  if (severity >= 1) return { tone: "indigo", label: "보통" } as const;
+  return { tone: "gray", label: "참고" } as const;
+};
+
+const toneClass = {
+  amber: "bg-amber-100 text-amber-700",
+  rose: "bg-rose-100 text-rose-700",
+  indigo: "bg-indigo-100 text-indigo-700",
+  gray: "bg-gray-100 text-gray-600"
+} as const;
 
 export default function FeedbackReportPage({
   params
@@ -65,15 +95,7 @@ export default function FeedbackReportPage({
     refetchInterval: (q) => (q.state.data?.status === "COMPLETED" ? false : 1500)
   });
 
-  const problemTitle = useMemo(() => {
-    return report?.problemTitle ?? "풀이 과제";
-  }, [report?.problemTitle]);
-
-  const overallScore = useMemo(() => {
-    if (!report?.scores?.length) return null;
-    const sum = report.scores.reduce((acc, s) => acc + s.score, 0);
-    return Math.round(sum / report.scores.length);
-  }, [report]);
+  const problemTitle = useMemo(() => report?.problemTitle ?? "풀이 과제", [report?.problemTitle]);
 
   if (isError) {
     return (
@@ -114,6 +136,10 @@ export default function FeedbackReportPage({
 
   const shortId = submissionId.replace(/^submission-/, "").slice(0, 6);
   const firstName = user?.name?.split(/\s/)[0] ?? "개발자";
+  const strengthFindings = report.findings.filter((f) => f.category === "STRENGTH");
+  const improvementFindings = report.findings
+    .filter((f) => f.category !== "STRENGTH")
+    .sort((a, b) => b.severity - a.severity);
 
   return (
     <div className="relative bg-gradient-to-b from-indigo-50/20 via-white to-white min-h-screen overflow-hidden">
@@ -146,47 +172,79 @@ export default function FeedbackReportPage({
               </p>
             </div>
 
-            {/* Right — score */}
+            {/* Right — score + grade + diagnosis */}
             <div className="shrink-0 md:text-right">
               <div className="flex items-end justify-start md:justify-end gap-1.5">
                 <span className="text-6xl md:text-7xl font-display font-bold leading-none tracking-tight">
-                  {overallScore ?? "—"}
+                  {report.overallScore}
                 </span>
                 <span className="text-2xl md:text-3xl font-display font-semibold text-white/70 mb-1.5">
                   / 100
                 </span>
               </div>
-              <p className="text-sm text-white/80 font-semibold mt-2 tracking-wide">
+              <div className="mt-2 flex items-center justify-start md:justify-end gap-2">
+                {report.scoreGrade ? (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-white/20 text-white text-xs font-bold tracking-wide">
+                    {report.scoreGrade}
+                  </span>
+                ) : null}
+                {report.diagnosisLevel ? (
+                  <span className="text-white/85 text-sm font-medium">
+                    {report.diagnosisLevel}
+                  </span>
+                ) : null}
+              </div>
+              <p className="text-sm text-white/80 font-semibold mt-1 tracking-wide">
                 Overall AIG Score
               </p>
             </div>
           </div>
         </section>
 
-        {/* ── THREE METRICS ── */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {report.scores.slice(0, 3).map((score, i) => (
-            <MetricCard
-              key={score.label}
-              score={score}
-              config={METRIC_CONFIG[i] ?? METRIC_CONFIG[0]}
+        {/* ── 5축 METRICS — 모바일 1열 / md 2열 / xl 5열 ── */}
+        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
+          {report.dimensions.map((dimension, i) => (
+            <DimensionCard
+              key={dimension.code}
+              dimension={dimension}
+              visual={AXIS_VISUAL[dimension.code] ?? FALLBACK_VISUAL}
               delay={i * 50}
             />
           ))}
         </section>
 
-        {/* ── STRENGTHS + IMPROVEMENTS ── */}
+        {/* ── ACTION GUIDES (priority) ── */}
+        {report.actionGuides.length > 0 ? (
+          <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-7 animate-slide-up">
+            <div className="flex items-center gap-2.5 mb-5">
+              <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600">
+                <Lightbulb size={15} strokeWidth={2.2} />
+              </span>
+              <h2 className="font-display font-bold text-gray-900 text-[17px]">
+                다음 액션 가이드
+              </h2>
+              <span className="text-xs text-gray-500">priority 순</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {report.actionGuides.map((g) => (
+                <ActionGuideCard key={`${g.priority}-${g.title}`} guide={g} />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {/* ── STRENGTHS + IMPROVEMENTS (findings 우선, fallback legacy) ── */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FeedbackCard
-            title="강점"
-            tone="good"
-            items={report.strengths}
-          />
-          <FeedbackCard
-            title="개선 포인트"
-            tone="warn"
-            items={report.improvements}
-          />
+          {strengthFindings.length > 0 ? (
+            <FindingsCard title="강점" tone="good" findings={strengthFindings} />
+          ) : (
+            <LegacyFeedbackCard title="강점" tone="good" items={report.strengths} />
+          )}
+          {improvementFindings.length > 0 ? (
+            <FindingsCard title="개선 포인트" tone="warn" findings={improvementFindings} />
+          ) : (
+            <LegacyFeedbackCard title="개선 포인트" tone="warn" items={report.improvements} />
+          )}
         </section>
 
         {/* ── SUMMARY (one-liner) ── */}
@@ -205,6 +263,9 @@ export default function FeedbackReportPage({
             </div>
           </section>
         )}
+
+        {/* ── EVALUATION BASIS — 평가 근거 ── */}
+        {report.basis ? <BasisSection report={report} /> : null}
 
         {/* ── TRACE TIMELINE CTA ── */}
         <section
@@ -254,76 +315,143 @@ export default function FeedbackReportPage({
   );
 }
 
-/* ─── MetricCard ─── */
+/* ─── DimensionCard — 5축 한 칸 ─── */
 
-function MetricCard({
-  score,
-  config,
+function DimensionCard({
+  dimension,
+  visual,
   delay
 }: {
-  score: ScoreItem;
-  config: (typeof METRIC_CONFIG)[number];
+  dimension: DimensionScoreItem;
+  visual: AxisVisual;
   delay: number;
 }) {
-  const Icon = config.icon;
+  const Icon = visual.icon;
+  const hasDetail =
+    !!dimension.strengthSummary ||
+    !!dimension.improvementSummary ||
+    (dimension.recommendedActions?.length ?? 0) > 0;
+
   return (
     <div
-      className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 animate-slide-up"
+      className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 animate-slide-up flex flex-col"
       style={{ animationDelay: `${delay}ms`, animationFillMode: "both" }}
     >
-      {/* Top row: icon + label */}
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-2.5 mb-3">
         <span
-          className="inline-flex items-center justify-center w-11 h-11 rounded-xl text-white shadow-sm"
-          style={{ backgroundImage: config.iconBg }}
+          className="inline-flex items-center justify-center w-9 h-9 rounded-xl text-white shadow-sm shrink-0"
+          style={{ backgroundImage: visual.iconBg }}
         >
-          <Icon size={18} strokeWidth={2.2} />
+          <Icon size={15} strokeWidth={2.2} />
         </span>
-        <span className="text-xs font-bold uppercase tracking-[0.14em] text-gray-500">
-          {score.label}
+        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-gray-500 leading-tight">
+          {dimension.label}
         </span>
       </div>
 
-      {/* Score */}
-      <div className="flex items-baseline gap-1.5 mb-4">
-        <span className="text-5xl font-display font-bold text-gray-900 leading-none tracking-tight tabular-nums">
-          {score.score}
+      <div className="flex items-baseline gap-1 mb-3">
+        <span className="text-4xl font-display font-bold text-gray-900 leading-none tracking-tight tabular-nums">
+          {dimension.score}
         </span>
-        <span className="text-xl font-display font-semibold text-gray-400">/ 100</span>
+        <span className="text-base font-display font-semibold text-gray-400">/ 100</span>
       </div>
 
-      {/* Progress bar */}
-      <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-3">
+      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-3">
         <div
           className="h-full rounded-full transition-all"
           style={{
-            width: `${Math.min(100, Math.max(0, score.score))}%`,
-            backgroundImage: config.barFill
+            width: `${Math.min(100, Math.max(0, dimension.score))}%`,
+            backgroundImage: visual.barFill
           }}
         />
       </div>
 
-      {/* Insight */}
-      <p className="text-sm text-gray-600 leading-relaxed">{score.note}</p>
+      {dimension.rationale ? (
+        <p className="text-[12.5px] text-gray-600 leading-relaxed">{dimension.rationale}</p>
+      ) : null}
+
+      {hasDetail ? (
+        <details className="mt-3 group">
+          <summary className="cursor-pointer text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 transition-colors select-none list-none flex items-center gap-1">
+            <span className="group-open:hidden">자세히 보기 ▾</span>
+            <span className="hidden group-open:inline">접기 ▴</span>
+          </summary>
+          <div className="mt-2.5 space-y-2.5 text-[12.5px] leading-relaxed">
+            {dimension.strengthSummary ? (
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-600 mb-0.5">
+                  강점
+                </div>
+                <p className="text-gray-700">{dimension.strengthSummary}</p>
+              </div>
+            ) : null}
+            {dimension.improvementSummary ? (
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-amber-600 mb-0.5">
+                  개선
+                </div>
+                <p className="text-gray-700">{dimension.improvementSummary}</p>
+              </div>
+            ) : null}
+            {dimension.recommendedActions && dimension.recommendedActions.length > 0 ? (
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500 mb-1">
+                  추천 행동
+                </div>
+                <ul className="space-y-1">
+                  {dimension.recommendedActions.map((a) => (
+                    <li key={a} className="flex items-start gap-1.5 text-gray-700">
+                      <span className="text-indigo-500 mt-0.5">·</span>
+                      <span>{a}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        </details>
+      ) : null}
     </div>
   );
 }
 
-/* ─── FeedbackCard (Strengths / Improvements) ─── */
+/* ─── ActionGuideCard ─── */
 
-function FeedbackCard({
+function ActionGuideCard({ guide }: { guide: ActionGuideItem }) {
+  return (
+    <div className="relative pl-14 pr-4 py-4 rounded-xl border border-gray-100 bg-gradient-to-br from-indigo-50/40 to-white">
+      <span className="absolute left-4 top-4 inline-flex items-center justify-center w-7 h-7 rounded-full text-white font-bold text-xs"
+        style={{ backgroundImage: "linear-gradient(135deg, #6366F1, #8B5CF6)" }}
+      >
+        {guide.priority}
+      </span>
+      <div className="font-display font-bold text-gray-900 text-[15px] mb-1">{guide.title}</div>
+      {guide.description ? (
+        <p className="text-sm text-gray-600 leading-relaxed">{guide.description}</p>
+      ) : null}
+      {guide.expectedImpact ? (
+        <div className="mt-2 inline-block px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[11px] font-semibold">
+          기대 효과 · {guide.expectedImpact}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/* ─── FindingsCard — severity 보존된 풍부한 강점/개선 카드 ─── */
+
+function FindingsCard({
   title,
   tone,
-  items
+  findings
 }: {
   title: string;
   tone: "good" | "warn";
-  items: string[];
+  findings: FindingItem[];
 }) {
   const isGood = tone === "good";
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-7 animate-slide-up">
-      {/* Header */}
       <div className="flex items-center gap-2.5 mb-5">
         {isGood ? (
           <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white shadow-sm">
@@ -337,7 +465,67 @@ function FeedbackCard({
         <h2 className="font-display font-bold text-gray-900 text-[17px]">{title}</h2>
       </div>
 
-      {/* Items */}
+      <ul className="space-y-4">
+        {findings.map((f) => {
+          const sev = severityMeta(f.severity);
+          return (
+            <li key={f.id} className="border-l-2 pl-3.5"
+              style={{ borderColor: isGood ? "#10B981" : "#F59E0B" }}
+            >
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <div className="font-semibold text-gray-900 text-[14px] leading-snug">
+                  {f.title}
+                </div>
+                {!isGood ? (
+                  <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${toneClass[sev.tone]}`}>
+                    {sev.label}
+                  </span>
+                ) : null}
+              </div>
+              {f.description ? (
+                <p className="text-[13px] text-gray-600 leading-relaxed">{f.description}</p>
+              ) : null}
+              {f.recommendation ? (
+                <p className="mt-1.5 text-[12.5px] text-gray-700 leading-relaxed flex items-start gap-1.5">
+                  <Lightbulb size={12} className="mt-0.5 shrink-0 text-amber-500" />
+                  <span>{f.recommendation}</span>
+                </p>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+/* ─── LegacyFeedbackCard — findings 가 없는 경우 폴백 (strengths/improvements string[]) ─── */
+
+function LegacyFeedbackCard({
+  title,
+  tone,
+  items
+}: {
+  title: string;
+  tone: "good" | "warn";
+  items: string[];
+}) {
+  const isGood = tone === "good";
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-7 animate-slide-up">
+      <div className="flex items-center gap-2.5 mb-5">
+        {isGood ? (
+          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white shadow-sm">
+            <Check size={14} strokeWidth={3} />
+          </span>
+        ) : (
+          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500 text-white shadow-sm">
+            <AlertTriangle size={13} strokeWidth={2.4} />
+          </span>
+        )}
+        <h2 className="font-display font-bold text-gray-900 text-[17px]">{title}</h2>
+      </div>
+
       <ul className="space-y-3.5">
         {items.map((item, i) => {
           const { head, tail } = splitHead(item);
@@ -357,19 +545,119 @@ function FeedbackCard({
                 )}
               </span>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-bold text-gray-900 leading-snug">
-                  {head}
-                </div>
+                <div className="text-sm font-bold text-gray-900 leading-snug">{head}</div>
                 {tail && (
-                  <div className="text-sm text-gray-500 leading-relaxed mt-0.5">
-                    {tail}
-                  </div>
+                  <div className="text-sm text-gray-500 leading-relaxed mt-0.5">{tail}</div>
                 )}
               </div>
             </li>
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+/* ─── BasisSection — 평가에 사용된 자료 요약 ─── */
+
+function BasisSection({ report }: { report: FeedbackReport }) {
+  const basis = report.basis;
+  if (!basis) return null;
+  const trace = basis.usedRunTrace;
+  const reviews = basis.usedFileChangeReviews;
+  const exec = basis.usedExecutionResults?.at(-1);
+  const harnessFiles = basis.usedHarnessFiles ?? [];
+
+  return (
+    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-7 animate-slide-up">
+      <div className="flex items-center gap-2.5 mb-5">
+        <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 text-gray-600">
+          <FileText size={14} strokeWidth={2.2} />
+        </span>
+        <h2 className="font-display font-bold text-gray-900 text-[17px]">평가 근거</h2>
+        <span className="text-xs text-gray-500">이 리포트가 본 자료들</span>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+        {trace ? (
+          <BasisStat
+            label="Trace"
+            items={[
+              { k: "Span", v: trace.spanCount ?? 0 },
+              { k: "Tool", v: trace.toolCallCount ?? 0 },
+              { k: "LLM", v: trace.llmCallCount ?? 0 },
+              { k: "Patch", v: trace.patchCount ?? 0 }
+            ]}
+          />
+        ) : null}
+        {exec ? (
+          <BasisStat
+            label="실행 결과"
+            items={[
+              { k: "통과", v: exec.passedTestCount ?? 0 },
+              { k: "총", v: exec.totalTestCount ?? 0 },
+              { k: "빌드", v: exec.buildSucceeded === false ? "실패" : "성공" }
+            ]}
+          />
+        ) : null}
+        {reviews ? (
+          <BasisStat
+            label="파일 변경 검토"
+            items={[
+              { k: "요청", v: reviews.changeRequestCount ?? 0 },
+              { k: "승인", v: reviews.approvedCount ?? 0 },
+              { k: "거절", v: reviews.rejectedCount ?? 0 },
+              { k: "적용", v: reviews.appliedCount ?? 0 }
+            ]}
+          />
+        ) : null}
+      </div>
+
+      {harnessFiles.length > 0 ? (
+        <div>
+          <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-500 mb-2">
+            사용된 하네스 파일
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {harnessFiles.map((p) => (
+              <span
+                key={p}
+                className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-50 border border-gray-200 font-mono text-[11.5px] text-gray-700"
+              >
+                {p}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function BasisStat({
+  label,
+  items
+}: {
+  label: string;
+  items: { k: string; v: number | string }[];
+}) {
+  return (
+    <div className="rounded-xl bg-gray-50/60 border border-gray-100 p-4">
+      <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-500 mb-2.5">
+        {label}
+      </div>
+      <div className="grid" style={{ gridTemplateColumns: `repeat(${items.length}, 1fr)` }}>
+        {items.map((it) => (
+          <div key={it.k} className="text-center">
+            <div className="text-[10px] uppercase tracking-[0.1em] text-gray-400 mb-0.5">
+              {it.k}
+            </div>
+            <div className="font-display font-bold text-gray-900 text-lg tabular-nums leading-none">
+              {it.v}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -385,13 +673,11 @@ function splitHead(s: string): { head: string; tail: string } {
   const emdashMatch = s.match(/^(.+?)\s*[—–-]\s*(.+)$/);
   if (emdashMatch) return { head: emdashMatch[1].trim(), tail: emdashMatch[2].trim() };
 
-  // Split on first comma (limited to ~24 chars for a clean head)
   const commaIdx = s.indexOf(",");
   if (commaIdx > 0 && commaIdx <= 26) {
     return { head: s.slice(0, commaIdx).trim(), tail: s.slice(commaIdx + 1).trim() };
   }
 
-  // Split on first sentence ending ". " or "다. "
   const endingMatch = s.match(/^(.{6,40}?[다요])\.\s*(.+)$/);
   if (endingMatch) return { head: endingMatch[1].trim(), tail: endingMatch[2].trim() };
 
