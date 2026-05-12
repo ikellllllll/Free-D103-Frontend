@@ -3007,6 +3007,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     setSelection("", null);
     setSuggestion(null);
     setAiMode("chat");
+
+    // diff 좌(원본) / 우(worktree) 모두 lazy content fetch — 백엔드 /files API 는
+    // 트리 메타만 주고 content 는 GET /files/{fileId} / /worktrees/{id} 별도라서,
+    // 이 보장 없이 diff 탭을 열면 한쪽이 빈 파일로 보임.
+    const sourcePath = getWorktreeSourcePath(targetPath);
+    void ensureBackendFileContent(sourcePath);
+    void ensureBackendFileContent(targetPath);
   };
 
   const splitActiveEditorGroup = useCallback((sourceGroupId = activeEditorGroupId, sourceTabId = activeTabId) => {
