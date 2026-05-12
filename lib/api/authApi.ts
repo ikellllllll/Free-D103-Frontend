@@ -102,6 +102,19 @@ export interface WithdrawRequest {
   password?: string;  // LOCAL provider 만 필요
 }
 
+/** API 키 저장 요청 (POST /api/v1/api-keys) */
+export interface CreateApiKeyRequest {
+  vendor: "OPENAI" | "CLAUDE";
+  apiKey: string;
+}
+
+/** API 키 저장 응답 */
+export interface CreateApiKeyResponse {
+  apiKeyId: number;
+  vendor: "OPENAI" | "CLAUDE";
+  createdAt: string;
+}
+
 interface JwtPayload {
   sub?: string;
   email?: string;
@@ -280,6 +293,18 @@ export const authApi = {
    */
   async withdraw(request: WithdrawRequest = {}): Promise<void> {
     await authClient.delete("api/v1/users", { json: request });
+  },
+
+  /** API 키 저장 — POST /api/v1/api-keys */
+  async saveApiKey(request: CreateApiKeyRequest): Promise<CreateApiKeyResponse> {
+    const res = await authClient.post("api/v1/api-keys", { json: request })
+      .json<ApiResponse<CreateApiKeyResponse>>();
+    return res.data;
+  },
+
+  /** API 키 삭제 — DELETE /api/v1/api-keys/{apiKeyId} */
+  async deleteApiKey(apiKeyId: number): Promise<void> {
+    await authClient.delete(`api/v1/api-keys/${apiKeyId}`);
   },
 
   async githubOAuthLogin(code: string): Promise<OAuthLoginResponse> {

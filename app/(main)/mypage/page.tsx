@@ -44,6 +44,7 @@ const BYOK_PROVIDERS: {
 ];
 
 const BYOK_STORAGE_KEY = "aig-byok-keys-v1";
+const BYOK_KEY_IDS_STORAGE_KEY = "aig-byok-key-ids-v1";
 const PREF_STORAGE_KEY = "aig-user-preferences-v1";
 
 interface UserPreferences {
@@ -63,6 +64,23 @@ function loadByokKeys(): Partial<Record<ProviderId, string>> {
 function saveByokKeys(keys: Partial<Record<ProviderId, string>>) {
   localStorage.setItem(BYOK_STORAGE_KEY, JSON.stringify(keys));
 }
+function loadByokKeyIds(): Partial<Record<ProviderId, number>> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(BYOK_KEY_IDS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+function saveByokKeyIds(ids: Partial<Record<ProviderId, number>>) {
+  localStorage.setItem(BYOK_KEY_IDS_STORAGE_KEY, JSON.stringify(ids));
+}
+
+const VENDOR_MAP: Record<ProviderId, "OPENAI" | "CLAUDE"> = {
+  anthropic: "CLAUDE",
+  openai: "OPENAI"
+};
 function maskKey(k: string): string {
   if (!k) return "";
   if (k.length <= 10) return `${k.slice(0, 4)}•••${k.slice(-2)}`;
@@ -234,11 +252,15 @@ export default function MyPage() {
   const [prefsHydrated, setPrefsHydrated] = useState(false);
 
   const [byokKeys, setByokKeys] = useState<Partial<Record<ProviderId, string>>>({});
+  const [byokKeyIds, setByokKeyIds] = useState<Partial<Record<ProviderId, number>>>({});
   const [editingProvider, setEditingProvider] = useState<ProviderId | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [savingKey, setSavingKey] = useState(false);
+  const [removingKey, setRemovingKey] = useState<ProviderId | null>(null);
 
   useEffect(() => {
     setByokKeys(loadByokKeys());
+    setByokKeyIds(loadByokKeyIds());
     try {
       const raw = localStorage.getItem(PREF_STORAGE_KEY);
       if (raw) {
@@ -267,21 +289,49 @@ export default function MyPage() {
     setEditingProvider(id);
     setEditValue(byokKeys[id] ?? "");
   };
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editingProvider) return;
-    const next = { ...byokKeys, [editingProvider]: editValue.trim() };
-    setByokKeys(next);
-    saveByokKeys(next);
-    addToast(`${editingProvider} 키가 저장되었습니다.`, "success");
-    setEditingProvider(null);
-    setEditValue("");
+    const trimmed = editValue.trim();
+    if (!trimmed) return;
+    setSavingKey(true);
+    try {
+      const res = await authApi.saveApiKey({ vendor: VENDOR_MAP[editingProvider], apiKey: trimmed });
+      const nextKeys = { ...byokKeys, [editingProvider]: trimmed };
+      const nextIds = { ...byokKeyIds, [editingProvider]: res.apiKeyId };
+      setByokKeys(nextKeys);
+      setByokKeyIds(nextIds);
+      saveByokKeys(nextKeys);
+      saveByokKeyIds(nextIds);
+      addToast("API 키가 저장되었습니다.", "success");
+      setEditingProvider(null);
+      setEditValue("");
+    } catch {
+      addToast("API 키 저장에 실패했습니다.", "error");
+    } finally {
+      setSavingKey(false);
+    }
   };
-  const removeKey = (id: ProviderId) => {
-    const next = { ...byokKeys };
-    delete next[id];
-    setByokKeys(next);
-    saveByokKeys(next);
-    addToast(`${id} 키가 삭제되었습니다.`, "success");
+  const removeKey = async (id: ProviderId) => {
+    const apiKeyId = byokKeyIds[id];
+    setRemovingKey(id);
+    try {
+      if (apiKeyId != null) {
+        await authApi.deleteApiKey(apiKeyId);
+      }
+      const nextKeys = { ...byokKeys };
+      const nextIds = { ...byokKeyIds };
+      delete nextKeys[id];
+      delete nextIds[id];
+      setByokKeys(nextKeys);
+      setByokKeyIds(nextIds);
+      saveByokKeys(nextKeys);
+      saveByokKeyIds(nextIds);
+      addToast("API 키가 삭제되었습니다.", "success");
+    } catch {
+      addToast("API 키 삭제에 실패했습니다.", "error");
+    } finally {
+      setRemovingKey(null);
+    }
   };
 
   const startEditNickname = () => {
@@ -644,12 +694,14 @@ export default function MyPage() {
                               </button>
                               <button
                                 type="button"
-                                disabled={!connected}
-                                onClick={() => removeKey(p.id)}
+                                disabled={!connected || removingKey === p.id}
+                                onClick={() => void removeKey(p.id)}
                                 className="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-40 disabled:pointer-events-none"
                                 aria-label="삭제"
                               >
-                                <Trash2 size={14} />
+                                {removingKey === p.id
+                                  ? <span className="text-[10px] font-bold">…</span>
+                                  : <Trash2 size={14} />}
                               </button>
                             </div>
                           </div>
@@ -667,10 +719,11 @@ export default function MyPage() {
                               <div className="flex items-center gap-2 mt-2">
                                 <button
                                   type="button"
-                                  onClick={saveEdit}
-                                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors"
+                                  onClick={() => void saveEdit()}
+                                  disabled={savingKey || !editValue.trim()}
+                                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors disabled:opacity-50 disabled:pointer-events-none"
                                 >
-                                  저장
+                                  {savingKey ? "저장 중…" : "저장"}
                                 </button>
                                 <button
                                   type="button"
