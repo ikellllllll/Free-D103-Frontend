@@ -5877,45 +5877,86 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                     </button>
                   </div>
 
-                  {aiMode === "chat" ? (
-                    <div className="ai-panel ai-panel--chat">
-                      <div className="ai-panel__head">
-                        <div className="ai-tabs ai-tabs--segmented">
-                          <button
-                            type="button"
-                            className="chip chip--active"
-                            onClick={() => {
-                              setAiMode("chat");
-                              setSuggestion(null);
-                            }}
-                          >
-                            Chat
-                          </button>
-                          <button
-                            type="button"
-                            className="chip"
-                            onClick={() => setAiMode("edit")}
-                          >
-                            Agent
-                          </button>
-                        </div>
-
-                        <div className="ai-context-strip">
-                          <span className="ai-context-chip" title={activeFile.path}>
-                            {getFileName(activeFile.path)}
-                          </span>
-                          <span className="ai-context-chip">
-                            {selectedRange ? selectionSummary : "선택 없음"}
-                          </span>
-                        </div>
+                  <div className="ai-panel ai-panel--chat">
+                    <div className="ai-panel__head">
+                      <div className="ai-tabs ai-tabs--segmented">
+                        <button
+                          type="button"
+                          className={aiMode === "chat" ? "chip chip--active" : "chip"}
+                          onClick={() => {
+                            setAiMode("chat");
+                            setSuggestion(null);
+                          }}
+                        >
+                          Chat
+                        </button>
+                        <button
+                          type="button"
+                          className={aiMode === "edit" ? "chip chip--active" : "chip"}
+                          onClick={() => setAiMode("edit")}
+                        >
+                          Agent
+                        </button>
                       </div>
+
+                      <div className="ai-context-strip">
+                        <span className="ai-context-chip" title={activeFile.path}>
+                          {getFileName(activeFile.path)}
+                        </span>
+                        <span className="ai-context-chip">
+                          {selectedRange ? selectionSummary : "선택 없음"}
+                        </span>
+                      </div>
+                    </div>
+
+                      {aiMode === "edit" && agentPatchPreviews.length ? (
+                        <Card className="mini-panel mini-panel--flat assistant-changes-card">
+                          <div className="assistant-changes__head">
+                            <div>
+                              <strong>Agent worktree 변경</strong>
+                              <p className="muted-copy">
+                                {agentPatchPreviews.length}개 파일에 수정 제안이 준비되었습니다. 클릭하면 diff 탭에서 적용/거절할 수 있어요.
+                              </p>
+                            </div>
+                            <span className="ai-context-chip">{agentPatchPreviews.length} files</span>
+                          </div>
+                          {latestAgentPatchSummary ? (
+                            <p className="muted-copy assistant-changes__summary">{latestAgentPatchSummary}</p>
+                          ) : null}
+                          <div className="assistant-changes__list">
+                            {agentPatchPreviews.map((preview) => (
+                              <button
+                                key={preview.patchId}
+                                type="button"
+                                className="assistant-change-row"
+                                onClick={() => openDiffTab(preview.worktreePath)}
+                              >
+                                <span className="assistant-change-row__main">
+                                  <strong>{getFileName(preview.filePath)}</strong>
+                                  <small>{preview.filePath}</small>
+                                </span>
+                                <span className="assistant-change-row__stats">
+                                  <span className="assistant-change-row__add">+{preview.additions}</span>
+                                  <span className="assistant-change-row__del">-{preview.deletions}</span>
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </Card>
+                      ) : null}
 
                       <div ref={chatScrollRef} className="chat-stack chat-stack--panel">
                         {messages.length === 0 && !streaming ? (
                           <div className="chat-empty">
-                            <strong>AI와 대화를 시작해 보세요</strong>
+                            <strong>
+                              {aiMode === "edit"
+                                ? "에이전트에게 작업을 위임해 보세요"
+                                : "AI와 대화를 시작해 보세요"}
+                            </strong>
                             <p className="muted-copy">
-                              현재 열린 파일과 선택한 코드를 컨텍스트로 질문할 수 있어요.
+                              {aiMode === "edit"
+                                ? "에이전트가 .worktree/ 에 수정안을 만들면 diff 탭에서 적용/거절할 수 있어요."
+                                : "현재 열린 파일과 선택한 코드를 컨텍스트로 질문할 수 있어요."}
                             </p>
                           </div>
                         ) : null}
@@ -6010,115 +6051,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                         </div>
                       </div>
                     </div>
-                  ) : (
-                    <div className="ai-panel ai-panel--edit">
-                      <div className="ai-panel__head">
-                        <div className="ai-tabs ai-tabs--segmented">
-                          <button
-                            type="button"
-                            className="chip"
-                            onClick={() => {
-                              setAiMode("chat");
-                              setSuggestion(null);
-                            }}
-                          >
-                            Chat
-                          </button>
-                          <button
-                            type="button"
-                            className="chip chip--active"
-                            onClick={() => setAiMode("edit")}
-                          >
-                            Agent
-                          </button>
-                        </div>
-
-                        <div className="ai-context-strip">
-                          <span className="ai-context-chip" title={activeFile.path}>
-                            {getFolderPath(activeFile.path) || "workspace"}
-                          </span>
-                          <span className="ai-context-chip">
-                            {selectionLabel}
-                          </span>
-                        </div>
-                      </div>
-
-                      {agentPatchPreviews.length ? (
-                        <Card className="mini-panel mini-panel--flat assistant-changes-card">
-                          <div className="assistant-changes__head">
-                            <div>
-                              <strong>변경 파일</strong>
-                              <p className="muted-copy">
-                                Agent가 {agentPatchPreviews.length}개 파일 변경 제안을 준비했어요.
-                              </p>
-                            </div>
-                            <span className="ai-context-chip">{agentPatchPreviews.length} files</span>
-                          </div>
-                          {latestAgentPatchSummary ? (
-                            <p className="muted-copy assistant-changes__summary">{latestAgentPatchSummary}</p>
-                          ) : null}
-                          <div className="assistant-changes__list">
-                            {agentPatchPreviews.map((preview) => (
-                              <button
-                                key={preview.patchId}
-                                type="button"
-                                className="assistant-change-row"
-                                onClick={() => openDiffTab(preview.worktreePath)}
-                              >
-                                <span className="assistant-change-row__main">
-                                  <strong>{getFileName(preview.filePath)}</strong>
-                                  <small>{preview.filePath}</small>
-                                </span>
-                                <span className="assistant-change-row__stats">
-                                  <span className="assistant-change-row__add">+{preview.additions}</span>
-                                  <span className="assistant-change-row__del">-{preview.deletions}</span>
-                                </span>
-                              </button>
-                            ))}
-                          </div>
-                        </Card>
-                      ) : null}
-
-                      <Card className="mini-panel mini-panel--flat">
-                        <strong>선택 코드</strong>
-                        <pre>{selectedCode || "에디터에서 코드를 선택하면 AI 수정 모드가 활성화됩니다."}</pre>
-                      </Card>
-
-                      <label className="field">
-                        <span>수정 지시</span>
-                        <textarea
-                          id="ide-edit-instruction"
-                          name="editInstruction"
-                          className="input input--textarea"
-                          value={editInstruction}
-                          onChange={(event) => setEditInstruction(event.target.value)}
-                        />
-                      </label>
-
-                      <button className="button" onClick={handleRequestEdit} disabled={editLoading}>
-                        {editLoading ? "생성 중..." : "AI 수정 제안 받기"}
-                      </button>
-
-                      {suggestion ? (
-                        <Card className="mini-panel mini-panel--flat">
-                          <strong>AI 제안</strong>
-                          <div className="diff-block">
-                            <span className="diff-block__remove">- {suggestion.original}</span>
-                            <span className="diff-block__add">+ {suggestion.replacement}</span>
-                          </div>
-                          <p className="muted-copy">{suggestion.summary}</p>
-                          <div className="hero-actions">
-                            <button className="button" onClick={() => setSuggestion(null)}>
-                              닫기
-                            </button>
-                            <button className="button button--primary" onClick={handleApplyEdit}>
-                              반영
-                            </button>
-                          </div>
-                        </Card>
-                      ) : null}
-                    </div>
-                  )}
                 </aside>
               </>
             ) : (
