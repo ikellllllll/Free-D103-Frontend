@@ -724,46 +724,6 @@ export const sessionApi = {
     });
   },
 
-  async moveFile(sessionId: string, fromPath: string, toPath: string) {
-    return enqueueSessionMutation(sessionId, async () => {
-      if (fromPath.startsWith(WORKTREE_PREFIX) || toPath.startsWith(WORKTREE_PREFIX)) {
-        throw new Error("worktree 파일은 직접 이동하거나 이름을 바꿀 수 없습니다.");
-      }
-
-      const fileId = await resolveRememberedFileId(sessionId, fromPath);
-      if (!fileId) {
-        throw new Error("이동할 파일 정보를 찾지 못했습니다.");
-      }
-
-      const isHarnessFile = fromPath.startsWith(AGENT_PREFIX);
-      const requestPath = isHarnessFile ? toPath.replace(new RegExp(`^${AGENT_PREFIX}`), "") : toPath;
-      const url = isHarnessFile
-        ? `api/v1/sessions/${sessionId}/harness/${fileId}/path`
-        : `api/v1/sessions/${sessionId}/files/${fileId}/path`;
-
-      await authClient.patch(url, {
-        json: { toPath: requestPath }
-      }).json<ApiResponse<MoveFileResponse>>();
-
-      const existingSession = await mockApi.getSession(sessionId);
-      const movedFiles = existingSession.files.map((file) =>
-        file.path === fromPath ? { ...file, path: toPath, language: inferLanguageFromPath(toPath) } : file
-      );
-      await mockApi.syncExternalWorkspace(sessionId, movedFiles);
-
-      const remembered = externalFileIdBySession.get(sessionId);
-      if (remembered) {
-        remembered.delete(fromPath);
-        remembered.set(toPath, fileId);
-        if (isHarnessFile) {
-          remembered.set(requestPath, fileId);
-        }
-      }
-
-      return this.getWorkspace(sessionId);
-    });
-  },
-
   async getWorktreeFileContent(sessionId: string, worktreeFileId: number) {
     // ⚠️ silent failure 시 throw — 호출 측 (getFileContent) 의 catch 가 loadedBackendFilesRef 에서 path 를 제거해서
     // 다음에 retry 가능하도록 함. 이전엔 null 반환 + 빈 content cache 로 영구 빈 파일로 보였음 (#12).
