@@ -373,6 +373,18 @@ const HARNESS_BASE_MODELS = new Set([
   "CLAUDE_4_5_OPUS",
   "CLAUDE_4_5_HAIKU"
 ]);
+
+// AI 채팅 모델 선택지 — 백엔드 ModelName enum 과 일치
+const CHAT_MODEL_OPTIONS: ReadonlyArray<{ id: string; label: string; provider: "anthropic" | "openai" }> = [
+  { id: "CLAUDE_4_5_SONNET", label: "Claude 4.5 Sonnet", provider: "anthropic" },
+  { id: "CLAUDE_4_5_OPUS",   label: "Claude 4.5 Opus",   provider: "anthropic" },
+  { id: "CLAUDE_4_5_HAIKU",  label: "Claude 4.5 Haiku",  provider: "anthropic" },
+  { id: "GPT_5_2",           label: "GPT-5.2",           provider: "openai" },
+  { id: "GPT_5",             label: "GPT-5",             provider: "openai" },
+  { id: "GPT_5_MINI",        label: "GPT-5 Mini",        provider: "openai" },
+  { id: "GPT_5_NANO",        label: "GPT-5 Nano",        provider: "openai" }
+];
+const DEFAULT_CHAT_MODEL = "CLAUDE_4_5_SONNET";
 const SOLVE_TIMER_INTERVAL_MS = 1000;
 const MAX_SELECTED_CODE_CHARS = 12000;
 const SIDEBAR_MIN_WIDTH = 220;
@@ -1568,6 +1580,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const editorLayoutApplyingSnapshotRef = useRef(false);
 
   const [chatInput, setChatInput] = useState("");
+  const [chatModel, setChatModel] = useState<string>(DEFAULT_CHAT_MODEL);
   const [searchQuery, setSearchQuery] = useState("");
   const [editLoading, setEditLoading] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
@@ -4413,7 +4426,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     setChatInput("");
 
     try {
-      await send(message, activeFile?.path);
+      await send(message, activeFile?.path, chatModel);
       refreshSession();
     } catch (error) {
       addToast(error instanceof Error ? error.message : "AI 요청에 실패했습니다.", "error");
@@ -5812,7 +5825,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   {aiMode === "chat" ? (
                     <div className="ai-panel ai-panel--chat">
                       <div className="ai-panel__head">
-                        <div className="ai-tabs">
+                        <div className="ai-tabs ai-tabs--segmented">
                           <button
                             type="button"
                             className="chip chip--active"
@@ -5821,21 +5834,26 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                               setSuggestion(null);
                             }}
                           >
-                            chat mode
+                            Chat
                           </button>
                           <button
                             type="button"
                             className="chip"
                             onClick={() => setAiMode("edit")}
                           >
-                            agent mode
+                            Agent
                           </button>
                         </div>
 
                         <div className="ai-context-strip">
-                          <span className="ai-context-chip">{getFileName(activeFile.path)}</span>
-                          <span className="ai-context-chip">{selectedRange ? selectionSummary : "선택 없음"}</span>
-                          <span className="ai-context-chip">AI 무제한</span>
+                          <span className="ai-context-chip" title={activeFile.path}>
+                            <span className="ai-context-chip__icon" aria-hidden>📄</span>
+                            {getFileName(activeFile.path)}
+                          </span>
+                          <span className="ai-context-chip">
+                            <span className="ai-context-chip__icon" aria-hidden>✏️</span>
+                            {selectedRange ? selectionSummary : "선택 없음"}
+                          </span>
                         </div>
                       </div>
 
@@ -5866,17 +5884,41 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                           className="input input--textarea"
                           value={chatInput}
                           onChange={(event) => setChatInput(event.target.value)}
-                          placeholder="현재 문제나 코드에 대해 질문하세요"
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                              event.preventDefault();
+                              void handleSend();
+                            }
+                          }}
+                          placeholder="현재 문제나 코드에 대해 질문하세요  (Ctrl/⌘+Enter 로 전송)"
                         />
-                        <button className="button button--primary" onClick={handleSend}>
-                          전송
-                        </button>
+                        <div className="chat-composer-actions">
+                          <label className="model-selector" title="응답 모델 선택">
+                            <span className="model-selector__icon" aria-hidden>🤖</span>
+                            <select
+                              className="model-selector__select"
+                              value={chatModel}
+                              onChange={(event) => setChatModel(event.target.value)}
+                            >
+                              {CHAT_MODEL_OPTIONS.map((option) => (
+                                <option key={option.id} value={option.id}>{option.label}</option>
+                              ))}
+                            </select>
+                          </label>
+                          <button
+                            className="button button--primary chat-composer-actions__send"
+                            onClick={handleSend}
+                            disabled={!chatInput.trim() || streaming}
+                          >
+                            {streaming ? "전송 중..." : "전송 →"}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ) : (
                     <div className="ai-panel ai-panel--edit">
                       <div className="ai-panel__head">
-                        <div className="ai-tabs">
+                        <div className="ai-tabs ai-tabs--segmented">
                           <button
                             type="button"
                             className="chip"
@@ -5885,21 +5927,26 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                               setSuggestion(null);
                             }}
                           >
-                            chat mode
+                            Chat
                           </button>
                           <button
                             type="button"
                             className="chip chip--active"
                             onClick={() => setAiMode("edit")}
                           >
-                            agent mode
+                            Agent
                           </button>
                         </div>
 
                         <div className="ai-context-strip">
-                          <span className="ai-context-chip">{getFolderPath(activeFile.path) || "workspace"}</span>
-                          <span className="ai-context-chip">{selectionLabel}</span>
-                          <span className="ai-context-chip">AI 무제한</span>
+                          <span className="ai-context-chip" title={activeFile.path}>
+                            <span className="ai-context-chip__icon" aria-hidden>📂</span>
+                            {getFolderPath(activeFile.path) || "workspace"}
+                          </span>
+                          <span className="ai-context-chip">
+                            <span className="ai-context-chip__icon" aria-hidden>✏️</span>
+                            {selectionLabel}
+                          </span>
                         </div>
                       </div>
 

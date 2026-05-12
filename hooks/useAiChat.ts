@@ -22,7 +22,7 @@ export function useAiChat(sessionId: string) {
     return data;
   }, [sessionId, setMessages]);
 
-  const send = useCallback(async (message: string, currentFile?: string) => {
+  const send = useCallback(async (message: string, currentFile?: string, modelName?: string | null) => {
     const optimistic: AiMessage = {
       id: `optimistic-${Date.now()}`,
       role: "user",
@@ -50,7 +50,7 @@ export function useAiChat(sessionId: string) {
       try {
         await sessionApi.streamChat(
           sessionId,
-          { chat: message },
+          { chat: message, modelName: modelName ?? null },
           {
             onChunk: (content) => {
               accumulated += content;
