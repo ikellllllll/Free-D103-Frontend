@@ -1364,36 +1364,7 @@ const buildExplorerFiles = (files: WorkspaceFile[], injectedVirtualFiles: Explor
   const existingPaths = new Set(sourceFiles.map((file) => file.path));
   const previewFiles = injectedVirtualFiles.filter((file) => !existingPaths.has(file.path));
 
-  // 백엔드 세션 하네스 파일이 이미 존재하면 mock virtual files 안 넣음.
-  // 빈 세션이거나 mock 세션일 때만 placeholder fallback.
-  const hasRealAgentFiles = sourceFiles.some((file) => file.path.startsWith("agent/"));
-  const agentSupportFiles: ExplorerFile[] = hasRealAgentFiles
-    ? []
-    : [
-        {
-          path: "agent/skills/README.md",
-          language: "markdown",
-          content: "# Agent Skills\n\n가상 탐색기 구조용 보조 파일입니다.",
-          isVirtual: true,
-          badge: "meta"
-        },
-        {
-          path: "agent/.sandbox/README.md",
-          language: "markdown",
-          content: "# Agent Sandbox\n\n임시 실행 흔적을 두는 가상 디렉터리입니다.",
-          isVirtual: true,
-          badge: "temp"
-        },
-        {
-          path: "agent/instruction.md",
-          language: "markdown",
-          content: "# Agent Instruction\n\n에이전트 보조 지시를 두는 가상 파일입니다.",
-          isVirtual: true,
-          badge: "meta"
-        }
-      ].filter((file) => !existingPaths.has(file.path));
-
-  return [...sourceFiles, ...previewFiles, ...agentSupportFiles];
+  return [...sourceFiles, ...previewFiles];
 };
 
 const buildFileTree = (files: ExplorerFile[], extraFolders: string[] = []) => {
@@ -4547,14 +4518,18 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     try {
       const baseModel = resolveHarnessBaseModel(session?.aiModel);
       const result = await sessionApi.buildHarness(sessionId, baseModel);
-      setAgentSnapshotVersion(result.versionNo);
       const errorCount = result.validErrors?.length ?? 0;
+      const buildSucceeded = errorCount === 0;
+
+      if (buildSucceeded) {
+        setAgentSnapshotVersion((version) => version + 1);
+      }
 
       addToast(
-        result.compileStatus === "COMPLETED"
-          ? `Agent Build 완료: v0.${result.versionNo} (${baseModel})`
+        buildSucceeded
+          ? `Agent Build 완료 (${baseModel})`
           : `Agent Build 실패: 검증 오류 ${errorCount}개`,
-        result.compileStatus === "COMPLETED" ? "success" : "error"
+        buildSucceeded ? "success" : "error"
       );
       await queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
       await queryClient.invalidateQueries({ queryKey: ["agentTraces", sessionId] });

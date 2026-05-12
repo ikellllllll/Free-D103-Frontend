@@ -53,10 +53,6 @@ interface GetExecutionResultResponse {
 }
 
 interface HarnessBuildResponse {
-  sessionHarnessVersionId: number;
-  parentVersionId?: number | null;
-  versionNo: number;
-  compileStatus: string;
   validErrors?: Array<{ path?: string | null; code?: string | null; message?: string | null }> | null;
   runtimeConfig?: Record<string, unknown> | null;
 }

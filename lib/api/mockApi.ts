@@ -123,7 +123,11 @@ const replaceSelectionInContent = (content: string, selectedCode: string, replac
   return `${content.slice(0, firstMatchIndex)}${replacement}${content.slice(firstMatchIndex + selectedCode.length)}`;
 };
 
-const normalizeWorkspaceFiles = (files: SolveSession["files"]) => {
+const normalizeWorkspaceFiles = (
+  files: SolveSession["files"],
+  options: { includeStarterHarness?: boolean } = {}
+) => {
+  const { includeStarterHarness = true } = options;
   const starterFiles = createStarterFiles();
   const harnessFile = starterFiles.find((file) => file.path === "agent/HARNESS.md");
   const seen = new Set<string>();
@@ -150,7 +154,7 @@ const normalizeWorkspaceFiles = (files: SolveSession["files"]) => {
   // mock 세션은 createStarterFiles 가 이미 worktree 포함 — 여기서 추가 inject 안 함.
   // 백엔드 세션은 backend payload.worktree 만 반영 (sessionApi.toWorkspaceFiles 에서 처리).
 
-  if (harnessFile && !seen.has(harnessFile.path)) {
+  if (includeStarterHarness && harnessFile && !seen.has(harnessFile.path)) {
     normalized.push(clone(harnessFile));
   }
 
@@ -343,7 +347,7 @@ export const mockApi = {
     const db = readDb();
     const nextSession = {
       ...session,
-      files: normalizeWorkspaceFiles(session.files)
+      files: normalizeWorkspaceFiles(session.files, { includeStarterHarness: false })
     };
     const index = db.sessions.findIndex((item) => item.id === session.id);
 
@@ -382,7 +386,7 @@ export const mockApi = {
   async syncExternalWorkspace(sessionId: string, files: WorkspaceFile[]) {
     const db = readDb();
     const session = getSessionOrThrow(db, sessionId);
-    session.files = normalizeWorkspaceFiles(files);
+    session.files = normalizeWorkspaceFiles(files, { includeStarterHarness: false });
     session.lastSavedAt = new Date().toISOString();
     writeDb(db);
     return { workspaceId: session.workspaceId, files: clone(session.files) };
