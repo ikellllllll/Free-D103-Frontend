@@ -162,10 +162,16 @@ export default function SessionsPage() {
             withScore.reduce((a, s) => a + (s.score ?? 0), 0) / withScore.length
           );
 
-    const totalMinutes = sessions.reduce(
-      (a, s) => a + 18 + s.aiRequestCount * 6,
-      0
-    );
+    // 학습 시간 = 활성 세션(IN_PROGRESS) 만 startedAt → now 누적.
+    // 완료된 mock 시드 세션은 endedAt 까지 누적. 백엔드 데이터 없는 추정 제거.
+    const totalMinutes = sessions.reduce((acc, s) => {
+      if (!s.startedAt) return acc;
+      const start = new Date(s.startedAt).getTime();
+      const end = s.endedAt ? new Date(s.endedAt).getTime() : now;
+      const diffMin = Math.max(0, Math.floor((end - start) / 60000));
+      // 비정상적으로 큰 값(세션 며칠씩 켜둠) 은 6시간으로 cap — UI 왜곡 방지
+      return acc + Math.min(diffMin, 360);
+    }, 0);
     const hours = Math.floor(totalMinutes / 60);
     const mins = totalMinutes % 60;
 
@@ -587,7 +593,16 @@ function SessionRow({
             </span>
           </div>
           <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-xs text-gray-500">
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-50/80 text-indigo-700 font-semibold ring-1 ring-inset ring-indigo-100">
+            {/* 카테고리 색 분기 — BUG 은 rose, API 는 sky (시각 강조) */}
+            <span
+              className={
+                session.problemCategory === "BUG"
+                  ? "inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 font-bold ring-1 ring-inset ring-rose-200 text-[11px] tracking-wide"
+                  : session.problemCategory === "API"
+                    ? "inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 font-bold ring-1 ring-inset ring-sky-200 text-[11px] tracking-wide"
+                    : "inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50/80 text-indigo-700 font-semibold ring-1 ring-inset ring-indigo-100 text-[11px]"
+              }
+            >
               {session.problemCategory}
             </span>
             <span className="tabular-nums">{formatDate(session.startedAt)}</span>
@@ -602,22 +617,20 @@ function SessionRow({
         <div className="shrink-0 flex items-center gap-3 sm:gap-5">
           {/* Progress or Score */}
           {isInProgress ? (
-            <div className="hidden md:flex flex-col items-end gap-1.5 w-36">
-              <span className="text-xs font-bold text-gray-700 tabular-nums">
-                {progress}%
+            // 백엔드가 진행률 데이터를 주지 않아 막대를 "경과 시간" 으로 의미 전환.
+            // 가짜 progress% 표시는 데모 정직성 측면에서 제거.
+            <div className="hidden md:flex flex-col items-end gap-1 w-36 text-xs">
+              <span className="font-semibold text-gray-600 tabular-nums">
+                {(() => {
+                  if (!session.startedAt) return "방금 시작";
+                  const diffMin = Math.floor((Date.now() - new Date(session.startedAt).getTime()) / 60000);
+                  if (diffMin < 1) return "방금 시작";
+                  if (diffMin < 60) return `${diffMin}분 진행`;
+                  const h = Math.floor(diffMin / 60);
+                  const m = diffMin % 60;
+                  return m === 0 ? `${h}시간 진행` : `${h}시간 ${m}분 진행`;
+                })()}
               </span>
-              <div className="relative w-full h-2 bg-slate-100 rounded-full overflow-hidden ring-1 ring-inset ring-slate-200/70">
-                <div
-                  className="h-full rounded-full transition-[width] duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
-                  style={{
-                    width: `${progress}%`,
-                    backgroundImage:
-                      "linear-gradient(90deg, #4F46E5 0%, #7C3AED 55%, #D946EF 100%)",
-                    boxShadow:
-                      "0 0 10px 0 rgba(124, 58, 237, 0.45), inset 0 1px 0 0 rgba(255,255,255,0.4)"
-                  }}
-                />
-              </div>
             </div>
           ) : (isDone || isFailed) && session.score != null ? (
             <ScoreRing value={session.score} tone={isDone ? "done" : "failed"} />
