@@ -3557,7 +3557,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     addToast(`파일 '${rawName}' 생성 준비 완료`, "success");
   }, [addToast, createWorkspaceFile, explorerCreateDraft, files, openTabInEditorGroup, queryClient, sessionId, setActivePath, setWorkspace]);
 
-  const commitExplorerRename = useCallback(() => {
+  const commitExplorerRename = useCallback(async () => {
     if (!explorerRenameDraft) {
       return;
     }
@@ -3581,6 +3581,16 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         return;
       }
 
+      // 백엔드 세션이면 PATCH path 호출 후 store 갱신. 실패 시 store 손대지 않음.
+      if (isBackendSessionId(sessionId)) {
+        try {
+          await sessionApi.moveFile(sessionId, explorerRenameDraft.targetPath, nextPath);
+        } catch (error) {
+          addToast(error instanceof Error ? error.message : "파일 이름 변경에 실패했습니다.", "error");
+          return;
+        }
+      }
+
       setLocalFolders((state) => appendLocalFolder(state, getFolderPath(explorerRenameDraft.targetPath) || null));
       renameWorkspaceFile(explorerRenameDraft.targetPath, nextPath);
       setEditorGroups((state) =>
@@ -3592,6 +3602,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       );
       setExplorerRenameDraft(null);
       addToast(`파일 이름을 '${rawName}'로 변경했어요.`, "success");
+      if (isBackendSessionId(sessionId)) {
+        void queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
+      }
       return;
     }
 
@@ -3604,12 +3617,25 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       return;
     }
 
+    // 폴더 rename — 안의 모든 파일 일괄 PATCH
+    const folderFiles = files.filter((file) => file.path.startsWith(`${explorerRenameDraft.targetPath}/`));
+    if (isBackendSessionId(sessionId) && folderFiles.length > 0) {
+      try {
+        await Promise.all(
+          folderFiles.map((file) =>
+            sessionApi.moveFile(sessionId, file.path, replacePathPrefix(file.path, explorerRenameDraft.targetPath, nextPath))
+          )
+        );
+      } catch (error) {
+        addToast(error instanceof Error ? error.message : "폴더 이름 변경에 실패했습니다.", "error");
+        return;
+      }
+    }
+
     setLocalFolders((state) => state.map((folder) => replacePathPrefix(folder, explorerRenameDraft.targetPath, nextPath)));
-    files
-      .filter((file) => file.path.startsWith(`${explorerRenameDraft.targetPath}/`))
-      .forEach((file) => {
-        renameWorkspaceFile(file.path, replacePathPrefix(file.path, explorerRenameDraft.targetPath, nextPath));
-      });
+    folderFiles.forEach((file) => {
+      renameWorkspaceFile(file.path, replacePathPrefix(file.path, explorerRenameDraft.targetPath, nextPath));
+    });
     setEditorGroups((state) =>
       state.map((group) => ({
         ...group,
@@ -3619,7 +3645,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     );
     setExplorerRenameDraft(null);
     addToast(`폴더 이름을 '${rawName}'로 변경했어요.`, "success");
-  }, [addToast, explorerRenameDraft, files, localFolders, renameWorkspaceFile]);
+    if (isBackendSessionId(sessionId)) {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
+    }
+  }, [addToast, explorerRenameDraft, files, localFolders, queryClient, renameWorkspaceFile, sessionId]);
 
   const handleExplorerDelete = useCallback(async () => {
     if (!explorerContextMenu?.targetPath || explorerContextMenu.targetKind === "root") {
@@ -3727,7 +3756,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   }, []);
 
   const handleExplorerFolderDrop = useCallback(
-    (event: ReactDragEvent<HTMLElement>, targetFolderPath: string) => {
+    async (event: ReactDragEvent<HTMLElement>, targetFolderPath: string) => {
       event.preventDefault();
       const sourcePath = draggedExplorerPath || event.dataTransfer.getData("text/plain");
       clearExplorerDragState();
@@ -3747,6 +3776,16 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         return;
       }
 
+      // 백엔드 세션이면 PATCH path 호출. 실패 시 store 손대지 않음.
+      if (isBackendSessionId(sessionId)) {
+        try {
+          await sessionApi.moveFile(sessionId, sourcePath, nextPath);
+        } catch (error) {
+          addToast(error instanceof Error ? error.message : "파일 이동에 실패했습니다.", "error");
+          return;
+        }
+      }
+
       setLocalFolders((state) => appendLocalFolder(state, getFolderPath(sourcePath) || null));
       renameWorkspaceFile(sourcePath, nextPath);
       setEditorGroups((state) =>
@@ -3757,8 +3796,11 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         }))
       );
       addToast(`파일을 '${getFileName(targetFolderPath)}' 폴더로 이동했어요.`, "success");
+      if (isBackendSessionId(sessionId)) {
+        void queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
+      }
     },
-    [addToast, clearExplorerDragState, draggedExplorerPath, files, renameWorkspaceFile]
+    [addToast, clearExplorerDragState, draggedExplorerPath, files, queryClient, renameWorkspaceFile, sessionId]
   );
 
   const handleCloseFileTab = (tabId: string, groupId = activeEditorGroupId) => {
