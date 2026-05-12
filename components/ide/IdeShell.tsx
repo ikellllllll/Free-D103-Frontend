@@ -384,7 +384,9 @@ const CHAT_MODEL_OPTIONS: ReadonlyArray<{ id: string; label: string; provider: "
   { id: "GPT_5_MINI",        label: "GPT-5 Mini",        provider: "openai" },
   { id: "GPT_5_NANO",        label: "GPT-5 Nano",        provider: "openai" }
 ];
-const DEFAULT_CHAT_MODEL = "CLAUDE_4_5_SONNET";
+// 싸피 GMS 게이트웨이에 Claude 모델군은 미등록 (2026-05-12 확인) — GPT_5_MINI 가 동작 확인된 default.
+// Claude 활성화되면 CLAUDE_4_5_SONNET 등으로 복귀 가능.
+const DEFAULT_CHAT_MODEL = "GPT_5_MINI";
 const SOLVE_TIMER_INTERVAL_MS = 1000;
 const MAX_SELECTED_CODE_CHARS = 12000;
 const SIDEBAR_MIN_WIDTH = 220;
@@ -932,6 +934,34 @@ const appendLocalFolder = (folders: string[], folderPath: string | null) => {
   return [...folders, folderPath];
 };
 
+// 사용자 메시지에 첨부된 코드 스니펫 — 클릭으로 펼칠 수 있는 chip.
+// VSCode 확장 (Continue / Cline / Copilot Chat) 패턴.
+function AttachedCodeChip({ data }: { data: { path: string; code: string; lineRange?: string } }) {
+  const [open, setOpen] = useState(false);
+  const fileName = data.path.split(/[\\/]/).pop() ?? data.path;
+  const lineCount = data.code.split("\n").length;
+
+  return (
+    <div className={open ? "attached-code attached-code--open" : "attached-code"}>
+      <button
+        type="button"
+        className="attached-code__toggle"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <span className="attached-code__caret" aria-hidden>{open ? "▾" : "▸"}</span>
+        <span className="attached-code__name">{fileName}</span>
+        <span className="attached-code__meta">
+          {data.lineRange ? `${data.lineRange} · ` : ""}{lineCount}줄
+        </span>
+      </button>
+      {open ? (
+        <pre className="attached-code__body"><code>{data.code}</code></pre>
+      ) : null}
+    </div>
+  );
+}
+
 function ProblemBriefCodeBlock({ language, code }: { language?: string; code: string }) {
   const [isCopied, setIsCopied] = useState(false);
   const lines = code.trimEnd().split("\n");
@@ -1442,9 +1472,9 @@ const buildFileTree = (files: ExplorerFile[], extraFolders: string[] = []) => {
     [...nodes]
       .sort((left, right) => {
         const rootFolderOrder: Record<string, number> = {
-          src: 0,
-          agent: 1,
-          ".worktree": 2,
+          ".worktree": 0,   // AI worktree 변경분 — 항상 최상단 (사용자 주목 영역)
+          src: 1,
+          agent: 2,
           starter: 3
         };
 
@@ -1581,6 +1611,20 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
   const [chatInput, setChatInput] = useState("");
   const [chatModel, setChatModel] = useState<string>(DEFAULT_CHAT_MODEL);
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const modelDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  // 모델 드롭다운 외부 클릭 닫기
+  useEffect(() => {
+    if (!modelDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (modelDropdownRef.current && !modelDropdownRef.current.contains(e.target as Node)) {
+        setModelDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [modelDropdownOpen]);
   const [searchQuery, setSearchQuery] = useState("");
   const [editLoading, setEditLoading] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
@@ -4463,11 +4507,22 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       return;
     }
 
-    const message = chatInput.trim();
+    const question = chatInput.trim();
+    // 에디터 선택 코드 → 별도 collapsible chip 으로 렌더 (UI), 백엔드 전송 시엔 fenced block 으로 포함 (LLM).
+    const attachedCode = selectedCode
+      ? {
+          path: activeFile?.path ?? "현재 파일",
+          code: selectedCode,
+          lineRange: selectedRange
+            ? `L${selectedRange.startLineNumber}-L${selectedRange.endLineNumber}`
+            : undefined
+        }
+      : undefined;
+
     setChatInput("");
 
     try {
-      await send(message, activeFile?.path, chatModel);
+      await send(question, activeFile?.path, chatModel, attachedCode);
       refreshSession();
     } catch (error) {
       addToast(error instanceof Error ? error.message : "AI 요청에 실패했습니다.", "error");
@@ -5863,136 +5918,45 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                     </button>
                   </div>
 
-                  {aiMode === "chat" ? (
-                    <div className="ai-panel ai-panel--chat">
-                      <div className="ai-panel__head">
-                        <div className="ai-tabs ai-tabs--segmented">
-                          <button
-                            type="button"
-                            className="chip chip--active"
-                            onClick={() => {
-                              setAiMode("chat");
-                              setSuggestion(null);
-                            }}
-                          >
-                            Chat
-                          </button>
-                          <button
-                            type="button"
-                            className="chip"
-                            onClick={() => setAiMode("edit")}
-                          >
-                            Agent
-                          </button>
-                        </div>
-
-                        <div className="ai-context-strip">
-                          <span className="ai-context-chip" title={activeFile.path}>
-                            {getFileName(activeFile.path)}
-                          </span>
-                          <span className="ai-context-chip">
-                            {selectedRange ? selectionSummary : "선택 없음"}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div ref={chatScrollRef} className="chat-stack chat-stack--panel">
-                        {messages.map((message) => (
-                          <div
-                            key={message.id}
-                            className={message.role === "user" ? "chat-bubble chat-bubble--user" : "chat-bubble"}
-                          >
-                            {message.role === "user" ? (
-                              // user 메시지는 입력 그대로 (줄바꿈 보존만 — 마크다운 해석 X)
-                              <div className="chat-bubble__plain">{message.content}</div>
-                            ) : (
-                              // assistant 응답은 GFM 마크다운 렌더 (줄바꿈, 코드블록, 리스트, 표 등)
-                              <div className="chat-bubble__markdown">
-                                <Markdown remarkPlugins={[remarkGfm]}>{message.content}</Markdown>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                        {streaming ? <div className="chat-status">AI 응답 생성 중...</div> : null}
-                      </div>
-
-                      <div className="chat-input-row">
-                        <textarea
-                          id="ide-chat-input"
-                          name="chatPrompt"
-                          className="input input--textarea"
-                          value={chatInput}
-                          onChange={(event) => setChatInput(event.target.value)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                              event.preventDefault();
-                              void handleSend();
-                            }
+                  <div className="ai-panel ai-panel--chat">
+                    <div className="ai-panel__head">
+                      <div className="ai-tabs ai-tabs--segmented">
+                        <button
+                          type="button"
+                          className={aiMode === "chat" ? "chip chip--active" : "chip"}
+                          onClick={() => {
+                            setAiMode("chat");
+                            setSuggestion(null);
                           }}
-                          placeholder="현재 문제나 코드에 대해 질문하세요  (Ctrl+Enter 전송)"
-                        />
-                        <div className="chat-composer-actions">
-                          <label className="model-selector" title="응답 모델 선택">
-                            <select
-                              className="model-selector__select"
-                              value={chatModel}
-                              onChange={(event) => setChatModel(event.target.value)}
-                            >
-                              {CHAT_MODEL_OPTIONS.map((option) => (
-                                <option key={option.id} value={option.id}>{option.label}</option>
-                              ))}
-                            </select>
-                          </label>
-                          <button
-                            className="button button--primary chat-composer-actions__send"
-                            onClick={handleSend}
-                            disabled={!chatInput.trim() || streaming}
-                          >
-                            {streaming ? "전송 중..." : "전송 →"}
-                          </button>
-                        </div>
+                        >
+                          Chat
+                        </button>
+                        <button
+                          type="button"
+                          className={aiMode === "edit" ? "chip chip--active" : "chip"}
+                          onClick={() => setAiMode("edit")}
+                        >
+                          Agent
+                        </button>
+                      </div>
+
+                      <div className="ai-context-strip">
+                        <span className="ai-context-chip" title={activeFile.path}>
+                          {getFileName(activeFile.path)}
+                        </span>
+                        <span className="ai-context-chip">
+                          {selectedRange ? selectionSummary : "선택 없음"}
+                        </span>
                       </div>
                     </div>
-                  ) : (
-                    <div className="ai-panel ai-panel--edit">
-                      <div className="ai-panel__head">
-                        <div className="ai-tabs ai-tabs--segmented">
-                          <button
-                            type="button"
-                            className="chip"
-                            onClick={() => {
-                              setAiMode("chat");
-                              setSuggestion(null);
-                            }}
-                          >
-                            Chat
-                          </button>
-                          <button
-                            type="button"
-                            className="chip chip--active"
-                            onClick={() => setAiMode("edit")}
-                          >
-                            Agent
-                          </button>
-                        </div>
 
-                        <div className="ai-context-strip">
-                          <span className="ai-context-chip" title={activeFile.path}>
-                            {getFolderPath(activeFile.path) || "workspace"}
-                          </span>
-                          <span className="ai-context-chip">
-                            {selectionLabel}
-                          </span>
-                        </div>
-                      </div>
-
-                      {agentPatchPreviews.length ? (
+                      {aiMode === "edit" && agentPatchPreviews.length ? (
                         <Card className="mini-panel mini-panel--flat assistant-changes-card">
                           <div className="assistant-changes__head">
                             <div>
-                              <strong>변경 파일</strong>
+                              <strong>Agent worktree 변경</strong>
                               <p className="muted-copy">
-                                Agent가 {agentPatchPreviews.length}개 파일 변경 제안을 준비했어요.
+                                {agentPatchPreviews.length}개 파일에 수정 제안이 준비되었습니다. 클릭하면 diff 탭에서 적용/거절할 수 있어요.
                               </p>
                             </div>
                             <span className="ai-context-chip">{agentPatchPreviews.length} files</span>
@@ -6022,46 +5986,112 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                         </Card>
                       ) : null}
 
-                      <Card className="mini-panel mini-panel--flat">
-                        <strong>선택 코드</strong>
-                        <pre>{selectedCode || "에디터에서 코드를 선택하면 AI 수정 모드가 활성화됩니다."}</pre>
-                      </Card>
+                      <div ref={chatScrollRef} className="chat-stack chat-stack--panel">
+                        {messages.length === 0 && !streaming ? (
+                          <div className="chat-empty">
+                            <strong>
+                              {aiMode === "edit"
+                                ? "에이전트에게 작업을 위임해 보세요"
+                                : "AI와 대화를 시작해 보세요"}
+                            </strong>
+                            <p className="muted-copy">
+                              {aiMode === "edit"
+                                ? "에이전트가 .worktree/ 에 수정안을 만들면 diff 탭에서 적용/거절할 수 있어요."
+                                : "현재 열린 파일과 선택한 코드를 컨텍스트로 질문할 수 있어요."}
+                            </p>
+                          </div>
+                        ) : null}
+                        {messages.map((message) => {
+                          const isEmptyAssistant = message.role === "assistant" && !message.content;
+                          return (
+                            <div
+                              key={message.id}
+                              className={message.role === "user" ? "chat-bubble chat-bubble--user" : "chat-bubble"}
+                            >
+                              {isEmptyAssistant ? (
+                                <span className="chat-typing" aria-label="AI 응답 생성 중">
+                                  <span className="chat-typing__dot" />
+                                  <span className="chat-typing__dot" />
+                                  <span className="chat-typing__dot" />
+                                </span>
+                              ) : (
+                                <div className="chat-bubble__markdown">
+                                  <Markdown remarkPlugins={[remarkGfm]}>{message.content}</Markdown>
+                                </div>
+                              )}
+                              {message.attachedCode ? <AttachedCodeChip data={message.attachedCode} /> : null}
+                            </div>
+                          );
+                        })}
+                      </div>
 
-                      <label className="field">
-                        <span>수정 지시</span>
+                      <div className="chat-input-row">
                         <textarea
-                          id="ide-edit-instruction"
-                          name="editInstruction"
+                          id="ide-chat-input"
+                          name="chatPrompt"
                           className="input input--textarea"
-                          value={editInstruction}
-                          onChange={(event) => setEditInstruction(event.target.value)}
+                          value={chatInput}
+                          onChange={(event) => setChatInput(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                              event.preventDefault();
+                              void handleSend();
+                            }
+                          }}
+                          placeholder="현재 문제나 코드에 대해 질문하세요  (Ctrl+Enter 전송)"
                         />
-                      </label>
-
-                      <button className="button" onClick={handleRequestEdit} disabled={editLoading}>
-                        {editLoading ? "생성 중..." : "AI 수정 제안 받기"}
-                      </button>
-
-                      {suggestion ? (
-                        <Card className="mini-panel mini-panel--flat">
-                          <strong>AI 제안</strong>
-                          <div className="diff-block">
-                            <span className="diff-block__remove">- {suggestion.original}</span>
-                            <span className="diff-block__add">+ {suggestion.replacement}</span>
-                          </div>
-                          <p className="muted-copy">{suggestion.summary}</p>
-                          <div className="hero-actions">
-                            <button className="button" onClick={() => setSuggestion(null)}>
-                              닫기
+                        <div className="chat-composer-actions">
+                          <div className="model-dropdown" ref={modelDropdownRef}>
+                            <button
+                              type="button"
+                              className="model-dropdown__trigger"
+                              onClick={() => setModelDropdownOpen((v) => !v)}
+                              aria-haspopup="listbox"
+                              aria-expanded={modelDropdownOpen}
+                            >
+                              <span className="model-dropdown__label">
+                                {CHAT_MODEL_OPTIONS.find((o) => o.id === chatModel)?.label ?? chatModel}
+                              </span>
+                              <span className="model-dropdown__caret" aria-hidden>▾</span>
                             </button>
-                            <button className="button button--primary" onClick={handleApplyEdit}>
-                              반영
-                            </button>
+                            {modelDropdownOpen ? (
+                              <ul className="model-dropdown__menu" role="listbox">
+                                {CHAT_MODEL_OPTIONS.map((option) => {
+                                  const active = option.id === chatModel;
+                                  return (
+                                    <li key={option.id}>
+                                      <button
+                                        type="button"
+                                        role="option"
+                                        aria-selected={active}
+                                        className={active ? "model-dropdown__option model-dropdown__option--active" : "model-dropdown__option"}
+                                        onClick={() => {
+                                          setChatModel(option.id);
+                                          setModelDropdownOpen(false);
+                                        }}
+                                      >
+                                        <span className={`model-dropdown__badge model-dropdown__badge--${option.provider}`}>
+                                          {option.provider === "anthropic" ? "C" : "G"}
+                                        </span>
+                                        <span className="model-dropdown__option-label">{option.label}</span>
+                                        {active ? <span className="model-dropdown__check" aria-hidden>✓</span> : null}
+                                      </button>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            ) : null}
                           </div>
-                        </Card>
-                      ) : null}
+                          <button
+                            className="button button--primary chat-composer-actions__send"
+                            onClick={handleSend}
+                            disabled={!chatInput.trim() || streaming}
+                          >
+                            {streaming ? "전송 중..." : "전송 →"}
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  )}
                 </aside>
               </>
             ) : (

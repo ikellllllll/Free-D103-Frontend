@@ -1651,7 +1651,9 @@ body:has(.ide-route--workspace) .page-shell > * {
 }
 
 .ide-shell__ai {
-  grid-template-rows: auto auto minmax(0, 1fr);
+  /* 자식 2개: sidebar-header (auto) + ai-panel (1fr) — ai-panel 이 남은 영역 채우게.
+     이전엔 row 3개라 ai-panel 이 auto 행에 끼이고 마지막 1fr 행이 빈 채로 남았음. */
+  grid-template-rows: auto minmax(0, 1fr);
   border-left: 0;
 }
 
@@ -3839,12 +3841,14 @@ html[data-theme="light"] .test-result-card__trace-body {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  min-width: 0;
 }
 
 .ai-context-chip {
   display: inline-flex;
   align-items: center;
   min-height: 28px;
+  max-width: 100%;
   padding: 0 10px;
   border-radius: 999px;
   border: 1px solid var(--ide-border);
@@ -3852,6 +3856,11 @@ html[data-theme="light"] .test-result-card__trace-body {
   color: var(--muted);
   font-size: 0.78rem;
   font-family: var(--font-mono);
+  /* 좁은 패널에서 긴 파일 경로 / 라인 정보가 chip 밖으로 밀고 나가 가로스크롤 만드는 문제 차단 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .chat-presets {
@@ -3999,6 +4008,128 @@ html[data-theme="light"] .chat-bubble__markdown code {
 
 .chat-status { color: var(--muted); font-size: 0.84rem; }
 
+/* AI 응답 대기 — 말풍선 안 점 3개 bounce */
+.chat-typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 2px;
+  color: var(--muted);
+}
+
+.chat-typing__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.45;
+  animation: chat-typing-bounce 1.2s infinite ease-in-out;
+}
+
+.chat-typing__dot:nth-child(2) { animation-delay: 0.15s; }
+.chat-typing__dot:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes chat-typing-bounce {
+  0%, 60%, 100% { opacity: 0.35; transform: translateY(0); }
+  30%           { opacity: 1;    transform: translateY(-4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-typing__dot { animation: none; opacity: 0.7; }
+}
+
+/* ─── 사용자 첨부 코드 chip — 접/펼침 가능 ─── */
+.attached-code {
+  margin-top: 8px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--ide-border) 70%, var(--accent) 30%);
+  background: color-mix(in srgb, var(--ide-surface) 90%, var(--accent) 10%);
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+.attached-code__toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s;
+}
+
+.attached-code__toggle:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.attached-code__caret {
+  font-size: 10px;
+  opacity: 0.7;
+  width: 12px;
+  text-align: center;
+}
+
+.attached-code__name {
+  font-weight: 600;
+  color: color-mix(in srgb, var(--accent) 80%, var(--text) 20%);
+}
+
+.attached-code__meta {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.attached-code__body {
+  margin: 0;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--ide-surface) 70%, #000 30%);
+  color: var(--ide-code);
+  font-size: 0.78rem;
+  line-height: 1.55;
+  overflow-x: auto;
+  border-top: 1px solid var(--ide-border);
+  white-space: pre;
+}
+
+.attached-code__body code {
+  font-family: inherit;
+  background: transparent;
+  padding: 0;
+}
+
+/* 메시지 없을 때 빈 영역 안내 — 중앙 정렬, 옅은 톤 */
+.chat-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 140px;
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.chat-empty strong {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.chat-empty .muted-copy {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  max-width: 280px;
+}
+
 .chat-input-row {
   display: grid;
   gap: 10px;
@@ -4020,48 +4151,116 @@ html[data-theme="light"] .chat-bubble__markdown code {
   font-weight: 600;
 }
 
-/* 모델 셀렉터 — 이모지 없이 깔끔한 native select wrapper */
-.model-selector {
+/* ─── 모델 셀렉터 — 커스텀 dropdown (다크모드 대응) ─── */
+.model-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.model-dropdown__trigger {
   display: inline-flex;
   align-items: center;
-  padding: 0 10px;
+  gap: 6px;
+  padding: 6px 10px;
   border-radius: 8px;
   border: 1px solid var(--ide-border);
   background: var(--subtle-bg);
-  font-size: 12px;
   color: var(--ide-text);
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-  min-height: 34px;
-}
-
-.model-selector:hover {
-  background: var(--ide-hover-bg);
-  border-color: color-mix(in srgb, var(--accent) 30%, var(--ide-border));
-}
-
-.model-selector__select {
-  appearance: none;
-  -webkit-appearance: none;
-  background: transparent;
-  border: 0;
-  outline: none;
-  padding: 0 18px 0 2px;
   font-size: 12px;
-  color: inherit;
-  cursor: pointer;
   font-weight: 500;
-  /* native chevron 대신 ▼ pseudo */
-  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
-                    linear-gradient(135deg, currentColor 50%, transparent 50%);
-  background-position: right 6px center, right 2px center;
-  background-size: 4px 4px, 4px 4px;
-  background-repeat: no-repeat;
-  opacity: 0.85;
+  cursor: pointer;
+  min-height: 34px;
+  transition: background 0.15s, border-color 0.15s;
 }
 
-.model-selector__select:focus {
-  opacity: 1;
+.model-dropdown__trigger:hover {
+  background: var(--ide-hover-bg);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--ide-border));
+}
+
+.model-dropdown__label { line-height: 1; }
+.model-dropdown__caret {
+  font-size: 10px;
+  opacity: 0.7;
+  margin-left: 2px;
+}
+
+.model-dropdown__menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  min-width: 200px;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border-radius: 10px;
+  border: 1px solid var(--ide-border);
+  background: var(--ide-sidebar-bg);
+  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.45),
+              0 4px 12px -4px rgba(0, 0, 0, 0.25);
+  z-index: 50;
+}
+
+.model-dropdown__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ide-text);
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.model-dropdown__option:hover,
+.model-dropdown__option:focus-visible {
+  background: var(--ide-hover-bg);
+  outline: none;
+}
+
+.model-dropdown__option--active {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--text);
+}
+
+.model-dropdown__option--active:hover {
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.model-dropdown__option-label { flex: 1; }
+
+.model-dropdown__check {
+  font-size: 12px;
+  color: color-mix(in srgb, var(--accent) 90%, white 10%);
+  font-weight: 700;
+}
+
+/* provider 뱃지 — Claude (C) / GPT (G) */
+.model-dropdown__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.model-dropdown__badge--anthropic {
+  background: linear-gradient(135deg, #d97757 0%, #c05a3a 100%);
+}
+
+.model-dropdown__badge--openai {
+  background: linear-gradient(135deg, #10a37f 0%, #0d8a6b 100%);
 }
 
 .input--textarea {
@@ -4086,14 +4285,20 @@ html[data-theme="light"] .chat-bubble__markdown code {
   display: flex;
   width: 100%;
   gap: 4px;
+  min-width: 0;
 }
 
 .ai-tabs--segmented .chip {
   flex: 1 1 0;
+  min-width: 0;
   justify-content: center;
   text-align: center;
   font-weight: 600;
   letter-spacing: 0.01em;
+  padding: 0 8px;       /* 좁은 패널에서 라벨 잘림 방지 (기본 16 → 8) */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ai-context-chip__icon 클래스는 unused (이모지 제거됨, 2026-05-12) */
@@ -4136,8 +4341,9 @@ html[data-theme="light"] .chat-bubble__markdown code {
   display: grid;
   gap: 12px;
   min-height: 0;
+  min-width: 0;       /* 좁은 패널 폭에서 자식 (긴 파일 경로 chip, monaco diff 등) 이 부모 너비 밀고 나가 가로스크롤 만들지 않게 */
   padding: 14px;
-  overflow: auto;
+  overflow: hidden;   /* auto → hidden : 가로 overflow 차단. 내부 컨테이너만 자체 스크롤 허용 */
 }
 
 .ai-panel--chat {
@@ -4147,7 +4353,8 @@ html[data-theme="light"] .chat-bubble__markdown code {
 
 .ai-panel--edit {
   align-content: start;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* ─── Diff ───────────────────────────────────────────────────── */

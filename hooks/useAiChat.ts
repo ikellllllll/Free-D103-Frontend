@@ -22,11 +22,22 @@ export function useAiChat(sessionId: string) {
     return data;
   }, [sessionId, setMessages]);
 
-  const send = useCallback(async (message: string, currentFile?: string, modelName?: string | null) => {
+  const send = useCallback(async (
+    question: string,
+    currentFile?: string,
+    modelName?: string | null,
+    attachedCode?: AiMessage["attachedCode"]
+  ) => {
+    // UI 표시용 content (question 만), 백엔드 전송용 content (fenced code 포함)
+    const backendContent = attachedCode
+      ? `${question}\n\n---\n선택한 코드 (${attachedCode.path}${attachedCode.lineRange ? ` ${attachedCode.lineRange}` : ""}):\n\`\`\`\n${attachedCode.code}\n\`\`\``
+      : question;
+
     const optimistic: AiMessage = {
       id: `optimistic-${Date.now()}`,
       role: "user",
-      content: message,
+      content: question,           // UI 에는 질문만
+      attachedCode,                // 코드는 별도 chip 으로 렌더
       createdAt: new Date().toISOString()
     };
 
@@ -50,7 +61,7 @@ export function useAiChat(sessionId: string) {
       try {
         await sessionApi.streamChat(
           sessionId,
-          { chat: message, modelName: modelName ?? null },
+          { chat: backendContent, modelName: modelName ?? null },
           {
             onChunk: (content) => {
               accumulated += content;
@@ -86,7 +97,7 @@ export function useAiChat(sessionId: string) {
     // === mock 세션 (기존 흐름) ===
     const { assistantMessage, requestCount: nextCount } = await mockApi.requestAiChat(
       sessionId,
-      message,
+      backendContent,
       currentFile
     );
     setRequestCount(nextCount);

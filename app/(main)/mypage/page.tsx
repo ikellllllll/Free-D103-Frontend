@@ -23,7 +23,7 @@ import {
 
 import { LangIcon } from "@/components/common/LangIcon";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
-import { authApi } from "@/lib/api/authApi";
+import { authApi, type ApiKeyVendor, type APIKeyItem } from "@/lib/api/authApi";
 import { mockApi } from "@/lib/api/mockApi";
 import { useAuthStore } from "@/store/authStore";
 import { useThemeStore } from "@/store/themeStore";
@@ -32,6 +32,16 @@ import { useUiStore } from "@/store/uiStore";
 /* ─── BYOK ─── */
 
 type ProviderId = "anthropic" | "openai";
+
+// 백엔드 Vendor enum 과 매핑 (anthropic ↔ ANTHROPIC, openai ↔ OPENAI).
+const PROVIDER_TO_VENDOR: Record<ProviderId, ApiKeyVendor> = {
+  anthropic: "ANTHROPIC",
+  openai: "OPENAI"
+};
+const VENDOR_TO_PROVIDER: Record<ApiKeyVendor, ProviderId> = {
+  ANTHROPIC: "anthropic",
+  OPENAI: "openai"
+};
 
 const BYOK_PROVIDERS: {
   id: ProviderId;
@@ -43,48 +53,11 @@ const BYOK_PROVIDERS: {
   { id: "openai", label: "OpenAI ChatGPT", logo: "/AI_logo/icons8-chatgpt.svg", tint: "bg-white" }
 ];
 
-const BYOK_STORAGE_KEY = "aig-byok-keys-v1";
-const BYOK_KEY_IDS_STORAGE_KEY = "aig-byok-key-ids-v1";
 const PREF_STORAGE_KEY = "aig-user-preferences-v1";
 
 interface UserPreferences {
   defaultLang: "java" | "python";
   defaultModel: string;
-}
-
-function loadByokKeys(): Partial<Record<ProviderId, string>> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = localStorage.getItem(BYOK_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-function saveByokKeys(keys: Partial<Record<ProviderId, string>>) {
-  localStorage.setItem(BYOK_STORAGE_KEY, JSON.stringify(keys));
-}
-function loadByokKeyIds(): Partial<Record<ProviderId, number>> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = localStorage.getItem(BYOK_KEY_IDS_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-function saveByokKeyIds(ids: Partial<Record<ProviderId, number>>) {
-  localStorage.setItem(BYOK_KEY_IDS_STORAGE_KEY, JSON.stringify(ids));
-}
-
-const VENDOR_MAP: Record<ProviderId, "OPENAI" | "CLAUDE"> = {
-  anthropic: "CLAUDE",
-  openai: "OPENAI"
-};
-function maskKey(k: string): string {
-  if (!k) return "";
-  if (k.length <= 10) return `${k.slice(0, 4)}•••${k.slice(-2)}`;
-  return `${k.slice(0, 6)}•••••${k.slice(-4)}`;
 }
 
 /* ─── Nav ─── */
@@ -251,16 +224,31 @@ export default function MyPage() {
   const [defaultModel, setDefaultModel] = useState("자동 추천");
   const [prefsHydrated, setPrefsHydrated] = useState(false);
 
-  const [byokKeys, setByokKeys] = useState<Partial<Record<ProviderId, string>>>({});
-  const [byokKeyIds, setByokKeyIds] = useState<Partial<Record<ProviderId, number>>>({});
   const [editingProvider, setEditingProvider] = useState<ProviderId | null>(null);
   const [editValue, setEditValue] = useState("");
-  const [savingKey, setSavingKey] = useState(false);
-  const [removingKey, setRemovingKey] = useState<ProviderId | null>(null);
+  const [byokSubmitting, setByokSubmitting] = useState(false);
+
+  // BYOK 목록 조회 — 백엔드 GET /api/v1/api-keys
+  const { data: apiKeys = [] } = useQuery({
+    queryKey: ["apiKeys", user?.id],
+    queryFn: async (): Promise<APIKeyItem[]> => {
+      try { return await authApi.getApiKeys(); }
+      catch { return []; }
+    },
+    enabled: !!user
+  });
+
+  // provider → 등록된 키 객체 매핑 (vendor enum 매칭)
+  const keysByProvider = useMemo<Partial<Record<ProviderId, APIKeyItem>>>(() => {
+    const map: Partial<Record<ProviderId, APIKeyItem>> = {};
+    apiKeys.forEach((item) => {
+      const pid = VENDOR_TO_PROVIDER[item.vendor];
+      if (pid) map[pid] = item;
+    });
+    return map;
+  }, [apiKeys]);
 
   useEffect(() => {
-    setByokKeys(loadByokKeys());
-    setByokKeyIds(loadByokKeyIds());
     try {
       const raw = localStorage.getItem(PREF_STORAGE_KEY);
       if (raw) {
@@ -287,50 +275,43 @@ export default function MyPage() {
 
   const openEdit = (id: ProviderId) => {
     setEditingProvider(id);
-    setEditValue(byokKeys[id] ?? "");
+    setEditValue("");  // 평문 키는 응답 X — 새로 입력만 가능 (등록 후 다시 못 봄)
   };
+
   const saveEdit = async () => {
     if (!editingProvider) return;
     const trimmed = editValue.trim();
-    if (!trimmed) return;
-    setSavingKey(true);
+    if (!trimmed) {
+      addToast("키를 입력해 주세요.", "warning");
+      return;
+    }
+    setByokSubmitting(true);
     try {
-      const res = await authApi.saveApiKey({ vendor: VENDOR_MAP[editingProvider], apiKey: trimmed });
-      const nextKeys = { ...byokKeys, [editingProvider]: trimmed };
-      const nextIds = { ...byokKeyIds, [editingProvider]: res.apiKeyId };
-      setByokKeys(nextKeys);
-      setByokKeyIds(nextIds);
-      saveByokKeys(nextKeys);
-      saveByokKeyIds(nextIds);
-      addToast("API 키가 저장되었습니다.", "success");
+      await authApi.createApiKey({
+        vendor: PROVIDER_TO_VENDOR[editingProvider],
+        apiKey: trimmed
+      });
+      await queryClient.invalidateQueries({ queryKey: ["apiKeys", user?.id] });
+      addToast(`${editingProvider === "anthropic" ? "Anthropic" : "OpenAI"} 키가 저장되었습니다.`, "success");
       setEditingProvider(null);
       setEditValue("");
-    } catch {
-      addToast("API 키 저장에 실패했습니다.", "error");
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : "키 저장에 실패했습니다.", "error");
     } finally {
-      setSavingKey(false);
+      setByokSubmitting(false);
     }
   };
+
   const removeKey = async (id: ProviderId) => {
-    const apiKeyId = byokKeyIds[id];
-    setRemovingKey(id);
+    const item = keysByProvider[id];
+    if (!item) return;
+    if (!window.confirm(`${id === "anthropic" ? "Anthropic" : "OpenAI"} 키를 삭제할까요?`)) return;
     try {
-      if (apiKeyId != null) {
-        await authApi.deleteApiKey(apiKeyId);
-      }
-      const nextKeys = { ...byokKeys };
-      const nextIds = { ...byokKeyIds };
-      delete nextKeys[id];
-      delete nextIds[id];
-      setByokKeys(nextKeys);
-      setByokKeyIds(nextIds);
-      saveByokKeys(nextKeys);
-      saveByokKeyIds(nextIds);
-      addToast("API 키가 삭제되었습니다.", "success");
-    } catch {
-      addToast("API 키 삭제에 실패했습니다.", "error");
-    } finally {
-      setRemovingKey(null);
+      await authApi.deleteApiKey(item.apiKeyId);
+      await queryClient.invalidateQueries({ queryKey: ["apiKeys", user?.id] });
+      addToast(`${id === "anthropic" ? "Anthropic" : "OpenAI"} 키가 삭제되었습니다.`, "success");
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : "키 삭제에 실패했습니다.", "error");
     }
   };
 
@@ -655,29 +636,32 @@ export default function MyPage() {
             {/* API KEYS */}
             {activeTab === "apikeys" && (
               <div className="animate-slide-up">
-                <SectionHeader title="API 키" desc="백엔드 저장 API가 없어 현재는 브라우저에만 저장됩니다." />
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <SectionHeader title="API 키" desc="본인 LLM API 키를 등록하면 시스템 기본 키 대신 사용됩니다. AES-256-GCM 으로 암호화 저장 — 평문은 등록 후 다시 표시되지 않습니다." />
+                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm p-6">
                   <div className="flex flex-col gap-2">
                     {BYOK_PROVIDERS.map((p) => {
-                      const connected = Boolean(byokKeys[p.id]);
+                      const item = keysByProvider[p.id];
+                      const connected = !!item;
                       const isEditing = editingProvider === p.id;
                       return (
                         <div key={p.id}>
-                          <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100 transition-all duration-300 hover:bg-white hover:-translate-y-0.5 hover:shadow-sm">
+                          <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-700 transition-all duration-300 hover:bg-white dark:hover:bg-slate-800 hover:-translate-y-0.5 hover:shadow-sm">
                             <span className={`shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-lg ${p.tint}`}>
                               <Image src={p.logo} alt={p.label} width={22} height={22} />
                             </span>
                             <div className="flex-1 min-w-0">
-                              <div className="text-sm font-semibold text-gray-900">{p.label}</div>
+                              <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">{p.label}</div>
                               {connected ? (
-                                <div className="text-xs text-gray-500 font-mono mt-0.5 truncate">{maskKey(byokKeys[p.id]!)}</div>
+                                <div className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+                                  {new Date(item.createdAt).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" })} 등록
+                                </div>
                               ) : (
-                                <div className="text-xs text-gray-400 mt-0.5">-</div>
+                                <div className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">미등록</div>
                               )}
                             </div>
                             <span
                               className={`shrink-0 inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full ${
-                                connected ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+                                connected ? "bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400" : "bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400"
                               }`}
                             >
                               {connected && <Check size={10} strokeWidth={3} />}
@@ -687,48 +671,50 @@ export default function MyPage() {
                               <button
                                 type="button"
                                 onClick={() => openEdit(p.id)}
-                                className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                                aria-label="편집"
+                                className="p-1.5 rounded-lg text-gray-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
+                                aria-label={connected ? "교체" : "등록"}
+                                title={connected ? "새 키로 교체" : "키 등록"}
                               >
                                 <Pencil size={14} />
                               </button>
                               <button
                                 type="button"
-                                disabled={!connected || removingKey === p.id}
+                                disabled={!connected}
                                 onClick={() => void removeKey(p.id)}
-                                className="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                                className="p-1.5 rounded-lg text-gray-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors disabled:opacity-40 disabled:pointer-events-none"
                                 aria-label="삭제"
                               >
-                                {removingKey === p.id
-                                  ? <span className="text-[10px] font-bold">…</span>
-                                  : <Trash2 size={14} />}
+                                <Trash2 size={14} />
                               </button>
                             </div>
                           </div>
 
                           {isEditing && (
-                            <div className="mt-2 p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl">
+                            <div className="mt-2 p-3 bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/60 rounded-xl">
                               <input
                                 type="password"
                                 value={editValue}
                                 onChange={(e) => setEditValue(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && void saveEdit()}
                                 placeholder={`${p.label} API 키를 붙여넣으세요`}
                                 autoFocus
-                                className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-900 font-mono focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                                disabled={byokSubmitting}
+                                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-950/70 text-sm text-gray-900 dark:text-slate-100 font-mono focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-500/30 outline-none transition-all disabled:opacity-50"
                               />
                               <div className="flex items-center gap-2 mt-2">
                                 <button
                                   type="button"
                                   onClick={() => void saveEdit()}
-                                  disabled={savingKey || !editValue.trim()}
-                                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                                  disabled={byokSubmitting || !editValue.trim()}
+                                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                  {savingKey ? "저장 중…" : "저장"}
+                                  {byokSubmitting ? "저장 중..." : "저장"}
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => { setEditingProvider(null); setEditValue(""); }}
-                                  className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 text-xs font-semibold hover:bg-gray-50"
+                                  disabled={byokSubmitting}
+                                  className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 text-xs font-semibold hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-50"
                                 >
                                   취소
                                 </button>
@@ -740,9 +726,9 @@ export default function MyPage() {
                     })}
                   </div>
 
-                  <div className="mt-4 flex items-start gap-2.5 bg-indigo-50/70 ring-1 ring-inset ring-indigo-100 rounded-xl px-4 py-2.5 text-xs text-indigo-700">
+                  <div className="mt-4 flex items-start gap-2.5 bg-indigo-50/70 dark:bg-indigo-950/40 ring-1 ring-inset ring-indigo-100 dark:ring-indigo-900/60 rounded-xl px-4 py-2.5 text-xs text-indigo-700 dark:text-indigo-300">
                     <Shield size={13} strokeWidth={2.2} className="shrink-0 mt-0.5" />
-                    <span>키는 브라우저에만 저장되며 서버에는 전송되지 않아요.</span>
+                    <span>키는 서버에 AES-256-GCM 으로 암호화 저장되며, 등록 후 평문은 다시 노출되지 않습니다. (Stripe / GitHub 패턴)</span>
                   </div>
                 </div>
               </div>
