@@ -74,10 +74,10 @@ const severityMeta = (severity: number) => {
 };
 
 const toneClass = {
-  amber: "bg-amber-100 text-amber-700",
-  rose: "bg-rose-100 text-rose-700",
-  indigo: "bg-indigo-100 text-indigo-700",
-  gray: "bg-gray-100 text-gray-600"
+  amber: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+  rose: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
+  indigo: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300",
+  gray: "bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-slate-300"
 } as const;
 
 export default function FeedbackReportPage({
@@ -101,8 +101,8 @@ export default function FeedbackReportPage({
     return (
       <div className="max-w-2xl mx-auto px-6 pt-28 pb-20 text-center">
         <AlertTriangle size={28} className="mx-auto text-amber-500 mb-3" />
-        <p className="text-gray-800 font-semibold mb-2">리포트를 찾을 수 없습니다.</p>
-        <p className="text-sm text-gray-500 mb-5">제출 처리 화면에서 상태를 다시 확인해 주세요.</p>
+        <p className="text-gray-800 dark:text-slate-100 font-semibold mb-2">리포트를 찾을 수 없습니다.</p>
+        <p className="text-sm text-gray-500 dark:text-slate-400 mb-5">제출 처리 화면에서 상태를 다시 확인해 주세요.</p>
         <Link
           href={withPrefix(`/submissions/${submissionId}`)}
           className="inline-flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-colors"
@@ -117,14 +117,14 @@ export default function FeedbackReportPage({
   if (isLoading || !report || report.status !== "COMPLETED") {
     return (
       <div className="max-w-2xl mx-auto px-6 pt-28 pb-20 text-center">
-        <div className="inline-flex items-center space-x-2 text-gray-500">
+        <div className="inline-flex items-center space-x-2 text-gray-500 dark:text-slate-400">
           <Sparkles size={18} className="animate-pulse" />
           <span>리포트를 생성하는 중…</span>
         </div>
         <div className="mt-5">
           <Link
             href={withPrefix(`/submissions/${submissionId}`)}
-            className="inline-flex items-center justify-center space-x-2 px-4 py-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-semibold text-sm transition-colors"
+            className="inline-flex items-center justify-center space-x-2 px-4 py-2 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 font-semibold text-sm transition-colors"
           >
             <span>처리 단계 보기</span>
             <ArrowRight size={14} strokeWidth={2.4} />
@@ -210,15 +210,15 @@ export default function FeedbackReportPage({
 
         {/* ── ACTION GUIDES (priority) ── */}
         {report.actionGuides.length > 0 ? (
-          <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-7 animate-slide-up">
+          <section className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm p-6 md:p-7 animate-slide-up">
             <div className="flex items-center gap-2.5 mb-5">
-              <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600">
+              <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300">
                 <Lightbulb size={15} strokeWidth={2.2} />
               </span>
-              <h2 className="font-display font-bold text-gray-900 text-[17px]">
+              <h2 className="font-display font-bold text-gray-900 dark:text-slate-100 text-[17px]">
                 다음 액션 가이드
               </h2>
-              <span className="text-xs text-gray-500">priority 순</span>
+              <span className="text-xs text-gray-500 dark:text-slate-400">priority 순</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {report.actionGuides.map((g) => (
@@ -244,15 +244,15 @@ export default function FeedbackReportPage({
 
         {/* ── SUMMARY (one-liner) ── */}
         {report.summary && (
-          <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-7 flex items-start gap-4 animate-slide-up">
-            <span className="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600">
+          <section className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm p-6 md:p-7 flex items-start gap-4 animate-slide-up">
+            <span className="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300">
               <Sparkles size={16} strokeWidth={2.2} />
             </span>
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-indigo-600 mb-1">
+              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-indigo-600 dark:text-indigo-400 mb-1">
                 한 줄 요약
               </div>
-              <p className="text-[15px] md:text-base text-gray-800 font-medium leading-relaxed">
+              <p className="text-[15px] md:text-base text-gray-800 dark:text-slate-200 font-medium leading-relaxed">
                 {report.summary}
               </p>
             </div>
@@ -264,24 +264,24 @@ export default function FeedbackReportPage({
 
         {/* ── TRACE TIMELINE CTA ── */}
         <section
-          className="bg-white rounded-2xl border-2 border-dashed border-indigo-200 p-5 md:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-slide-up"
+          className="bg-white dark:bg-slate-900 rounded-2xl border-2 border-dashed border-indigo-200 dark:border-indigo-500/40 p-5 md:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-slide-up"
         >
           <div className="flex items-center gap-4 min-w-0">
-            <span className="shrink-0 inline-flex items-center justify-center w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600">
+            <span className="shrink-0 inline-flex items-center justify-center w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300">
               <GitBranch size={20} strokeWidth={2.2} />
             </span>
             <div className="min-w-0">
-              <div className="font-display font-bold text-gray-900 text-[17px]">
+              <div className="font-display font-bold text-gray-900 dark:text-slate-100 text-[17px]">
                 Trace 타임라인
               </div>
-              <div className="text-sm text-gray-500 mt-0.5">
+              <div className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">
                 모든 LLM 호출, Tool 실행, 재시도 단계를 한 번에 확인할 수 있어요.
               </div>
             </div>
           </div>
           <Link
             href={withPrefix(`/submissions/${submissionId}/timeline`)}
-            className="shrink-0 inline-flex items-center justify-center space-x-1.5 px-5 py-2.5 rounded-xl border-2 border-indigo-500 text-indigo-600 hover:bg-indigo-50 font-semibold text-sm transition-colors"
+            className="shrink-0 inline-flex items-center justify-center space-x-1.5 px-5 py-2.5 rounded-xl border-2 border-indigo-500 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 font-semibold text-sm transition-colors"
           >
             <span>타임라인 보기</span>
             <ArrowRight size={14} strokeWidth={2.4} />
@@ -292,7 +292,7 @@ export default function FeedbackReportPage({
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 pt-4">
           <Link
             href={withPrefix("/problems")}
-            className="inline-flex items-center justify-center space-x-2 px-6 py-3 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-semibold text-sm transition-colors"
+            className="inline-flex items-center justify-center space-x-2 px-6 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 font-semibold text-sm transition-colors"
           >
             <ArrowLeft size={14} strokeWidth={2.4} />
             <span>과제 목록으로</span>
@@ -329,7 +329,7 @@ function DimensionCard({
 
   return (
     <div
-      className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 animate-slide-up flex flex-col"
+      className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm p-5 animate-slide-up flex flex-col"
       style={{ animationDelay: `${delay}ms`, animationFillMode: "both" }}
     >
       <div className="flex items-center gap-2.5 mb-3">
@@ -339,19 +339,19 @@ function DimensionCard({
         >
           <Icon size={15} strokeWidth={2.2} />
         </span>
-        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-gray-500 leading-tight">
+        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-gray-500 dark:text-slate-400 leading-tight">
           {dimension.label}
         </span>
       </div>
 
       <div className="flex items-baseline gap-1 mb-3">
-        <span className="text-4xl font-display font-bold text-gray-900 leading-none tracking-tight tabular-nums">
+        <span className="text-4xl font-display font-bold text-gray-900 dark:text-slate-100 leading-none tracking-tight tabular-nums">
           {dimension.score}
         </span>
-        <span className="text-base font-display font-semibold text-gray-400">/ 100</span>
+        <span className="text-base font-display font-semibold text-gray-400 dark:text-slate-500">/ 100</span>
       </div>
 
-      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-3">
+      <div className="h-1.5 bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden mb-3">
         <div
           className="h-full rounded-full transition-all"
           style={{
@@ -362,41 +362,41 @@ function DimensionCard({
       </div>
 
       {dimension.rationale ? (
-        <p className="text-[12.5px] text-gray-600 leading-relaxed">{dimension.rationale}</p>
+        <p className="text-[12.5px] text-gray-600 dark:text-slate-400 leading-relaxed">{dimension.rationale}</p>
       ) : null}
 
       {hasDetail ? (
         <details className="mt-3 group">
-          <summary className="cursor-pointer text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 transition-colors select-none list-none flex items-center gap-1">
+          <summary className="cursor-pointer text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors select-none list-none flex items-center gap-1">
             <span className="group-open:hidden">자세히 보기 ▾</span>
             <span className="hidden group-open:inline">접기 ▴</span>
           </summary>
           <div className="mt-2.5 space-y-2.5 text-[12.5px] leading-relaxed">
             {dimension.strengthSummary ? (
               <div>
-                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-600 mb-0.5">
+                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-600 dark:text-emerald-400 mb-0.5">
                   강점
                 </div>
-                <p className="text-gray-700">{dimension.strengthSummary}</p>
+                <p className="text-gray-700 dark:text-slate-300">{dimension.strengthSummary}</p>
               </div>
             ) : null}
             {dimension.improvementSummary ? (
               <div>
-                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-amber-600 mb-0.5">
+                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-amber-600 dark:text-amber-400 mb-0.5">
                   개선
                 </div>
-                <p className="text-gray-700">{dimension.improvementSummary}</p>
+                <p className="text-gray-700 dark:text-slate-300">{dimension.improvementSummary}</p>
               </div>
             ) : null}
             {dimension.recommendedActions && dimension.recommendedActions.length > 0 ? (
               <div>
-                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500 mb-1">
+                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500 dark:text-slate-400 mb-1">
                   추천 행동
                 </div>
                 <ul className="space-y-1">
                   {dimension.recommendedActions.map((a) => (
-                    <li key={a} className="flex items-start gap-1.5 text-gray-700">
-                      <span className="text-indigo-500 mt-0.5">·</span>
+                    <li key={a} className="flex items-start gap-1.5 text-gray-700 dark:text-slate-300">
+                      <span className="text-indigo-500 dark:text-indigo-400 mt-0.5">·</span>
                       <span>{a}</span>
                     </li>
                   ))}
@@ -414,18 +414,18 @@ function DimensionCard({
 
 function ActionGuideCard({ guide }: { guide: ActionGuideItem }) {
   return (
-    <div className="relative pl-14 pr-4 py-4 rounded-xl border border-gray-100 bg-gradient-to-br from-indigo-50/40 to-white">
+    <div className="relative pl-14 pr-4 py-4 rounded-xl border border-gray-100 dark:border-slate-800 bg-gradient-to-br from-indigo-50/40 to-white dark:from-indigo-500/10 dark:to-slate-900">
       <span className="absolute left-4 top-4 inline-flex items-center justify-center w-7 h-7 rounded-full text-white font-bold text-xs"
         style={{ backgroundImage: "linear-gradient(135deg, #6366F1, #8B5CF6)" }}
       >
         {guide.priority}
       </span>
-      <div className="font-display font-bold text-gray-900 text-[15px] mb-1">{guide.title}</div>
+      <div className="font-display font-bold text-gray-900 dark:text-slate-100 text-[15px] mb-1">{guide.title}</div>
       {guide.description ? (
-        <p className="text-sm text-gray-600 leading-relaxed">{guide.description}</p>
+        <p className="text-sm text-gray-600 dark:text-slate-400 leading-relaxed">{guide.description}</p>
       ) : null}
       {guide.expectedImpact ? (
-        <div className="mt-2 inline-block px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[11px] font-semibold">
+        <div className="mt-2 inline-block px-2.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 text-[11px] font-semibold">
           기대 효과 · {guide.expectedImpact}
         </div>
       ) : null}
@@ -446,7 +446,7 @@ function FindingsCard({
 }) {
   const isGood = tone === "good";
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-7 animate-slide-up">
+    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm p-6 md:p-7 animate-slide-up">
       <div className="flex items-center gap-2.5 mb-5">
         {isGood ? (
           <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white shadow-sm">
@@ -457,7 +457,7 @@ function FindingsCard({
             <AlertTriangle size={13} strokeWidth={2.4} />
           </span>
         )}
-        <h2 className="font-display font-bold text-gray-900 text-[17px]">{title}</h2>
+        <h2 className="font-display font-bold text-gray-900 dark:text-slate-100 text-[17px]">{title}</h2>
       </div>
 
       <ul className="space-y-4">
@@ -468,7 +468,7 @@ function FindingsCard({
               style={{ borderColor: isGood ? "#10B981" : "#F59E0B" }}
             >
               <div className="flex items-start justify-between gap-2 mb-1">
-                <div className="font-semibold text-gray-900 text-[14px] leading-snug">
+                <div className="font-semibold text-gray-900 dark:text-slate-100 text-[14px] leading-snug">
                   {f.title}
                 </div>
                 {!isGood ? (
@@ -478,11 +478,11 @@ function FindingsCard({
                 ) : null}
               </div>
               {f.description ? (
-                <p className="text-[13px] text-gray-600 leading-relaxed">{f.description}</p>
+                <p className="text-[13px] text-gray-600 dark:text-slate-400 leading-relaxed">{f.description}</p>
               ) : null}
               {f.recommendation ? (
-                <p className="mt-1.5 text-[12.5px] text-gray-700 leading-relaxed flex items-start gap-1.5">
-                  <Lightbulb size={12} className="mt-0.5 shrink-0 text-amber-500" />
+                <p className="mt-1.5 text-[12.5px] text-gray-700 dark:text-slate-300 leading-relaxed flex items-start gap-1.5">
+                  <Lightbulb size={12} className="mt-0.5 shrink-0 text-amber-500 dark:text-amber-400" />
                   <span>{f.recommendation}</span>
                 </p>
               ) : null}
@@ -507,7 +507,7 @@ function LegacyFeedbackCard({
 }) {
   const isGood = tone === "good";
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-7 animate-slide-up">
+    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm p-6 md:p-7 animate-slide-up">
       <div className="flex items-center gap-2.5 mb-5">
         {isGood ? (
           <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white shadow-sm">
@@ -518,7 +518,7 @@ function LegacyFeedbackCard({
             <AlertTriangle size={13} strokeWidth={2.4} />
           </span>
         )}
-        <h2 className="font-display font-bold text-gray-900 text-[17px]">{title}</h2>
+        <h2 className="font-display font-bold text-gray-900 dark:text-slate-100 text-[17px]">{title}</h2>
       </div>
 
       <ul className="space-y-3.5">
@@ -529,8 +529,8 @@ function LegacyFeedbackCard({
               <span
                 className={`shrink-0 mt-0.5 inline-flex items-center justify-center w-5 h-5 rounded-full ${
                   isGood
-                    ? "bg-green-100 text-green-600"
-                    : "bg-amber-100 text-amber-600"
+                    ? "bg-green-100 text-green-600 dark:bg-green-500/15 dark:text-green-300"
+                    : "bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300"
                 }`}
               >
                 {isGood ? (
@@ -540,9 +540,9 @@ function LegacyFeedbackCard({
                 )}
               </span>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-bold text-gray-900 leading-snug">{head}</div>
+                <div className="text-sm font-bold text-gray-900 dark:text-slate-100 leading-snug">{head}</div>
                 {tail && (
-                  <div className="text-sm text-gray-500 leading-relaxed mt-0.5">{tail}</div>
+                  <div className="text-sm text-gray-500 dark:text-slate-400 leading-relaxed mt-0.5">{tail}</div>
                 )}
               </div>
             </li>
@@ -564,13 +564,13 @@ function BasisSection({ report }: { report: FeedbackReport }) {
   const harnessFiles = basis.usedHarnessFiles ?? [];
 
   return (
-    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-7 animate-slide-up">
+    <section className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm p-6 md:p-7 animate-slide-up">
       <div className="flex items-center gap-2.5 mb-5">
-        <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 text-gray-600">
+        <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300">
           <FileText size={14} strokeWidth={2.2} />
         </span>
-        <h2 className="font-display font-bold text-gray-900 text-[17px]">평가 근거</h2>
-        <span className="text-xs text-gray-500">이 리포트가 본 자료들</span>
+        <h2 className="font-display font-bold text-gray-900 dark:text-slate-100 text-[17px]">평가 근거</h2>
+        <span className="text-xs text-gray-500 dark:text-slate-400">이 리포트가 본 자료들</span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
@@ -610,14 +610,14 @@ function BasisSection({ report }: { report: FeedbackReport }) {
 
       {harnessFiles.length > 0 ? (
         <div>
-          <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-500 mb-2">
+          <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-500 dark:text-slate-400 mb-2">
             사용된 하네스 파일
           </div>
           <div className="flex flex-wrap gap-1.5">
             {harnessFiles.map((p) => (
               <span
                 key={p}
-                className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-50 border border-gray-200 font-mono text-[11.5px] text-gray-700"
+                className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 font-mono text-[11.5px] text-gray-700 dark:text-slate-300"
               >
                 {p}
               </span>
