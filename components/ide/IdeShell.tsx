@@ -4085,6 +4085,12 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       const diffTabId = createDiffTabId(worktreePath);
       handleCloseFileTab(diffTabId, activeEditorGroupId);
 
+      // React commit 한 번 yield — 같은 트랜잭션에서 invalidate 가 일어나면 Monaco DiffEditor가
+      // unmount되는 사이에 sourceFile/targetFile 객체가 사라져 "TextModel got disposed before
+      // DiffEditorWidget model got reset" 콘솔 에러가 뜸. setTimeout(0) 으로 React 가 탭 닫힘을
+      // 먼저 commit 한 뒤 workspace 를 갱신하게 한다.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
       // workspace 새로고침 — worktree 파일 사라지고, 적용한 경우 origin 파일 새 내용 hydrate
       await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
     } catch (error) {
@@ -4122,6 +4128,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         const diffTabId = createDiffTabId(path);
         handleCloseFileTab(diffTabId, activeEditorGroupId);
       }
+
+      // React commit yield — handlePartialEdit 와 동일 race 회피.
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
       await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
     } catch (error) {
