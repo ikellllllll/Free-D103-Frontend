@@ -363,7 +363,9 @@ function pathForGroup(group: TourRect[]): string {
 
 // AI 사용 횟수 제한은 백엔드에서 더 이상 강제하지 않음 (2026-05-11~).
 // AI_REQUEST_QUOTA 상수 + aiQuotaLabel 변수 모두 unused 상태로 정리됨.
-const DEFAULT_HARNESS_BASE_MODEL = "GPT_5_2";
+// chat 기본 모델과 통일 — UI 하단의 모델 표시(GPT-5 Mini) 와 Agent Build 시 사용 모델을 일치시켜
+// "GPT-5.2로 빌드됐는데 채팅엔 GPT-5 Mini 라고 떠서 어떤 모델 쓰는지 모르겠음" 혼란 제거.
+const DEFAULT_HARNESS_BASE_MODEL = "GPT_5_MINI";
 const HARNESS_BASE_MODELS = new Set([
   "GPT_5_2",
   "GPT_5",
