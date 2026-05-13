@@ -1778,31 +1778,47 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const isDiffModelRace = (message: unknown) => {
-      if (typeof message !== "string") return false;
+      const text =
+        typeof message === "string"
+          ? message
+          : message && typeof message === "object" && "message" in (message as Record<string, unknown>)
+            ? String((message as { message?: unknown }).message ?? "")
+            : "";
+      if (!text) return false;
       return (
-        message.includes("TextModel got disposed before DiffEditorWidget") ||
-        message.includes("TextModel disposed") // monaco 내부 메시지가 살짝 달라질 가능성 대비
+        text.includes("TextModel got disposed before DiffEditorWidget") ||
+        text.includes("TextModel disposed") // monaco 내부 메시지가 살짝 달라질 가능성 대비
       );
     };
     const onError = (event: ErrorEvent) => {
-      const msg = event.error?.message ?? event.message;
-      if (isDiffModelRace(msg)) {
+      if (isDiffModelRace(event.error?.message ?? event.message)) {
         event.preventDefault();
         event.stopImmediatePropagation();
       }
     };
     const onUnhandledRejection = (event: PromiseRejectionEvent) => {
-      const reason = event.reason as { message?: unknown } | string | undefined;
-      const msg = typeof reason === "string" ? reason : reason?.message;
-      if (isDiffModelRace(msg)) {
+      if (isDiffModelRace(event.reason)) {
         event.preventDefault();
       }
     };
+    // Monaco DiffEditor 내부가 try/catch 안에서 console.error 로만 출력하는 케이스 — window.error
+    // 가 안 잡힌다. 그래서 console.error 도 wrap 해서 동일 패턴이면 swallow.
+    // 원본 함수는 그대로 보존하고, 매치 안 되는 메시지는 그대로 흘려보낸다.
+    const originalConsoleError = window.console.error.bind(window.console);
+    const wrappedConsoleError = (...args: unknown[]) => {
+      const first = args[0];
+      if (isDiffModelRace(first)) return; // silently drop
+      // Error 객체 자체가 두 번째 인자로 오는 케이스 (Monaco style)
+      if (args.length > 1 && isDiffModelRace(args[1])) return;
+      originalConsoleError(...args);
+    };
     window.addEventListener("error", onError, true);
     window.addEventListener("unhandledrejection", onUnhandledRejection);
+    window.console.error = wrappedConsoleError;
     return () => {
       window.removeEventListener("error", onError, true);
       window.removeEventListener("unhandledrejection", onUnhandledRejection);
+      window.console.error = originalConsoleError;
     };
   }, []);
 
@@ -4124,11 +4140,16 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       const diffTabId = createDiffTabId(worktreePath);
       handleCloseFileTab(diffTabId, activeEditorGroupId);
 
-      // React commit 한 번 yield — 같은 트랜잭션에서 invalidate 가 일어나면 Monaco DiffEditor가
-      // unmount되는 사이에 sourceFile/targetFile 객체가 사라져 "TextModel got disposed before
-      // DiffEditorWidget model got reset" 콘솔 에러가 뜸. setTimeout(0) 으로 React 가 탭 닫힘을
-      // 먼저 commit 한 뒤 workspace 를 갱신하게 한다.
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      // React commit + Monaco unmount 사이 race 회피 — handleCloseFileTab 직후 곧바로
+      // invalidate 하면 DiffEditor 가 새 props 받기 전에 model 이 disposed 돼 콘솔에
+      // "TextModel got disposed before DiffEditorWidget model got reset" 에러 발생.
+      // setTimeout(0) 한 번으로는 multi-edit 흐름에서 부족 — RAF 두 번 + setTimeout 으로 충분히
+      // unmount 가 완료된 다음에 invalidate 트리거.
+      await new Promise<void>((resolve) => {
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(() => setTimeout(resolve, 16));
+        });
+      });
 
       // workspace 새로고침 — worktree 파일 사라지고, 적용한 경우 origin 파일 새 내용 hydrate
       await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
@@ -4168,8 +4189,12 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         handleCloseFileTab(diffTabId, activeEditorGroupId);
       }
 
-      // React commit yield — handlePartialEdit 와 동일 race 회피.
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      // React commit yield — handlePartialEdit 와 동일 race 회피 (RAF 두 번 + setTimeout).
+      await new Promise<void>((resolve) => {
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(() => setTimeout(resolve, 16));
+        });
+      });
 
       await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
     } catch (error) {
