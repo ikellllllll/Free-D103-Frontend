@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { mockApi } from "@/lib/api/mockApi";
 import { isBackendSessionId, sessionApi } from "@/lib/api/sessionApi";
 import type { AgentRunTrace, AgentSpan } from "@/lib/types/trace";
+import { useAgentUIState } from "@/hooks/useAgentUIState";
 import { useIdeStore } from "@/store/ideStore";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -351,8 +352,11 @@ function GanttView({ span }: { span: AgentSpan }) {
   );
 }
 
-function SpanDetail({ span }: { span: AgentSpan }) {
+function SpanDetail({ span, sessionId, agentTraceId }: { span: AgentSpan; sessionId: string; agentTraceId: string | number | null }) {
   const [tab, setTab] = useState<"preview" | "log" | "gantt">("preview");
+  // ui-state — span 단위가 아닌 trace 단위 (변경 파일 + reviewStatus + diffSummary).
+  // Trace 단위라 같은 span 안의 patches 와 별개로 추가 정보를 보여준다.
+  const { data: uiState } = useAgentUIState(sessionId, agentTraceId);
   const totalIn  = span.llmCalls.reduce((a, c) => a + c.inputTokens, 0);
   const totalOut = span.llmCalls.reduce((a, c) => a + c.outputTokens, 0);
   const models   = [...new Set(span.llmCalls.map(c => c.modelName))];
@@ -437,6 +441,35 @@ function SpanDetail({ span }: { span: AgentSpan }) {
               </table>
             </SectionCard>
           )}
+          {uiState && uiState.changedFiles.length > 0 ? (
+            <SectionCard icon="🔍" title="Worktree 변경 + Review 상태" accent="default" count={uiState.changedFileCount}>
+              <table className="twb-io-table">
+                <thead><tr><th>File</th><th>변경</th><th>+/-</th><th>리뷰 상태</th></tr></thead>
+                <tbody>
+                  {uiState.changedFiles.map(cf => (
+                    <tr key={cf.fileChangedRequestId}>
+                      <td className="twb-io-path" title={cf.diffSummary ?? ""}>{cf.relativePath}</td>
+                      <td className="twb-io-val">{cf.changeType}</td>
+                      <td className="twb-io-val--number">
+                        <span className="twb-diff--add">+{cf.additions}</span> / <span className="twb-diff--del">-{cf.deletions}</span>
+                      </td>
+                      <td>
+                        <span className={
+                          cf.reviewStatus === "APPROVED" || cf.reviewStatus === "APPLIED"
+                            ? "twb-badge twb-badge--ok"
+                            : cf.reviewStatus === "REJECTED"
+                              ? "twb-badge twb-badge--err"
+                              : "twb-badge twb-badge--idle"
+                        }>
+                          {cf.reviewStatus}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </SectionCard>
+          ) : null}
         </div>
       ) : tab === "log" ? (
         <div className="twb-detail__body twb-detail__body--log">
@@ -678,7 +711,7 @@ function TraceList({ runs, selectedId, isLoading, page, totalPages, totalRuns, o
 
 // ─── Col 3 placeholder ───────────────────────────────────────────────────────
 
-function DetailPane({ span }: { span: AgentSpan | null }) {
+function DetailPane({ span, sessionId, agentTraceId }: { span: AgentSpan | null; sessionId: string; agentTraceId: string | number | null }) {
   return (
     <div className="twb-col twb-col--detail">
       <div className="twb-col-head">
@@ -687,7 +720,7 @@ function DetailPane({ span }: { span: AgentSpan | null }) {
       </div>
       <div className="twb-col-divider" />
       {span ? (
-        <SpanDetail span={span} />
+        <SpanDetail span={span} sessionId={sessionId} agentTraceId={agentTraceId} />
       ) : (
         <div className="twb-empty twb-empty--center twb-empty--sm">
           <span>Span을 선택하면</span>
@@ -902,7 +935,7 @@ export function TraceWorkbench({ sessionId, onClose }: { sessionId: string; onCl
                     showRunSummary={false}
                   />
                   <div className="twb-col-resizer" />
-                  <DetailPane span={selectedSpan} />
+                  <DetailPane span={selectedSpan} sessionId={sessionId} agentTraceId={selectedRun?.agentTraceId ?? null} />
                 </div>
               </>
             )}

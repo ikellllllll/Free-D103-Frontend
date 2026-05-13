@@ -5,7 +5,7 @@ import { normalizeApiDateTime, parseApiDateTime } from "@/lib/dateTime";
 import { createInitialSession } from "@/lib/mock-data";
 import type { AiMessage, TraceEvent } from "@/lib/types/ai";
 import type { ProblemLanguage, RunResult, SolveSession, TestRunResult, WorkspaceFile } from "@/lib/types/session";
-import type { AgentLlmCall, AgentPatch, AgentRunTrace, AgentSpan, AgentToolCall } from "@/lib/types/trace";
+import type { AgentLlmCall, AgentPatch, AgentRunTrace, AgentSpan, AgentToolCall, AgentUIState } from "@/lib/types/trace";
 
 interface ApiResponse<T> {
   httpStatusCode: number;
@@ -989,6 +989,25 @@ export const sessionApi = {
       runtimeConfig: raw.runtimeConfig ?? raw.runtime_config ?? null
     };
     return normalized;
+  },
+
+  /**
+   * Agent 실행 UI 상태 조회 — GET /api/v1/ai/sessions/{sid}/agent/runs/{traceId}/ui-state (2026-05-13~).
+   * 응답: { status, focus(path/line/column), changedFileCount, changedFiles[] }.
+   *  - RUNNING 일 때: focus 가 현재 agent 가 작업 중인 파일/줄. follow-along UI 에 사용.
+   *  - COMPLETED/FAILED 일 때: changedFiles 가 최종 변경 리스트 + diff stats + review_status.
+   * 진행 중 trace 면 1-2초 폴링, 종료 trace 면 한 번만 호출.
+   */
+  async getAgentUIState(sessionId: string, agentTraceId: string | number): Promise<AgentUIState | null> {
+    try {
+      const res = await authClient
+        .get(`api/v1/ai/sessions/${sessionId}/agent/runs/${agentTraceId}/ui-state`)
+        .json<ApiResponse<AgentUIState>>();
+      return res.data ?? null;
+    } catch {
+      // 400 (AI 서버 데이터 없음 — 비 worktree trace) / 404 등은 null 반환.
+      return null;
+    }
   },
 
   /**

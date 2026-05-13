@@ -76,3 +76,25 @@ export interface AgentRunTrace {
   errorMessage: string | null;
   spans: AgentSpan[];
 }
+
+// 백엔드 GET /api/v1/ai/sessions/{sid}/agent/runs/{trace}/ui-state 응답.
+// 진행 중인 agent 의 focus(파일/줄/컬럼) + 변경된 파일 목록(diff stats 포함).
+export interface AgentUIStateChangedFile {
+  fileChangedRequestId: number;
+  relativePath: string;
+  changeType: string;          // CREATE | EDIT | DELETE 등 백엔드 enum
+  reviewStatus: string;        // PENDING | APPROVED | REJECTED | ...
+  diffSummary: string | null;
+  additions: number;
+  deletions: number;
+}
+
+export interface AgentUIState {
+  agentTraceId: number;
+  agentWorkspaceId: number;
+  problemSessionId: number;
+  status: TraceRunStatus;
+  focus: { path: string; line: number | null; column: number | null } | null;
+  changedFileCount: number;
+  changedFiles: AgentUIStateChangedFile[];
+}

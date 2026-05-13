@@ -19,6 +19,7 @@ import { HarnessPanel } from "@/components/ide/HarnessPanel";
 import { SubmissionResultPanel } from "@/components/ide/SubmissionResultPanel";
 import { TestResultRow } from "@/components/ide/TestResultRow";
 import { TraceWorkbench } from "@/components/ide/TraceWorkbench";
+import { useAgentUIState } from "@/hooks/useAgentUIState";
 import { useAiChat } from "@/hooks/useAiChat";
 import { mockApi } from "@/lib/api/mockApi";
 import { problemApi } from "@/lib/api/problemApi";
@@ -957,6 +958,92 @@ const appendLocalFolder = (folders: string[], folderPath: string | null) => {
 
   return [...folders, folderPath];
 };
+
+// Agent UI 상태 섹션 — 진행 카드 안 또는 종료 카드 안에서 변경 파일 list 표시.
+// 백엔드 ui-state API 가 traceId 별로 changed_files + diff stats + reviewStatus 를 준다.
+function AgentUIStateSection({
+  sessionId,
+  traceId,
+  onOpenDiff,
+  onFocusPath
+}: {
+  sessionId: string;
+  traceId: string | number;
+  onOpenDiff: (relativePath: string) => void;
+  onFocusPath?: (path: string) => void;
+}) {
+  const { data, isLoading } = useAgentUIState(sessionId, traceId);
+  const isRunning = data?.status === "RUNNING" || data?.status === "PENDING";
+
+  // RUNNING 일 때 focus 가 바뀌면 에디터 자동 follow-along.
+  useEffect(() => {
+    if (!isRunning) return;
+    const focusPath = data?.focus?.path;
+    if (focusPath && onFocusPath) {
+      onFocusPath(focusPath);
+    }
+  }, [isRunning, data?.focus?.path, onFocusPath]);
+
+  if (!data && isLoading) return null;
+  if (!data) return null;
+
+  const files = data.changedFiles ?? [];
+  if (files.length === 0 && !data.focus) return null;
+
+  const reviewLabel: Record<string, string> = {
+    PENDING: "대기",
+    APPROVED: "적용",
+    REJECTED: "거절",
+    APPLIED: "적용"
+  };
+  const reviewClass: Record<string, string> = {
+    PENDING: "agent-uistate__chip--pending",
+    APPROVED: "agent-uistate__chip--ok",
+    APPLIED: "agent-uistate__chip--ok",
+    REJECTED: "agent-uistate__chip--rej"
+  };
+
+  return (
+    <div className="agent-uistate">
+      {data.focus?.path ? (
+        <div className="agent-uistate__focus">
+          <span className="agent-uistate__focus-icon">🎯</span>
+          <span className="agent-uistate__focus-text">
+            {isRunning ? "작업 중: " : "마지막 위치: "}
+            <code>{data.focus.path}</code>
+            {data.focus.line ? `:${data.focus.line}` : ""}
+          </span>
+        </div>
+      ) : null}
+      {files.length > 0 ? (
+        <>
+          <div className="agent-uistate__head">변경 파일 {data.changedFileCount}</div>
+          <ul className="agent-uistate__list">
+            {files.map((f) => (
+              <li key={f.fileChangedRequestId} className="agent-uistate__row">
+                <button
+                  type="button"
+                  className="agent-uistate__path"
+                  title={`diff 보기: ${f.relativePath}`}
+                  onClick={() => onOpenDiff(f.relativePath)}
+                >
+                  {f.relativePath}
+                </button>
+                <span className="agent-uistate__stats">
+                  <span className="agent-uistate__add">+{f.additions}</span>
+                  <span className="agent-uistate__del">-{f.deletions}</span>
+                </span>
+                <span className={`agent-uistate__chip ${reviewClass[f.reviewStatus] ?? ""}`}>
+                  {reviewLabel[f.reviewStatus] ?? f.reviewStatus}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+    </div>
+  );
+}
 
 // MonacoDiffEditor wrapper — model lifecycle race 근본 fix.
 // unmount 직전 setModel({original:null, modified:null}) 명시 호출해 monaco-editor/react 의
@@ -6854,6 +6941,21 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                                       </li>
                                     ))}
                                   </ol>
+                                  {/* ui-state — traceId 있으면 변경 파일 list + focus 표시. RUNNING 시 follow-along. */}
+                                  {message.traceId ? (
+                                    <AgentUIStateSection
+                                      sessionId={sessionId}
+                                      traceId={message.traceId}
+                                      onOpenDiff={(path) => openDiffTab(path)}
+                                      onFocusPath={(path) => {
+                                        // RUNNING 중 focus 변화 시 활성 탭 변경 — 사용자 코드 작성 중이면 방해되니
+                                        // 현재 입력 textarea 에 포커스 있으면 skip.
+                                        const active = document.activeElement?.tagName;
+                                        if (active === "TEXTAREA" || active === "INPUT") return;
+                                        if (files.some((f) => f.path === path)) setActivePath(path);
+                                      }}
+                                    />
+                                  ) : null}
                                 </details>
                               ) : null}
                               {isEmptyAssistant ? (
