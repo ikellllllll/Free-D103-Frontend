@@ -597,7 +597,10 @@ const normalizeAgentRuns = (payload: AgentTraceListPayload): AgentRunTrace[] =>
     totalCostCredits: Number(run?.totalCostCredits ?? 0),
     summaryText: run?.summaryText ?? null,
     errorMessage: run?.errorMessage ?? null,
-    spans: normalizeSpans(run?.spans)
+    spans: normalizeSpans(run?.spans),
+    // backend 의 trace 목록 응답에는 spans 배열은 없고 totalSpanCount(int) 만 있음.
+    // detail 호출 전까지 trace 항목에 "N spans" 표시하려면 이 필드를 그대로 들고 있어야 한다.
+    totalSpanCount: Number(run?.totalSpanCount ?? 0)
   }));
 
 const toSessionTraces = (runs: AgentRunTrace[]): TraceEvent[] =>
