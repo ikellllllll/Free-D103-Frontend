@@ -60,13 +60,19 @@ interface GetExecutionResultResponse {
 
 interface HarnessBuildResponse {
   /**
-   * AI 서버 build_harness 의 compile_status (COMPLETED / PARTIAL / FAILED) 를 백엔드가
-   * 그대로 relay (2026-05-13 백엔드 매핑 fix 이후). 이전엔 snake_case 매핑 누락으로
-   * 항상 null 이었고 프론트는 errorCount === 0 만 보고 성공 판정해 빌드 실패가 마스킹됐다.
+   * AI 서버 build_harness 의 compile_status (COMPLETED / PARTIAL / FAILED).
+   *
+   * 2026-05-13 백엔드 매핑 fix(@JsonProperty("compile_status")) 가 record 직렬화에도
+   * 양방향으로 적용돼 백엔드 → 프론트 응답 키가 snake_case 그대로 나간다.
+   * 따라서 클라이언트는 snake_case 와 camelCase 양쪽을 모두 받아들이도록 한다.
+   * buildHarness() 응답 normalize 단계에서 compileStatus 로 통일해서 반환.
    */
   compileStatus?: "COMPLETED" | "PARTIAL" | "FAILED" | string | null;
+  compile_status?: "COMPLETED" | "PARTIAL" | "FAILED" | string | null;
   validErrors?: Array<{ path?: string | null; code?: string | null; message?: string | null }> | null;
+  valid_errors?: Array<{ path?: string | null; code?: string | null; message?: string | null }> | null;
   runtimeConfig?: Record<string, unknown> | null;
+  runtime_config?: Record<string, unknown> | null;
 }
 
 interface FileTreeItemResponse {
@@ -962,7 +968,15 @@ export const sessionApi = {
       })
       .json<ApiResponse<HarnessBuildResponse>>();
 
-    return res.data;
+    // 백엔드가 record + @JsonProperty 양방향 매핑으로 snake_case 키 그대로 응답함.
+    // 호출자는 camelCase 로만 접근 가능하도록 여기서 한 번 normalize.
+    const raw = res.data ?? {};
+    const normalized: HarnessBuildResponse = {
+      compileStatus: raw.compileStatus ?? raw.compile_status ?? null,
+      validErrors: raw.validErrors ?? raw.valid_errors ?? [],
+      runtimeConfig: raw.runtimeConfig ?? raw.runtime_config ?? null
+    };
+    return normalized;
   },
 
   /**
