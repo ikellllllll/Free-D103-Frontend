@@ -471,7 +471,9 @@ function TraceList({ runs, selectedId, isLoading, page, totalPages, totalRuns, o
                 )}
                 <div className="twb-run-row__meta">
                   <span>{fmtTokens(totalTokens)} tok</span>
-                  <span>{run.spans.length} spans</span>
+                  {/* run.spans 는 trace 목록 API 응답엔 없고 detail 호출 후에만 채워짐.
+                      목록 단계에선 backend가 주는 totalSpanCount 를 우선 사용한다. */}
+                  <span>{(run.spans?.length ?? 0) > 0 ? run.spans.length : (run.totalSpanCount ?? 0)} spans</span>
                 </div>
               </button>
             );

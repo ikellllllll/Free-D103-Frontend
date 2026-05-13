@@ -26,6 +26,12 @@ interface EndSessionResponse {
   problemSessionId: number;
   status?: "IN_PROGRESS" | "ENDED" | "EXPIRED";
   endedAt: string;
+  /**
+   * 세션 종료 후 AI 평가(feedback_report) 단계 (백엔드 2026-05-13~).
+   * 백엔드 측 endSession 안에서 AI evaluator @Async 트리거가 추가될 때까지는
+   * 항상 "PENDING" 으로 응답된다. 후속 작업 후엔 "PROCEEDING"/"GENERATED"/"FAILED" 로 전이.
+   */
+  reportStatus?: "PENDING" | "PROCEEDING" | "GENERATED" | "FAILED";
 }
 
 interface ExecutionResponse {
@@ -53,6 +59,12 @@ interface GetExecutionResultResponse {
 }
 
 interface HarnessBuildResponse {
+  /**
+   * AI 서버 build_harness 의 compile_status (COMPLETED / PARTIAL / FAILED) 를 백엔드가
+   * 그대로 relay (2026-05-13 백엔드 매핑 fix 이후). 이전엔 snake_case 매핑 누락으로
+   * 항상 null 이었고 프론트는 errorCount === 0 만 보고 성공 판정해 빌드 실패가 마스킹됐다.
+   */
+  compileStatus?: "COMPLETED" | "PARTIAL" | "FAILED" | string | null;
   validErrors?: Array<{ path?: string | null; code?: string | null; message?: string | null }> | null;
   runtimeConfig?: Record<string, unknown> | null;
 }
@@ -597,7 +609,10 @@ const normalizeAgentRuns = (payload: AgentTraceListPayload): AgentRunTrace[] =>
     totalCostCredits: Number(run?.totalCostCredits ?? 0),
     summaryText: run?.summaryText ?? null,
     errorMessage: run?.errorMessage ?? null,
-    spans: normalizeSpans(run?.spans)
+    spans: normalizeSpans(run?.spans),
+    // backend 의 trace 목록 응답에는 spans 배열은 없고 totalSpanCount(int) 만 있음.
+    // detail 호출 전까지 trace 항목에 "N spans" 표시하려면 이 필드를 그대로 들고 있어야 한다.
+    totalSpanCount: Number(run?.totalSpanCount ?? 0)
   }));
 
 const toSessionTraces = (runs: AgentRunTrace[]): TraceEvent[] =>
@@ -851,12 +866,20 @@ export const sessionApi = {
     try {
       const res = await authClient
         .get(`api/v1/ai/sessions/${sessionId}/messages`)
-        .json<ApiResponse<{ messages: Array<{ agentSessionMsgId: number; msgKind: "AI" | "HUMAN"; content: string; createdAt: string }> }>>();
+        .json<ApiResponse<{ messages: Array<{
+          agentSessionMsgId: number;
+          msgKind: "AI" | "HUMAN";
+          content: string;
+          createdAt: string;
+          /** "CHAT" | "AGENT" — 백엔드 2026-05-13~ chat/agent union 조회 후 origin 필드 추가됨.
+           *  두 테이블 PK 시퀀스가 별도라 React unique key 충돌 회피용으로 origin 을 prefix 한다. */
+          origin?: "CHAT" | "AGENT";
+        }> }>>();
 
       const messages = res.data?.messages ?? [];
       // 백엔드가 정상 응답한 경우 (빈 배열 포함) 그대로 반환 — 신규 세션의 mock 시드 채팅 누설 방지
       return messages.map((m) => ({
-        id: String(m.agentSessionMsgId),
+        id: `${m.origin ?? "AGENT"}-${m.agentSessionMsgId}`,
         role: m.msgKind === "HUMAN" ? "user" : "assistant",
         content: m.content,
         createdAt: m.createdAt
