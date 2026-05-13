@@ -6179,23 +6179,51 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                                 </div>
                               ) : null}
                               {visibleMessages.map((message) => {
-                          const isEmptyAssistant = message.role === "assistant" && !message.content;
+                          const hasAgentEvents = (message.agentEvents?.length ?? 0) > 0;
+                          const isEmptyAssistant = message.role === "assistant" && !message.content && !hasAgentEvents;
                           return (
                             <div
                               key={message.id}
                               className={message.role === "user" ? "chat-bubble chat-bubble--user" : "chat-bubble"}
                             >
+                              {hasAgentEvents ? (
+                                /* Agent 진행 로그를 fold 가능한 카드로 — 스트리밍 중엔 펼친 상태,
+                                   백엔드 hydrate 로 content 가 들어오면 자동으로 카드는 사라지고 변경 요약만 남는다. */
+                                <details className="agent-progress-card" open={!message.content}>
+                                  <summary className="agent-progress-card__summary">
+                                    <span>🛠️ 에이전트 진행 ({message.agentEvents!.length}단계)</span>
+                                    {streaming && message.role === "assistant" && !message.content ? (
+                                      <span className="chat-typing chat-typing--inline" aria-label="진행 중">
+                                        <span className="chat-typing__dot" />
+                                        <span className="chat-typing__dot" />
+                                        <span className="chat-typing__dot" />
+                                      </span>
+                                    ) : null}
+                                  </summary>
+                                  <ol className="agent-progress-card__list">
+                                    {message.agentEvents!.map((event, idx) => (
+                                      <li key={`${event.type}-${idx}`} className="agent-progress-card__item">
+                                        <span className="agent-progress-card__prefix">{event.prefix}</span>
+                                        <span className="agent-progress-card__message">{event.message}</span>
+                                        {event.detail ? (
+                                          <code className="agent-progress-card__detail">{event.detail}</code>
+                                        ) : null}
+                                      </li>
+                                    ))}
+                                  </ol>
+                                </details>
+                              ) : null}
                               {isEmptyAssistant ? (
                                 <span className="chat-typing" aria-label="AI 응답 생성 중">
                                   <span className="chat-typing__dot" />
                                   <span className="chat-typing__dot" />
                                   <span className="chat-typing__dot" />
                                 </span>
-                              ) : (
+                              ) : message.content ? (
                                 <div className="chat-bubble__markdown">
                                   <Markdown remarkPlugins={[remarkGfm]}>{message.content}</Markdown>
                                 </div>
-                              )}
+                              ) : null}
                               {message.attachedCode ? <AttachedCodeChip data={message.attachedCode} /> : null}
                             </div>
                           );

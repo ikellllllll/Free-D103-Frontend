@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { mockApi } from "@/lib/api/mockApi";
 import { isBackendSessionId, sessionApi } from "@/lib/api/sessionApi";
-import type { AiMessage } from "@/lib/types/ai";
+import type { AgentProgressEvent, AiMessage } from "@/lib/types/ai";
 import { useIdeStore } from "@/store/ideStore";
 
 export function useAiChat(sessionId: string) {
@@ -85,6 +85,8 @@ export function useAiChat(sessionId: string) {
       appendMessages([assistantBase]);
 
       let accumulated = "";
+      // Agent 진행 로그 — 카드로 묶어서 표시하기 위해 구조화된 배열로 누적.
+      const events: AgentProgressEvent[] = [];
 
       // === Agent 모드 — DeepAgent SSE (RUN_STARTED, TOOL_*, VFS_*, RUN_COMPLETED/FAILED 등). ===
       if (mode === "agent") {
@@ -100,7 +102,7 @@ export function useAiChat(sessionId: string) {
                 const prefix = AGENT_EVENT_PREFIX[type] ?? "·";
 
                 // RUN_FAILED 는 payload.error_message 가 더 정확.
-                const errorMessage =
+                const finalMessage =
                   type === "RUN_FAILED" && typeof payload?.error_message === "string"
                     ? `${message}\n\n> ${payload.error_message}`
                     : message;
@@ -109,35 +111,35 @@ export function useAiChat(sessionId: string) {
                 const extras: string[] = [];
                 if (typeof payload?.tool_name === "string") extras.push(`\`${payload.tool_name}\``);
                 if (typeof payload?.path === "string") extras.push(`\`${payload.path}\``);
-                const tail = extras.length ? ` — ${extras.join(" ")}` : "";
+                const detail = extras.length ? extras.join(" ") : undefined;
 
-                const line = `${prefix} ${errorMessage}${tail}`.trim();
-                if (!line) return;
+                if (!finalMessage) return;
 
-                accumulated = accumulated ? `${accumulated}\n\n${line}` : line;
+                events.push({ prefix, type, message: finalMessage, detail });
                 setMessages([
                   ...baseMessages,
-                  { ...assistantBase, content: accumulated }
+                  { ...assistantBase, content: "", agentEvents: [...events] }
                 ]);
               },
               onError: (_code, msg) => {
-                accumulated = accumulated
-                  ? `${accumulated}\n\n❌ ${msg}`
-                  : `❌ ${msg}`;
+                events.push({ prefix: "❌", type: "ERROR", message: msg });
                 setMessages([
                   ...baseMessages,
-                  { ...assistantBase, content: accumulated }
+                  { ...assistantBase, content: "", agentEvents: [...events] }
                 ]);
+                accumulated = "❌ " + msg;
               }
             }
           );
           setRequestCount((count) => count + 1);
         } catch (error) {
           const errMsg = error instanceof Error ? error.message : "Agent 실행에 실패했습니다.";
+          events.push({ prefix: "❌", type: "EXCEPTION", message: errMsg });
           setMessages([
             ...baseMessages,
-            { ...assistantBase, content: accumulated ? `${accumulated}\n\n❌ ${errMsg}` : `❌ ${errMsg}` }
+            { ...assistantBase, content: "", agentEvents: [...events] }
           ]);
+          accumulated = "❌ " + errMsg;
         } finally {
           setStreaming(false);
           // Agent 가 worktree 에 새 파일을 만들고 끝났는데 workspace query 가 stale 상태로 남으면

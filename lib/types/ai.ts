@@ -17,6 +17,17 @@ export interface AiMessage {
     code: string;
     lineRange?: string;  // "L8-L11" 같은 표시용
   };
+  /** Agent 모드 응답이 SSE 스트리밍 중에 누적한 진행 로그.
+   *  IdeShell 가 이 배열이 있으면 fold 가능한 카드(<details>) 로 묶어서 렌더한다.
+   *  스트리밍 종료 후 loadMessages() 로 백엔드 저장본(변경 요약) 으로 교체되면 자연스럽게 사라진다. */
+  agentEvents?: AgentProgressEvent[];
+}
+
+export interface AgentProgressEvent {
+  prefix: string;     // 이모지 (🚀, 📖, ✅ 등)
+  type: string;       // RUN_STARTED / TOOL_CALL_STARTED 등
+  message: string;    // 한 줄 본문
+  detail?: string;    // 보조 정보 (tool_name, path 등)
 }
 
 export interface AiEditSuggestion {
