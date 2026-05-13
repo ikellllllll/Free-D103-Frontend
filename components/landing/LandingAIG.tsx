@@ -1120,23 +1120,23 @@ export function LandingAIG() {
                     type="button"
                     onClick={() => goToStep(i)}
                     aria-label={`${w.step} ${w.label}`}
-                    className={`min-w-0 rounded-2xl border px-3 py-3 text-left transition-all cursor-pointer ${
+                    className={`min-w-0 rounded-2xl border px-3 py-3 text-left backdrop-blur-2xl transition-all cursor-pointer ${
                       i === activeStep
-                        ? "border-sky-300/45 bg-gradient-to-br from-indigo-400/[0.2] via-sky-300/[0.16] to-violet-300/[0.16] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_12px_26px_-18px_rgba(125,211,252,0.58)]"
-                        : "border-white/[0.14] bg-[#111124]/55 hover:border-violet-300/35 hover:bg-white/[0.1]"
+                        ? "border-sky-100/55 bg-white/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,0.34),inset_0_-1px_0_rgba(255,255,255,0.08),0_18px_36px_-24px_rgba(125,211,252,0.7)]"
+                        : "border-white/[0.2] bg-white/[0.015] shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-1px_0_rgba(255,255,255,0.04)] hover:border-sky-100/35 hover:bg-white/[0.03]"
                     }`}
                   >
                     <span className={`block font-mono text-[11px] font-black ${i === activeStep ? "text-sky-200" : "text-indigo-100/[0.74]"}`}>
                       {w.step}
                     </span>
-                    <span className={`mt-1 block truncate text-sm font-black ${i === activeStep ? "text-white" : "text-indigo-50/[0.82]"}`}>
+                    <span className={`mt-1 block truncate text-sm font-black ${i === activeStep ? "text-sky-200" : "text-indigo-100/[0.74]"}`}>
                       {w.label}
                     </span>
                     <span
                       className={`mt-2 inline-flex max-w-full rounded-full border px-2 py-0.5 text-[10px] font-bold ${
                         i === activeStep
-                          ? "border-violet-200/35 bg-violet-300/[0.14] text-violet-50"
-                          : "border-white/[0.12] bg-white/[0.06] text-indigo-100/[0.7]"
+                          ? "border-sky-100/35 bg-white/[0.045] text-sky-200"
+                          : "border-white/[0.16] bg-white/[0.018] text-indigo-100/[0.7]"
                       }`}
                     >
                       <span className="truncate">{w.tag}</span>
@@ -1145,13 +1145,13 @@ export function LandingAIG() {
                 ))}
               </div>
 
-              <div className="relative overflow-hidden rounded-2xl bg-[#111124] ring-1 ring-white/10" style={{ aspectRatio: "16 / 9" }}>
+              <div className="relative overflow-hidden rounded-2xl bg-[#111124] ring-1 ring-white/10" style={{ aspectRatio: "1.88 / 1" }}>
                 <Image
                   src={step.img}
                   alt={step.alt}
                   fill
                   sizes="(max-width: 1024px) 100vw, 720px"
-                  className={`object-cover object-top transition-opacity duration-300 ${transitioning ? "opacity-0" : "opacity-100"}`}
+                  className={`object-contain object-center transition-opacity duration-300 ${transitioning ? "opacity-0" : "opacity-100"}`}
                   priority={activeStep === 0}
                 />
               </div>
