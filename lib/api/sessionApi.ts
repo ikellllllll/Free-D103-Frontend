@@ -425,13 +425,23 @@ const formatTraceTime = (iso: string) =>
   });
 
 const normalizeToolCalls = (calls: AgentToolCall[] | null | undefined): AgentToolCall[] =>
-  (calls ?? []).map((call, index) => ({
-    toolCallId: String(call?.toolCallId ?? `tool-${index + 1}`),
-    toolName: String(call?.toolName ?? "tool"),
-    argsJson: call?.argsJson ?? null,
-    durationMs: call?.durationMs ?? null,
-    status: call?.status ?? "COMPLETED"
-  }));
+  (calls ?? []).map((call, index) => {
+    // 백엔드는 argsPreview / resultPreview 로 응답. 옛 코드 호환 위해 argsJson 에도 같은 값 미러.
+    const rawArgs = (call as unknown as { argsPreview?: Record<string, unknown> | null }).argsPreview
+      ?? call?.argsJson
+      ?? null;
+    const rawResult = (call as unknown as { resultPreview?: Record<string, unknown> | null }).resultPreview ?? null;
+    return {
+      toolCallId: String(call?.toolCallId ?? `tool-${index + 1}`),
+      toolName: String(call?.toolName ?? "tool"),
+      argsJson: rawArgs,
+      argsPreview: rawArgs,
+      resultPreview: rawResult,
+      durationMs: call?.durationMs ?? null,
+      status: call?.status ?? "COMPLETED",
+      exitCode: (call as unknown as { exitCode?: number | null }).exitCode ?? null
+    };
+  });
 
 const normalizeLlmCalls = (calls: AgentLlmCall[] | null | undefined): AgentLlmCall[] =>
   (calls ?? []).map((call, index) => ({

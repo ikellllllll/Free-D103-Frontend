@@ -3838,6 +3838,284 @@ html[data-theme="light"] .test-result-card__trace-body {
   align-self: center;
 }
 
+/* ─── 다중 첨부 스택 — 채팅 composer 위에 stack 으로 표시 ─── */
+.ai-context-chip--add {
+  cursor: pointer;
+  border: 1px dashed color-mix(in srgb, var(--accent) 60%, transparent);
+  background: transparent;
+  color: var(--accent);
+  font-weight: 500;
+}
+.ai-context-chip--add:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.staged-attach-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 0 2px;
+}
+
+.staged-attach-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  font-size: 11px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  max-width: 220px;
+}
+
+.staged-attach-chip__name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.staged-attach-chip__remove {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.staged-attach-chip__remove:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+/* ─── Quick Open Palette — Ctrl+P 빠른 파일 열기 ─── */
+.quick-open-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 14vh;
+  background: color-mix(in srgb, var(--ide-bg, #0b0d18) 60%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.quick-open {
+  width: min(600px, 92vw);
+  border-radius: 12px;
+  background: var(--ide-surface);
+  border: 1px solid var(--ide-border);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.quick-open__input {
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  outline: none;
+  border-bottom: 1px solid var(--ide-border);
+}
+
+.quick-open__input::placeholder { color: var(--muted); }
+
+.quick-open__list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.quick-open__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.quick-open__item--active {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.quick-open__name {
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+.quick-open__dir {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60%;
+}
+
+.quick-open__empty {
+  padding: 14px 16px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.quick-open__hint {
+  padding: 8px 16px;
+  border-top: 1px solid var(--ide-border);
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.quick-open__hint kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--ide-border) 60%, transparent);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text);
+}
+
+/* ─── 하네스 빌드 status indicator — 버튼 옆에 작은 pill + dropdown ─── */
+.assistant-build-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+
+.build-status {
+  position: relative;
+}
+
+.build-status__pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+
+.build-status__pill:hover { filter: brightness(1.15); transform: translateY(-1px); }
+.build-status__pill--ok   { background: rgba(34, 197, 94, 0.18);  color: #4ade80; border-color: rgba(34, 197, 94, 0.4); }
+.build-status__pill--warn { background: rgba(251, 191, 36, 0.18); color: #fbbf24; border-color: rgba(251, 191, 36, 0.4); }
+.build-status__pill--err  { background: rgba(239, 68, 68, 0.18);  color: #f87171; border-color: rgba(239, 68, 68, 0.4); }
+.build-status__pill--idle { background: rgba(148, 163, 184, 0.18); color: var(--muted); border-color: rgba(148, 163, 184, 0.3); }
+
+.build-status__dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 60;
+  width: 360px;
+  max-height: 420px;
+  overflow-y: auto;
+  border-radius: 10px;
+  border: 1px solid var(--ide-border);
+  background: var(--ide-surface);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  padding: 8px;
+}
+
+.build-status__dropdown-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 4px 8px 8px;
+  border-bottom: 1px solid var(--ide-border);
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.build-status__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.build-status__item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 11.5px;
+  color: var(--text);
+}
+
+.build-status__item:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.build-status__item-path {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text);
+  word-break: break-all;
+}
+
+.build-status__item-code {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.18);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.build-status__item-msg {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.build-status__truncated {
+  padding: 6px 8px;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+}
+
 .ai-panel__head {
   display: grid;
   gap: 10px;
@@ -4095,6 +4373,22 @@ html[data-theme="light"] .chat-bubble__markdown code {
 
 .chat-typing--inline {
   margin-left: auto;
+}
+
+.agent-progress-card__trace-link {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.agent-progress-card__trace-link:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 .agent-progress-card__list {
@@ -6551,6 +6845,13 @@ html[data-theme="light"] .toast { background: var(--panel-strong); }
    그러면 안의 Tool Calls / LLM Calls 표가 잘린다. 카드별 자연 높이를 유지하고, 넘치면 부모(detail__body)
    에서 한 번에 스크롤되도록. */
 .twb-section { border:1px solid var(--border); border-radius:8px; overflow:hidden; flex-shrink:0; }
+
+/* ── Trace Tool Call row — 인자/결과 펼침 ── */
+.twb-tool-row:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.twb-tool-caret { display: inline-block; width: 12px; color: var(--muted); font-size: 10px; margin-right: 4px; }
+.twb-tool-detail-row td { background: color-mix(in srgb, var(--surface-2) 50%, transparent); padding: 8px 12px 12px; }
+.twb-tool-detail { margin-top: 6px; }
+.twb-tool-detail__label { display: block; margin-bottom: 4px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 .twb-section__head { width:100%; display:flex; align-items:center; gap:8px; padding:8px 12px; background:none; border:none; cursor:pointer; text-align:left; font-size:0.74rem; font-weight:600; color:var(--text); }
 .twb-section__head:hover { filter:brightness(1.08); }
 .twb-section__icon { font-size:0.85rem; }

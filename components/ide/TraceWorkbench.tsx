@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { mockApi } from "@/lib/api/mockApi";
 import { isBackendSessionId, sessionApi } from "@/lib/api/sessionApi";
 import type { AgentRunTrace, AgentSpan } from "@/lib/types/trace";
+import { useIdeStore } from "@/store/ideStore";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -219,6 +220,68 @@ function LogTimeline({ span }: { span: AgentSpan }) {
 
 // ─── Col 3: Span Detail ───────────────────────────────────────────────────────
 
+// ─── ToolCallRow ──────────────────────────────────────────────────────────────
+// argsPreview / resultPreview 를 한 줄 미리보기로 보여주고, 클릭하면 detail row 펼침.
+// argsPreview 안에는 보통 { inputs: {...}, metadata: {...}, tags: [...], identity: {...} } 가 있다.
+// 가장 의미 있는 건 inputs — 도구의 실제 호출 인자. 미리보기엔 inputs 만 짧게.
+function ToolCallRow({ tc }: { tc: import("@/lib/types/trace").AgentToolCall }) {
+  const [open, setOpen] = useState(false);
+
+  const inputs =
+    tc.argsPreview && typeof tc.argsPreview === "object" && "inputs" in tc.argsPreview
+      ? (tc.argsPreview as { inputs?: Record<string, unknown> }).inputs ?? null
+      : tc.argsPreview;
+  const inputsPreview = inputs
+    ? Object.entries(inputs)
+        .filter(([, v]) => v !== null && v !== undefined && v !== "")
+        .map(([k, v]) => `${k}=${typeof v === "string" ? v : JSON.stringify(v)}`)
+        .join(" · ")
+        .slice(0, 120)
+    : "-";
+
+  const hasDetail = tc.argsPreview || tc.resultPreview;
+
+  return (
+    <>
+      <tr
+        className={tc.status === "FAILED" ? "twb-io-row--fail twb-tool-row" : "twb-tool-row"}
+        onClick={() => hasDetail && setOpen((v) => !v)}
+        style={{ cursor: hasDetail ? "pointer" : "default" }}
+      >
+        <td className="twb-io-path">
+          {hasDetail ? <span className="twb-tool-caret">{open ? "▾" : "▸"}</span> : null}
+          {tc.toolName}
+        </td>
+        <td className="twb-io-val">{inputsPreview}</td>
+        <td>
+          <span className={tc.status === "FAILED" ? "twb-badge twb-badge--err" : "twb-badge twb-badge--ok"}>
+            {tc.status === "COMPLETED" ? "✓" : tc.status === "FAILED" ? "✗" : tc.status}
+          </span>
+        </td>
+        <td className="twb-io-val--number">{fmtDuration(tc.durationMs)}</td>
+      </tr>
+      {open && hasDetail ? (
+        <tr className="twb-tool-detail-row">
+          <td colSpan={4}>
+            {tc.argsPreview ? (
+              <div className="twb-tool-detail">
+                <strong className="twb-tool-detail__label">인자</strong>
+                <JsonTable data={tc.argsPreview as Record<string, unknown>} />
+              </div>
+            ) : null}
+            {tc.resultPreview ? (
+              <div className="twb-tool-detail">
+                <strong className="twb-tool-detail__label">결과</strong>
+                <JsonTable data={tc.resultPreview as Record<string, unknown>} />
+              </div>
+            ) : null}
+          </td>
+        </tr>
+      ) : null}
+    </>
+  );
+}
+
 function SpanDetail({ span }: { span: AgentSpan }) {
   const [tab, setTab] = useState<"preview" | "log">("preview");
   const totalIn  = span.llmCalls.reduce((a, c) => a + c.inputTokens, 0);
@@ -265,12 +328,7 @@ function SpanDetail({ span }: { span: AgentSpan }) {
                 <thead><tr><th>Tool</th><th>인자</th><th>Status</th><th>Duration</th></tr></thead>
                 <tbody>
                   {span.toolCalls.map(tc => (
-                    <tr key={tc.toolCallId} className={tc.status === "FAILED" ? "twb-io-row--fail" : ""}>
-                      <td className="twb-io-path">{tc.toolName}</td>
-                      <td className="twb-io-val">{tc.argsJson ? Object.entries(tc.argsJson).map(([k, v]) => `${k}: ${v}`).join(" · ") : "-"}</td>
-                      <td><span className={tc.status === "FAILED" ? "twb-badge twb-badge--err" : "twb-badge twb-badge--ok"}>{tc.status === "COMPLETED" ? "✓" : tc.status === "FAILED" ? "✗" : tc.status}</span></td>
-                      <td className="twb-io-val--number">{fmtDuration(tc.durationMs)}</td>
-                    </tr>
+                    <ToolCallRow key={tc.toolCallId} tc={tc} />
                   ))}
                 </tbody>
               </table>
@@ -527,6 +585,16 @@ export function TraceWorkbench({ sessionId, onClose }: { sessionId: string; onCl
   const [page, setPage] = useState(1);
   const [selectedRunId,  setSelectedRunId]  = useState<string | null>(null);
   const [selectedSpanId, setSelectedSpanId] = useState<string | null>(null);
+  const traceJumpToId = useIdeStore((state) => state.traceJumpToId);
+  const setTraceJumpToId = useIdeStore((state) => state.setTraceJumpToId);
+
+  // Agent 진행 카드의 "Trace 보기" 버튼이 setTraceJumpToId 로 박은 ID 가 있으면 한 번 consume.
+  useEffect(() => {
+    if (!traceJumpToId) return;
+    setSelectedRunId(traceJumpToId);
+    setSelectedSpanId(null);  // 첫 span 자동 선택 effect 가 알아서 잡음
+    setTraceJumpToId(null);   // consume — 다음 클릭 시 다시 trigger
+  }, [traceJumpToId, setTraceJumpToId]);
   type AgentTraceListData = Awaited<ReturnType<typeof sessionApi.getAgentTraceList>>;
 
   const { data: traceList, isLoading } = useQuery<AgentTraceListData>({

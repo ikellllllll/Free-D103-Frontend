@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { Sun, Moon, Copy, Check, LogOut, Save, Eye, PencilLine } from "lucide-react";
 import { useRouter } from "next/navigation";
-import type { DragEvent as ReactDragEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
+import type { DragEvent as ReactDragEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
 import { Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, type JSX } from "react";
 import { flushSync } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -936,6 +936,78 @@ const appendLocalFolder = (folders: string[], folderPath: string | null) => {
   return [...folders, folderPath];
 };
 
+// 하네스 빌드 상태 indicator — 빌드 버튼 옆 작은 dot/뱃지.
+// COMPLETED: 초록 ✓, PARTIAL: 노랑 ⚠ + 카운트, FAILED: 빨강 ✗ + 카운트.
+// 클릭하면 valid_errors 드롭다운 펼침, 각 에러 클릭 시 onErrorClick 호출.
+function BuildStatusIndicator({
+  result,
+  onErrorClick
+}: {
+  result: {
+    compileStatus: "COMPLETED" | "PARTIAL" | "FAILED" | string | null;
+    validErrors: Array<{ path?: string | null; code?: string | null; message?: string | null }>;
+    builtAt: string;
+    baseModel: string | null;
+  };
+  onErrorClick: (err: { path?: string | null; code?: string | null; message?: string | null }) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const errCount = result.validErrors.length;
+  const status = result.compileStatus ?? (errCount === 0 ? "COMPLETED" : "FAILED");
+  const variant =
+    status === "COMPLETED" ? "ok" : status === "PARTIAL" ? "warn" : status === "FAILED" ? "err" : "idle";
+  const icon = variant === "ok" ? "✓" : variant === "warn" ? "⚠" : variant === "err" ? "✗" : "·";
+  const label = errCount > 0 ? `${icon} ${errCount}` : icon;
+  const builtRel = (() => {
+    const diff = Date.now() - new Date(result.builtAt).getTime();
+    if (diff < 60_000) return "방금 전";
+    if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}분 전`;
+    return `${Math.floor(diff / 3_600_000)}시간 전`;
+  })();
+
+  return (
+    <div className="build-status">
+      <button
+        type="button"
+        className={`build-status__pill build-status__pill--${variant}`}
+        onClick={() => setOpen((v) => !v)}
+        title={`마지막 빌드: ${status}${result.baseModel ? ` · ${result.baseModel}` : ""} · ${builtRel}${errCount ? ` · 오류 ${errCount}개` : ""}`}
+      >
+        {label}
+      </button>
+      {open && errCount > 0 ? (
+        <div className="build-status__dropdown" role="dialog" aria-label="빌드 오류 목록">
+          <div className="build-status__dropdown-head">
+            <strong>검증 오류 {errCount}개</strong>
+            <span className="muted-copy">{status} · {builtRel}</span>
+          </div>
+          <ul className="build-status__list">
+            {result.validErrors.slice(0, 20).map((err, idx) => (
+              <li key={`${err.path ?? ""}-${err.code ?? ""}-${idx}`}>
+                <button
+                  type="button"
+                  className="build-status__item"
+                  onClick={() => {
+                    onErrorClick(err);
+                    setOpen(false);
+                  }}
+                >
+                  <span className="build-status__item-path">{err.path ?? "(path 없음)"}</span>
+                  {err.code ? <code className="build-status__item-code">{err.code}</code> : null}
+                  {err.message ? <span className="build-status__item-msg">{err.message}</span> : null}
+                </button>
+              </li>
+            ))}
+            {result.validErrors.length > 20 ? (
+              <li className="build-status__truncated">+ {result.validErrors.length - 20}개 더</li>
+            ) : null}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 // 사용자 메시지에 첨부된 코드 스니펫 — 클릭으로 펼칠 수 있는 chip.
 // VSCode 확장 (Continue / Cline / Copilot Chat) 패턴.
 function AttachedCodeChip({ data }: { data: { path: string; code: string; lineRange?: string } }) {
@@ -1543,6 +1615,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const setBottomPanelOpen = useIdeStore((state) => state.setBottomPanelOpen);
   const setBottomPanelTab = useIdeStore((state) => state.setBottomPanelTab);
   const setBottomPanelHeight = useIdeStore((state) => state.setBottomPanelHeight);
+  const lastBuildResult = useIdeStore((state) => state.lastBuildResult);
+  const setLastBuildResult = useIdeStore((state) => state.setLastBuildResult);
+  const setTraceJumpToId = useIdeStore((state) => state.setTraceJumpToId);
+  const stagedAttachments = useIdeStore((state) => state.stagedAttachments);
+  const addStagedAttachment = useIdeStore((state) => state.addStagedAttachment);
+  const removeStagedAttachment = useIdeStore((state) => state.removeStagedAttachment);
+  const clearStagedAttachments = useIdeStore((state) => state.clearStagedAttachments);
   const submissionResult = useIdeStore((state) => state.submissionResult);
   const submissionExecutionId = useIdeStore((state) => state.submissionExecutionId);
   const submissionLoading = useIdeStore((state) => state.submissionLoading);
@@ -1623,6 +1702,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const [agentSnapshotVersion, setAgentSnapshotVersion] = useState(INITIAL_AGENT_SNAPSHOT_VERSION);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
   const [activeWorkbenchTab, setActiveWorkbenchTab] = useState<"code" | "problem" | "trace">("code");
+  /** Ctrl+P / Cmd+P 로 토글되는 빠른 파일 열기 팔레트. */
+  const [quickOpenVisible, setQuickOpenVisible] = useState(false);
+  const [quickOpenQuery, setQuickOpenQuery] = useState("");
   const [editorGroups, setEditorGroups] = useState<EditorGroupState[]>([
     { id: INITIAL_EDITOR_GROUP_ID, tabIds: [], activeTabId: null }
   ]);
@@ -1775,6 +1857,26 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
    * 에디터 동작 자체엔 영향이 없는 cleanup race(이미 dispose 된 model 에 setModel 시도) 이므로
    * 화면에 노출만 차단하고 silently swallow. 더 정밀한 fix(모델 수동 lifecycle 관리)는 추후.
    */
+  // Ctrl+P / Cmd+P 글로벌 키 리스너 — 빠른 파일 열기 팔레트 토글.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onKey = (e: KeyboardEvent) => {
+      // editor 내부 입력 중에는 monaco 자체 단축키와 충돌하니 ide-chat 같은 입력엔 영향 안 줌.
+      // 단순히 Ctrl+P / Cmd+P 잡고 default 막음.
+      const isCmd = e.ctrlKey || e.metaKey;
+      if (isCmd && e.key.toLowerCase() === "p" && !e.shiftKey) {
+        e.preventDefault();
+        setQuickOpenVisible((v) => !v);
+        setQuickOpenQuery("");
+      }
+      if (e.key === "Escape" && quickOpenVisible) {
+        setQuickOpenVisible(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [quickOpenVisible]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const isDiffModelRace = (message: unknown) => {
@@ -2948,6 +3050,21 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     }
     trackMonacoModels(editor, monaco);
     requestEditorLayout();
+
+    // dispose 시점에 refs cleanup — leak 방지 + 후속 race 발생 시 setModel 호출이 stale editor 에
+    // 가지 않도록. Monaco DiffEditor 의 onDidDispose 는 widget 자체 dispose 후 호출.
+    try {
+      editor.onDidDispose?.(() => {
+        if (diffEditorRefsRef.current.get(groupId) === editor) {
+          diffEditorRefsRef.current.delete(groupId);
+        }
+        if (diffEditorRef.current === editor) {
+          diffEditorRef.current = null;
+        }
+      });
+    } catch {
+      /* monaco API 버전 차이로 onDidDispose 없으면 무시 */
+    }
   };
 
   const handleTabRailWheel = useCallback((event: ReactWheelEvent<HTMLDivElement>) => {
@@ -4637,7 +4754,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     try {
       const baseModel = resolveHarnessBaseModel(session?.aiModel);
       const result = await sessionApi.buildHarness(sessionId, baseModel);
-      const errorCount = result.validErrors?.length ?? 0;
+      const validErrors = result.validErrors ?? [];
+      const errorCount = validErrors.length;
       // compileStatus 가 들어오면 그걸 신뢰. null/undefined 면 errorCount === 0 으로 폴백.
       // (백엔드 snake_case 매핑이 들어오기 전엔 항상 null 이라 errorCount 만 봐야 했음.)
       const buildSucceeded =
@@ -4647,23 +4765,37 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             ? false
             : errorCount === 0;
 
+      // 빌드 결과를 store 에 영구적으로 저장 — 빌드 버튼 옆 indicator + valid_errors 드롭다운에서 사용.
+      setLastBuildResult({
+        compileStatus: result.compileStatus ?? null,
+        validErrors,
+        builtAt: new Date().toISOString(),
+        baseModel
+      });
+
       if (buildSucceeded) {
         setAgentSnapshotVersion((version) => version + 1);
       }
 
       const partialNote = result.compileStatus === "PARTIAL" ? " (부분 컴파일)" : "";
+      // 토스트 메시지 풍부화 — 첫 1개 에러는 path + message 까지 표시해서 어디부터 봐야 할지 즉시 파악.
+      const firstErr = validErrors[0];
+      const firstErrPreview =
+        firstErr && (firstErr.path || firstErr.message)
+          ? `\n첫 오류: ${firstErr.path ? `${firstErr.path} · ` : ""}${firstErr.message?.slice(0, 80) ?? ""}`
+          : "";
       addToast(
         buildSucceeded
-          ? `Agent Build 완료 (${baseModel})${partialNote}`
-          : `Agent Build 실패: 검증 오류 ${errorCount}개${
-              result.compileStatus ? ` · status=${result.compileStatus}` : ""
-            }`,
+          ? `하네스 빌드 완료 (${baseModel})${partialNote}`
+          : `하네스 빌드 실패: 검증 오류 ${errorCount}개${
+              result.compileStatus ? ` · ${result.compileStatus}` : ""
+            }${firstErrPreview}`,
         buildSucceeded ? "success" : "error"
       );
       await queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
       await queryClient.invalidateQueries({ queryKey: ["agentTraces", sessionId] });
     } catch (error) {
-      addToast(error instanceof Error ? error.message : "Agent Build에 실패했습니다.", "error");
+      addToast(error instanceof Error ? error.message : "하네스 빌드에 실패했습니다.", "error");
     } finally {
       setAgentBuildLoading(false);
     }
@@ -4674,9 +4806,27 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       return;
     }
 
+    const mode = aiMode === "edit" ? "agent" : "chat";
+
+    // Agent 모드 진입 시 미적용 worktree 파일이 있는지 확인. AI 서버는 새 agent run 시작 시
+    // 같은 path 의 worktree row 를 cleanup 하는 정책이라 [적용/거절] 안 한 변경이 사라질 수 있다.
+    if (mode === "agent") {
+      const pendingWorktree = files.filter((file) => file.path.startsWith(".worktree/"));
+      if (pendingWorktree.length > 0) {
+        const proceed = window.confirm(
+          `현재 미적용 AI 변경이 ${pendingWorktree.length}개 있습니다.\n` +
+            pendingWorktree.slice(0, 5).map((f) => `· ${f.path}`).join("\n") +
+            (pendingWorktree.length > 5 ? `\n... (+${pendingWorktree.length - 5}개 더)` : "") +
+            `\n\n새 요청을 보내면 같은 경로의 변경이 덮어써져 사라질 수 있습니다. 계속할까요?`
+        );
+        if (!proceed) return;
+      }
+    }
+
     const question = chatInput.trim();
     // 에디터 선택 코드 → 별도 collapsible chip 으로 렌더 (UI), 백엔드 전송 시엔 fenced block 으로 포함 (LLM).
-    const attachedCode = selectedCode
+    // 현재 선택된 코드 (자동 첨부) + stagedAttachments (사용자가 "+ 추가" 로 stack 한 것) 합쳐서 보냄.
+    const currentSelectionAttachment = selectedCode
       ? {
           path: activeFile?.path ?? "현재 파일",
           code: selectedCode,
@@ -4685,14 +4835,31 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             : undefined
         }
       : undefined;
+    // 다중 첨부: stagedAttachments 가 있으면 함께 join, optimistic UI 표시는 첫 번째 chip 만 (간단화).
+    // 백엔드로 보내는 backendContent 에는 전부 fenced block 으로 포함되도록 useAiChat 의 첫 attachedCode 외에
+    // 나머지를 question 본문 뒤에 직접 append.
+    const allAttachments = [
+      ...(currentSelectionAttachment ? [currentSelectionAttachment] : []),
+      ...stagedAttachments
+    ];
+    const attachedCode = allAttachments[0];
+    // 두 번째 이후 첨부는 user 메시지 본문 안에 직접 fenced block 추가 (useAiChat 의 attachedCode 는 하나만 지원).
+    const extraBlocks = allAttachments
+      .slice(1)
+      .map(
+        (a) =>
+          `\n\n---\n선택한 코드 (${a.path}${a.lineRange ? ` ${a.lineRange}` : ""}):\n\`\`\`\n${a.code}\n\`\`\``
+      )
+      .join("");
+    clearStagedAttachments();
 
     setChatInput("");
 
     try {
       // aiMode "edit" = Agent 패널 (DeepAgent SSE = streamAgentChat),
       // aiMode "chat" = 일반 chat 패널 (streamChat).
-      const mode = aiMode === "edit" ? "agent" : "chat";
-      await send(question, activeFile?.path, chatModel, attachedCode, mode);
+      // extraBlocks 는 2번째 이후 첨부를 user 메시지 본문에 직접 append.
+      await send(question + extraBlocks, activeFile?.path, chatModel, attachedCode, mode);
       refreshSession();
     } catch (error) {
       addToast(error instanceof Error ? error.message : "AI 요청에 실패했습니다.", "error");
@@ -6099,15 +6266,35 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      className="button button--primary button--tiny assistant-build-button"
-                      onClick={() => void handleAgentBuild()}
-                      disabled={agentBuildLoading}
-                      title="하네스(AGENTS.md · prompts · skills · sub_agent) 를 다시 컴파일해서 에이전트를 새로 부팅합니다. 세션 시작 시 기본 하네스로 자동 빌드돼 있어 누르지 않아도 작동하지만, 하네스 파일을 수정한 뒤엔 한 번 눌러 반영해야 합니다."
-                    >
-                      {agentBuildLoading ? "하네스 빌드 중..." : "하네스 빌드"}
-                    </button>
+                    <div className="assistant-build-wrap">
+                      <button
+                        type="button"
+                        className="button button--primary button--tiny assistant-build-button"
+                        onClick={() => void handleAgentBuild()}
+                        disabled={agentBuildLoading}
+                        title="하네스(AGENTS.md · prompts · skills · sub_agent) 를 다시 컴파일해서 에이전트를 새로 부팅합니다. 세션 시작 시 기본 하네스로 자동 빌드돼 있어 누르지 않아도 작동하지만, 하네스 파일을 수정한 뒤엔 한 번 눌러 반영해야 합니다."
+                      >
+                        {agentBuildLoading ? "하네스 빌드 중..." : "하네스 빌드"}
+                      </button>
+                      {lastBuildResult ? (
+                        <BuildStatusIndicator
+                          result={lastBuildResult}
+                          onErrorClick={(err) => {
+                            const path = err.path;
+                            if (!path) return;
+                            // 하네스 파일이면 agent/ prefix, 워크트리/소스면 그대로 시도. files 에 있으면 setActivePath.
+                            const candidates = [
+                              path,
+                              path.startsWith("agent/") ? path : `agent/${path}`,
+                              path.replace(/^agent\//, "")
+                            ];
+                            const found = candidates.find((p) => files.some((f) => f.path === p));
+                            if (found) setActivePath(found);
+                            else addToast(`파일을 찾을 수 없습니다: ${path}`, "warning");
+                          }}
+                        />
+                      ) : null}
+                    </div>
                   </div>
 
                   <div className="ai-panel ai-panel--chat">
@@ -6139,7 +6326,46 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                         <span className="ai-context-chip">
                           {selectedRange ? selectionSummary : "선택 없음"}
                         </span>
+                        {selectedCode ? (
+                          <button
+                            type="button"
+                            className="ai-context-chip ai-context-chip--add"
+                            onClick={() => {
+                              addStagedAttachment({
+                                path: activeFile?.path ?? "현재 파일",
+                                code: selectedCode,
+                                lineRange: selectedRange
+                                  ? `L${selectedRange.startLineNumber}-L${selectedRange.endLineNumber}`
+                                  : undefined
+                              });
+                              addToast("코드 첨부에 추가했습니다.", "success");
+                            }}
+                            title="현재 선택한 코드를 첨부 스택에 추가"
+                          >
+                            + 첨부 추가
+                          </button>
+                        ) : null}
                       </div>
+                      {stagedAttachments.length > 0 ? (
+                        <div className="staged-attach-strip">
+                          {stagedAttachments.map((att, idx) => (
+                            <span key={`${att.path}-${idx}`} className="staged-attach-chip" title={`${att.path}${att.lineRange ? ` ${att.lineRange}` : ""}`}>
+                              <span className="staged-attach-chip__name">
+                                {att.path.split(/[\\/]/).pop()}
+                                {att.lineRange ? ` ${att.lineRange}` : ""}
+                              </span>
+                              <button
+                                type="button"
+                                className="staged-attach-chip__remove"
+                                onClick={() => removeStagedAttachment(idx)}
+                                aria-label="첨부 제거"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
 
                       {aiMode === "edit" && agentPatchPreviews.length ? (
@@ -6222,6 +6448,22 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                                         <span className="chat-typing__dot" />
                                         <span className="chat-typing__dot" />
                                       </span>
+                                    ) : null}
+                                    {message.traceId ? (
+                                      <button
+                                        type="button"
+                                        className="agent-progress-card__trace-link"
+                                        onClick={(event) => {
+                                          // <summary> 위에 있어서 클릭이 fold 토글로 가지 않도록 막음.
+                                          event.preventDefault();
+                                          event.stopPropagation();
+                                          setTraceJumpToId(message.traceId!);
+                                          setActiveWorkbenchTab("trace");
+                                        }}
+                                        title="이 agent run 의 Trace 상세로 이동"
+                                      >
+                                        Trace 보기 →
+                                      </button>
                                     ) : null}
                                   </summary>
                                   <ol className="agent-progress-card__list">
@@ -6585,6 +6827,112 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         </div>
         );
       })() : null}
+
+      {/* Quick Open — Ctrl+P 빠른 파일 열기 팔레트. Esc 또는 배경 클릭으로 닫힘. */}
+      {quickOpenVisible ? (
+        <QuickOpenPalette
+          files={files.map((f) => f.path)}
+          query={quickOpenQuery}
+          onQueryChange={setQuickOpenQuery}
+          onPick={(path) => {
+            setActivePath(path);
+            setQuickOpenVisible(false);
+          }}
+          onClose={() => setQuickOpenVisible(false)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+// ─── Quick Open Palette ──────────────────────────────────────────────────────
+// VSCode 식 Ctrl+P. files 의 path 목록을 substring 매칭으로 필터, 위/아래 화살표 + Enter 로 선택.
+function QuickOpenPalette({
+  files,
+  query,
+  onQueryChange,
+  onPick,
+  onClose
+}: {
+  files: string[];
+  query: string;
+  onQueryChange: (q: string) => void;
+  onPick: (path: string) => void;
+  onClose: () => void;
+}) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return files.slice(0, 30);
+    // 단순 substring + path 길이 짧은 순 정렬
+    return files
+      .filter((p) => p.toLowerCase().includes(q))
+      .sort((a, b) => a.length - b.length)
+      .slice(0, 30);
+  }, [files, query]);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [query]);
+
+  const handleKey = (e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((i) => Math.min(i + 1, filtered.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const pick = filtered[activeIndex];
+      if (pick) onPick(pick);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      onClose();
+    }
+  };
+
+  return (
+    <div className="quick-open-backdrop" role="presentation" onClick={onClose}>
+      <div className="quick-open" role="dialog" aria-label="파일 빠른 열기" onClick={(e) => e.stopPropagation()}>
+        <input
+          ref={inputRef}
+          className="quick-open__input"
+          placeholder="파일 이름으로 검색…"
+          value={query}
+          onChange={(e) => onQueryChange(e.target.value)}
+          onKeyDown={handleKey}
+        />
+        <ul className="quick-open__list">
+          {filtered.length === 0 ? (
+            <li className="quick-open__empty">매칭되는 파일이 없습니다</li>
+          ) : (
+            filtered.map((path, idx) => {
+              const name = path.split(/[/\\]/).pop();
+              const dir = path.slice(0, path.length - (name?.length ?? 0));
+              return (
+                <li
+                  key={path}
+                  className={idx === activeIndex ? "quick-open__item quick-open__item--active" : "quick-open__item"}
+                  onMouseEnter={() => setActiveIndex(idx)}
+                  onClick={() => onPick(path)}
+                >
+                  <span className="quick-open__name">{name}</span>
+                  {dir ? <span className="quick-open__dir">{dir}</span> : null}
+                </li>
+              );
+            })
+          )}
+        </ul>
+        <div className="quick-open__hint">
+          <kbd>↑↓</kbd> 이동 · <kbd>Enter</kbd> 열기 · <kbd>Esc</kbd> 닫기
+        </div>
+      </div>
     </div>
   );
 }

@@ -87,6 +87,8 @@ export function useAiChat(sessionId: string) {
       let accumulated = "";
       // Agent 진행 로그 — 카드로 묶어서 표시하기 위해 구조화된 배열로 누적.
       const events: AgentProgressEvent[] = [];
+      // RUN_STARTED 이벤트에서 추출한 trace ID — 카드의 "Trace 보기" deep link 용.
+      let traceId: string | undefined;
 
       // === Agent 모드 — DeepAgent SSE (RUN_STARTED, TOOL_*, VFS_*, RUN_COMPLETED/FAILED 등). ===
       if (mode === "agent") {
@@ -100,6 +102,10 @@ export function useAiChat(sessionId: string) {
                 const message = typeof data?.message === "string" ? data.message : "";
                 const payload = (data?.payload ?? {}) as Record<string, unknown>;
                 const prefix = AGENT_EVENT_PREFIX[type] ?? "·";
+                // RUN_STARTED 시점에 payload.agent_trace_id 가 들어옴 — 카드에서 Trace 보기 deep link 에 사용.
+                if (type === "RUN_STARTED" && payload?.agent_trace_id !== undefined && traceId === undefined) {
+                  traceId = String(payload.agent_trace_id);
+                }
 
                 // RUN_FAILED 는 payload.error_message 가 더 정확.
                 const finalMessage =
@@ -118,14 +124,14 @@ export function useAiChat(sessionId: string) {
                 events.push({ prefix, type, message: finalMessage, detail });
                 setMessages([
                   ...baseMessages,
-                  { ...assistantBase, content: "", agentEvents: [...events] }
+                  { ...assistantBase, content: "", agentEvents: [...events], traceId }
                 ]);
               },
               onError: (_code, msg) => {
                 events.push({ prefix: "❌", type: "ERROR", message: msg });
                 setMessages([
                   ...baseMessages,
-                  { ...assistantBase, content: "", agentEvents: [...events] }
+                  { ...assistantBase, content: "", agentEvents: [...events], traceId }
                 ]);
                 accumulated = "❌ " + msg;
               }

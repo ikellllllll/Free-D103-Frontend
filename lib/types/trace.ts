@@ -17,9 +17,13 @@ export interface AgentLlmCall {
 export interface AgentToolCall {
   toolCallId: string;
   toolName: string;
+  /** 백엔드 응답명: argsPreview. 기존 코드 호환을 위해 argsJson 도 같이 가지고 다닌다. */
   argsJson: Record<string, unknown> | null;
+  argsPreview?: Record<string, unknown> | null;
+  resultPreview?: Record<string, unknown> | null;
   durationMs: number | null;
   status: "COMPLETED" | "FAILED" | "CANCELLED";
+  exitCode?: number | null;
 }
 
 export interface AgentPatch {

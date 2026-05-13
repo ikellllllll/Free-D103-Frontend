@@ -52,6 +52,17 @@ interface IdeState {
   bottomPanelOpen: boolean;
   bottomPanelTab: BottomPanelTab;
   bottomPanelHeight: number;
+  /** 마지막 하네스 빌드 결과 — 빌드 버튼 옆 indicator + valid_errors 드롭다운에서 사용. */
+  lastBuildResult: {
+    compileStatus: "COMPLETED" | "PARTIAL" | "FAILED" | string | null;
+    validErrors: Array<{ path?: string | null; code?: string | null; message?: string | null }>;
+    builtAt: string;
+    baseModel: string | null;
+  } | null;
+  /** Agent 진행 카드의 "Trace 보기" 버튼이 한 번 점프하라고 신호. TraceWorkbench 가 effect 로 구독하고 한 번 consume 후 비움. */
+  traceJumpToId: string | null;
+  /** 채팅 composer 에 stage 된 다중 코드 첨부. send 시 backend content 에 fenced block 으로 join. */
+  stagedAttachments: Array<{ path: string; code: string; lineRange?: string }>;
   setWorkspace: (files: WorkspaceFile[], activePath?: string) => void;
   createWorkspaceFile: (file: WorkspaceFile, activate?: boolean) => void;
   renameWorkspaceFile: (fromPath: string, toPath: string) => void;
@@ -83,6 +94,11 @@ interface IdeState {
   setBottomPanelOpen: (value: boolean) => void;
   setBottomPanelTab: (value: BottomPanelTab) => void;
   setBottomPanelHeight: (value: number) => void;
+  setLastBuildResult: (value: IdeState["lastBuildResult"]) => void;
+  setTraceJumpToId: (value: string | null) => void;
+  addStagedAttachment: (item: { path: string; code: string; lineRange?: string }) => void;
+  removeStagedAttachment: (index: number) => void;
+  clearStagedAttachments: () => void;
   resetSession: () => void;
 }
 
@@ -111,6 +127,9 @@ export const useIdeStore = create<IdeState>((set) => ({
   bottomPanelOpen: true,
   bottomPanelTab: "output",
   bottomPanelHeight: 220,
+  lastBuildResult: null,
+  traceJumpToId: null,
+  stagedAttachments: [],
   // 백엔드에서 받은 files 와 store 의 기존 files 를 머지.
   // 사유:
   //  (a) sessionApi.createFile 후 setWorkspace 가 호출되면 백엔드 응답의 content (대부분 빈 문자열) 가
@@ -315,6 +334,21 @@ export const useIdeStore = create<IdeState>((set) => ({
   setBottomPanelOpen: (value) => set({ bottomPanelOpen: value }),
   setBottomPanelTab: (value) => set({ bottomPanelTab: value, bottomPanelOpen: true }),
   setBottomPanelHeight: (value) => set({ bottomPanelHeight: value }),
+  setLastBuildResult: (value) => set({ lastBuildResult: value }),
+  setTraceJumpToId: (value) => set({ traceJumpToId: value }),
+  addStagedAttachment: (item) =>
+    set((state) => {
+      // 같은 path + lineRange 중복은 무시.
+      const dup = state.stagedAttachments.some(
+        (a) => a.path === item.path && a.lineRange === item.lineRange
+      );
+      return dup ? state : { stagedAttachments: [...state.stagedAttachments, item] };
+    }),
+  removeStagedAttachment: (index) =>
+    set((state) => ({
+      stagedAttachments: state.stagedAttachments.filter((_, i) => i !== index)
+    })),
+  clearStagedAttachments: () => set({ stagedAttachments: [] }),
   resetSession: () =>
     set({
       files: [],
@@ -340,6 +374,9 @@ export const useIdeStore = create<IdeState>((set) => ({
       aiPanelWidth: 360,
       bottomPanelOpen: true,
       bottomPanelTab: "output",
-      bottomPanelHeight: 220
+      bottomPanelHeight: 220,
+      lastBuildResult: null,
+      traceJumpToId: null,
+      stagedAttachments: []
     })
 }));
