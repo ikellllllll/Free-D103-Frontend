@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { mockApi } from "@/lib/api/mockApi";
 import { isBackendSessionId, sessionApi } from "@/lib/api/sessionApi";
@@ -11,6 +12,7 @@ export function useAiChat(sessionId: string) {
   const messages = useIdeStore((state) => state.messages);
   const setMessages = useIdeStore((state) => state.setMessages);
   const appendMessages = useIdeStore((state) => state.appendMessages);
+  const queryClient = useQueryClient();
   const [streaming, setStreaming] = useState(false);
   const [requestCount, setRequestCount] = useState(0);
 
@@ -135,6 +137,12 @@ export function useAiChat(sessionId: string) {
           ]);
         } finally {
           setStreaming(false);
+          // Agent 가 worktree 에 새 파일을 만들고 끝났는데 workspace query 가 stale 상태로 남으면
+          // 파일 트리에 .worktree (ai) 자식이 안 보임. invalidate 로 강제 refetch 해서 즉시 hydrate.
+          // session(트레이스 카운트 갱신용) / agentTraces (Trace 탭) 도 같이 무효화.
+          await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
+          await queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
+          await queryClient.invalidateQueries({ queryKey: ["agentTraces", sessionId] });
         }
         return;
       }
@@ -202,7 +210,7 @@ export function useAiChat(sessionId: string) {
         }
       }, 28);
     });
-  }, [appendMessages, messages, sessionId, setMessages]);
+  }, [appendMessages, messages, queryClient, sessionId, setMessages]);
 
   return {
     messages,
