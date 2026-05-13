@@ -809,31 +809,30 @@ export function LandingAIG() {
 
   // Workflow step selector
   const [activeStep, setActiveStep] = useState(0);
-  const [transitioning, setTransitioning] = useState(false);
+  const [displayStep, setDisplayStep] = useState(0);
+  const [previousStep, setPreviousStep] = useState<number | null>(null);
   const step = WORKFLOW[activeStep];
+
+  const startWorkflowTransition = useCallback((nextStep: number) => {
+    setDisplayStep((current) => {
+      if (nextStep === current) return current;
+      setPreviousStep(current);
+      window.setTimeout(() => setPreviousStep(null), 520);
+      return nextStep;
+    });
+    setActiveStep(nextStep);
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      setTransitioning(true);
-      window.setTimeout(() => {
-        setActiveStep((p) => (p + 1) % WORKFLOW.length);
-        setTransitioning(false);
-      }, 300);
+      startWorkflowTransition((activeStep + 1) % WORKFLOW.length);
     }, 4000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [activeStep, startWorkflowTransition]);
 
   const goToStep = useCallback((i: number) => {
-    setActiveStep((prev) => {
-      if (i === prev) return prev;
-      setTransitioning(true);
-      window.setTimeout(() => {
-        setActiveStep(i);
-        setTransitioning(false);
-      }, 250);
-      return prev;
-    });
-  }, []);
+    startWorkflowTransition(i);
+  }, [startWorkflowTransition]);
 
   // IDE live demo
   const [ideStep, setIdeStep] = useState(0);
@@ -1145,15 +1144,30 @@ export function LandingAIG() {
                 ))}
               </div>
 
-              <div className="relative overflow-hidden rounded-2xl bg-[#111124] ring-1 ring-white/10" style={{ aspectRatio: "1.88 / 1" }}>
-                <Image
-                  src={step.img}
-                  alt={step.alt}
-                  fill
-                  sizes="(max-width: 1024px) 100vw, 720px"
-                  className={`object-contain object-center transition-opacity duration-300 ${transitioning ? "opacity-0" : "opacity-100"}`}
-                  priority={activeStep === 0}
-                />
+              <div
+                className="relative overflow-hidden rounded-2xl border border-white/[0.18] bg-white/[0.025] p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(255,255,255,0.05),0_18px_44px_-28px_rgba(125,211,252,0.45)] backdrop-blur-xl"
+                style={{ aspectRatio: "1.88 / 1" }}
+              >
+                <div className="relative h-full w-full overflow-hidden rounded-[14px] bg-[#111124] ring-1 ring-white/[0.12]">
+                  {WORKFLOW.map((item, index) => (
+                    <Image
+                      key={item.step}
+                      src={item.img}
+                      alt={item.alt}
+                      fill
+                      sizes="(max-width: 1024px) 100vw, 720px"
+                      className={`landing-workflow-image object-contain object-center ${
+                        index === displayStep
+                          ? "landing-workflow-image--enter"
+                          : index === previousStep
+                            ? "landing-workflow-image--exit"
+                            : "landing-workflow-image--hidden"
+                      }`}
+                      priority={index === 0}
+                    />
+                  ))}
+                  <span key={`wipe-${displayStep}`} className="landing-workflow-image__wipe" aria-hidden="true" />
+                </div>
               </div>
 
               <div className="mt-3 flex items-center justify-between">

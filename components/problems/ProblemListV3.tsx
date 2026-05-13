@@ -52,7 +52,7 @@ function CardBody({ problem }: { problem: ProblemSummary }) {
       <p className="v3-plist-card__summary">{problem.summary}</p>
       <div className="v3-plist-card__foot">
         <span className="v3-plist-card__cat">{problem.category}</span>
-        <span className="v3-plist-card__pass">정답비율 {problem.passRate.toFixed(2)}%</span>
+        <span className="v3-plist-card__pass">정답률 {problem.passRate.toFixed(2)}%</span>
         <span className="v3-plist-card__pass">{problem.userBestPassRate}% 통과율</span>
         {statusBadge(problem.status)}
       </div>

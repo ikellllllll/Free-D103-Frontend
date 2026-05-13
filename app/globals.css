@@ -8278,6 +8278,90 @@ html[data-theme="light"] .ide-theme-blue .ide-route--workspace {
   border-radius: 5px;
 }
 
+.landing-workflow-image {
+  opacity: 0;
+  will-change: opacity, transform, filter;
+}
+
+.landing-workflow-image--hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.landing-workflow-image--enter {
+  animation: landingWorkflowImageEnter 560ms ease-out both;
+  z-index: 2;
+}
+
+.landing-workflow-image--exit {
+  animation: landingWorkflowImageExit 460ms ease-out both;
+  z-index: 1;
+}
+
+.landing-workflow-image__wipe {
+  position: absolute;
+  inset: -18% auto -18% -38%;
+  width: 34%;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.02) 14%,
+      rgba(255, 255, 255, 0.22) 42%,
+      rgba(125, 211, 252, 0.18) 54%,
+      rgba(255, 255, 255, 0.08) 68%,
+      transparent 100%
+    );
+  filter: blur(0.5px);
+  transform: skewX(-16deg) translateX(0);
+  mix-blend-mode: screen;
+  animation: landingWorkflowGlassWipe 760ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes landingWorkflowImageEnter {
+  0% {
+    opacity: 0;
+    transform: scale(0.996);
+    filter: saturate(0.92) brightness(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: saturate(1) brightness(1);
+  }
+}
+
+@keyframes landingWorkflowImageExit {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.002);
+    filter: brightness(0.92);
+  }
+}
+
+@keyframes landingWorkflowGlassWipe {
+  0% {
+    opacity: 0;
+    transform: skewX(-16deg) translateX(0);
+  }
+  12% {
+    opacity: 1;
+  }
+  82% {
+    opacity: 0.92;
+  }
+  100% {
+    opacity: 0;
+    transform: skewX(-16deg) translateX(420%);
+  }
+}
+
 .landing-ide-preview .landing-code-editor__line code {
   overflow: hidden;
   text-overflow: ellipsis;

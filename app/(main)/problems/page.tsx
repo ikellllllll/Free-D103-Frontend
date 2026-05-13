@@ -247,7 +247,7 @@ function ProblemCard({
               {problem.category}
             </span>
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-violet-50 text-violet-500 font-semibold ring-1 ring-violet-100">
-              정답비율
+              정답률
               <span className="tabular-nums">{problem.passRate.toFixed(2)}%</span>
             </span>
             {problem.estimate ? (

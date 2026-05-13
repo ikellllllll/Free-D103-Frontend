@@ -5836,7 +5836,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               <span className="activity-bar__label activity-bar__icon-wrap">
                 <span className="codicon codicon-book activity-bar__icon" aria-hidden="true" />
               </span>
-              <span className="activity-bar__badge">{problemRequirementsCount}</span>
             </button>
 
             {activityItems.filter((item) => item.id !== "extensions").map((item) =>
