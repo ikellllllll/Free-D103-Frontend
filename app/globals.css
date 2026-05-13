@@ -4120,6 +4120,54 @@ html[data-theme="light"] .test-result-card__trace-body {
   line-height: 1.55;
 }
 
+/* ─── 모바일 안내 배너 — viewport < 768 일 때 IDE 위에 표시 ─── */
+.mobile-banner {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 250;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, #fbbf24 18%, var(--ide-surface));
+  border: 1px solid color-mix(in srgb, #fbbf24 50%, transparent);
+  box-shadow: 0 6px 20px rgba(0,0,0,.25);
+}
+.mobile-banner__icon { font-size: 22px; line-height: 1; }
+.mobile-banner__body { flex: 1; min-width: 0; }
+.mobile-banner__body strong { display: block; font-size: 13px; margin-bottom: 2px; color: var(--text); }
+.mobile-banner__body p { margin: 0; font-size: 11px; color: var(--muted); line-height: 1.5; }
+.mobile-banner__close {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.mobile-banner__close:hover { color: var(--text); }
+
+/* ─── viewport < 768 — sidebar 와 ai 패널은 overlay 식으로 ─── */
+@media (max-width: 767px) {
+  .ide-shell__sidebar,
+  .ide-shell__ai {
+    position: fixed !important;
+    top: 0;
+    bottom: 0;
+    z-index: 80;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.35);
+  }
+  .ide-shell__sidebar { left: 0; }
+  .ide-shell__ai { right: 0; }
+  .pane-resizer { display: none !important; }
+}
+
 .quick-open__hint kbd {
   display: inline-block;
   padding: 1px 6px;

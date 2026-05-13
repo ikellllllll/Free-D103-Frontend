@@ -33,6 +33,20 @@ import { useIdeStore } from "@/store/ideStore";
 import { useThemeStore } from "@/store/themeStore";
 import { useUiStore } from "@/store/uiStore";
 
+// @monaco-editor/react 의 default loader 는 cdn(jsdelivr) 에서 monaco.js 받음.
+// 첫 로드 시 ~2.5MB 추가 + cdn 장애 시 IDE 가 안 뜸 + 오프라인 사용 불가.
+// loader.config({ monaco }) 로 번들된 npm 패키지를 강제로 사용 → cdn 의존 제거 + 명시적 lifecycle.
+// SSR 환경에선 monaco import 가 실패하므로 client 에서만 동적으로 처리.
+if (typeof window !== "undefined") {
+  import("@monaco-editor/react").then(({ loader }) => {
+    import("monaco-editor").then((monaco) => {
+      loader.config({ monaco });
+    }).catch(() => {
+      /* monaco-editor npm 패키지 없으면 cdn fallback 유지 */
+    });
+  });
+}
+
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
   loading: () => <div className="editor-loading">에디터를 불러오는 중...</div>
@@ -1796,6 +1810,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const [agentSnapshotVersion, setAgentSnapshotVersion] = useState(INITIAL_AGENT_SNAPSHOT_VERSION);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
   const [activeWorkbenchTab, setActiveWorkbenchTab] = useState<"code" | "problem" | "trace">("code");
+  /** 모바일 안내 배너 dismiss 상태 — 한 번 닫으면 세션 동안 안 보임. */
+  const [mobileBannerDismissed, setMobileBannerDismissed] = useState(false);
   /** Ctrl+P / Cmd+P 로 토글되는 빠른 파일 열기 팔레트. */
   const [quickOpenVisible, setQuickOpenVisible] = useState(false);
   const [quickOpenQuery, setQuickOpenQuery] = useState("");
@@ -2147,6 +2163,22 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       window.removeEventListener("resize", syncViewport);
     };
   }, []);
+
+  // 반응형 — viewport 가 좁아지면 sidebar / AI 패널 자동 collapse.
+  // 1024 미만: AI 패널 자동 닫기 (작은 화면에선 코드 작성 우선)
+  // 768 미만: sidebar 도 자동 닫기 (overlay 모드 권장)
+  const prevViewportWidthRef = useRef(0);
+  useEffect(() => {
+    const w = viewportSize.width;
+    if (w <= 0) return;
+    const prev = prevViewportWidthRef.current;
+    prevViewportWidthRef.current = w;
+    // 처음 측정 (prev 0) 도 적용. 좁아지는 방향으로만 자동 처리 (넓어지면 사용자 선택 유지).
+    if (prev === 0 || w < prev) {
+      if (w < 1024 && aiOpen) setAiOpen(false);
+      if (w < 768 && sidebarOpen) setSidebarOpen(false);
+    }
+  }, [viewportSize.width, aiOpen, sidebarOpen, setAiOpen, setSidebarOpen]);
 
   useEffect(() => {
     return () => {
@@ -7158,6 +7190,27 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           }}
           onClose={() => setQuickOpenVisible(false)}
         />
+      ) : null}
+
+      {/* 모바일 안내 배너 — viewport < 768 일 때 PC 권장 안내. dismiss 시 세션 동안 비표시. */}
+      {viewportSize.width > 0 && viewportSize.width < 768 && !mobileBannerDismissed ? (
+        <div className="mobile-banner" role="alert">
+          <div className="mobile-banner__icon">💻</div>
+          <div className="mobile-banner__body">
+            <strong>PC 환경 권장</strong>
+            <p>
+              AIG IDE 는 PC 가로 화면에 최적화되어 있어요. 모바일 / 태블릿 에선 코드 편집과 AI Pair 가 좁게 보일 수 있어요.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="mobile-banner__close"
+            onClick={() => setMobileBannerDismissed(true)}
+            aria-label="배너 닫기"
+          >
+            ×
+          </button>
+        </div>
       ) : null}
 
       {/* 버그 리포트 모달 — 자동으로 컨텍스트(URL, sessionId, UA, viewport) 수집. */}
