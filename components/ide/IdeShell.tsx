@@ -38,29 +38,14 @@ import { useUiStore } from "@/store/uiStore";
 // loader.config({ monaco }) 로 번들된 npm 패키지를 강제로 사용 → cdn 의존 제거 + 명시적 lifecycle.
 // SSR 환경에선 monaco import 가 실패하므로 client 에서만 동적으로 처리.
 //
-// 추가: MonacoEnvironment.getWorker 정의 — npm 패키지를 직접 쓰면 worker URL 자동 추정이 깨져서
-// "Could not create web worker(s). Falling back to main thread" 경고가 뜬다. 메인 스레드 fallback
-// 으로 동작은 하지만 IntelliSense 가 느려지고 UI freeze 위험. 인라인 blob worker 로 안전 처리.
+// MonacoEnvironment.getWorker 는 정의하지 않는다.
+// 시도해본 결과: monaco-editor-webpack-plugin 없이 new URL("monaco-editor/.../editor.worker.js", import.meta.url) 로
+// worker 를 spawn 하면 Next.js 환경에서 worker 가 만들어지긴 하지만 실행 직후 error 이벤트가 발생해서
+// uncaught error 가 콘솔에 뜬다. Worker spawn 실패 시 monaco 의 fallback (메인 스레드 실행) 이
+// 동작하므로 우리 IDE 의 기본 편집 기능은 깨지지 않는다. 다만 "Could not create web worker(s)" warning 이
+// 콘솔에 한 번 떠서 이건 별도 useEffect 의 console.warn swallow 로 가린다.
+// 근본 fix(monaco-editor-webpack-plugin 도입) 는 별도 큰 작업으로 미룸.
 if (typeof window !== "undefined") {
-  // 인라인 blob worker — monaco-editor 의 esm worker 파일을 dynamic import 해서 Worker 로 spawn.
-  // 빌드 시 webpack 가 ?worker query 처리 못 하면 fallback (main thread) 가 작동하니 안전.
-  const w = window as unknown as { MonacoEnvironment?: { getWorker?: (workerId: string, label: string) => Worker } };
-  if (!w.MonacoEnvironment) {
-    w.MonacoEnvironment = {
-      getWorker: (_workerId: string, label: string) => {
-        // label: "editorWorkerService" | "json" | "css" | "html" | "typescript" | "javascript"
-        // 우리는 주로 코드 편집만 — editorWorkerService 면 충분. 다른 label 도 같은 worker fallback.
-        // monaco esm 의 editor.worker.js 만 임포트해서 사용.
-        const workerUrl = new URL(
-          /* webpackChunkName: "monaco-editor-worker" */
-          "monaco-editor/esm/vs/editor/editor.worker.js",
-          import.meta.url
-        );
-        return new Worker(workerUrl, { type: "module", name: label });
-      }
-    };
-  }
-
   import("@monaco-editor/react").then(({ loader }) => {
     import("monaco-editor").then((monaco) => {
       loader.config({ monaco });
@@ -2062,21 +2047,35 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     // Monaco DiffEditor 내부가 try/catch 안에서 console.error 로만 출력하는 케이스 — window.error
     // 가 안 잡힌다. 그래서 console.error 도 wrap 해서 동일 패턴이면 swallow.
     // 원본 함수는 그대로 보존하고, 매치 안 되는 메시지는 그대로 흘려보낸다.
+    // Worker spawn 실패 warning 도 같이 swallow — Next.js 의 module worker 처리 한계로
+    // monaco worker 가 spawn 안 되지만 메인 스레드 fallback 으로 동작 자체엔 영향 없음.
+    // (근본 fix: monaco-editor-webpack-plugin 도입 — 별도 큰 작업)
+    const isMonacoWorkerWarn = (msg: unknown) => {
+      const text = typeof msg === "string" ? msg : (msg && typeof msg === "object" && "message" in msg ? String((msg as { message?: unknown }).message ?? "") : "");
+      return text.includes("Could not create web worker") || text.includes("MonacoEnvironment.getWorkerUrl");
+    };
     const originalConsoleError = window.console.error.bind(window.console);
     const wrappedConsoleError = (...args: unknown[]) => {
       const first = args[0];
-      if (isDiffModelRace(first)) return; // silently drop
-      // Error 객체 자체가 두 번째 인자로 오는 케이스 (Monaco style)
-      if (args.length > 1 && isDiffModelRace(args[1])) return;
+      if (isDiffModelRace(first) || isMonacoWorkerWarn(first)) return;
+      if (args.length > 1 && (isDiffModelRace(args[1]) || isMonacoWorkerWarn(args[1]))) return;
       originalConsoleError(...args);
+    };
+    const originalConsoleWarn = window.console.warn.bind(window.console);
+    const wrappedConsoleWarn = (...args: unknown[]) => {
+      const first = args[0];
+      if (isMonacoWorkerWarn(first)) return;
+      originalConsoleWarn(...args);
     };
     window.addEventListener("error", onError, true);
     window.addEventListener("unhandledrejection", onUnhandledRejection);
     window.console.error = wrappedConsoleError;
+    window.console.warn = wrappedConsoleWarn;
     return () => {
       window.removeEventListener("error", onError, true);
       window.removeEventListener("unhandledrejection", onUnhandledRejection);
       window.console.error = originalConsoleError;
+      window.console.warn = originalConsoleWarn;
     };
   }, []);
 

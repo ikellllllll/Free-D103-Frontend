@@ -3988,8 +3988,9 @@ html[data-theme="light"] .test-result-card__trace-body {
   align-items: flex-start;
   justify-content: center;
   padding-top: 14vh;
-  background: color-mix(in srgb, var(--ide-bg, #0b0d18) 60%, transparent);
-  backdrop-filter: blur(2px);
+  /* 뒤 코드/패널이 비쳐 보이지 않도록 더 짙게. ide-bg 변수가 없는 페이지 대비 fallback rgba 도. */
+  background: rgba(8, 10, 20, 0.72);
+  backdrop-filter: blur(4px);
 }
 
 .quick-open {
