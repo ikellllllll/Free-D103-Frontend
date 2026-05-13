@@ -1767,6 +1767,45 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     });
   }, [editorGroupIdsKey]);
 
+  /**
+   * Monaco DiffEditor 의 model lifecycle 과 React unmount + workspace invalidate 사이에 race 가 있어
+   * 가끔 콘솔에 "TextModel got disposed before DiffEditorWidget model got reset" 가 던져진다.
+   * 87949d6 에서 setTimeout(0) yield 로 한 번 잡았지만 multi-edit 흐름에선 다른 경로로 재발.
+   *
+   * 에디터 동작 자체엔 영향이 없는 cleanup race(이미 dispose 된 model 에 setModel 시도) 이므로
+   * 화면에 노출만 차단하고 silently swallow. 더 정밀한 fix(모델 수동 lifecycle 관리)는 추후.
+   */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const isDiffModelRace = (message: unknown) => {
+      if (typeof message !== "string") return false;
+      return (
+        message.includes("TextModel got disposed before DiffEditorWidget") ||
+        message.includes("TextModel disposed") // monaco 내부 메시지가 살짝 달라질 가능성 대비
+      );
+    };
+    const onError = (event: ErrorEvent) => {
+      const msg = event.error?.message ?? event.message;
+      if (isDiffModelRace(msg)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    };
+    const onUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const reason = event.reason as { message?: unknown } | string | undefined;
+      const msg = typeof reason === "string" ? reason : reason?.message;
+      if (isDiffModelRace(msg)) {
+        event.preventDefault();
+      }
+    };
+    window.addEventListener("error", onError, true);
+    window.addEventListener("unhandledrejection", onUnhandledRejection);
+    return () => {
+      window.removeEventListener("error", onError, true);
+      window.removeEventListener("unhandledrejection", onUnhandledRejection);
+    };
+  }, []);
+
   const maxSidebarWidth = getMaxSidebarWidth(viewportSize.width);
   const maxAiPanelWidth = getMaxAiPanelWidth(viewportSize.width);
   const maxBottomPanelHeight = getMaxBottomPanelHeight(viewportSize.height);
@@ -6041,8 +6080,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                       className="button button--primary button--tiny assistant-build-button"
                       onClick={() => void handleAgentBuild()}
                       disabled={agentBuildLoading}
+                      title="하네스(AGENTS.md · prompts · skills · sub_agent) 를 다시 컴파일해서 에이전트를 새로 부팅합니다. 세션 시작 시 기본 하네스로 자동 빌드돼 있어 누르지 않아도 작동하지만, 하네스 파일을 수정한 뒤엔 한 번 눌러 반영해야 합니다."
                     >
-                      {agentBuildLoading ? "Build..." : "Agent Build"}
+                      {agentBuildLoading ? "하네스 빌드 중..." : "하네스 빌드"}
                     </button>
                   </div>
 
@@ -6115,21 +6155,30 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                       ) : null}
 
                       <div ref={chatScrollRef} className="chat-stack chat-stack--panel">
-                        {messages.length === 0 && !streaming ? (
-                          <div className="chat-empty">
-                            <strong>
-                              {aiMode === "edit"
-                                ? "에이전트에게 작업을 위임해 보세요"
-                                : "AI와 대화를 시작해 보세요"}
-                            </strong>
-                            <p className="muted-copy">
-                              {aiMode === "edit"
-                                ? "에이전트가 .worktree/ 에 수정안을 만들면 diff 탭에서 적용/거절할 수 있어요."
-                                : "현재 열린 파일과 선택한 코드를 컨텍스트로 질문할 수 있어요."}
-                            </p>
-                          </div>
-                        ) : null}
-                        {messages.map((message) => {
+                        {(() => {
+                          // Chat/Agent 토글에 맞춰 origin 으로 필터링. origin 이 비어있는 옛 메시지는
+                          // 양쪽 모두에 표시 (백엔드 union 이전에 저장된 케이스 안전망).
+                          const wantOrigin = aiMode === "edit" ? "AGENT" : "CHAT";
+                          const visibleMessages = messages.filter(
+                            (m) => !m.origin || m.origin === wantOrigin
+                          );
+                          return (
+                            <>
+                              {visibleMessages.length === 0 && !streaming ? (
+                                <div className="chat-empty">
+                                  <strong>
+                                    {aiMode === "edit"
+                                      ? "에이전트에게 작업을 위임해 보세요"
+                                      : "AI와 대화를 시작해 보세요"}
+                                  </strong>
+                                  <p className="muted-copy">
+                                    {aiMode === "edit"
+                                      ? "에이전트가 .worktree/ 에 수정안을 만들면 diff 탭에서 적용/거절할 수 있어요."
+                                      : "현재 열린 파일과 선택한 코드를 컨텍스트로 질문할 수 있어요."}
+                                  </p>
+                                </div>
+                              ) : null}
+                              {visibleMessages.map((message) => {
                           const isEmptyAssistant = message.role === "assistant" && !message.content;
                           return (
                             <div
@@ -6150,7 +6199,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                               {message.attachedCode ? <AttachedCodeChip data={message.attachedCode} /> : null}
                             </div>
                           );
-                        })}
+                              })}
+                            </>
+                          );
+                        })()}
                       </div>
 
                       <div className="chat-input-row">

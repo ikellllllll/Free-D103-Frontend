@@ -888,7 +888,9 @@ export const sessionApi = {
         id: `${m.origin ?? "AGENT"}-${m.agentSessionMsgId}`,
         role: m.msgKind === "HUMAN" ? "user" : "assistant",
         content: m.content,
-        createdAt: m.createdAt
+        createdAt: m.createdAt,
+        // AI Pair 패널이 Chat/Agent 토글에 맞춰 이 origin 으로 필터링한다.
+        origin: m.origin ?? "AGENT"
       }));
     } catch {
       // mockApi 폴백 금지 — 일시적 장애에 가짜 시드 채팅 누설 방지.
@@ -1068,13 +1070,16 @@ export const sessionApi = {
     const sourcePath = worktreePath.slice(WORKTREE_PREFIX.length);
 
     const worktreeFileId = await resolveRememberedFileId(sessionId, worktreePath);
-    const originFileId = await resolveRememberedFileId(sessionId, sourcePath);
-    if (!worktreeFileId || !originFileId) {
-      throw new Error("적용할 파일 정보를 찾지 못했습니다. 워크스페이스를 새로고침해 주세요.");
+    if (!worktreeFileId) {
+      throw new Error("적용할 worktree 파일을 찾지 못했습니다. 워크스페이스를 새로고침해 주세요.");
     }
+    // originFileId 는 EDITED / DELETED 케이스에서만 매칭되고, GENERATED (새 파일) 케이스에선
+    // src/ 에 origin 이 없는 게 정상. 백엔드 validateOriginFileId 가 originType==GENERATED 면
+    // originFileId 가 null 이어야 한다고 강제하므로 lookup 실패 시 null 로 보내고 호출.
+    const originFileId = await resolveRememberedFileId(sessionId, sourcePath);
 
     await authClient.post(`api/v1/ai/sessions/${sessionId}/chat/edit`, {
-      json: { originFileId, worktreeFileId },
+      json: { originFileId: originFileId ?? null, worktreeFileId },
       searchParams: { isApproved: String(input.isApproved) }
     });
   },

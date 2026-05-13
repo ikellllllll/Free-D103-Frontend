@@ -62,7 +62,9 @@ export function useAiChat(sessionId: string) {
       role: "user",
       content: question,           // UI 에는 질문만
       attachedCode,                // 코드는 별도 chip 으로 렌더
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      // Chat/Agent 토글 필터링 대상 — 현재 모드 기준으로 표시. 백엔드 hydrate 후 실제 값으로 교체된다.
+      origin: mode === "agent" ? "AGENT" : "CHAT"
     };
 
     const baseMessages = [...messages, optimistic];
@@ -77,7 +79,8 @@ export function useAiChat(sessionId: string) {
         id: assistantId,
         role: "assistant",
         content: "",
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        origin: mode === "agent" ? "AGENT" : "CHAT"
       };
       appendMessages([assistantBase]);
 
@@ -143,6 +146,9 @@ export function useAiChat(sessionId: string) {
           await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
           await queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
           await queryClient.invalidateQueries({ queryKey: ["agentTraces", sessionId] });
+          // SSE 누적은 "🚀 작업 시작 / 📖 파일 읽음 / ..." 진행 로그라, 종료 후엔 백엔드가 저장한
+          // 최종 assistant 메시지(변경 요약 등) 로 덮어써야 새로고침 없이도 깔끔한 결과를 본다.
+          try { await loadMessages(); } catch { /* noop — 다음 진입 시 재시도 */ }
         }
         return;
       }
@@ -180,6 +186,9 @@ export function useAiChat(sessionId: string) {
         ]);
       } finally {
         setStreaming(false);
+        // chat 모드도 SSE chunk 가 백엔드 저장본과 미세하게 다를 수 있고, 멀티턴 멤버십을 보장하기 위해
+        // 종료 후 백엔드 messages 로 최종 동기화. 실패해도 다음 진입 시 자동 hydrate 되니 silent.
+        try { await loadMessages(); } catch { /* noop */ }
       }
       return;
     }
@@ -210,7 +219,7 @@ export function useAiChat(sessionId: string) {
         }
       }, 28);
     });
-  }, [appendMessages, messages, queryClient, sessionId, setMessages]);
+  }, [appendMessages, loadMessages, messages, queryClient, sessionId, setMessages]);
 
   return {
     messages,
