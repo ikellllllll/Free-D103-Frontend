@@ -6547,7 +6547,10 @@ html[data-theme="light"] .toast { background: var(--panel-strong); }
 .twb-detail__body--log { padding:0; }
 
 /* Section cards */
-.twb-section { border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+/* flex-shrink:0 — 부모 .twb-detail__body 가 flex column 이라 자식이 기본 shrink:1 로 줄어드는데,
+   그러면 안의 Tool Calls / LLM Calls 표가 잘린다. 카드별 자연 높이를 유지하고, 넘치면 부모(detail__body)
+   에서 한 번에 스크롤되도록. */
+.twb-section { border:1px solid var(--border); border-radius:8px; overflow:hidden; flex-shrink:0; }
 .twb-section__head { width:100%; display:flex; align-items:center; gap:8px; padding:8px 12px; background:none; border:none; cursor:pointer; text-align:left; font-size:0.74rem; font-weight:600; color:var(--text); }
 .twb-section__head:hover { filter:brightness(1.08); }
 .twb-section__icon { font-size:0.85rem; }
