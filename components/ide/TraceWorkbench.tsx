@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 
 import { mockApi } from "@/lib/api/mockApi";
@@ -45,6 +46,9 @@ function getSortedSpans(run: AgentRunTrace) {
 function Tooltip({ text }: { text: string }) {
   const btnRef = useRef<HTMLButtonElement>(null);
   const [coords, setCoords] = useState<{ x: number; y: number } | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
 
   const show = () => {
     if (!btnRef.current) return;
@@ -52,25 +56,36 @@ function Tooltip({ text }: { text: string }) {
     setCoords({ x: r.left, y: r.bottom + 6 });
   };
 
+  // bubble 을 document.body 에 portal 로 띄움 — 부모 .twb-drawer 의 transform 때문에
+  // position:fixed 가 그 안에 갇혀서 안 보이거나 잘못된 위치로 가는 문제 회피.
+  const bubble =
+    coords && mounted
+      ? createPortal(
+          <div
+            className="twb-tooltip-bubble"
+            style={{ position: "fixed", left: coords.x, top: coords.y }}
+          >
+            {text}
+          </div>,
+          document.body
+        )
+      : null;
+
   return (
     <>
       <button
         ref={btnRef}
         type="button"
         className="twb-tooltip-icon"
+        aria-label="도움말"
         onMouseEnter={show}
         onMouseLeave={() => setCoords(null)}
+        onFocus={show}
+        onBlur={() => setCoords(null)}
       >
         ?
       </button>
-      {coords && (
-        <div
-          className="twb-tooltip-bubble"
-          style={{ position: "fixed", left: coords.x, top: coords.y }}
-        >
-          {text}
-        </div>
-      )}
+      {bubble}
     </>
   );
 }
