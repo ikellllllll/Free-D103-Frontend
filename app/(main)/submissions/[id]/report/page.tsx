@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { use, useMemo } from "react";
+import { use, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
+import { useCelebrate } from "@/hooks/useCelebrate";
 import { feedbackApi } from "@/lib/api/feedbackApi";
 import { useAuthStore } from "@/store/authStore";
 import type {
@@ -96,6 +97,14 @@ export default function FeedbackReportPage({
   });
 
   const problemTitle = useMemo(() => report?.problemTitle ?? "풀이 과제", [report?.problemTitle]);
+
+  // 🎉 리포트 로딩 끝났고 점수 90 이상이면 폭죽. 같은 submissionId 로는 한 번만 (useCelebrate 내부 dedupe).
+  const { fire: fireConfetti } = useCelebrate();
+  useEffect(() => {
+    if (report?.status === "COMPLETED" && (report.overallScore ?? 0) >= 90) {
+      void fireConfetti(`report-${submissionId}`);
+    }
+  }, [report?.status, report?.overallScore, submissionId, fireConfetti]);
 
   if (isError) {
     return (

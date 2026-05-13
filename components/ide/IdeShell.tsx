@@ -20,6 +20,7 @@ import { SubmissionResultPanel } from "@/components/ide/SubmissionResultPanel";
 import { TestResultRow } from "@/components/ide/TestResultRow";
 import { TraceWorkbench } from "@/components/ide/TraceWorkbench";
 import { useAgentUIState } from "@/hooks/useAgentUIState";
+import { useCelebrate } from "@/hooks/useCelebrate";
 import { useAiChat } from "@/hooks/useAiChat";
 import { mockApi } from "@/lib/api/mockApi";
 import { problemApi } from "@/lib/api/problemApi";
@@ -1774,6 +1775,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const { withPrefix } = useRouteScope();
   const queryClient = useQueryClient();
   const addToast = useUiStore((state) => state.addToast);
+  const { fire: fireConfetti } = useCelebrate();
   const setWorkspace = useIdeStore((state) => state.setWorkspace);
   const resetSession = useIdeStore((state) => state.resetSession);
   const activePath = useIdeStore((state) => state.activePath);
@@ -2018,6 +2020,14 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
       if (isTerminal) {
         setSubmissionLoading(false);
+        // 🎉 모든 테스트 통과 시 폭죽 — 같은 executionId 로는 한 번만 발사.
+        const passed = data.passed ?? 0;
+        const total = data.total ?? 0;
+        const passRate = data.passRate ?? (total > 0 ? (passed / total) * 100 : 0);
+        if (passRate >= 100 && total > 0) {
+          void fireConfetti(`submission-${data.id}`);
+          addToast("🎉 모든 테스트 통과! 축하해요!", "success");
+        }
       }
       return data;
     },
@@ -2127,7 +2137,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       }
     };
     const onUnhandledRejection = (event: PromiseRejectionEvent) => {
-      if (isDiffModelRace(event.reason)) {
+      if (isDiffModelRace(event.reason) || isMonacoCanceled(event.reason)) {
         event.preventDefault();
       }
     };
@@ -2141,11 +2151,18 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       const text = typeof msg === "string" ? msg : (msg && typeof msg === "object" && "message" in msg ? String((msg as { message?: unknown }).message ?? "") : "");
       return text.includes("Could not create web worker") || text.includes("MonacoEnvironment.getWorkerUrl");
     };
+    // Monaco 가 cancellation token 으로 reject 하는 "Canceled" promise — 동작엔 영향 없음.
+    // 우리 useEffect cleanup 이나 fast remount 시 발생. uncaught promise 라 콘솔에 빨간 줄.
+    const isMonacoCanceled = (msg: unknown) => {
+      if (msg instanceof Error && msg.name === "Canceled") return true;
+      const text = typeof msg === "string" ? msg : (msg && typeof msg === "object" && "message" in msg ? String((msg as { message?: unknown }).message ?? "") : "");
+      return text === "Canceled" || text === "Canceled: Canceled" || text.startsWith("Canceled:");
+    };
     const originalConsoleError = window.console.error.bind(window.console);
     const wrappedConsoleError = (...args: unknown[]) => {
       const first = args[0];
-      if (isDiffModelRace(first) || isMonacoWorkerWarn(first)) return;
-      if (args.length > 1 && (isDiffModelRace(args[1]) || isMonacoWorkerWarn(args[1]))) return;
+      if (isDiffModelRace(first) || isMonacoWorkerWarn(first) || isMonacoCanceled(first)) return;
+      if (args.length > 1 && (isDiffModelRace(args[1]) || isMonacoWorkerWarn(args[1]) || isMonacoCanceled(args[1]))) return;
       originalConsoleError(...args);
     };
     const originalConsoleWarn = window.console.warn.bind(window.console);
@@ -6941,22 +6958,21 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                                       </li>
                                     ))}
                                   </ol>
-                                  {/* ui-state — traceId 있으면 변경 파일 list + focus 표시. RUNNING 시 follow-along. */}
-                                  {message.traceId ? (
-                                    <AgentUIStateSection
-                                      sessionId={sessionId}
-                                      traceId={message.traceId}
-                                      onOpenDiff={(path) => openDiffTab(path)}
-                                      onFocusPath={(path) => {
-                                        // RUNNING 중 focus 변화 시 활성 탭 변경 — 사용자 코드 작성 중이면 방해되니
-                                        // 현재 입력 textarea 에 포커스 있으면 skip.
-                                        const active = document.activeElement?.tagName;
-                                        if (active === "TEXTAREA" || active === "INPUT") return;
-                                        if (files.some((f) => f.path === path)) setActivePath(path);
-                                      }}
-                                    />
-                                  ) : null}
                                 </details>
+                              ) : null}
+                              {/* ui-state — message.traceId 가 있는 한 카드 fold/unmount 와 무관하게 항상 노출.
+                                  hydrate 후엔 백엔드 응답에 trace_id 가 들어와야 매핑됨 (지금은 SSE 시점에만 노출). */}
+                              {message.traceId ? (
+                                <AgentUIStateSection
+                                  sessionId={sessionId}
+                                  traceId={message.traceId}
+                                  onOpenDiff={(path) => openDiffTab(path)}
+                                  onFocusPath={(path) => {
+                                    const active = document.activeElement?.tagName;
+                                    if (active === "TEXTAREA" || active === "INPUT") return;
+                                    if (files.some((f) => f.path === path)) setActivePath(path);
+                                  }}
+                                />
                               ) : null}
                               {isEmptyAssistant ? (
                                 <span className="chat-typing" aria-label="AI 응답 생성 중">

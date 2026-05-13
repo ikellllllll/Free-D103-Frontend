@@ -999,13 +999,18 @@ export const sessionApi = {
    * 진행 중 trace 면 1-2초 폴링, 종료 trace 면 한 번만 호출.
    */
   async getAgentUIState(sessionId: string, agentTraceId: string | number): Promise<AgentUIState | null> {
+    // 일부 trace 는 AI 서버에 ui-state 데이터 없음 → 백엔드가 400/404 반환. 빨간 콘솔 줄 안 뜨도록
+    // ky 의 throwHttpErrors 끄고 status 직접 체크.
     try {
       const res = await authClient
-        .get(`api/v1/ai/sessions/${sessionId}/agent/runs/${agentTraceId}/ui-state`)
-        .json<ApiResponse<AgentUIState>>();
-      return res.data ?? null;
+        .get(`api/v1/ai/sessions/${sessionId}/agent/runs/${agentTraceId}/ui-state`, {
+          throwHttpErrors: false
+        });
+      if (!res.ok) return null;
+      const body = await res.json<ApiResponse<AgentUIState>>();
+      return body.data ?? null;
     } catch {
-      // 400 (AI 서버 데이터 없음 — 비 worktree trace) / 404 등은 null 반환.
+      // 네트워크 에러 등 — null 반환.
       return null;
     }
   },

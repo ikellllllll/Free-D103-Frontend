@@ -96,6 +96,12 @@ export function useAiChat(sessionId: string) {
       if (mode === "agent") {
         const controller = new AbortController();
         abortControllerRef.current = controller;
+        // Trace 목록 실시간 폴링 — agent_runs_traces 에 row 가 insert 되기까지 시간 차이가 있고,
+        // 첫 trace 가 list 에 보이기 전엔 TraceWorkbench 의 useQuery 가 폴링 안 함 (hasActive 가 false).
+        // streaming 중 강제로 2.5s 마다 invalidate → trace 가 db 에 들어오자마자 list 반영.
+        const tracePollInterval = window.setInterval(() => {
+          queryClient.invalidateQueries({ queryKey: ["agentTraces", sessionId] });
+        }, 2500);
         try {
           await sessionApi.streamAgentChat(
             sessionId,
@@ -156,6 +162,7 @@ export function useAiChat(sessionId: string) {
           ]);
           accumulated = (isAbort ? "⏹️ " : "❌ ") + errMsg;
         } finally {
+          window.clearInterval(tracePollInterval);
           abortControllerRef.current = null;
           setStreaming(false);
           // Agent 가 worktree 에 새 파일을 만들고 끝났는데 workspace query 가 stale 상태로 남으면

@@ -3884,23 +3884,37 @@ html[data-theme="light"] .test-result-card__trace-body {
   font-size: 12px;
   line-height: 1.55;
   color: var(--text);
+  /* 스크롤바 얇게 */
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 30%, transparent) transparent;
 }
+.chat-codeblock__body::-webkit-scrollbar { height: 6px; }
+.chat-codeblock__body::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 3px;
+}
+.chat-codeblock__body::-webkit-scrollbar-track { background: transparent; }
 .chat-codeblock__body code { display: block; white-space: pre; }
 
 /* ─── 채팅 답변 안의 file path 자동 링크 ─── */
 .chat-filepath-link {
-  display: inline-block;
+  /* 텍스트 흐름에 자연스럽게 — inline-block + border 로 큰 박스 만들지 않음.
+     긴 path 는 overflow-wrap: anywhere 로 자연스럽게 wrap. */
+  display: inline;
   padding: 0 4px;
   border-radius: 4px;
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--accent);
-  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  border: none;
   font-family: var(--font-mono);
   font-size: 11.5px;
   cursor: pointer;
+  text-align: left;
+  overflow-wrap: anywhere;
+  word-break: break-all;
   transition: background 0.15s ease;
 }
-.chat-filepath-link:hover { background: color-mix(in srgb, var(--accent) 25%, transparent); }
+.chat-filepath-link:hover { background: color-mix(in srgb, var(--accent) 25%, transparent); text-decoration: underline; }
 
 /* ─── 자동저장 indicator — status bar 우측 ─── */
 .save-indicator {
@@ -4600,6 +4614,7 @@ html[data-theme="light"] .chat-bubble__markdown code {
   gap: 6px;
   max-height: 280px;
   overflow-y: auto;
+  overflow-x: hidden;        /* 가로 스크롤 차단 — 긴 메시지는 wrap */
 }
 
 .agent-progress-card__item {
@@ -4609,6 +4624,8 @@ html[data-theme="light"] .chat-bubble__markdown code {
   font-size: 12.5px;
   line-height: 1.55;
   color: var(--text);
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .agent-progress-card__prefix {
@@ -4619,7 +4636,9 @@ html[data-theme="light"] .chat-bubble__markdown code {
 
 .agent-progress-card__message {
   flex: 1;
+  min-width: 0;
   word-break: break-word;
+  overflow-wrap: anywhere;   /* 긴 단어/path 도 강제 wrap — 한 글자 세로 줄바꿈 방지 */
 }
 
 /* ─── Agent UI 상태 섹션 — 진행 카드 안의 변경 파일 list + focus ─── */
