@@ -282,8 +282,77 @@ function ToolCallRow({ tc }: { tc: import("@/lib/types/trace").AgentToolCall }) 
   );
 }
 
+// ─── GanttView — tool/llm calls 시간 분포를 horizontal bar 로 ──────────────────
+// LogTimeline 이 시간순 list 라면, GanttView 는 같은 데이터의 visual timeline.
+// 각 row 는 tool/llm 1개. x 축은 span 의 시작 ~ 종료. duration 만큼 막대.
+function GanttView({ span }: { span: AgentSpan }) {
+  const spanStart = span.startedAt ? new Date(span.startedAt).getTime() : 0;
+  const spanEnd =
+    span.endedAt ? new Date(span.endedAt).getTime() : spanStart + (span.durationMs ?? 0);
+  const spanDur = Math.max(1, spanEnd - spanStart);
+
+  type Bar = { kind: "tool" | "llm"; label: string; status: string; offsetMs: number; durMs: number };
+  const bars: Bar[] = [
+    // tool calls — log entry 의 startedAt 가 없어 누적 추정 어려움. duration 만 알기 때문에
+    // 단순 누적 offset 으로 표현 (실제 startedAt 데이터 추가되면 교체).
+    ...span.toolCalls.map((tc) => ({
+      kind: "tool" as const,
+      label: tc.toolName,
+      status: tc.status,
+      offsetMs: 0,
+      durMs: tc.durationMs ?? 0
+    })),
+    ...span.llmCalls.map((lc) => ({
+      kind: "llm" as const,
+      label: lc.modelName,
+      status: lc.status,
+      offsetMs: 0,
+      durMs: lc.latencyMs ?? 0
+    }))
+  ];
+
+  // 누적 offset 시뮬레이션 — startedAt 없으니 sequential 가정
+  let acc = 0;
+  for (const b of bars) {
+    b.offsetMs = acc;
+    acc += b.durMs;
+  }
+  const totalDur = Math.max(spanDur, acc, 1);
+
+  return (
+    <div className="twb-gantt">
+      <div className="twb-gantt__meta">
+        총 {bars.length}개 · 전체 {(totalDur / 1000).toFixed(2)}s
+      </div>
+      {bars.length === 0 ? (
+        <div className="twb-empty twb-empty--sm">표시할 호출이 없습니다.</div>
+      ) : (
+        <div className="twb-gantt__rows">
+          {bars.map((bar, idx) => {
+            const widthPct = (bar.durMs / totalDur) * 100;
+            const leftPct = (bar.offsetMs / totalDur) * 100;
+            return (
+              <div key={`${bar.kind}-${idx}`} className="twb-gantt__row" title={`${bar.label} · ${bar.durMs}ms`}>
+                <span className={`twb-gantt__label twb-gantt__label--${bar.kind}`}>{bar.label}</span>
+                <div className="twb-gantt__track">
+                  <span
+                    className={`twb-gantt__bar twb-gantt__bar--${bar.kind} twb-gantt__bar--${bar.status === "FAILED" ? "fail" : "ok"}`}
+                    style={{ left: `${leftPct}%`, width: `${Math.max(widthPct, 0.5)}%` }}
+                  />
+                </div>
+                <span className="twb-gantt__dur">{bar.durMs}ms</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <p className="twb-gantt__hint">※ tool/llm 의 정확한 시작 offset 데이터 부족으로 sequential 추정 표시</p>
+    </div>
+  );
+}
+
 function SpanDetail({ span }: { span: AgentSpan }) {
-  const [tab, setTab] = useState<"preview" | "log">("preview");
+  const [tab, setTab] = useState<"preview" | "log" | "gantt">("preview");
   const totalIn  = span.llmCalls.reduce((a, c) => a + c.inputTokens, 0);
   const totalOut = span.llmCalls.reduce((a, c) => a + c.outputTokens, 0);
   const models   = [...new Set(span.llmCalls.map(c => c.modelName))];
@@ -307,9 +376,9 @@ function SpanDetail({ span }: { span: AgentSpan }) {
       </div>
 
       <div className="twb-tabs">
-        {(["preview", "log"] as const).map(t => (
+        {(["preview", "log", "gantt"] as const).map(t => (
           <button key={t} type="button" className={tab === t ? "twb-tab twb-tab--active" : "twb-tab"} onClick={() => setTab(t)}>
-            {t === "preview" ? "Preview" : "Log View"}
+            {t === "preview" ? "Preview" : t === "log" ? "Log View" : "Gantt"}
           </button>
         ))}
       </div>
@@ -369,9 +438,13 @@ function SpanDetail({ span }: { span: AgentSpan }) {
             </SectionCard>
           )}
         </div>
-      ) : (
+      ) : tab === "log" ? (
         <div className="twb-detail__body twb-detail__body--log">
           <LogTimeline span={span} />
+        </div>
+      ) : (
+        <div className="twb-detail__body">
+          <GanttView span={span} />
         </div>
       )}
     </div>
@@ -471,6 +544,30 @@ function TraceList({ runs, selectedId, isLoading, page, totalPages, totalRuns, o
   onPageChange: (page: number) => void;
   onSelect: (r: AgentRunTrace) => void;
 }) {
+  const [filterQuery, setFilterQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "COMPLETED" | "FAILED" | "RUNNING">("ALL");
+
+  // client-side 필터링 — page 단위로 받아오는 prop runs 안에서만 필터.
+  // 헤드라인/요약/에러 메시지/상태 매칭.
+  const filteredRuns = useMemo(() => {
+    let result = runs;
+    if (statusFilter !== "ALL") {
+      result = result.filter((r) => r.status === statusFilter);
+    }
+    const q = filterQuery.trim().toLowerCase();
+    if (q) {
+      result = result.filter((r) => {
+        return (
+          (r.summaryText ?? "").toLowerCase().includes(q) ||
+          (r.headline ?? "").toLowerCase().includes(q) ||
+          (r.errorMessage ?? "").toLowerCase().includes(q) ||
+          String(r.agentTraceId).includes(q)
+        );
+      });
+    }
+    return result;
+  }, [runs, statusFilter, filterQuery]);
+
   const pageNumbers = useMemo(() => {
     if (totalRuns === 0 || totalPages <= 0) return [];
     const windowSize = 5;
@@ -489,7 +586,7 @@ function TraceList({ runs, selectedId, isLoading, page, totalPages, totalRuns, o
 
       <div className="twb-list-toolbar">
         <div className="twb-list-toolbar__meta">
-          <strong>총 {totalRuns}개</strong>
+          <strong>총 {totalRuns}개{filterQuery || statusFilter !== "ALL" ? ` · 필터 ${filteredRuns.length}개` : ""}</strong>
           <span>{totalRuns > 0 ? `${page} / ${totalPages} 페이지` : "페이지 없음"}</span>
         </div>
         <div className="twb-pagination twb-pagination--compact">
@@ -514,15 +611,37 @@ function TraceList({ runs, selectedId, isLoading, page, totalPages, totalRuns, o
         </div>
       </div>
 
+      <div className="twb-list-filter">
+        <input
+          className="twb-list-filter__input"
+          type="text"
+          placeholder="요약·헤드라인·에러 검색…"
+          value={filterQuery}
+          onChange={(e) => setFilterQuery(e.target.value)}
+        />
+        <div className="twb-list-filter__chips">
+          {(["ALL", "COMPLETED", "FAILED", "RUNNING"] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              className={statusFilter === s ? "twb-list-filter__chip twb-list-filter__chip--active" : "twb-list-filter__chip"}
+              onClick={() => setStatusFilter(s)}
+            >
+              {s === "ALL" ? "전체" : STATUS_LABEL[s] ?? s}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="twb-run-list">
         {isLoading ? (
           <div className="twb-empty">불러오는 중...</div>
-        ) : runs.length === 0 ? (
+        ) : filteredRuns.length === 0 ? (
           <div className="twb-empty twb-empty--center twb-empty--sm">
-            <span>실행 기록 없음</span>
+            <span>{runs.length === 0 ? "실행 기록 없음" : "필터 결과 없음"}</span>
           </div>
         ) : (
-          runs.map(run => {
+          filteredRuns.map(run => {
             const isSelected = selectedId === run.agentTraceId;
             const totalTokens = run.totalInputTokens + run.totalOutputTokens;
             return (

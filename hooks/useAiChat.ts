@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { mockApi } from "@/lib/api/mockApi";
@@ -15,6 +15,8 @@ export function useAiChat(sessionId: string) {
   const queryClient = useQueryClient();
   const [streaming, setStreaming] = useState(false);
   const [requestCount, setRequestCount] = useState(0);
+  // 현재 진행 중인 SSE 요청의 AbortController — 사용자가 "중지" 누르면 abort() 호출.
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const loadMessages = useCallback(async () => {
     const data = isBackendSessionId(sessionId)
@@ -92,6 +94,8 @@ export function useAiChat(sessionId: string) {
 
       // === Agent 모드 — DeepAgent SSE (RUN_STARTED, TOOL_*, VFS_*, RUN_COMPLETED/FAILED 등). ===
       if (mode === "agent") {
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
         try {
           await sessionApi.streamAgentChat(
             sessionId,
@@ -135,18 +139,24 @@ export function useAiChat(sessionId: string) {
                 ]);
                 accumulated = "❌ " + msg;
               }
-            }
+            },
+            controller.signal
           );
           setRequestCount((count) => count + 1);
         } catch (error) {
-          const errMsg = error instanceof Error ? error.message : "Agent 실행에 실패했습니다.";
-          events.push({ prefix: "❌", type: "EXCEPTION", message: errMsg });
+          // AbortError 는 사용자가 의도적으로 중지한 케이스 — 별도 메시지 표시.
+          const isAbort = error instanceof DOMException && error.name === "AbortError";
+          const errMsg = isAbort
+            ? "사용자가 중지했습니다."
+            : error instanceof Error ? error.message : "Agent 실행에 실패했습니다.";
+          events.push({ prefix: isAbort ? "⏹️" : "❌", type: isAbort ? "ABORTED" : "EXCEPTION", message: errMsg });
           setMessages([
             ...baseMessages,
             { ...assistantBase, content: "", agentEvents: [...events] }
           ]);
-          accumulated = "❌ " + errMsg;
+          accumulated = (isAbort ? "⏹️ " : "❌ ") + errMsg;
         } finally {
+          abortControllerRef.current = null;
           setStreaming(false);
           // Agent 가 worktree 에 새 파일을 만들고 끝났는데 workspace query 가 stale 상태로 남으면
           // 파일 트리에 .worktree (ai) 자식이 안 보임. invalidate 로 강제 refetch 해서 즉시 hydrate.
@@ -229,11 +239,18 @@ export function useAiChat(sessionId: string) {
     });
   }, [appendMessages, loadMessages, messages, queryClient, sessionId, setMessages]);
 
+  // 현재 진행 중인 SSE 를 사용자가 중지하도록. 진행 카드에 "⏹️ 사용자가 중지했습니다" 가 push 되고
+  // streaming 상태도 풀려서 composer 가 다시 활성화됨.
+  const abort = useCallback(() => {
+    abortControllerRef.current?.abort();
+  }, []);
+
   return {
     messages,
     streaming,
     requestCount,
     loadMessages,
-    send
+    send,
+    abort
   };
 }

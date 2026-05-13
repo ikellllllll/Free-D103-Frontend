@@ -3838,6 +3838,91 @@ html[data-theme="light"] .test-result-card__trace-body {
   align-self: center;
 }
 
+/* ─── 채팅 답변 코드 블록 — 액션 바 + body ─── */
+.chat-codeblock {
+  margin: 8px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--ide-border);
+  background: color-mix(in srgb, var(--ide-surface) 92%, transparent);
+}
+.chat-codeblock__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+  background: color-mix(in srgb, var(--ide-border) 40%, transparent);
+  font-size: 11px;
+}
+.chat-codeblock__lang {
+  font-family: var(--font-mono);
+  color: var(--muted);
+  text-transform: lowercase;
+}
+.chat-codeblock__actions { display: flex; gap: 4px; }
+.chat-codeblock__btn {
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.chat-codeblock__btn:hover {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.chat-codeblock__body {
+  margin: 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text);
+}
+.chat-codeblock__body code { display: block; white-space: pre; }
+
+/* ─── 채팅 답변 안의 file path 자동 링크 ─── */
+.chat-filepath-link {
+  display: inline-block;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.chat-filepath-link:hover { background: color-mix(in srgb, var(--accent) 25%, transparent); }
+
+/* ─── 자동저장 indicator — status bar 우측 ─── */
+.save-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+.save-indicator--saving { color: #fbbf24; }
+.save-indicator--dirty  { color: #f87171; }
+.save-indicator--saved  { color: #4ade80; }
+
+.chat-filepath-unknown {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--ide-border) 40%, transparent);
+  padding: 0 4px;
+  border-radius: 4px;
+}
+
 /* ─── 다중 첨부 스택 — 채팅 composer 위에 stack 으로 표시 ─── */
 .ai-context-chip--add {
   cursor: pointer;
@@ -3985,6 +4070,54 @@ html[data-theme="light"] .test-result-card__trace-body {
   display: flex;
   gap: 6px;
   align-items: center;
+}
+
+.cheatsheet {
+  width: min(560px, 92vw);
+  border-radius: 12px;
+  background: var(--ide-surface);
+  border: 1px solid var(--ide-border);
+  box-shadow: 0 24px 60px rgba(0,0,0,.45);
+  overflow: hidden;
+}
+.cheatsheet__head { display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-bottom:1px solid var(--ide-border); }
+.cheatsheet__close { background: none; border: none; font-size: 22px; color: var(--muted); cursor: pointer; line-height: 1; }
+.cheatsheet__close:hover { color: var(--text); }
+.cheatsheet__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; padding: 12px 16px; }
+.cheatsheet__row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; font-size: 12px; }
+.cheatsheet__row:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.cheatsheet__row span { color: var(--muted); }
+.cheatsheet__row kbd { display: inline-block; padding: 1px 6px; border-radius: 4px; background: color-mix(in srgb, var(--ide-border) 60%, transparent); font-family: var(--font-mono); font-size: 10.5px; color: var(--text); }
+.cheatsheet__hint { padding: 8px 16px 6px; font-size: 11px; color: var(--muted); }
+.cheatsheet__footer { padding: 6px 16px 14px; display: flex; justify-content: flex-end; }
+
+/* ─── 공통 빈 상태 카드 — Trace/메시지/파일 없음 등에서 사용 ─── */
+.empty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px 24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+.empty-card__icon {
+  font-size: 28px;
+  opacity: 0.5;
+  margin-bottom: 4px;
+}
+.empty-card__title {
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 500;
+}
+.empty-card__desc {
+  font-size: 12px;
+  color: var(--muted);
+  max-width: 320px;
+  line-height: 1.55;
 }
 
 .quick-open__hint kbd {
@@ -4193,6 +4326,24 @@ html[data-theme="light"] .test-result-card__trace-body {
   color: var(--text);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
+
+.chat-bubble__resend {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: color-mix(in srgb, var(--ide-bg, var(--bg)) 60%, transparent);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+.chat-bubble:hover .chat-bubble__resend { opacity: 1; }
+.chat-bubble__resend:hover { color: var(--accent); }
 
 .chat-bubble--user {
   align-self: flex-end;
@@ -6846,7 +6997,68 @@ html[data-theme="light"] .toast { background: var(--panel-strong); }
    에서 한 번에 스크롤되도록. */
 .twb-section { border:1px solid var(--border); border-radius:8px; overflow:hidden; flex-shrink:0; }
 
-/* ── Trace Tool Call row — 인자/결과 펼침 ── */
+/* ── Trace 목록 필터 — 검색 input + status chip row ── */
+.twb-list-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--ide-border);
+}
+.twb-list-filter__input {
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--ide-border);
+  background: var(--ide-surface);
+  color: var(--text);
+  font-size: 12px;
+}
+.twb-list-filter__input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.twb-list-filter__chips { display: flex; gap: 4px; flex-wrap: wrap; }
+.twb-list-filter__chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--ide-border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+.twb-list-filter__chip:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.twb-list-filter__chip--active {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  color: var(--accent);
+}
+
+/* ── Trace Gantt — tool/llm 시간 분포 horizontal bar ── */
+.twb-gantt { padding: 8px 4px; display: flex; flex-direction: column; gap: 6px; }
+.twb-gantt__meta { font-size: 11px; color: var(--muted); padding: 4px 8px; }
+.twb-gantt__rows { display: flex; flex-direction: column; gap: 3px; }
+.twb-gantt__row { display: grid; grid-template-columns: 100px 1fr 56px; align-items: center; gap: 8px; font-size: 11px; }
+.twb-gantt__label {
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10.5px;
+}
+.twb-gantt__label--tool { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+.twb-gantt__label--llm  { background: rgba(139, 92, 246, 0.15); color: #c4b5fd; }
+.twb-gantt__track { position: relative; height: 14px; background: color-mix(in srgb, var(--ide-border) 35%, transparent); border-radius: 4px; }
+.twb-gantt__bar { position: absolute; top: 2px; height: 10px; border-radius: 3px; }
+.twb-gantt__bar--tool { background: #fbbf24; }
+.twb-gantt__bar--llm  { background: #8b5cf6; }
+.twb-gantt__bar--fail { background: #f87171 !important; }
+.twb-gantt__dur { font-family: var(--font-mono); color: var(--muted); text-align: right; font-size: 10.5px; }
+.twb-gantt__hint { padding: 4px 8px; color: var(--muted); font-size: 10.5px; }
+
 .twb-tool-row:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .twb-tool-caret { display: inline-block; width: 12px; color: var(--muted); font-size: 10px; margin-right: 4px; }
 .twb-tool-detail-row td { background: color-mix(in srgb, var(--surface-2) 50%, transparent); padding: 8px 12px 12px; }

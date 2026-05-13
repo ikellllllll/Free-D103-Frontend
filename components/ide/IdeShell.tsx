@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { Sun, Moon, Copy, Check, LogOut, Save, Eye, PencilLine } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { DragEvent as ReactDragEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
-import { Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, type JSX } from "react";
+import React, { Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, type JSX } from "react";
 import { flushSync } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Markdown from "react-markdown";
@@ -936,6 +936,100 @@ const appendLocalFolder = (folders: string[], folderPath: string | null) => {
   return [...folders, folderPath];
 };
 
+// MonacoDiffEditor wrapper — model lifecycle race 근본 fix.
+// unmount 직전 setModel({original:null, modified:null}) 명시 호출해 monaco-editor/react 의
+// 자동 dispose 와 우리 invalidate 사이 race 를 좁힘. swallow + RAF×2 + 이 wrapper 가 3중 안전망.
+function SafeDiffEditor(props: React.ComponentProps<typeof MonacoDiffEditor>) {
+  const editorRef = useRef<unknown | null>(null);
+  useEffect(() => {
+    return () => {
+      const ed = editorRef.current as
+        | { setModel?: (m: { original: unknown; modified: unknown } | null) => void }
+        | null;
+      try {
+        ed?.setModel?.({ original: null, modified: null });
+      } catch {
+        /* 이미 dispose 된 케이스 — 무시 */
+      }
+      editorRef.current = null;
+    };
+  }, []);
+  return (
+    <MonacoDiffEditor
+      {...props}
+      onMount={(editor, monaco) => {
+        editorRef.current = editor;
+        props.onMount?.(editor, monaco);
+      }}
+    />
+  );
+}
+
+// 채팅 답변 markdown 의 코드 블록 — 복사 / 새 파일로 저장 / 현재 파일에 삽입 액션.
+// VSCode Copilot Chat / Continue 식 UX. ProblemBriefCodeBlock 과 비슷하지만 액션 버튼 더 풍부.
+function ChatCodeBlock({
+  language,
+  code,
+  onCreateFile,
+  onInsertCurrent
+}: {
+  language?: string;
+  code: string;
+  onCreateFile?: (code: string, language?: string) => void;
+  onInsertCurrent?: (code: string) => void;
+}) {
+  const [isCopied, setIsCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setIsCopied(true);
+      window.setTimeout(() => setIsCopied(false), 1500);
+    } catch {
+      /* noop */
+    }
+  };
+
+  return (
+    <div className="chat-codeblock">
+      <div className="chat-codeblock__bar">
+        <span className="chat-codeblock__lang">{language ?? "text"}</span>
+        <div className="chat-codeblock__actions">
+          {onInsertCurrent ? (
+            <button
+              type="button"
+              className="chat-codeblock__btn"
+              onClick={() => onInsertCurrent(code)}
+              title="현재 파일의 커서 위치에 삽입"
+            >
+              현재 파일에 삽입
+            </button>
+          ) : null}
+          {onCreateFile ? (
+            <button
+              type="button"
+              className="chat-codeblock__btn"
+              onClick={() => onCreateFile(code, language)}
+              title="새 워크스페이스 파일로 저장"
+            >
+              새 파일로 저장
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="chat-codeblock__btn"
+            onClick={handleCopy}
+            title="복사"
+          >
+            {isCopied ? "복사됨" : "복사"}
+          </button>
+        </div>
+      </div>
+      <pre className="chat-codeblock__body"><code>{code}</code></pre>
+    </div>
+  );
+}
+
 // 하네스 빌드 상태 indicator — 빌드 버튼 옆 작은 dot/뱃지.
 // COMPLETED: 초록 ✓, PARTIAL: 노랑 ⚠ + 카운트, FAILED: 빨강 ✗ + 카운트.
 // 클릭하면 valid_errors 드롭다운 펼침, 각 에러 클릭 시 onErrorClick 호출.
@@ -1705,6 +1799,11 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   /** Ctrl+P / Cmd+P 로 토글되는 빠른 파일 열기 팔레트. */
   const [quickOpenVisible, setQuickOpenVisible] = useState(false);
   const [quickOpenQuery, setQuickOpenQuery] = useState("");
+  /** Ctrl+/ 로 토글되는 단축키 cheatsheet. */
+  const [cheatsheetOpen, setCheatsheetOpen] = useState(false);
+  /** 버그 리포트 모달 — 우상단 🐛 버튼 또는 cheatsheet 에서 진입. */
+  const [bugReportOpen, setBugReportOpen] = useState(false);
+  const [bugReportText, setBugReportText] = useState("");
   const [editorGroups, setEditorGroups] = useState<EditorGroupState[]>([
     { id: INITIAL_EDITOR_GROUP_ID, tabIds: [], activeTabId: null }
   ]);
@@ -1858,16 +1957,29 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
    * 화면에 노출만 차단하고 silently swallow. 더 정밀한 fix(모델 수동 lifecycle 관리)는 추후.
    */
   // Ctrl+P / Cmd+P 글로벌 키 리스너 — 빠른 파일 열기 팔레트 토글.
+  // Ctrl+Shift+F / Cmd+Shift+F — 사이드바 검색 탭 열기 + input 자동 포커스.
+  // Ctrl+/ — 단축키 cheatsheet 모달.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onKey = (e: KeyboardEvent) => {
-      // editor 내부 입력 중에는 monaco 자체 단축키와 충돌하니 ide-chat 같은 입력엔 영향 안 줌.
-      // 단순히 Ctrl+P / Cmd+P 잡고 default 막음.
       const isCmd = e.ctrlKey || e.metaKey;
       if (isCmd && e.key.toLowerCase() === "p" && !e.shiftKey) {
         e.preventDefault();
         setQuickOpenVisible((v) => !v);
         setQuickOpenQuery("");
+      }
+      if (isCmd && e.shiftKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setSidebarView("search");
+        setSidebarOpen(true);
+        // 다음 tick 에 input focus
+        window.requestAnimationFrame(() => {
+          (document.getElementById("ide-search-query") as HTMLInputElement | null)?.focus();
+        });
+      }
+      if (isCmd && e.key === "/" && !e.shiftKey) {
+        e.preventDefault();
+        setCheatsheetOpen((v) => !v);
       }
       if (e.key === "Escape" && quickOpenVisible) {
         setQuickOpenVisible(false);
@@ -2021,7 +2133,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     trackedUris.clear();
   }, []);
 
-  const { messages, streaming, requestCount, loadMessages, send } = useAiChat(sessionId);
+  const { messages, streaming, requestCount, loadMessages, send, abort } = useAiChat(sessionId);
 
   useEffect(() => {
     const syncViewport = () => {
@@ -4738,6 +4850,39 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     }
   };
 
+  // 세션 export — 모든 파일 content + 메시지 + 메타데이터를 JSON 한 파일로 download.
+  // zip 라이브러리 의존성 없이 단순. 사용자가 어디론가 백업하거나 다른 시스템으로 옮길 때.
+  const handleExportSession = useCallback(() => {
+    try {
+      const payload = {
+        sessionId,
+        exportedAt: new Date().toISOString(),
+        problem: {
+          id: session?.problemId ?? null,
+          title: problem?.title ?? null
+        },
+        files: files.map((f) => ({ path: f.path, content: f.content, language: f.language })),
+        messages: messages.map((m) => ({
+          id: m.id,
+          role: m.role,
+          origin: m.origin,
+          content: m.content,
+          createdAt: m.createdAt
+        }))
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `aig-session-${sessionId}-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      addToast("세션을 export 했습니다.", "success");
+    } catch (e) {
+      addToast(e instanceof Error ? e.message : "Export 실패", "error");
+    }
+  }, [sessionId, session, problem, files, messages, addToast]);
+
   const handleAgentBuild = async () => {
     if (agentBuildLoading) {
       return;
@@ -4800,6 +4945,130 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       setAgentBuildLoading(false);
     }
   };
+
+  // 채팅 답변 markdown 의 코드 블록 — 액션 버튼 (복사 / 새 파일 / 현재 파일 삽입) 붙임.
+  // handleCreateFileFromCode: 사용자에게 파일명 prompt → createWorkspaceFile + setActivePath
+  const handleCreateFileFromCode = useCallback(
+    (code: string, language?: string) => {
+      const ext = language === "typescript" ? "ts" : language === "javascript" ? "js" : language ?? "txt";
+      const defaultName = `new-file.${ext}`;
+      const name = window.prompt("새 파일 경로를 입력하세요 (예: notes/foo.md)", defaultName);
+      if (!name?.trim()) return;
+      const path = name.trim();
+      if (files.some((f) => f.path === path)) {
+        addToast(`이미 같은 경로의 파일이 있습니다: ${path}`, "warning");
+        return;
+      }
+      createWorkspaceFile({ path, content: code, language: language ?? "text" }, true);
+      addToast(`파일을 만들었습니다: ${path}`, "success");
+    },
+    [files, createWorkspaceFile, addToast]
+  );
+
+  const handleInsertIntoCurrent = useCallback(
+    (code: string) => {
+      const ed = editorRef.current;
+      if (!ed) {
+        addToast("열린 에디터가 없습니다.", "warning");
+        return;
+      }
+      const sel = ed.getSelection();
+      const op = sel
+        ? { range: sel, text: code, forceMoveMarkers: true }
+        : { range: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 1 }, text: code, forceMoveMarkers: true };
+      ed.executeEdits("chat-insert", [op]);
+      ed.focus();
+      addToast("현재 파일에 삽입했습니다.", "success");
+    },
+    [addToast]
+  );
+
+  // 텍스트에서 file path 패턴을 추출해 클릭 가능 링크로 변환.
+  // 매칭 규칙:
+  //  · src/.../foo.java, .worktree/foo.java, agent/foo.md, com/aig/.../X.java 등 path-like 토큰
+  //  · 확장자 끝나는 케이스만 (false positive 감소)
+  // workspace files 에서 매칭되면 클릭 시 setActivePath, 안 매칭되면 평문.
+  const fileLookup = useMemo(() => new Set(files.map((f) => f.path)), [files]);
+  const linkifyFilePaths = useCallback(
+    (text: string): React.ReactNode => {
+      // 후보 패턴: 알파벳/숫자/_/-/. 와 / 로 이루어진 토큰, 확장자 (.java/.py/.md/.ts/.tsx/.json/.yml/.yaml/.toml/.gradle/.sql) 로 끝남
+      const re = /([\w.\-]+(?:\/[\w.\-]+)+\.(?:java|py|md|ts|tsx|js|jsx|json|yml|yaml|toml|gradle|sql))/g;
+      const parts: React.ReactNode[] = [];
+      let last = 0;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(text)) !== null) {
+        const path = m[0];
+        const start = m.index;
+        if (start > last) parts.push(text.slice(last, start));
+        const found =
+          fileLookup.has(path)
+            ? path
+            : fileLookup.has(`agent/${path}`)
+              ? `agent/${path}`
+              : files.find((f) => f.path.endsWith(path))?.path;
+        if (found) {
+          parts.push(
+            <button
+              key={`fp-${start}`}
+              type="button"
+              className="chat-filepath-link"
+              onClick={() => setActivePath(found)}
+              title={`파일 열기: ${found}`}
+            >
+              {path}
+            </button>
+          );
+        } else {
+          parts.push(<code key={`fp-${start}`} className="chat-filepath-unknown">{path}</code>);
+        }
+        last = start + path.length;
+      }
+      if (last < text.length) parts.push(text.slice(last));
+      return parts.length > 0 ? parts : text;
+    },
+    [files, fileLookup, setActivePath]
+  );
+
+  const chatMarkdownComponents = useMemo(
+    () => ({
+      pre({ children }: { children?: React.ReactNode }) {
+        const child = Array.isArray(children) ? children[0] : children;
+        if (!child || typeof child !== "object") return <pre>{children}</pre>;
+        const element = child as React.ReactElement<{ className?: string; children?: React.ReactNode }>;
+        const className = element.props.className ?? "";
+        const match = /language-(\w+)/.exec(className);
+        const code = String(element.props.children ?? "").replace(/\n$/, "");
+        return (
+          <ChatCodeBlock
+            language={match?.[1]}
+            code={code}
+            onCreateFile={handleCreateFileFromCode}
+            onInsertCurrent={handleInsertIntoCurrent}
+          />
+        );
+      },
+      // p / li / strong 등 텍스트 노드 안의 path 패턴을 link 로 변환.
+      p({ children }: { children?: React.ReactNode }) {
+        return (
+          <p>
+            {React.Children.map(children, (child) =>
+              typeof child === "string" ? linkifyFilePaths(child) : child
+            )}
+          </p>
+        );
+      },
+      li({ children }: { children?: React.ReactNode }) {
+        return (
+          <li>
+            {React.Children.map(children, (child) =>
+              typeof child === "string" ? linkifyFilePaths(child) : child
+            )}
+          </li>
+        );
+      }
+    }),
+    [handleCreateFileFromCode, handleInsertIntoCurrent, linkifyFilePaths]
+  );
 
   const handleSend = async () => {
     if (!chatInput.trim()) {
@@ -5915,7 +6184,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                     </button>
                   </div>
                 </div>
-                <MonacoDiffEditor
+                <SafeDiffEditor
                   key={`${group.id}:${groupActiveTab.id}`}
                   theme={theme === "dark" ? "vs-dark" : "vs"}
                   height="100%"
@@ -6119,7 +6388,18 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               <div className="status-bar__group">
                 <span>{problem?.estimate ?? "예상 시간 없음"}</span>
                 <span>AI 무제한</span>
-                <span>{dirtyCount ? `미저장 ${dirtyCount}개` : "저장됨"}</span>
+                <span className={`save-indicator ${saving ? "save-indicator--saving" : dirtyCount ? "save-indicator--dirty" : "save-indicator--saved"}`}>
+                  {(() => {
+                    if (saving) return "● 저장 중...";
+                    if (dirtyCount) return `● 미저장 ${dirtyCount}개`;
+                    if (!lastSavedDate) return "✓ 저장됨";
+                    const diff = Date.now() - lastSavedDate.getTime();
+                    if (diff < 5_000) return "✓ 방금 저장됨";
+                    if (diff < 60_000) return `✓ ${Math.floor(diff / 1000)}초 전 저장`;
+                    if (diff < 3_600_000) return `✓ ${Math.floor(diff / 60_000)}분 전 저장`;
+                    return "✓ 저장됨";
+                  })()}
+                </span>
               </div>
             </div>
           </div>
@@ -6240,7 +6520,18 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                 </div>
 
                 <div className="status-bar__group">
-                  <span>{dirtyCount ? `미저장 ${dirtyCount}개` : "저장됨"}</span>
+                  <span className={`save-indicator ${saving ? "save-indicator--saving" : dirtyCount ? "save-indicator--dirty" : "save-indicator--saved"}`}>
+                  {(() => {
+                    if (saving) return "● 저장 중...";
+                    if (dirtyCount) return `● 미저장 ${dirtyCount}개`;
+                    if (!lastSavedDate) return "✓ 저장됨";
+                    const diff = Date.now() - lastSavedDate.getTime();
+                    if (diff < 5_000) return "✓ 방금 저장됨";
+                    if (diff < 60_000) return `✓ ${Math.floor(diff / 1000)}초 전 저장`;
+                    if (diff < 3_600_000) return `✓ ${Math.floor(diff / 60_000)}분 전 저장`;
+                    return "✓ 저장됨";
+                  })()}
+                </span>
                   <span>{selectionLabel}</span>
                   <span>{aiMode === "chat" ? "AIG Chat" : "AIG Edit"}</span>
                   <span>{activeTab?.kind === "diff" ? "DIFF" : bottomPanelTab.toUpperCase()}</span>
@@ -6436,6 +6727,22 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                               key={message.id}
                               className={message.role === "user" ? "chat-bubble chat-bubble--user" : "chat-bubble"}
                             >
+                              {message.role === "user" && !streaming ? (
+                                <button
+                                  type="button"
+                                  className="chat-bubble__resend"
+                                  onClick={() => {
+                                    setChatInput(message.content);
+                                    window.requestAnimationFrame(() => {
+                                      document.getElementById("ide-chat-input")?.focus();
+                                    });
+                                  }}
+                                  title="이 메시지를 입력창에 다시 채우기"
+                                  aria-label="재전송"
+                                >
+                                  ↻
+                                </button>
+                              ) : null}
                               {hasAgentEvents ? (
                                 /* Agent 진행 로그를 fold 가능한 카드로 — 스트리밍 중엔 펼친 상태,
                                    백엔드 hydrate 로 content 가 들어오면 자동으로 카드는 사라지고 변경 요약만 남는다. */
@@ -6487,7 +6794,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                                 </span>
                               ) : message.content ? (
                                 <div className="chat-bubble__markdown">
-                                  <Markdown remarkPlugins={[remarkGfm]}>{message.content}</Markdown>
+                                  <Markdown remarkPlugins={[remarkGfm]} components={chatMarkdownComponents}>{message.content}</Markdown>
                                 </div>
                               ) : null}
                               {message.attachedCode ? <AttachedCodeChip data={message.attachedCode} /> : null}
@@ -6556,13 +6863,24 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                               </ul>
                             ) : null}
                           </div>
-                          <button
-                            className="button button--primary chat-composer-actions__send"
-                            onClick={handleSend}
-                            disabled={!chatInput.trim() || streaming}
-                          >
-                            {streaming ? "전송 중..." : "전송 →"}
-                          </button>
+                          {streaming ? (
+                            <button
+                              className="button button--ghost chat-composer-actions__send"
+                              onClick={abort}
+                              type="button"
+                              title="진행 중인 요청 중지"
+                            >
+                              ⏹ 중지
+                            </button>
+                          ) : (
+                            <button
+                              className="button button--primary chat-composer-actions__send"
+                              onClick={handleSend}
+                              disabled={!chatInput.trim()}
+                            >
+                              전송 →
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -6840,6 +7158,124 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           }}
           onClose={() => setQuickOpenVisible(false)}
         />
+      ) : null}
+
+      {/* 버그 리포트 모달 — 자동으로 컨텍스트(URL, sessionId, UA, viewport) 수집. */}
+      {bugReportOpen ? (
+        <div className="quick-open-backdrop" role="presentation" onClick={() => setBugReportOpen(false)}>
+          <div className="cheatsheet" role="dialog" aria-label="버그 리포트" onClick={(e) => e.stopPropagation()}>
+            <div className="cheatsheet__head">
+              <strong>🐛 버그 리포트</strong>
+              <button type="button" className="cheatsheet__close" onClick={() => setBugReportOpen(false)}>×</button>
+            </div>
+            <div style={{ padding: "12px 16px" }}>
+              <p style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>
+                무엇이 잘못됐는지 짧게 적어주세요. 현재 URL · 세션 ID · 브라우저 정보가 자동 첨부됩니다.
+              </p>
+              <textarea
+                value={bugReportText}
+                onChange={(e) => setBugReportText(e.target.value)}
+                placeholder="예: Trace detail drawer 가 안 열려요. 클릭해도 반응 없음."
+                rows={5}
+                style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--ide-border)", background: "var(--ide-surface)", color: "var(--text)", fontFamily: "inherit", fontSize: 12, resize: "vertical" }}
+              />
+            </div>
+            <div className="cheatsheet__footer">
+              <button
+                type="button"
+                className="button button--ghost"
+                onClick={() => {
+                  const ctx = {
+                    description: bugReportText,
+                    url: window.location.href,
+                    sessionId,
+                    userAgent: navigator.userAgent,
+                    viewport: `${window.innerWidth}x${window.innerHeight}`,
+                    timestamp: new Date().toISOString()
+                  };
+                  navigator.clipboard.writeText(JSON.stringify(ctx, null, 2)).then(
+                    () => {
+                      addToast("리포트를 클립보드에 복사했습니다. GitLab 이슈에 붙여넣어 주세요.", "success");
+                      setBugReportOpen(false);
+                      setBugReportText("");
+                    },
+                    () => addToast("클립보드 복사 실패", "error")
+                  );
+                }}
+              >
+                리포트 복사 (클립보드)
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* 단축키 cheatsheet — Ctrl+/ */}
+      {cheatsheetOpen ? (
+        <div className="quick-open-backdrop" role="presentation" onClick={() => setCheatsheetOpen(false)}>
+          <div className="cheatsheet" role="dialog" aria-label="단축키" onClick={(e) => e.stopPropagation()}>
+            <div className="cheatsheet__head">
+              <strong>단축키</strong>
+              <button type="button" className="cheatsheet__close" onClick={() => setCheatsheetOpen(false)}>×</button>
+            </div>
+            <div className="cheatsheet__grid">
+              <div className="cheatsheet__row"><kbd>Ctrl</kbd>+<kbd>P</kbd><span>빠른 파일 열기</span></div>
+              <div className="cheatsheet__row"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd><span>워크스페이스 검색</span></div>
+              <div className="cheatsheet__row"><kbd>Ctrl</kbd>+<kbd>S</kbd><span>현재 파일 저장</span></div>
+              <div className="cheatsheet__row"><kbd>Ctrl</kbd>+<kbd>Enter</kbd><span>AI 메시지 전송</span></div>
+              <div className="cheatsheet__row"><kbd>Ctrl</kbd>+<kbd>/</kbd><span>이 단축키 표</span></div>
+              <div className="cheatsheet__row"><kbd>Esc</kbd><span>모달 / 팔레트 닫기</span></div>
+            </div>
+            <div className="cheatsheet__hint">Mac 에서는 <kbd>Cmd</kbd> 사용</div>
+            <div className="cheatsheet__grid">
+              <div className="cheatsheet__row">
+                <span>테마</span>
+                <button
+                  type="button"
+                  className="button button--ghost"
+                  onClick={toggleTheme}
+                  style={{ marginLeft: "auto" }}
+                >
+                  {theme === "dark" ? "🌙 다크" : "☀️ 라이트"} 전환
+                </button>
+              </div>
+            </div>
+            <div className="cheatsheet__footer">
+              <button
+                type="button"
+                className="button button--ghost"
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.href).then(
+                    () => addToast("현재 페이지 URL 을 복사했습니다.", "success"),
+                    () => addToast("URL 복사 실패", "error")
+                  );
+                }}
+              >
+                현재 페이지 URL 복사
+              </button>
+              <button
+                type="button"
+                className="button button--ghost"
+                onClick={() => {
+                  setCheatsheetOpen(false);
+                  setBugReportOpen(true);
+                }}
+              >
+                🐛 버그 리포트
+              </button>
+              <button
+                type="button"
+                className="button button--ghost"
+                onClick={() => {
+                  handleExportSession();
+                  setCheatsheetOpen(false);
+                }}
+              >
+                세션 JSON 으로 export
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );
