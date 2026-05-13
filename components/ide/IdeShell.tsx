@@ -37,7 +37,30 @@ import { useUiStore } from "@/store/uiStore";
 // 첫 로드 시 ~2.5MB 추가 + cdn 장애 시 IDE 가 안 뜸 + 오프라인 사용 불가.
 // loader.config({ monaco }) 로 번들된 npm 패키지를 강제로 사용 → cdn 의존 제거 + 명시적 lifecycle.
 // SSR 환경에선 monaco import 가 실패하므로 client 에서만 동적으로 처리.
+//
+// 추가: MonacoEnvironment.getWorker 정의 — npm 패키지를 직접 쓰면 worker URL 자동 추정이 깨져서
+// "Could not create web worker(s). Falling back to main thread" 경고가 뜬다. 메인 스레드 fallback
+// 으로 동작은 하지만 IntelliSense 가 느려지고 UI freeze 위험. 인라인 blob worker 로 안전 처리.
 if (typeof window !== "undefined") {
+  // 인라인 blob worker — monaco-editor 의 esm worker 파일을 dynamic import 해서 Worker 로 spawn.
+  // 빌드 시 webpack 가 ?worker query 처리 못 하면 fallback (main thread) 가 작동하니 안전.
+  const w = window as unknown as { MonacoEnvironment?: { getWorker?: (workerId: string, label: string) => Worker } };
+  if (!w.MonacoEnvironment) {
+    w.MonacoEnvironment = {
+      getWorker: (_workerId: string, label: string) => {
+        // label: "editorWorkerService" | "json" | "css" | "html" | "typescript" | "javascript"
+        // 우리는 주로 코드 편집만 — editorWorkerService 면 충분. 다른 label 도 같은 worker fallback.
+        // monaco esm 의 editor.worker.js 만 임포트해서 사용.
+        const workerUrl = new URL(
+          /* webpackChunkName: "monaco-editor-worker" */
+          "monaco-editor/esm/vs/editor/editor.worker.js",
+          import.meta.url
+        );
+        return new Worker(workerUrl, { type: "module", name: label });
+      }
+    };
+  }
+
   import("@monaco-editor/react").then(({ loader }) => {
     import("monaco-editor").then((monaco) => {
       loader.config({ monaco });
@@ -1820,6 +1843,11 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   /** 버그 리포트 모달 — 우상단 🐛 버튼 또는 cheatsheet 에서 진입. */
   const [bugReportOpen, setBugReportOpen] = useState(false);
   const [bugReportText, setBugReportText] = useState("");
+  /** Agent 요청 전 미해결 worktree 가 있을 때 띄우는 confirm 모달. */
+  const [worktreeConfirm, setWorktreeConfirm] = useState<{
+    pendingPaths: string[];
+    onConfirm: () => void;
+  } | null>(null);
   const [editorGroups, setEditorGroups] = useState<EditorGroupState[]>([
     { id: INITIAL_EDITOR_GROUP_ID, tabIds: [], activeTabId: null }
   ]);
@@ -5109,22 +5137,33 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
     const mode = aiMode === "edit" ? "agent" : "chat";
 
-    // Agent 모드 진입 시 미적용 worktree 파일이 있는지 확인. AI 서버는 새 agent run 시작 시
-    // 같은 path 의 worktree row 를 cleanup 하는 정책이라 [적용/거절] 안 한 변경이 사라질 수 있다.
+    // Agent 모드 진입 시 미적용 worktree 파일 알림.
+    // AI 서버는 같은 path 를 새로 write 할 때만 이전 worktree row 를 정리 (_delete_previous_worktree_rows).
+    // 다른 path 면 기존 worktree 살아남음. 그래도 사용자에게 "검토 대기 중 변경 있음" 을 알려서 묻히지 않도록.
     if (mode === "agent") {
       const pendingWorktree = files.filter((file) => file.path.startsWith(".worktree/"));
       if (pendingWorktree.length > 0) {
-        const proceed = window.confirm(
-          `현재 미적용 AI 변경이 ${pendingWorktree.length}개 있습니다.\n` +
-            pendingWorktree.slice(0, 5).map((f) => `· ${f.path}`).join("\n") +
-            (pendingWorktree.length > 5 ? `\n... (+${pendingWorktree.length - 5}개 더)` : "") +
-            `\n\n새 요청을 보내면 같은 경로의 변경이 덮어써져 사라질 수 있습니다. 계속할까요?`
-        );
-        if (!proceed) return;
+        // window.confirm 대신 우리 모달 — UI 일관성 + 스타일 통일.
+        setWorktreeConfirm({
+          pendingPaths: pendingWorktree.map((f) => f.path),
+          onConfirm: () => {
+            setWorktreeConfirm(null);
+            void doSend();
+          }
+        });
+        return;
       }
     }
 
+    await doSend();
+  };
+
+  // 실제 send 로직 — confirm 통과 후 또는 confirm 필요 없을 때 호출.
+  const doSend = async () => {
     const question = chatInput.trim();
+    if (!question && stagedAttachments.length === 0 && !selectedCode) return;
+    const mode = aiMode === "edit" ? "agent" : "chat";
+
     // 에디터 선택 코드 → 별도 collapsible chip 으로 렌더 (UI), 백엔드 전송 시엔 fenced block 으로 포함 (LLM).
     // 현재 선택된 코드 (자동 첨부) + stagedAttachments (사용자가 "+ 추가" 로 stack 한 것) 합쳐서 보냄.
     const currentSelectionAttachment = selectedCode
@@ -7190,6 +7229,47 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           }}
           onClose={() => setQuickOpenVisible(false)}
         />
+      ) : null}
+
+      {/* Worktree 미해결 confirm — Agent 요청 전에 검토 대기 중 변경을 미리 알림. */}
+      {worktreeConfirm ? (
+        <div className="quick-open-backdrop" role="presentation" onClick={() => setWorktreeConfirm(null)}>
+          <div className="cheatsheet" role="dialog" aria-label="Worktree 확인" onClick={(e) => e.stopPropagation()}>
+            <div className="cheatsheet__head">
+              <strong>🔍 검토 대기 중인 변경 {worktreeConfirm.pendingPaths.length}개</strong>
+              <button type="button" className="cheatsheet__close" onClick={() => setWorktreeConfirm(null)}>×</button>
+            </div>
+            <div style={{ padding: "12px 16px" }}>
+              <p style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8, lineHeight: 1.6 }}>
+                아직 적용/거절 안 한 AI 변경이 있어요. <strong style={{ color: "var(--text)" }}>같은 경로</strong>를 다시 수정하는 요청이면 이전 변경이 덮어써져요. 다른 경로를 만드는 요청이면 그대로 남아요.
+              </p>
+              <ul style={{ listStyle: "none", padding: 0, margin: "8px 0 0", maxHeight: 200, overflowY: "auto", fontFamily: "var(--font-mono)", fontSize: 11.5 }}>
+                {worktreeConfirm.pendingPaths.slice(0, 8).map((p) => (
+                  <li key={p} style={{ padding: "3px 0", color: "var(--text)" }}>· {p}</li>
+                ))}
+                {worktreeConfirm.pendingPaths.length > 8 ? (
+                  <li style={{ padding: "3px 0", color: "var(--muted)" }}>... +{worktreeConfirm.pendingPaths.length - 8}개 더</li>
+                ) : null}
+              </ul>
+            </div>
+            <div className="cheatsheet__footer" style={{ gap: 8 }}>
+              <button
+                type="button"
+                className="button button--ghost"
+                onClick={() => setWorktreeConfirm(null)}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="button button--primary"
+                onClick={() => worktreeConfirm.onConfirm()}
+              >
+                계속
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {/* 모바일 안내 배너 — viewport < 768 일 때 PC 권장 안내. dismiss 시 세션 동안 비표시. */}
