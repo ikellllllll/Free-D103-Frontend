@@ -260,7 +260,15 @@ export function AppShell({ children }: { children: ReactNode }) {
                   onClick={(e) => e.stopPropagation()}
                 >
                   {/* User info */}
-                  <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      router.push(withPrefix("/mypage"));
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 border-b border-gray-100 text-left hover:bg-gray-50 transition-colors"
+                    role="menuitem"
+                  >
                     <div className="w-8 h-8 rounded-full bg-white text-gray-600 border border-gray-200 flex items-center justify-center shrink-0 shadow-sm">
                       <User size={16} strokeWidth={2} />
                     </div>
@@ -272,7 +280,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                         {user?.email ?? ""}
                       </div>
                     </div>
-                  </div>
+                  </button>
 
                   <div className="py-1">
                     {hydrated && (

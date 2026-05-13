@@ -148,6 +148,13 @@ export default function LoginPage() {
           >
             회원가입
           </Link>
+          <span className="mx-2 text-gray-300">·</span>
+          <Link
+            href={withPrefix("/problems")}
+            className="login-v0-lite__text-link font-semibold"
+          >
+            둘러보기
+          </Link>
         </p>
       </div>
     </div>
