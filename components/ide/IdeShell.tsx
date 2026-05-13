@@ -4574,16 +4574,26 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       const baseModel = resolveHarnessBaseModel(session?.aiModel);
       const result = await sessionApi.buildHarness(sessionId, baseModel);
       const errorCount = result.validErrors?.length ?? 0;
-      const buildSucceeded = errorCount === 0;
+      // compileStatus 가 들어오면 그걸 신뢰. null/undefined 면 errorCount === 0 으로 폴백.
+      // (백엔드 snake_case 매핑이 들어오기 전엔 항상 null 이라 errorCount 만 봐야 했음.)
+      const buildSucceeded =
+        result.compileStatus === "COMPLETED"
+          ? true
+          : result.compileStatus === "PARTIAL" || result.compileStatus === "FAILED"
+            ? false
+            : errorCount === 0;
 
       if (buildSucceeded) {
         setAgentSnapshotVersion((version) => version + 1);
       }
 
+      const partialNote = result.compileStatus === "PARTIAL" ? " (부분 컴파일)" : "";
       addToast(
         buildSucceeded
-          ? `Agent Build 완료 (${baseModel})`
-          : `Agent Build 실패: 검증 오류 ${errorCount}개`,
+          ? `Agent Build 완료 (${baseModel})${partialNote}`
+          : `Agent Build 실패: 검증 오류 ${errorCount}개${
+              result.compileStatus ? ` · status=${result.compileStatus}` : ""
+            }`,
         buildSucceeded ? "success" : "error"
       );
       await queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
