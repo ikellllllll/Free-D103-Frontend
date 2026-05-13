@@ -540,8 +540,8 @@ export default function MyPage() {
                         </div>
                       ) : (
                         <>
-                          <div className="flex items-center gap-2 flex-wrap -mb-[1rem]">
-                            <h2 className="font-bold text-gray-900 dark:text-slate-100 text-2xl leading-none truncate">{name}</h2>
+                          <div className="flex items-center gap-2 flex-wrap -mb-[7px]">
+                            <h2 className="font-bold text-gray-900 dark:text-slate-100 text-2xl leading-[1.14] truncate pb-0.5">{name}</h2>
                             <button
                               type="button"
                               onClick={startEditNickname}
@@ -562,7 +562,7 @@ export default function MyPage() {
                               </span>
                             )}
                           </div>
-                          <p className="text-sm text-gray-500 dark:text-slate-400 truncate mt-1.5" title={email}>{email}</p>
+                          <p className="text-sm text-gray-500 dark:text-slate-400 truncate mt-0" title={email}>{email}</p>
                           {profile?.createdAt && (
                             <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">
                               {new Date(profile.createdAt).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" })} 가입
