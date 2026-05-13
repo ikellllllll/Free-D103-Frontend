@@ -14,6 +14,7 @@ interface ProblemListItem {
   difficulty: string;
   category?: string;
   passRate: number;
+  userBestPassRate?: number | null;
   status: string;
 }
 
@@ -25,6 +26,7 @@ interface ProblemDetailResponse {
   description: string;
   timeLimit: number;
   passRate: number;
+  userBestPassRate?: number | null;
   category: string;
   status?: string;
 }
@@ -81,6 +83,10 @@ function toOrder(index: number): string {
   return String(index + 1).padStart(2, "0");
 }
 
+function mapUserPassRate(item: { passRate: number; userBestPassRate?: number | null }): number {
+  return Math.round(item.userBestPassRate ?? item.passRate);
+}
+
 async function fetchProblemList(apiCategory?: "API" | "BUG"): Promise<AnnotatedProblemListItem[]> {
   const res = await authClient.get("api/v1/problems", {
     searchParams: apiCategory ? { category: apiCategory } : undefined
@@ -123,8 +129,9 @@ export const problemApi = {
             ? mapCategory(item.category)
             : apiCategory
               ? mapCategory(apiCategory)
-              : inferCategoryFromTitle(item.title, item.summary),
-        passRate: Math.round(item.passRate),
+                : inferCategoryFromTitle(item.title, item.summary),
+        passRate: item.passRate,
+        userBestPassRate: mapUserPassRate(item),
         status: mapStatus(item.status),
         estimate: estimateFromLevel(level)
       };
@@ -143,7 +150,8 @@ export const problemApi = {
       summary: item.summary,
       level: mapLevel(item.difficulty),
       category: mapCategory(item.category),
-      passRate: Math.round(item.passRate),
+      passRate: item.passRate,
+      userBestPassRate: mapUserPassRate(item),
       status: mapStatus(item.status ?? "NOT_STARTED"),
       estimate: formatEstimate(item.timeLimit),
       description: item.description,

@@ -24,14 +24,15 @@ import type {
   ProblemStatus,
   ProblemSummary
 } from "@/lib/types/problem";
+import { useAuthStore } from "@/store/authStore";
 
 const LEVEL_OPTIONS = [1, 2, 3] as const;
 const CATEGORY_OPTIONS = ["API 구현", "버그 수정"] as const;
 const STATUS_OPTIONS = ["미시작", "시도한 문제", "풀이한 문제"] as const;
 const SORT_OPTIONS = [
   { id: "default", label: "기본 순서" },
-  { id: "pass-desc", label: "통과율 높은 순" },
-  { id: "pass-asc", label: "통과율 낮은 순" },
+  { id: "pass-desc", label: "정답률 높은 순" },
+  { id: "pass-asc", label: "정답률 낮은 순" },
   { id: "level-asc", label: "난이도 낮은 순" },
   { id: "level-desc", label: "난이도 높은 순" }
 ] as const;
@@ -166,7 +167,7 @@ function StatCard({
   suffix
 }: {
   label: string;
-  value: number;
+  value: number | string;
   suffix?: string;
 }) {
   return (
@@ -207,10 +208,12 @@ function LevelBars({ level }: { level: ProblemLevel }) {
 // ────────────────────────────────────────────────
 function ProblemCard({
   problem,
-  href
+  href,
+  showUserProgress
 }: {
   problem: ProblemSummary;
   href?: string;
+  showUserProgress: boolean;
 }) {
   const meta = LEVEL_META[problem.level];
   const locked = problem.status === "잠김";
@@ -238,19 +241,36 @@ function ProblemCard({
         </p>
 
         {/* Meta row */}
-        <div className="flex flex-wrap items-center gap-2 text-xs mb-5">
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-semibold ring-1 ring-indigo-100">
-            {problem.category}
-          </span>
-          {problem.estimate ? (
-            <span className="inline-flex items-center gap-1 text-gray-500 font-medium">
-              <Clock size={11} strokeWidth={2.4} />
-              {problem.estimate}
+        <div className="flex items-start justify-between gap-3 text-xs">
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-semibold ring-1 ring-indigo-100">
+              {problem.category}
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-violet-50 text-violet-500 font-semibold ring-1 ring-violet-100">
+              정답비율
+              <span className="tabular-nums">{problem.passRate.toFixed(2)}%</span>
+            </span>
+            {problem.estimate ? (
+              <span className="inline-flex items-center gap-1 text-gray-500 font-medium">
+                <Clock size={11} strokeWidth={2.4} />
+                {problem.estimate}
+              </span>
+            ) : null}
+          </div>
+          {!showUserProgress ? (
+            <span
+              className={`inline-flex w-9 h-9 shrink-0 items-center justify-center rounded-xl text-indigo-600 bg-indigo-50 ring-1 ring-indigo-100 transition-all duration-300 group-hover:bg-indigo-600 group-hover:text-white group-hover:ring-indigo-600 group-hover:translate-x-0.5 group-hover:shadow-md group-hover:shadow-indigo-600/30 ${
+                locked ? "opacity-40" : ""
+              }`}
+              aria-hidden="true"
+            >
+              <ArrowRight size={16} strokeWidth={2.4} />
             </span>
           ) : null}
         </div>
 
         {/* Spacer pushes footer to bottom for equal-height cards */}
+        {showUserProgress ? (
         <div className="mt-auto pt-4 border-t border-gray-100">
           <div className="flex items-end justify-between gap-4">
             <div className="flex-1 min-w-0">
@@ -259,13 +279,13 @@ function ProblemCard({
                   통과율
                 </span>
                 <span className="text-sm font-bold text-gray-900 tabular-nums">
-                  {problem.passRate}%
+                  {problem.userBestPassRate}%
                 </span>
               </div>
               <div className="relative h-1.5 rounded-full bg-gray-100 overflow-hidden">
                 <div
                   className={`absolute inset-y-0 left-0 rounded-full ${meta.barFill} transition-[width] duration-700 ease-out`}
-                  style={{ width: `${problem.passRate}%` }}
+                  style={{ width: `${problem.userBestPassRate}%` }}
                 />
               </div>
             </div>
@@ -279,6 +299,9 @@ function ProblemCard({
             </span>
           </div>
         </div>
+        ) : (
+          <div className="mt-auto" />
+        )}
       </div>
     </>
   );
@@ -323,6 +346,8 @@ function SkeletonCard() {
 // ────────────────────────────────────────────────
 export default function ProblemsPage() {
   const { withPrefix } = useRouteScope();
+  const authScope = useAuthStore((state) => state.user?.id ?? "guest");
+  const isLoggedIn = authScope !== "guest";
   const [search, setSearch] = useState("");
   const [level, setLevel] = useState<ProblemLevel | "ALL">("ALL");
   const [category, setCategory] = useState<ProblemCategory | "ALL">("ALL");
@@ -330,7 +355,7 @@ export default function ProblemsPage() {
   const [sort, setSort] = useState<SortId>("default");
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ["problems", { category }],
+    queryKey: ["problems", { authScope, category }],
     queryFn: () => problemApi.getProblems({ category })
   });
 
@@ -371,7 +396,7 @@ export default function ProblemsPage() {
     const done = all.filter((p) => p.status === "풀이한 문제").length;
     const inProgress = all.filter((p) => p.status === "시도한 문제").length;
     const avgPass = total
-      ? Math.round(all.reduce((s, p) => s + p.passRate, 0) / total)
+      ? Math.round(all.reduce((s, p) => s + p.userBestPassRate, 0) / total)
       : 0;
     return { total, done, inProgress, avgPass };
   }, [all]);
@@ -426,9 +451,9 @@ export default function ProblemsPage() {
           style={{ animationDelay: "0.05s", animationFillMode: "both" }}
         >
           <StatCard label="전체 과제" value={stats.total} suffix="개" />
-          <StatCard label="풀이한 문제" value={stats.done} suffix="개" />
-          <StatCard label="시도한 문제" value={stats.inProgress} suffix="개" />
-          <StatCard label="평균 통과율" value={stats.avgPass} suffix="%" />
+          <StatCard label="풀이한 문제" value={isLoggedIn ? stats.done : "-"} suffix={isLoggedIn ? "개" : undefined} />
+          <StatCard label="시도한 문제" value={isLoggedIn ? stats.inProgress : "-"} suffix={isLoggedIn ? "개" : undefined} />
+          <StatCard label="평균 통과율" value={isLoggedIn ? stats.avgPass : "-"} suffix={isLoggedIn ? "%" : undefined} />
         </div>
 
         {/* Search + filters */}
@@ -597,6 +622,7 @@ export default function ProblemsPage() {
               >
                 <ProblemCard
                   problem={p}
+                  showUserProgress={isLoggedIn}
                   href={
                     p.status === "잠김"
                       ? undefined

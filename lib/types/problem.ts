@@ -16,6 +16,7 @@ export interface ProblemSummary {
   level: ProblemLevel;
   category: ProblemCategory;
   passRate: number;
+  userBestPassRate: number;
   status: ProblemStatus;
   summary: string;
   estimate: string;

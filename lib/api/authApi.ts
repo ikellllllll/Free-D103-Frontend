@@ -145,6 +145,8 @@ interface JwtPayload {
   exp?: number;
 }
 
+let refreshPromise: Promise<TokenResponse> | null = null;
+
 // 인증 불필요 요청용 기본 클라이언트
 const api = ky.create({
   prefixUrl: BASE_URL,
@@ -189,15 +191,21 @@ export function createAuthClient(): KyInstance {
           }
 
           try {
-            const refreshRes = await ky.post(`${BASE_URL}/api/v1/auth/refresh`, {
-              json: { refreshToken: tokens.refreshToken },
-              retry: 0
-            }).json<ApiResponse<TokenResponse>>();
+            refreshPromise ??= ky.post(`${BASE_URL}/api/v1/auth/refresh`, {
+                json: { refreshToken: tokens.refreshToken },
+                retry: 0
+              })
+              .json<ApiResponse<TokenResponse>>()
+              .then((refreshRes) => refreshRes.data)
+              .finally(() => {
+                refreshPromise = null;
+              });
 
-            setTokens(refreshRes.data);
+            const nextTokens = await refreshPromise;
+            setTokens(nextTokens);
 
             const newHeaders = new Headers(request.headers);
-            newHeaders.set("Authorization", `Bearer ${refreshRes.data.accessToken}`);
+            newHeaders.set("Authorization", `Bearer ${nextTokens.accessToken}`);
             newHeaders.set("X-Auth-Retry", "1");
             return ky(new Request(request, { headers: newHeaders }), options);
           } catch {

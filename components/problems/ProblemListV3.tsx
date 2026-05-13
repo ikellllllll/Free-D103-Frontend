@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -14,7 +14,7 @@ import type {
 } from "@/lib/types/problem";
 
 const LEVEL_OPTIONS = [1, 2, 3] as const;
-const CATEGORY_OPTIONS = ["API 구현", "버그 수정"] as const;
+const CATEGORY_OPTIONS: ProblemCategory[] = ["API 구현", "버그 수정"];
 
 function SkeletonCard() {
   return (
@@ -28,13 +28,13 @@ function SkeletonCard() {
 
 function statusBadge(status: ProblemStatus) {
   if (status === "풀이한 문제") {
-    return <span className="v3-plist-card__status v3-plist-card__status--done">✓ 풀이한 문제</span>;
+    return <span className="v3-plist-card__status v3-plist-card__status--done">풀이한 문제</span>;
   }
   if (status === "시도한 문제") {
     return <span className="v3-plist-card__status v3-plist-card__status--active">시도한 문제</span>;
   }
   if (status === "잠김") {
-    return <span className="v3-plist-card__status v3-plist-card__status--locked">🔒 잠김</span>;
+    return <span className="v3-plist-card__status v3-plist-card__status--locked">잠김</span>;
   }
   return <span className="v3-plist-card__status">미시작</span>;
 }
@@ -52,7 +52,8 @@ function CardBody({ problem }: { problem: ProblemSummary }) {
       <p className="v3-plist-card__summary">{problem.summary}</p>
       <div className="v3-plist-card__foot">
         <span className="v3-plist-card__cat">{problem.category}</span>
-        <span className="v3-plist-card__pass">{problem.passRate}% 통과율</span>
+        <span className="v3-plist-card__pass">정답비율 {problem.passRate.toFixed(2)}%</span>
+        <span className="v3-plist-card__pass">{problem.userBestPassRate}% 통과율</span>
         {statusBadge(problem.status)}
       </div>
     </>
@@ -80,7 +81,6 @@ export function ProblemListV3() {
 
   return (
     <div className="v3-plist-page">
-      {/* Hero */}
       <section className="v3-plist-hero">
         <span className="v3-plist-hero__badge">
           <span className="v3-plist-hero__badge-dot" />
@@ -92,14 +92,13 @@ export function ProblemListV3() {
           <span className="v3-plist-hero__accent">백엔드 실무 과제</span>
         </h1>
         <p className="v3-plist-hero__sub">
-          API 구현부터 버그 수정까지, 난이도별로 엄선된 실무 시나리오입니다.
+          API 구현부터 버그 수정까지, 단계별로 구성된 실무 시나리오입니다.
         </p>
       </section>
 
-      {/* Filters */}
       <div className="v3-plist-filters">
         <div className="v3-plist-filter-group">
-          <span className="v3-plist-filter-label">난이도</span>
+          <span className="v3-plist-filter-label">레벨</span>
           <div className="v3-plist-chips">
             <button
               type="button"
@@ -144,7 +143,6 @@ export function ProblemListV3() {
         </div>
       </div>
 
-      {/* Grid */}
       <div className="v3-plist-grid">
         {isLoading ? (
           Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)

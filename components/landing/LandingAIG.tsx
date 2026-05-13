@@ -4,17 +4,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Sparkles,
   ArrowRight,
   PlayCircle,
   LogOut,
-  Minus,
   Save,
-  Square,
-  X
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 
-const SECTION_IDS = ["hero", "showcase", "features", "workflow", "demo", "reports", "cta"] as const;
+const SECTION_IDS = ["hero", "showcase", "features", "workflow", "reports", "cta"] as const;
 type SectionId = (typeof SECTION_IDS)[number];
 
 const WORKFLOW = [
@@ -67,28 +65,40 @@ const WORKFLOW = [
 
 const IDE_STEPS = [
   {
-    label: "코드 선택",
-    status: "수정이 필요한 하네스 로직을 드래그합니다.",
-    question: "회원 목록 API가 name 오름차순으로 정렬이 안 되는 이유가 뭐야?",
-    answer: "UserController에서 List.of()를 그대로 반환하고 있어요. UserService를 주입하고 .stream().sorted(Comparator.comparing(UserResponse::name)).toList()로 바꾸면 됩니다."
+    label: "AGENTS.md 작성",
+    status: "Agent 설정 파일에 역할과 작업 규칙을 입력합니다.",
+    question: "TodoService를 문제 요구사항에 맞게 구현하고 테스트까지 실행해줘",
+    answer: "먼저 AGENTS.md의 규칙을 읽고 실행 계획, 코드 수정, 테스트, Diff 제출 순서로 진행할게요."
   },
   {
-    label: "에이전트에게 질문",
-    status: "선택한 코드가 에이전트 모드로 전달됩니다.",
-    question: "회원 목록 API가 name 오름차순으로 정렬이 안 되는 이유가 뭐야?",
-    answer: "UserController에서 List.of()를 그대로 반환하고 있어요. UserService를 주입하고 .stream().sorted(Comparator.comparing(UserResponse::name)).toList()로 바꾸면 됩니다."
+    label: "AGENT 빌드",
+    status: "AI 보조 패널에서 Agent Build를 실행합니다.",
+    question: "TodoService를 문제 요구사항에 맞게 구현하고 테스트까지 실행해줘",
+    answer: "Agent Build가 완료되면 .worktree에서 변경을 만들고 Trace를 남길 수 있습니다."
   },
   {
-    label: "답변 생성 중",
-    status: "에이전트가 하네스 컨텍스트를 분석하고 있습니다.",
-    question: "회원 목록 API가 name 오름차순으로 정렬이 안 되는 이유가 뭐야?",
-    answer: "UserController에서 List.of()를 그대로 반환하고 있어요. UserService를 주입하고 .stream().sorted(Comparator.comparing(UserResponse::name)).toList()로 바꾸면 됩니다."
+    label: "명령 입력",
+    status: "빌드된 Agent에게 문제 해결 명령을 전달합니다.",
+    question: "TodoService를 문제 요구사항에 맞게 구현하고 테스트까지 실행해줘",
+    answer: "명령을 받았습니다. 실행 계획을 만들고 변경 범위를 좁히겠습니다."
   },
   {
-    label: "답변 도착",
-    status: "원인과 수정 방향, diff 미리보기가 함께 열립니다.",
-    question: "회원 목록 API가 name 오름차순으로 정렬이 안 되는 이유가 뭐야?",
-    answer: "UserController에서 List.of()를 그대로 반환하고 있어요. UserService를 주입하고 .stream().sorted(Comparator.comparing(UserResponse::name)).toList()로 바꾸면 됩니다."
+    label: "계획 수립",
+    status: "Agent가 실행 계획을 세우고 변경 범위를 고릅니다.",
+    question: "TodoService를 문제 요구사항에 맞게 구현하고 테스트까지 실행해줘",
+    answer: "TodoService 구현, Controller 연동 확인, 테스트 실행, Diff 제출 순서로 진행합니다."
+  },
+  {
+    label: "실행",
+    status: "Agent가 .worktree에서 파일을 수정하고 테스트합니다.",
+    question: "TodoService를 문제 요구사항에 맞게 구현하고 테스트까지 실행해줘",
+    answer: ".worktree/TodoService.java를 수정하고 ./gradlew test를 실행하고 있습니다."
+  },
+  {
+    label: "결과 확인",
+    status: "Diff와 Trace에서 실행 결과를 확인합니다.",
+    question: "TodoService를 문제 요구사항에 맞게 구현하고 테스트까지 실행해줘",
+    answer: "패치를 만들었습니다. Diff 탭에서 적용 전 변경 사항을 검토하고 Trace에서 작업 근거를 확인하세요."
   }
 ];
 
@@ -101,6 +111,27 @@ const SHOWCASE_STATS = [
 
 const HERO_IDE_PREVIEW_WIDTH = 1440;
 const HERO_IDE_PREVIEW_HEIGHT = 810;
+const AGENT_COMMAND = "TodoService를 문제 요구사항에 맞게 구현하고 테스트까지 실행해줘";
+const AGENTS_MD_TEMPLATE = `# AGENTS.md
+
+## 역할
+너는 Todo API 문제를 해결하는 Java 백엔드 Agent다.
+
+## 작업 규칙
+- 변경은 .worktree 안에서만 만든다.
+- 먼저 실행 계획을 짧게 작성한다.
+- Service, Controller, 테스트 결과를 Trace에 남긴다.
+- 완료 후 Diff에서 적용/거절할 수 있게 패치를 제출한다.
+
+## 검증
+./gradlew test`;
+
+const AGENT_PLAN_LINES = [
+  "TodoService의 CRUD 요구사항과 예외 흐름 확인",
+  "TodoController 응답 DTO와 상태 코드 연결",
+  "Gradle 테스트 실행 후 실패 로그를 Trace에 기록",
+  "완성 패치를 Diff 탭으로 제출"
+];
 
 function HeroIdePreviewMock({ step }: { step: number }) {
   const [activeActivity, setActiveActivity] = useState(1);
@@ -109,6 +140,14 @@ function HeroIdePreviewMock({ step }: { step: number }) {
   const [aiMode, setAiMode] = useState<"chat" | "agent">("chat");
   const previewFrameRef = useRef<HTMLDivElement | null>(null);
   const [previewScale, setPreviewScale] = useState(1);
+  const previewStep = step % IDE_STEPS.length;
+  const currentPreview = IDE_STEPS[previewStep];
+  const guidedActivity = previewStep >= 1 ? 6 : activeActivity;
+  const effectiveAiMode = previewStep >= 1 ? "agent" : aiMode;
+  const activeEditorFile = previewStep >= 4 ? "TodoService.java" : "AGENTS.md";
+  const showDiff = previewStep >= 5;
+  const [typedAgentsCount, setTypedAgentsCount] = useState(0);
+  const [typedCommandCount, setTypedCommandCount] = useState(0);
 
   const activityItems = [
     { id: "problem", icon: "codicon-book", badge: "0", label: "문제" },
@@ -144,10 +183,14 @@ function HeroIdePreviewMock({ step }: { step: number }) {
     ["", "codicon-symbol-class", "TodoNotFoundExcepti...", 6, ""],
     ["codicon-chevron-down", "codicon-folder-opened", "todo", 5, ""],
     ["codicon-chevron-down", "codicon-folder-opened", "controller", 6, ""],
-    ["", "codicon-symbol-class", "TodoController.java", 7, ""]
+    ["", "codicon-symbol-class", "TodoController.java", 7, ""],
+    ["codicon-chevron-down", "codicon-folder-opened", "service", 6, ""],
+    ["", "codicon-symbol-class", "TodoService.java", 7, previewStep >= 4 ? "AI" : ""]
   ] as const;
 
-  const linePulse = step >= 2;
+  const linePulse = previewStep >= 2;
+  const typedAgentsText = AGENTS_MD_TEMPLATE.slice(0, typedAgentsCount);
+  const typedCommand = AGENT_COMMAND.slice(0, typedCommandCount);
 
   const getPreviewFileKind = (icon: string, name: string) => {
     if (icon.includes("symbol-class") || name.endsWith(".java")) return "java";
@@ -214,6 +257,34 @@ function HeroIdePreviewMock({ step }: { step: number }) {
   };
 
   useEffect(() => {
+    if (previewStep !== 0) {
+      setTypedAgentsCount(AGENTS_MD_TEMPLATE.length);
+      return;
+    }
+
+    setTypedAgentsCount(0);
+    const tick = window.setInterval(() => {
+      setTypedAgentsCount((count) => Math.min(AGENTS_MD_TEMPLATE.length, count + 7));
+    }, 34);
+
+    return () => window.clearInterval(tick);
+  }, [previewStep]);
+
+  useEffect(() => {
+    if (previewStep !== 2) {
+      setTypedCommandCount(previewStep > 2 ? AGENT_COMMAND.length : 0);
+      return;
+    }
+
+    setTypedCommandCount(0);
+    const tick = window.setInterval(() => {
+      setTypedCommandCount((count) => Math.min(AGENT_COMMAND.length, count + 2));
+    }, 48);
+
+    return () => window.clearInterval(tick);
+  }, [previewStep]);
+
+  useEffect(() => {
     const frame = previewFrameRef.current;
     if (!frame) return;
 
@@ -271,7 +342,7 @@ function HeroIdePreviewMock({ step }: { step: number }) {
                     setAiMode("agent");
                   }
                 }}
-                className={index === activeActivity ? "activity-bar__item activity-bar__item--active" : "activity-bar__item"}
+                className={index === guidedActivity ? "activity-bar__item activity-bar__item--active" : "activity-bar__item"}
               >
                 <span className="activity-bar__label activity-bar__icon-wrap">
                   <span className={`codicon ${item.icon} activity-bar__icon`} aria-hidden="true" />
@@ -319,7 +390,7 @@ function HeroIdePreviewMock({ step }: { step: number }) {
                 agent · skills · instruction · harness
               </button>
               <div className="tree-root__children" style={agentOpen ? undefined : { display: "none" }}>
-                {agentFiles.map((item) => renderPreviewTreeItem(item))}
+                {agentFiles.map((item) => renderPreviewTreeItem(item, activeEditorFile))}
               </div>
             </div>
 
@@ -335,7 +406,7 @@ function HeroIdePreviewMock({ step }: { step: number }) {
               <small>ai</small>
             </button>
             <div className="tree-root__children" style={workspaceOpen ? undefined : { display: "none" }}>
-              {workspaceFiles.map((item) => renderPreviewTreeItem(item))}
+              {workspaceFiles.map((item) => renderPreviewTreeItem(item, activeEditorFile))}
             </div>
           </div>
         </aside>
@@ -382,11 +453,21 @@ function HeroIdePreviewMock({ step }: { step: number }) {
                     <div className="editor-tabs">
                       <div className="editor-tabs__item editor-tabs__item--active">
                         <button type="button" className="editor-tabs__select">
+                          {showDiff ? (
+                            <span className="file-icon file-icon--tab codicon codicon-diff" data-file-kind="git" aria-hidden="true" />
+                          ) : (
+                            <span className="file-icon file-icon--tab codicon codicon-book" data-file-kind={activeEditorFile.endsWith(".java") ? "java" : "docs"} aria-hidden="true" />
+                          )}
+                          <span>{showDiff ? "TodoService.java diff" : activeEditorFile}</span>
+                        </button>
+                        <button type="button" className="editor-tabs__close" aria-label={`${activeEditorFile} 닫기`}>
+                          ×
+                        </button>
+                      </div>
+                      <div className="editor-tabs__item">
+                        <button type="button" className="editor-tabs__select">
                           <span className="file-icon file-icon--tab codicon codicon-book" data-file-kind="docs" aria-hidden="true" />
                           <span>README.md</span>
-                        </button>
-                        <button type="button" className="editor-tabs__close" aria-label="README.md 닫기">
-                          ×
                         </button>
                       </div>
                     </div>
@@ -403,24 +484,115 @@ function HeroIdePreviewMock({ step }: { step: number }) {
                 </div>
 
                 <div className="editor-host editor-host--preview">
-                  <article className="markdown-preview">
-                    <h1>Todo CRUD API – Starter</h1>
-                    <h2>시작하기</h2>
-                    <pre className={linePulse ? "landing-ide-preview__pulse" : undefined}>
-                      <code>{`# 빌드 + 테스트
-./gradlew test
-# 개발 서버 (포트 8080)
-./gradlew bootRun`}</code>
-                    </pre>
-                    <h2>작성해야 하는 파일</h2>
-                    <pre>
-                      <code>{`src/main/java/com/aig/todo/todo/
-├── TodoService.java        🔧 5개 메서드 구현
-└── TodoController.java     🔧 5개 엔드포인트 구현`}</code>
-                    </pre>
-                    <p>자세한 명세는 과제 설명을 참고하세요.</p>
-                    <h2>구조</h2>
-                  </article>
+                  {showDiff ? (
+                    <div className="diff-pane landing-diff-preview landing-diff-preview--ide">
+                      <div className="diff-pane__actions">
+                        <div className="diff-pane__label">
+                          <span className="codicon codicon-diff" aria-hidden />
+                          <span>AI 워크트리 수정 제안 — 적용 시 원본 파일이 덮어써집니다</span>
+                        </div>
+                        <div className="diff-pane__buttons">
+                          <button type="button" className="button button--ghost button--tiny">거절</button>
+                          <button type="button" className="button button--primary button--tiny">적용</button>
+                        </div>
+                      </div>
+                      <div className="landing-monaco-diff monaco-diff-editor" aria-label="TodoService.java 원본과 Agent 변경 diff 미리보기">
+                        <div className="landing-monaco-diff__columns">
+                          <section className="landing-monaco-diff__column">
+                            <div className="landing-monaco-diff__column-head">
+                              <span className="codicon codicon-file-code" aria-hidden />
+                              <strong>원본</strong>
+                              <span>src/TodoService.java</span>
+                            </div>
+                            <div className="landing-monaco-diff__editor">
+                              {[
+                                { no: 41, kind: "same", sign: "", text: "public Todo create(CreateTodoRequest request) {" },
+                                { no: 42, kind: "removed", sign: "-", text: "  return null;" },
+                                { no: 43, kind: "same", sign: "", text: "}" },
+                                { no: 44, kind: "same", sign: "", text: "" },
+                                { no: 45, kind: "same", sign: "", text: "public List<Todo> findAll() {" },
+                                { no: 46, kind: "removed", sign: "-", text: "  return List.of();" },
+                                { no: 47, kind: "same", sign: "", text: "}" }
+                              ].map((line) => (
+                                <div key={`original-${line.no}-${line.kind}`} className={`landing-monaco-diff__line landing-monaco-diff__line--${line.kind}`}>
+                                  <span className="landing-monaco-diff__no">{line.no}</span>
+                                  <span className="landing-monaco-diff__sign">{line.sign}</span>
+                                  <code>{line.text}</code>
+                                </div>
+                              ))}
+                            </div>
+                          </section>
+                          <section className="landing-monaco-diff__column landing-monaco-diff__column--modified">
+                            <div className="landing-monaco-diff__column-head">
+                              <span className="codicon codicon-git-pull-request" aria-hidden />
+                              <strong>Agent</strong>
+                              <span>.worktree/src/TodoService.java</span>
+                            </div>
+                            <div className="landing-monaco-diff__editor">
+                              {[
+                                { no: 41, kind: "same", sign: "", text: "public Todo create(CreateTodoRequest request) {" },
+                                { no: 42, kind: "added", sign: "+", text: "  Todo todo = Todo.create(request.title());" },
+                                { no: 43, kind: "added", sign: "+", text: "  return repository.save(todo);" },
+                                { no: 44, kind: "same", sign: "", text: "}" },
+                                { no: 45, kind: "same", sign: "", text: "public List<Todo> findAll() {" },
+                                { no: 46, kind: "added", sign: "+", text: "  return repository.findAllByOrderByIdAsc();" },
+                                { no: 47, kind: "same", sign: "", text: "}" }
+                              ].map((line) => (
+                                <div key={`modified-${line.no}-${line.kind}`} className={`landing-monaco-diff__line landing-monaco-diff__line--${line.kind}`}>
+                                  <span className="landing-monaco-diff__no">{line.no}</span>
+                                  <span className="landing-monaco-diff__sign">{line.sign}</span>
+                                  <code>{line.text}</code>
+                                </div>
+                              ))}
+                            </div>
+                          </section>
+                          <div className="landing-monaco-diff__ruler" aria-hidden="true">
+                            <span className="landing-monaco-diff__ruler-mark landing-monaco-diff__ruler-mark--removed" />
+                            <span className="landing-monaco-diff__ruler-mark landing-monaco-diff__ruler-mark--added" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : activeEditorFile === "AGENTS.md" ? (
+                    <div className="landing-code-editor landing-code-editor--agents">
+                      <div className="landing-code-editor__banner">
+                        <strong>{currentPreview.label}</strong>
+                        <span>{currentPreview.status}</span>
+                      </div>
+                      <pre className={linePulse ? "landing-ide-preview__pulse" : undefined}>
+                        <code>{typedAgentsText}</code>
+                        {previewStep === 0 ? <span className="landing-code-editor__caret" aria-hidden="true" /> : null}
+                      </pre>
+                    </div>
+                  ) : (
+                    <div className="landing-code-editor landing-code-editor--java">
+                      <div className="landing-code-editor__banner">
+                        <strong>TodoService.java</strong>
+                        <span>Agent가 .worktree에서 구현 중</span>
+                      </div>
+                      {[
+                        "package com.aig.todo.todo.service;",
+                        "",
+                        "public class TodoService {",
+                        "  public Todo create(CreateTodoRequest request) {",
+                        "    Todo todo = Todo.create(request.title());",
+                        "    return repository.save(todo);",
+                        "  }",
+                        "",
+                        "  public Todo complete(Long id) {",
+                        "    Todo todo = findById(id);",
+                        "    todo.complete();",
+                        "    return repository.save(todo);",
+                        "  }",
+                        "}"
+                      ].map((line, index) => (
+                        <div key={`${line}-${index}`} className={`landing-code-editor__line ${index >= 4 && index <= 11 ? "landing-code-editor__line--added" : ""}`}>
+                          <span className="landing-code-editor__no">{index + 1}</span>
+                          <code>{line}</code>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </section>
             </div>
@@ -429,36 +601,69 @@ function HeroIdePreviewMock({ step }: { step: number }) {
             <section className="bottom-panel landing-ide-preview__bottom-panel" style={{ height: 220 }}>
               <div className="bottom-panel__tabs">
                 <div className="bottom-panel__tab-list">
-                  <button type="button" className="bottom-panel__tab bottom-panel__tab--active">출력 <small>ready</small></button>
-                  <button type="button" className="bottom-panel__tab">테스트 <small>idle</small></button>
-                  <button type="button" className="bottom-panel__tab">제출 <small>idle</small></button>
-                  <button type="button" className="bottom-panel__tab">Trace <small>2</small></button>
+                  <button type="button" className={`bottom-panel__tab ${previewStep < 4 ? "bottom-panel__tab--active" : ""}`}>출력 <small>{previewStep < 4 ? "ready" : "done"}</small></button>
+                  <button type="button" className="bottom-panel__tab">테스트 <small>{previewStep >= 4 ? "passed" : "idle"}</small></button>
+                  <button type="button" className={`bottom-panel__tab ${showDiff ? "bottom-panel__tab--active" : ""}`}>Diff <small>{showDiff ? "4" : "idle"}</small></button>
+                  <button type="button" className={`bottom-panel__tab ${previewStep >= 4 && !showDiff ? "bottom-panel__tab--active" : ""}`}>Trace <small>{previewStep >= 4 ? "6" : "0"}</small></button>
                 </div>
               </div>
 
               <div className="bottom-panel__body">
-                <div className="landing-ide-preview__mini-grid">
-                  {["stdout\n아직 실행한 결과가 없습니다.", "stderr\n에러 출력 없음"].map((text) => {
-                    const [title, body] = text.split("\n");
-                    return (
-                      <div key={title} className="mini-panel mini-panel--flat">
-                        <strong>{title}</strong>
-                        <p>{body}</p>
+                {showDiff ? (
+                  <div className="landing-result-strip">
+                    <div className="mini-panel mini-panel--flat">
+                      <strong>Diff</strong>
+                      <p>TodoService.java 수정 1개 파일, 추가 8줄</p>
+                    </div>
+                    <div className="mini-panel mini-panel--flat">
+                      <strong>Trace</strong>
+                      <p>plan → edit → test → diff 제출 완료</p>
+                    </div>
+                    <div className="mini-panel mini-panel--flat mini-panel--success">
+                      <strong>./gradlew test</strong>
+                      <p>BUILD SUCCESSFUL in 4s</p>
+                    </div>
+                  </div>
+                ) : previewStep >= 4 ? (
+                  <div className="landing-trace-list">
+                    {[
+                      ["plan", "TodoService 변경 범위 확정"],
+                      ["read", "README.md, TodoController.java 참조"],
+                      ["edit", ".worktree/TodoService.java 패치 작성"],
+                      ["test", "./gradlew test 실행 중"]
+                    ].map(([kind, text], index) => (
+                      <div key={kind} className={`landing-trace-list__item ${index === 3 ? "landing-trace-list__item--active" : ""}`}>
+                        <span>{kind}</span>
+                        <p>{text}</p>
                       </div>
-                    );
-                  })}
-                </div>
-                <div className="mini-panel mini-panel--flat">
-                  <span className="font-black">실행 대기</span>
-                  <span className="muted-copy">실행 버튼으로 결과를 확인하세요.</span>
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    <div className="landing-ide-preview__mini-grid">
+                      {["stdout\nAgent 명령을 기다리는 중입니다.", "stderr\n에러 출력 없음"].map((text) => {
+                        const [title, body] = text.split("\n");
+                        return (
+                          <div key={title} className="mini-panel mini-panel--flat">
+                            <strong>{title}</strong>
+                            <p>{body}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="mini-panel mini-panel--flat">
+                      <span className="font-black">{currentPreview.label}</span>
+                      <span className="muted-copy">{currentPreview.status}</span>
+                    </div>
+                  </>
+                )}
               </div>
             </section>
           </div>
 
           <div className="status-bar">
-            <div className="status-bar__group"><span>main</span><span>MD</span><span>UTF-8</span><span>LF</span><span>56 lines</span></div>
-            <div className="status-bar__group"><span>저장됨</span><span>Ln 1, Col 1</span><span>AIG Chat</span><span>OUTPUT</span></div>
+            <div className="status-bar__group"><span>main</span><span>{activeEditorFile.endsWith(".java") ? "JAVA" : "MARKDOWN"}</span><span>UTF-8</span><span>LF</span><span>{activeEditorFile === "AGENTS.md" ? "15" : "68"} lines</span></div>
+            <div className="status-bar__group"><span>{previewStep === 0 ? "미저장 1개" : "저장됨"}</span><span>Ln 7, Col 18</span><span>AIG Agent</span><span>{showDiff ? "DIFF" : "OUTPUT"}</span></div>
           </div>
         </main>
 
@@ -470,15 +675,15 @@ function HeroIdePreviewMock({ step }: { step: number }) {
               <span className="panel-title panel-title--compact">AIG Assistant</span>
               <div className="assistant-header__title">
                 <strong>AI 보조 패널</strong>
-                <span className="ai-context-chip assistant-version-chip">v0.1</span>
+                <span className="ai-context-chip assistant-version-chip">{previewStep >= 2 ? "v0.2" : "v0.1"}</span>
               </div>
             </div>
             <button
               type="button"
               onClick={() => setAiMode("agent")}
-              className="button button--primary button--tiny assistant-build-button"
+              className={`button button--primary button--tiny assistant-build-button landing-agent-build-button ${previewStep === 1 ? "landing-agent-build-button--running" : ""}`}
             >
-              {aiMode === "agent" ? "Building" : "Agent Build"}
+              {previewStep === 1 ? "Building" : previewStep >= 2 ? "Built" : "Agent Build"}
             </button>
           </div>
 
@@ -488,20 +693,20 @@ function HeroIdePreviewMock({ step }: { step: number }) {
                 <button
                   type="button"
                   onClick={() => setAiMode("chat")}
-                  className={`chip ${aiMode === "chat" ? "chip--active" : ""}`}
+                  className={`chip ${effectiveAiMode === "chat" ? "chip--active" : ""}`}
                 >
-                  chat mode
+                  Chat
                 </button>
                 <button
                   type="button"
                   onClick={() => setAiMode("agent")}
-                  className={`chip ${aiMode === "agent" ? "chip--active" : ""}`}
+                  className={`chip ${effectiveAiMode === "agent" ? "chip--active" : ""}`}
                 >
-                  agent mode
+                  Agent
                 </button>
               </div>
               <div className="ai-context-strip">
-                {["README.md", "선택 없음", "AI quota 1/5"].map((tag) => (
+                {["AGENTS.md", previewStep >= 2 ? "Build OK" : "선택 없음", "GPT-5 Mini"].map((tag) => (
                   <span key={tag} className="ai-context-chip">
                     {tag}
                   </span>
@@ -510,25 +715,57 @@ function HeroIdePreviewMock({ step }: { step: number }) {
             </div>
 
             <div className="chat-stack chat-stack--panel">
-              <div className="chat-bubble chat-bubble--user">
-                <div className="chat-bubble__plain">{aiMode === "chat" ? "ㅎㅇ" : "TodoService 기준으로 패치 생성해줘"}</div>
-              </div>
-              <div className={`chat-bubble ${step >= 2 ? "landing-ide-preview__pulse" : ""}`}>
+              {previewStep >= 2 ? (
+                <div className="chat-bubble chat-bubble--user">
+                  <div className="chat-bubble__plain">
+                    {typedCommand}
+                    {previewStep === 2 ? <span className="landing-code-editor__caret" aria-hidden="true" /> : null}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className={`chat-bubble ${previewStep >= 1 ? "landing-ide-preview__pulse" : ""}`}>
                 <div className="chat-bubble__markdown">
-                  {aiMode === "chat" ? (
+                  {previewStep === 0 ? (
                     <>
-                      <p>안녕! 뭐 도와줄까?</p>
-                      <p>[오류] AI 스트리밍 중 오류가 발생했습니다.</p>
+                      <p>AGENTS.md를 작성하면 Agent가 어떤 파일을 수정하고 어떤 검증을 해야 하는지 기억합니다.</p>
+                      <p>저장 후 Agent Build를 눌러 실행 환경을 준비하세요.</p>
+                    </>
+                  ) : previewStep === 1 ? (
+                    <div className="landing-build-card">
+                      <strong>Agent Build</strong>
+                      <span>AGENTS.md 파싱</span>
+                      <span>runtimeConfig 생성</span>
+                      <span>검증 오류 없음</span>
+                      <div className="landing-build-card__bar" aria-hidden="true">
+                        <span />
+                      </div>
+                    </div>
+                  ) : previewStep === 2 ? (
+                    <>
+                      <p>명령을 받았습니다. 실행 계획을 만들고 .worktree에서 변경을 준비합니다.</p>
+                    </>
+                  ) : previewStep === 3 ? (
+                    <>
+                      <h3>실행 계획</h3>
+                      <ol>
+                        {AGENT_PLAN_LINES.map((line) => (
+                          <li key={line}>{line}</li>
+                        ))}
+                      </ol>
+                    </>
+                  ) : previewStep === 4 ? (
+                    <>
+                      <h3>실행 중</h3>
+                      <ul>
+                        <li>TodoService.java 수정</li>
+                        <li>Controller 흐름 확인</li>
+                        <li>./gradlew test 실행</li>
+                      </ul>
                     </>
                   ) : (
                     <>
-                      <p>Agent Mode가 선택되었습니다. 현재 README.md와 워크스페이스를 바탕으로 `.worktree`에 패치를 만들고 Trace를 남깁니다.</p>
-                      <h3>실행 계획</h3>
-                      <ul>
-                        <li>관련 파일을 읽고 변경 범위를 좁힙니다.</li>
-                        <li>테스트 가능한 단위로 패치를 생성합니다.</li>
-                        <li>Diff와 Trace에서 근거를 확인합니다.</li>
-                      </ul>
+                      <p>패치를 만들었습니다. Diff 탭에서 변경 내용을 확인하고 Trace에서 작업 순서를 검토할 수 있습니다.</p>
                     </>
                   )}
                 </div>
@@ -539,15 +776,15 @@ function HeroIdePreviewMock({ step }: { step: number }) {
               <textarea
                 className="input input--textarea"
                 readOnly
-                value=""
-                placeholder="현재 문제나 코드에 대해 질문하세요"
+                value={previewStep === 2 ? typedCommand : ""}
+                placeholder={previewStep < 2 ? "Agent Build 후 명령을 입력하세요" : "빌드된 Agent에게 명령하세요"}
               />
               <button
                 type="button"
                 onClick={() => setAiMode((mode) => (mode === "chat" ? "agent" : "chat"))}
                 className="button button--primary transition-transform active:scale-[0.98]"
               >
-                {aiMode === "chat" ? "전송" : "패치 생성"}
+                {showDiff ? "Diff 열기" : previewStep >= 2 ? "실행" : "전송"}
               </button>
             </div>
           </div>
@@ -565,7 +802,6 @@ export function LandingAIG() {
     showcase: null,
     features: null,
     workflow: null,
-    demo: null,
     reports: null,
     cta: null
   });
@@ -601,19 +837,12 @@ export function LandingAIG() {
 
   // IDE live demo
   const [ideStep, setIdeStep] = useState(0);
-  const [ideCursor, setIdeCursor] = useState(true);
-  const ideStepData = IDE_STEPS[ideStep];
 
   useEffect(() => {
     const t = window.setInterval(
       () => setIdeStep((p) => (p + 1) % IDE_STEPS.length),
       3200
     );
-    return () => window.clearInterval(t);
-  }, []);
-
-  useEffect(() => {
-    const t = window.setInterval(() => setIdeCursor((p) => !p), 500);
     return () => window.clearInterval(t);
   }, []);
 
@@ -854,21 +1083,22 @@ export function LandingAIG() {
         ref={setSectionRef("workflow")}
         data-section="workflow"
         id="workflow"
-        className="relative min-h-screen bg-[#EEF2FF] flex flex-col justify-center py-16 overflow-hidden"
+        className="relative min-h-screen bg-[#2d2d44] text-white flex flex-col justify-center py-16 overflow-hidden"
       >
         <div className="pointer-events-none absolute top-0 left-0 right-0 h-full overflow-hidden">
-          <div className="absolute inset-0 bg-grid-pattern opacity-[0.04]" />
+          <div className="absolute inset-0 bg-grid-pattern opacity-[0.1]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_8%,rgba(99,102,241,0.18),transparent_54%)]" />
         </div>
 
         <div className="relative max-w-6xl mx-auto px-6 w-full">
           <div className="text-center mb-10">
-            <h2 className="text-3xl md:text-5xl font-display font-bold text-gray-900 tracking-tight mb-3">
+            <h2 className="text-3xl md:text-5xl font-display font-bold text-white tracking-tight mb-3">
               하네스 과제 시작부터
               <br />
               <span
                 className="bg-gradient-animate"
                 style={{
-                  backgroundImage: "linear-gradient(90deg, #4F46E5, #7C3AED, #14B8A6, #4F46E5)",
+                  backgroundImage: "linear-gradient(90deg, #A5B4FC, #C4B5FD, #5EEAD4, #A5B4FC)",
                   backgroundSize: "200% 200%",
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
@@ -881,267 +1111,72 @@ export function LandingAIG() {
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] gap-8 items-stretch">
-            {/* Left — steps + terminal */}
-            <div className="flex flex-col gap-3">
-              {WORKFLOW.map((w, i) => {
-                const active = i === activeStep;
-                return (
+          <div className="mx-auto max-w-5xl">
+            <div className="relative rounded-[28px] border border-white/[0.13] bg-white/[0.07] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_24px_56px_rgba(10,10,32,0.42)]">
+              <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-5">
+                {WORKFLOW.map((w, i) => (
                   <button
                     key={w.step}
                     type="button"
                     onClick={() => goToStep(i)}
-                    className={`group w-full text-left flex items-center gap-4 px-5 py-2 rounded-2xl border transition-all cursor-pointer ${
-                      active
-                        ? "bg-white border-indigo-200 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_12px_28px_-16px_rgba(79,70,229,0.25)] -translate-y-0.5"
-                        : "bg-white/80 border-gray-200/80 hover:bg-white hover:border-indigo-200 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04)]"
+                    aria-label={`${w.step} ${w.label}`}
+                    className={`min-w-0 rounded-2xl border px-3 py-3 text-left transition-all cursor-pointer ${
+                      i === activeStep
+                        ? "border-sky-300/45 bg-gradient-to-br from-indigo-400/[0.2] via-sky-300/[0.16] to-violet-300/[0.16] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_12px_26px_-18px_rgba(125,211,252,0.58)]"
+                        : "border-white/[0.14] bg-[#111124]/55 hover:border-violet-300/35 hover:bg-white/[0.1]"
                     }`}
                   >
-                    <span
-                      className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center font-display font-bold text-sm transition-colors ${
-                        active ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-500 group-hover:bg-gray-200"
-                      }`}
-                    >
+                    <span className={`block font-mono text-[11px] font-black ${i === activeStep ? "text-sky-200" : "text-indigo-100/[0.74]"}`}>
                       {w.step}
                     </span>
-                    <span
-                      className={`flex-1 font-semibold transition-colors ${
-                        active ? "text-gray-900" : "text-gray-500 group-hover:text-gray-700"
-                      }`}
-                    >
+                    <span className={`mt-1 block truncate text-sm font-black ${i === activeStep ? "text-white" : "text-indigo-50/[0.82]"}`}>
                       {w.label}
                     </span>
-                    {active && (
-                      <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full px-2 py-0.5">
-                        {w.tag}
-                      </span>
-                    )}
+                    <span
+                      className={`mt-2 inline-flex max-w-full rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                        i === activeStep
+                          ? "border-violet-200/35 bg-violet-300/[0.14] text-violet-50"
+                          : "border-white/[0.12] bg-white/[0.06] text-indigo-100/[0.7]"
+                      }`}
+                    >
+                      <span className="truncate">{w.tag}</span>
+                    </span>
                   </button>
-                );
-              })}
-
-              {/* Terminal card */}
-              <div className="mt-1 rounded-2xl overflow-hidden border border-indigo-300/20 bg-indigo-950/80 backdrop-blur-2xl shadow-[inset_0_1px_0_rgba(165,180,252,0.15),inset_0_0_0_1px_rgba(165,180,252,0.06),0_12px_40px_rgba(49,46,129,0.35)]">
-                <div className="flex items-center justify-between px-4 py-1.5 bg-indigo-950/40 border-b border-indigo-300/10">
-                  <span className="text-[11px] font-mono text-indigo-200/70">aig-terminal</span>
-                  <div className="flex items-center gap-1.5">
-                    <Minus size={10} className="text-indigo-200/40" strokeWidth={3} />
-                    <Square size={8} className="text-indigo-200/40" strokeWidth={3} />
-                    <X size={10} className="text-indigo-200/40" strokeWidth={3} />
-                  </div>
-                </div>
-                <div className="px-4 py-2 font-mono text-[13px] leading-6">
-                  <div className="text-indigo-200/80">
-                    <span className="text-teal-300">user@aig</span>
-                    <span className="text-indigo-200/50">:</span>
-                    <span className="text-indigo-300">~/workspace</span>
-                    <span className="text-indigo-200/50">$ </span>
-                  </div>
-                  <div
-                    className={`text-white font-medium transition-opacity duration-200 ${
-                      transitioning ? "opacity-0" : "opacity-100"
-                    }`}
-                  >
-                    {step.cmd}
-                  </div>
-                  <div
-                    className={`mt-2 text-xs text-indigo-200/70 leading-relaxed transition-opacity duration-200 ${
-                      transitioning ? "opacity-0" : "opacity-100"
-                    }`}
-                  >
-                    {step.desc}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Right — screenshot + progress dots */}
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2 px-1 shrink-0">
-                {WORKFLOW.map((_, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => goToStep(i)}
-                    aria-label={`단계 ${i + 1}로 이동`}
-                    className={`flex-1 h-1.5 rounded-full transition-all cursor-pointer ${
-                      i === activeStep
-                        ? "bg-indigo-500"
-                        : i < activeStep
-                          ? "bg-indigo-300"
-                          : "bg-gray-200 hover:bg-gray-300"
-                    }`}
-                  />
                 ))}
               </div>
-              <div className="relative flex-1 rounded-3xl border border-gray-200/80 bg-white p-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)]">
-                <div className="absolute -inset-10 -z-10 bg-gradient-to-br from-indigo-200/40 via-violet-200/30 to-teal-200/30 blur-3xl rounded-full" />
-                <div className="relative h-full rounded-2xl overflow-hidden bg-gray-100">
-                  <Image
-                    src={step.img}
-                    alt={step.alt}
-                    fill
-                    sizes="(max-width: 1024px) 100vw, 60vw"
-                    className={`object-cover object-top transition-opacity duration-300 ${
-                      transitioning ? "opacity-0" : "opacity-100"
-                    }`}
-                    priority={activeStep === 0}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      {/* ────────────────── IDE LIVE DEMO ────────────────── */}
-      <section
-        ref={setSectionRef("demo")}
-        data-section="demo"
-        id="demo"
-        className="relative min-h-screen bg-[#2d2d44] text-white overflow-hidden flex flex-col justify-center py-16"
-      >
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute inset-0 bg-grid-pattern opacity-[0.1]" />
-        </div>
-
-        <div className="relative max-w-6xl mx-auto px-6 w-full">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl md:text-5xl font-display font-bold tracking-tight mb-3">
-              하네스 과제를 실제로 풀어보면
-            </h2>
-            <p className="text-base md:text-lg text-indigo-200/80 max-w-2xl mx-auto">
-              IDE에서 문제를 파악하고, 에이전트에게 질문을 보내고, 수정 근거와 diff를 확인하는 흐름을 미리 체험하세요.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-5 items-stretch">
-            {/* Left — IDE window mock */}
-            <div className="relative rounded-2xl overflow-hidden border border-[#2a2a2a] bg-[#0d0d0d] shadow-[0_8px_40px_rgba(0,0,0,0.7)]">
-              <div className="flex items-center justify-between px-3 py-2 bg-[#1a1a1a] border-b border-[#2a2a2a]">
-                <span className="text-[11px] font-mono text-gray-500 truncate">/ide/session-e89y3kqx-mo6u209l</span>
-                <div className="flex items-center">
-                  <span className="flex items-center justify-center w-8 h-6 hover:bg-white/10 transition-colors cursor-default text-gray-400 hover:text-white text-xs">─</span>
-                  <span className="flex items-center justify-center w-8 h-6 hover:bg-white/10 transition-colors cursor-default text-gray-400 hover:text-white text-xs">□</span>
-                  <span className="flex items-center justify-center w-8 h-6 hover:bg-red-500 transition-colors cursor-default text-gray-400 hover:text-white text-xs rounded-tr-xl">✕</span>
-                </div>
-              </div>
-              <div className="relative aspect-[16/10]">
+              <div className="relative overflow-hidden rounded-2xl bg-[#111124] ring-1 ring-white/10" style={{ aspectRatio: "16 / 9" }}>
                 <Image
-                  src="/problemsSession.png"
-                  alt="실무 과제 풀이 세션"
+                  src={step.img}
+                  alt={step.alt}
                   fill
-                  sizes="(max-width: 1024px) 100vw, 60vw"
-                  className="object-cover"
+                  sizes="(max-width: 1024px) 100vw, 720px"
+                  className={`object-cover object-top transition-opacity duration-300 ${transitioning ? "opacity-0" : "opacity-100"}`}
+                  priority={activeStep === 0}
                 />
-                {/* Code focus overlay */}
-                <div
-                  className={`absolute left-[32%] top-[42%] w-[28%] h-[12%] rounded-lg border-2 border-indigo-400/70 bg-indigo-500/10 transition-all duration-500 ${
-                    ideStep >= 0 ? "opacity-100" : "opacity-0"
-                  }`}
-                />
-                {/* Cursor tooltip */}
-                <div
-                  className={`absolute left-[58%] top-[48%] transition-all duration-500 ${
-                    ideStep <= 1 ? "opacity-100" : "opacity-0"
-                  }`}
-                >
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-600 text-white text-[11px] font-semibold shadow-lg shadow-indigo-900/50 whitespace-nowrap">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                    드래그 후 질문
-                  </div>
-                </div>
-                {/* Mini diff card */}
-                <div
-                  className={`absolute right-3 bottom-3 w-[40%] rounded-xl border border-[#2a2a2a] bg-[#111111] shadow-xl transition-all duration-500 ${
-                    ideStep >= 3 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-                  }`}
-                >
-                  <div className="flex items-center justify-between px-3 py-1.5 border-b border-white/10">
-                    <span className="text-[10px] font-semibold text-white">변경 제안 미리보기</span>
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-200 border border-amber-400/30">
-                      Diff
-                    </span>
-                  </div>
-                  <div className="relative aspect-[16/9]">
-                    <Image
-                      src="/problemsDIFF.png"
-                      alt="코드 diff"
-                      fill
-                      sizes="260px"
-                      className="object-cover"
-                      priority
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Right — Agent panel */}
-            <div className="rounded-2xl overflow-hidden border border-[#2a2a2a] bg-[#0d0d0d] shadow-[0_8px_40px_rgba(0,0,0,0.7)] flex flex-col">
-              <div className="flex items-start justify-between gap-3 px-4 py-3 bg-[#1a1a1a] border-b border-[#2a2a2a]">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-300 mb-1">Agent Mode</p>
-                  <h3 className="text-[15px] font-bold text-white">선택한 코드에 대해 바로 묻기</h3>
-                </div>
-                <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-200 border border-indigo-400/30 whitespace-nowrap">
-                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-300 animate-pulse" />
-                  {ideStepData.label}
-                </span>
               </div>
 
-              <div className="flex-1 min-h-0 px-4 py-4 space-y-3">
-                {/* User message */}
-                <div className="space-y-1">
-                  <span className="inline-block text-[10px] font-mono text-indigo-300/80 uppercase tracking-wider">질문</span>
-                  <div className="rounded-xl rounded-tl-sm px-3 py-2 bg-[#2a2a3a] border border-[#3a3a4a] text-sm text-gray-200 leading-relaxed">
-                    {ideStepData.question}
-                  </div>
-                </div>
-
-                {/* Agent message */}
-                <div
-                  className={`space-y-1 transition-all duration-300 ${
-                    ideStep < 2 ? "opacity-0 -translate-y-2 pointer-events-none" : "opacity-100"
-                  }`}
+              <div className="mt-3 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => goToStep((activeStep - 1 + WORKFLOW.length) % WORKFLOW.length)}
+                  className="inline-flex h-9 items-center gap-1 rounded-xl border border-white/12 bg-[#111124]/70 px-3 text-sm font-bold text-indigo-50 transition-colors hover:bg-white/[0.1]"
                 >
-                  <span className="inline-block text-[10px] font-mono text-teal-300/80 uppercase tracking-wider">에이전트</span>
-                  <div className="rounded-xl rounded-tl-sm px-3 py-2 bg-[#1e2a1e] border border-[#2a3a2a] text-sm text-green-400 leading-relaxed font-mono">
-                    {ideStep === 2 ? (
-                      <span className="inline-flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-teal-300 animate-bounce" style={{ animationDelay: "0ms" }} />
-                        <span className="w-1.5 h-1.5 rounded-full bg-teal-300 animate-bounce" style={{ animationDelay: "150ms" }} />
-                        <span className="w-1.5 h-1.5 rounded-full bg-teal-300 animate-bounce" style={{ animationDelay: "300ms" }} />
-                      </span>
-                    ) : (
-                      ideStepData.answer
-                    )}
-                  </div>
+                  <ChevronLeft size={16} strokeWidth={2.3} />
+                  이전
+                </button>
+                <div className="min-w-0 px-3 text-center">
+                  <div className="truncate text-sm font-black text-white">{step.label}</div>
+                  <div className="mt-0.5 text-xs font-bold text-sky-100/85">{step.tag}</div>
                 </div>
-
-                {/* Note */}
-                <div
-                  className={`flex items-start gap-2 p-3 rounded-xl bg-amber-400/10 border border-amber-400/20 transition-all duration-300 ${
-                    ideStep < 3 ? "opacity-0 -translate-y-2 pointer-events-none" : "opacity-100"
-                  }`}
+                <button
+                  type="button"
+                  onClick={() => goToStep((activeStep + 1) % WORKFLOW.length)}
+                  className="inline-flex h-9 items-center gap-1 rounded-xl border border-white/12 bg-[#111124]/70 px-3 text-sm font-bold text-indigo-50 transition-colors hover:bg-white/[0.1]"
                 >
-                  <Sparkles size={14} className="shrink-0 mt-0.5 text-amber-300" />
-                  <div className="text-xs leading-relaxed">
-                    <strong className="text-amber-200 font-semibold">수정 제안</strong>{" "}
-                    <span className="text-indigo-200/80">
-                      오른쪽 답변과 함께 diff 미리보기가 열려 바로 적용 여부를 판단할 수 있습니다.
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="px-4 py-2 border-t border-[#2a2a2a] font-mono text-[11px] text-gray-500 flex items-center flex-wrap gap-x-1 bg-[#111]">
-                <span className="text-green-500">agent@aig</span>
-                <span className="text-gray-600">:</span>
-                <span className="text-blue-400">~/selection</span>
-                <span className="text-gray-600">$ </span>
-                <span className="text-gray-300">{ideStepData.status}</span>
-                <span style={{ opacity: ideCursor ? 1 : 0 }} className="ml-0.5 text-gray-300">▌</span>
+                  다음
+                  <ChevronRight size={16} strokeWidth={2.3} />
+                </button>
               </div>
             </div>
           </div>
