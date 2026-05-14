@@ -243,7 +243,7 @@ export default function SessionsPage() {
               내 세션 기록
             </h1>
             <p className="text-[15px] text-gray-500 leading-relaxed max-w-xl">
-              모든 풀이 기록을 한 번에 — 완료된 건 다시 복기하고, 진행 중인 건 이어서 풀어요.
+              모든 풀이 기록을 한 곳에. 완료된 건 다시 복기하고, 진행 중인 건 이어서 풀어보세요.
             </p>
           </div>
 
@@ -281,7 +281,7 @@ export default function SessionsPage() {
             />
             <StatTile
               label="평균 점수"
-              value={stats.avgScore ? String(stats.avgScore) : "—"}
+              value={stats.avgScore ? String(stats.avgScore) : "-"}
             />
             <StatTile
               label="총 학습 시간"

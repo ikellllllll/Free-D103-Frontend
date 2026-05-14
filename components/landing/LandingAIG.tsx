@@ -497,7 +497,7 @@ function HeroIdePreviewMock({ step }: { step: number }) {
                       <div className="diff-pane__actions">
                         <div className="diff-pane__label">
                           <span className="codicon codicon-diff" aria-hidden />
-                          <span>AI 워크트리 수정 제안 — 적용 시 원본 파일이 덮어써집니다</span>
+                          <span>AI 수정 제안: 적용 시 원본 파일이 덮어써져요</span>
                         </div>
                         <div className="diff-pane__buttons">
                           <button type="button" className="button button--ghost button--tiny">거절</button>

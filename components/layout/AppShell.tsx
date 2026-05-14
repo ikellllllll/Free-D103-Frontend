@@ -208,7 +208,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Image src="/brand/favicon.png" alt="AIG" width={35} height={35} className="rounded-lg object-cover" />
           </Link>
 
-          <nav className="hidden md:flex items-center space-x-1 text-sm font-medium text-gray-600 mx-6">
+          {/* 네비게이션 — 가로 가운데 정렬. 검색창은 제거하고 ⌘/Ctrl+K 단축키로만 명령 팔레트 띄움. */}
+          <nav className="hidden md:flex flex-1 items-center justify-center space-x-1 text-sm font-medium text-gray-600">
             {NAV_ITEMS.map((item) => {
               const active =
                 currentPath === item.href || currentPath.startsWith(`${item.href}/`);
@@ -229,18 +230,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           </nav>
 
           <div className="hidden md:flex items-center space-x-2 shrink-0">
-            <button
-              type="button"
-              onClick={openPalette}
-              title={`명령 팔레트 (${shortcutLabel})`}
-              className="group flex items-center gap-2.5 w-56 lg:w-64 h-9 pl-3 pr-2 rounded-xl bg-gray-100 ring-1 ring-inset ring-gray-300/80 text-sm text-gray-500 shadow-[inset_0_1px_2px_rgba(17,24,39,0.04)] hover:bg-gray-300/80 hover:ring-gray-400 hover:text-gray-800 transition-colors cursor-text"
-            >
-              <Search size={14} strokeWidth={2} className="shrink-0" />
-              <span className="flex-1 text-left">검색…</span>
-              <kbd className="hidden sm:inline-flex items-center gap-0.5 text-[10px] font-semibold text-gray-500 bg-white ring-1 ring-inset ring-gray-200 rounded-md px-1.5 py-0.5 tabular-nums shadow-[0_1px_0_0_rgba(17,24,39,0.04)]">
-                {shortcutLabel}
-              </kbd>
-            </button>
             {user ? (
               <div className="relative" ref={userMenuRef}>
                 <button

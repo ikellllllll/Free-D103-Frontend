@@ -99,7 +99,7 @@ export function SubmissionResultPanel({ result, loading }: Props) {
                     ? "비공개 포함"
                     : isFailed
                       ? "실행 단계 실패"
-                      : "—"}
+                      : "진행 중"}
               </small>
             </Card>
           </div>

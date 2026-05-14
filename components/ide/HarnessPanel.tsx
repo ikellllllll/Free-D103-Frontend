@@ -373,7 +373,7 @@ export function HarnessPanel() {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {/* Summary cards */}
-        <SummaryRow label="Agent" value={model?.name ?? "—"} icon="🤖" onEdit={() => setStep(1)} />
+        <SummaryRow label="Agent" value={model?.name ?? "미선택"} icon="🤖" onEdit={() => setStep(1)} />
         <SummaryRow
           label="Skills"
           value={skills.length ? skills.map((s) => s.name).join(", ") : "없음"}
@@ -382,7 +382,7 @@ export function HarnessPanel() {
         />
         <SummaryRow
           label="Instruction"
-          value={instruction.trim() ? instruction.slice(0, 40) + (instruction.length > 40 ? "…" : "") : "—"}
+          value={instruction.trim() ? instruction.slice(0, 40) + (instruction.length > 40 ? "…" : "") : "미입력"}
           icon="📋"
           onEdit={() => setStep(3)}
         />

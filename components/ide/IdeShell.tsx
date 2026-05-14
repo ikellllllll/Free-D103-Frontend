@@ -141,10 +141,10 @@ const tutorialSteps: TutorialStep[] = [
     summary: "왼쪽 탐색기에 파일 트리가 열렸습니다.",
     body: [
       { kind: "p", text: "일반 소스 파일은 자유롭게 편집·실행 가능합니다. 추가로 AIG 전용 폴더가 두 가지 있습니다." },
-      { kind: "li", text: ".worktree/ (ai 뱃지) — Agent 모드가 만든 패치 미리보기" },
-      { kind: "li", text: "agent/instruction.md (meta) — 에이전트 보조 지시문" },
-      { kind: "li", text: "agent/skills/ (meta) — 에이전트 보조 스킬 정의" },
-      { kind: "li", text: "agent/.sandbox/ (temp) — 임시 실행 산출물" },
+      { kind: "li", text: ".worktree/ (ai 뱃지): Agent 모드가 만든 패치 미리보기" },
+      { kind: "li", text: "agent/instruction.md (meta): 에이전트 보조 지시문" },
+      { kind: "li", text: "agent/skills/ (meta): 에이전트 보조 스킬 정의" },
+      { kind: "li", text: "agent/.sandbox/ (temp): 임시 실행 산출물" },
       { kind: "tip", text: "탐색기에서 파일을 클릭하면 에디터에 열립니다." }
     ],
     action: { label: "탐색기 열기", intent: { type: "openSidebar", view: "explorer" } },
@@ -186,7 +186,7 @@ const tutorialSteps: TutorialStep[] = [
     summary: "오른쪽에 AI 보조 패널이 열렸습니다.",
     body: [
       { kind: "p", text: "AI 패널에서 두 가지 모드를 상황에 맞게 사용하세요." },
-      { kind: "li", text: "Chat 모드: 질문/설명/코드 조각 받기 — 적용은 본인이 직접" },
+      { kind: "li", text: "Chat 모드: 질문, 설명, 코드 조각 받기. 적용은 본인이 직접" },
       { kind: "li", text: "Agent 모드: 작업 위임 → AI가 .worktree/에 패치 생성, Trace 기록" },
       { kind: "li", text: "메시지 입력창 위 토글로 모드 전환" },
       { kind: "tip", text: "메시지를 입력해 보세요. AI 사용 횟수에 제한이 없습니다." }
@@ -217,10 +217,10 @@ const tutorialSteps: TutorialStep[] = [
     summary: "하단 콘솔 패널이 열렸습니다.",
     body: [
       { kind: "p", text: "콘솔에는 4개 탭이 있어 각각 다른 정보를 보여줍니다." },
-      { kind: "li", text: "출력 — 실행 stdout/stderr" },
-      { kind: "li", text: "테스트 — 공개 테스트 케이스 결과" },
-      { kind: "li", text: "제출 — 채점 진행 상황" },
-      { kind: "li", text: "Trace — 도커 러너 실행 로그" },
+      { kind: "li", text: "출력: 실행 결과 로그 (stdout/stderr)" },
+      { kind: "li", text: "테스트: 공개 테스트 케이스 결과" },
+      { kind: "li", text: "제출: 채점 진행 상황" },
+      { kind: "li", text: "Trace: 에이전트 실행 로그" },
       { kind: "tip", text: "탭을 클릭해서 직접 전환해 보세요." }
     ],
     action: { label: "콘솔 열기", intent: { type: "toggleBottomPanel" } },
@@ -6341,7 +6341,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                 <div className="diff-pane__actions">
                   <div className="diff-pane__label">
                     <span className="codicon codicon-diff" aria-hidden />
-                    <span>AI 워크트리 수정 제안 — 적용 시 원본 파일이 덮어써집니다</span>
+                    <span>AI 수정 제안: 적용 시 원본 파일이 덮어써져요</span>
                   </div>
                   <div className="diff-pane__buttons">
                     {/* worktree 파일이 2개 이상일 때만 일괄 처리 노출 — 한 개면 단일 [적용]/[거절] 만으로 충분 */}

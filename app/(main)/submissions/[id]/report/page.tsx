@@ -172,7 +172,7 @@ export default function FeedbackReportPage({
                 {firstName}님, 잘 해냈어요.
               </h1>
               <p className="text-[15px] md:text-base text-white/80 max-w-xl leading-relaxed">
-                {problemTitle} 과제를 풀었어요 — AIG가 분석한 결과를 한눈에 확인해 보세요.
+                {problemTitle} 과제를 풀었어요. AIG가 분석한 결과를 한눈에 확인해 보세요.
               </p>
             </div>
 

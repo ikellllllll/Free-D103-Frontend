@@ -22,7 +22,7 @@ const statusTone: Record<ProblemStatus, "green" | "amber" | "neutral" | "red"> =
 function SkeletonRow() {
   return (
     <div className="plist-row" style={{ pointerEvents: "none", opacity: 0.4 }}>
-      <span className="plist-row__order">—</span>
+      <span className="plist-row__order">-</span>
       <div className="plist-row__body">
         <div style={{ background: "var(--subtle-bg-2)", borderRadius: 4, height: "1em", width: "40%" }} />
         <div style={{ background: "var(--subtle-bg-2)", borderRadius: 4, height: "0.8em", width: "60%", marginTop: 6 }} />

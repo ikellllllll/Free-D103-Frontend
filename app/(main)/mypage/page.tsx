@@ -656,7 +656,7 @@ export default function MyPage() {
                         역량 지표
                       </h3>
                       <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
-                        AI 평가 5축 — 최근 리포트 {userStats?.sampleCount ?? 0}개 평균
+                        AI 평가 5축, 최근 리포트 {userStats?.sampleCount ?? 0}개 평균
                         {userStats?.sampleCount === 0 ? " · 첫 평가가 생성되면 점수가 표시됩니다" : ""}
                       </p>
                     </div>
@@ -675,7 +675,7 @@ export default function MyPage() {
             {/* API KEYS */}
             {activeTab === "apikeys" && (
               <div className="animate-slide-up">
-                <SectionHeader title="API 키" desc="본인 LLM API 키를 등록하면 시스템 기본 키 대신 사용됩니다. AES-256-GCM 으로 암호화 저장 — 평문은 등록 후 다시 표시되지 않습니다." />
+                <SectionHeader title="API 키" desc="내 API 키를 등록하면 시스템 기본 키 대신 사용됩니다. 등록한 키는 안전하게 암호화되어 저장되며, 한 번 등록하면 다시 보여지지 않으니 잘 보관해 주세요." />
                 <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm p-6">
                   <div className="flex flex-col gap-2">
                     {BYOK_PROVIDERS.map((p) => {
@@ -860,7 +860,7 @@ export default function MyPage() {
             {/* ACCOUNT */}
             {activeTab === "account" && (
               <div className="animate-slide-up">
-                <SectionHeader title="계정 관리" desc="비밀번호 변경 / 계정 삭제 / 로컬 데이터 초기화" />
+                <SectionHeader title="계정 관리" desc="비밀번호 변경, 계정 삭제" />
                 <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm p-6">
                   <div className="space-y-3">
                     {/* 비밀번호 변경 (LOCAL provider 만) */}

@@ -188,7 +188,7 @@ function ProblemDetailContent({
               }}
             >
               {MODEL_OPTIONS.default.map((opt) => (
-                <option key={opt.id} value={opt.id}>{opt.label} — {opt.note}</option>
+                <option key={opt.id} value={opt.id}>{opt.label} · {opt.note}</option>
               ))}
               {Object.entries(MODEL_OPTIONS)
                 .filter(([p]) => p !== "default")
@@ -201,7 +201,7 @@ function ProblemDetailContent({
                     >
                       {models.map((opt) => (
                         <option key={opt.id} value={opt.id} disabled={!providerHasKey}>
-                          {opt.label} — {opt.note}
+                          {opt.label} · {opt.note}
                         </option>
                       ))}
                     </optgroup>

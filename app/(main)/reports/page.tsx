@@ -114,7 +114,7 @@ export default function ReportsPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">리포트</h1>
         </div>
         <p className="text-sm text-gray-500 dark:text-slate-400">
-          제출 후 생성된 AI 분석 리포트와 진행 중인 리포트를 한 곳에서 확인하세요.
+          내가 푼 문제의 AI 분석 리포트를 한곳에서 확인하세요.
         </p>
       </header>
 
@@ -122,7 +122,7 @@ export default function ReportsPage() {
       {pendingMarkers.length > 0 ? (
         <section className="mb-6">
           <h2 className="text-sm font-semibold text-gray-500 dark:text-slate-400 mb-3 uppercase tracking-wide">
-            진행 중 · 실패 ({pendingMarkers.length})
+            생성 중인 리포트 ({pendingMarkers.length})
           </h2>
           <ul className="space-y-2">
             {pendingMarkers.map((m) => (
@@ -132,14 +132,13 @@ export default function ReportsPage() {
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono text-gray-400 dark:text-slate-500">
-                      세션 #{m.problemSessionId}
-                    </span>
                     {m.problemTitle ? (
                       <span className="text-sm font-medium text-gray-700 dark:text-slate-200 truncate">
                         {m.problemTitle}
                       </span>
-                    ) : null}
+                    ) : (
+                      <span className="text-sm text-gray-500 dark:text-slate-400">풀이</span>
+                    )}
                   </div>
                   <div className="mt-1 text-xs text-gray-400 dark:text-slate-500">
                     {new Date(m.startedAt).toLocaleString("ko-KR")}
@@ -175,7 +174,7 @@ export default function ReportsPage() {
       {/* Completed 섹션 */}
       <section>
         <h2 className="text-sm font-semibold text-gray-500 dark:text-slate-400 mb-3 uppercase tracking-wide">
-          완료된 리포트 ({reportsData?.totalCount ?? 0})
+          내 리포트 ({reportsData?.totalCount ?? 0})
         </h2>
         {isLoading ? (
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm p-10 text-center">
@@ -226,7 +225,7 @@ export default function ReportsPage() {
                         </div>
                         <div className={`text-right shrink-0 ${scoreColor}`}>
                           <div className="text-xl font-bold tabular-nums">
-                            {overall != null && Number.isFinite(overall) ? overall.toFixed(1) : "—"}
+                            {overall != null && Number.isFinite(overall) ? overall.toFixed(1) : "-"}
                           </div>
                           <div className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-slate-500">score</div>
                         </div>
@@ -265,7 +264,7 @@ export default function ReportsPage() {
 
       {!hasAny ? null : (
         <p className="mt-6 text-[11px] text-gray-400 dark:text-slate-500 text-center">
-          진행 중인 리포트는 임시로 브라우저에 저장되어 있고, 백엔드가 GENERATED 상태로 응답하면 자동으로 완료 리스트로 이동합니다.
+          생성이 완료되면 자동으로 완료된 리포트 목록에 표시됩니다.
         </p>
       )}
     </div>
