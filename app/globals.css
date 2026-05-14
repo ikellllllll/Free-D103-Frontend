@@ -4234,6 +4234,22 @@ html[data-theme="light"] .test-result-card__trace-body {
 .build-status__pill svg { flex-shrink: 0; }
 .build-status__pill-count { font-variant-numeric: tabular-nums; line-height: 1; }
 
+/* 빌드/컴파일 실패 시 bottom panel 에 표시할 stderr 블록. */
+.build-stderr-block {
+  max-height: 280px;
+  overflow: auto;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, #ef4444 40%, var(--ide-border) 60%);
+  border-radius: 8px;
+  background: color-mix(in srgb, #ef4444 8%, var(--ide-surface) 92%);
+  color: color-mix(in srgb, #fecaca 70%, var(--text) 30%);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .build-status__pill:hover { filter: brightness(1.15); transform: translateY(-1px); }
 .build-status__pill--ok   { background: rgba(34, 197, 94, 0.18);  color: #4ade80; border-color: rgba(34, 197, 94, 0.4); }
 .build-status__pill--warn { background: rgba(251, 191, 36, 0.18); color: #fbbf24; border-color: rgba(251, 191, 36, 0.4); }
@@ -5067,9 +5083,17 @@ html[data-theme="light"] .chat-bubble__markdown code {
   overflow: hidden;   /* auto → hidden : 가로 overflow 차단. 내부 컨테이너만 자체 스크롤 허용 */
 }
 
+/* 패널 안에 Card(assistant-changes-card) + chat-stack + composer 같은 가변 개수 자식이 들어와서
+ * 기존 grid-template-rows: auto minmax(96px,1fr) auto 로는 Card 가 1fr 행에 박혀서 빈 공간이 크게 보이던 버그.
+ * flex column 으로 바꾸고 chat-stack--panel 만 flex:1 로 늘어나게 한다. */
 .ai-panel--chat {
-  grid-template-rows: auto minmax(96px, 1fr) auto;
-  align-content: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ai-panel--chat .chat-stack--panel {
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 .ai-panel--edit {

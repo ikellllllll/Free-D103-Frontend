@@ -49,6 +49,12 @@ export interface TestRunResult {
   passed: number;
   failed: number;
   results: TestCaseResult[];
+  /** 빌드/컴파일 실패: 백엔드가 status=COMPLETED 인데 0/0/0 + stderr 가 있으면 컴파일 실패로 분류해서 노출. */
+  buildFailed?: boolean;
+  /** 빌드/컴파일 stderr — buildFailed 일 때 사용자에게 보여줄 에러 본문. */
+  buildStderr?: string | null;
+  /** 백엔드 raw status — bottom panel 에서 ERROR 처리에 사용. */
+  rawStatus?: string | null;
 }
 
 export interface Submission {
@@ -78,6 +84,10 @@ export interface SubmissionResult {
   hiddenTotal?: number;
   startedAt: number;
   endedAt: number | null;
+  /** 빌드/컴파일 실패 — total=0 + stderr 가 있으면 frontend 측에서 분류. */
+  buildFailed?: boolean;
+  /** 빌드 stderr — buildFailed 일 때 표시용. 비공개 테스트 보호를 위해 백엔드가 일부만 줄 수도. */
+  buildStderr?: string | null;
 }
 
 export interface SessionListItem {

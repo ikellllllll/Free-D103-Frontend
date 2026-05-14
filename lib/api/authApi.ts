@@ -108,6 +108,38 @@ export interface ActiveSession {
   startedAt: string;                  // LocalDateTime ISO
 }
 
+/** GET /api/v1/users/me/sessions/history 응답 item (백엔드 SessionHistoryItem, 2026-05-14~) */
+export interface SessionHistoryItem {
+  problemSessionId: number;
+  problemId: number;
+  problemTitle: string;
+  problemDifficulty: string;
+  problemCategory: "API" | "BUG";
+  language: "JAVA" | "PYTHON";
+  sessionStatus: "IN_PROGRESS" | "ENDED" | string;
+  solveStatus: "IN_PROGRESS" | "COMPLETED" | "FAILED";
+  startedAt: string;
+  endedAt: string | null;
+  passRate: number;                   // 0.0 ~ 100.0
+}
+
+/** GET /api/v1/users/me/sessions/history 응답 (백엔드 GetSessionHistoryResponse, 2026-05-14~) */
+export interface SessionHistoryResponse {
+  content: SessionHistoryItem[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+  hasNext: boolean;
+}
+
+/** 세션 이력 조회 status 필터 — 백엔드 SessionHistoryStatusFilter enum */
+export type SessionHistoryStatusFilter = "ALL" | "IN_PROGRESS" | "COMPLETED" | "FAILED";
+/** 세션 이력 조회 정렬 옵션 — 백엔드 SessionHistorySortType enum */
+export type SessionHistorySortType = "LATEST" | "PASS_RATE" | "DIFFICULTY";
+
 /** 비밀번호 변경 요청 (PATCH /api/v1/auth/password, 2026-05-09~) */
 export interface ChangePasswordRequest {
   currentPassword: string;
@@ -347,6 +379,28 @@ export const authApi = {
   async getActiveSessions(): Promise<ActiveSession[]> {
     const res = await authClient.get("api/v1/users/me/sessions/active")
       .json<ApiResponse<ActiveSession[]>>();
+    return res.data;
+  },
+
+  /** 내 풀이 세션 이력 조회 — GET /api/v1/users/me/sessions/history (2026-05-14~).
+   * status / sort / page(0-based) / size 쿼리 파라미터.
+   * solveStatus 가 IN_PROGRESS/COMPLETED/FAILED 로 결정됨 (passRate >= 100 → COMPLETED).
+   */
+  async getSessionHistory(params: {
+    status?: SessionHistoryStatusFilter;
+    sort?: SessionHistorySortType;
+    page?: number;
+    size?: number;
+  } = {}): Promise<SessionHistoryResponse> {
+    const search = new URLSearchParams();
+    if (params.status) search.set("status", params.status);
+    if (params.sort) search.set("sort", params.sort);
+    if (typeof params.page === "number") search.set("page", String(params.page));
+    if (typeof params.size === "number") search.set("size", String(params.size));
+    const qs = search.toString();
+    const res = await authClient
+      .get(`api/v1/users/me/sessions/history${qs ? `?${qs}` : ""}`)
+      .json<ApiResponse<SessionHistoryResponse>>();
     return res.data;
   },
 

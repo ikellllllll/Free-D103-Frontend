@@ -37,6 +37,9 @@ export function SubmissionResultPanel({ result, loading }: Props) {
   const isRunning = result.rawStatus === "RUNNING";
   const isFailed = result.rawStatus === "FAILED";
   const isCompleted = result.rawStatus === "COMPLETED";
+  // buildFailed: 백엔드가 COMPLETED 로 끝났는데 total=0 — 컴파일/실행 단계에서 셋업이 안 됐다는 신호.
+  // (백엔드가 stderr 를 안 줘서 사용자가 "0/0 통과" 로 오인하던 케이스 차단)
+  const isBuildFailed = !!result.buildFailed;
 
   const liveNow = result.endedAt ?? (isRunning ? now : result.startedAt);
   const elapsedMs = Math.max(0, liveNow - result.startedAt);
@@ -56,6 +59,8 @@ export function SubmissionResultPanel({ result, loading }: Props) {
           제출 #{shortId} ·{" "}
           {isRunning ? (
             <Badge tone="amber">진행 중</Badge>
+          ) : isBuildFailed ? (
+            <Badge tone="red">빌드 실패</Badge>
           ) : isCompleted ? (
             <Badge tone="green">완료</Badge>
           ) : (
@@ -63,7 +68,7 @@ export function SubmissionResultPanel({ result, loading }: Props) {
           )}
         </strong>
         <span>
-          {isRunning ? `채점 중 · ${elapsedSec}초 경과` : `소요 ${elapsedSec}초`}
+          {isRunning ? `채점 중 · ${elapsedSec}초 경과` : isBuildFailed ? "컴파일 또는 실행 환경 셋업 단계에서 실패" : `소요 ${elapsedSec}초`}
         </span>
       </div>
 
@@ -105,7 +110,13 @@ export function SubmissionResultPanel({ result, loading }: Props) {
           </div>
         )}
 
-        {isFailed ? (
+        {isBuildFailed ? (
+          <div className="empty-inline" style={{ borderColor: "rgba(220,38,38,0.32)" }}>
+            테스트가 한 건도 실행되지 못했어요 (0/0). 컴파일 에러 또는 실행 셋업 실패로 추정됩니다.
+            상단 &quot;테스트&quot; 버튼으로 공개 테스트를 다시 돌리면 stderr 가 노출됩니다.
+            <br /><small style={{ opacity: 0.7 }}>※ 백엔드 SubmissionResult API 에 stderr/buildSucceeded 필드가 없어 상세 사유를 여기서 직접 보여드리지 못합니다.</small>
+          </div>
+        ) : isFailed ? (
           <div className="empty-inline" style={{ borderColor: "rgba(220,38,38,0.32)" }}>
             실행 중 오류로 채점이 중단됐습니다. 비공개 테스트가 섞여 있어 상세 stderr 는 노출되지 않습니다.
             상단 &quot;테스트&quot; 버튼으로 공개 테스트만 다시 돌리면 stdout · stderr 를 확인할 수 있습니다.

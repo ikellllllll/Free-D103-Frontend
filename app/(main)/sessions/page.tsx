@@ -13,8 +13,7 @@ import {
 
 import { LangIcon } from "@/components/common/LangIcon";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
-import { authApi, type ActiveSession } from "@/lib/api/authApi";
-import { mockApi } from "@/lib/api/mockApi";
+import { authApi, type ActiveSession, type SessionHistoryItem } from "@/lib/api/authApi";
 import type { ProblemLanguage, SessionListItem } from "@/lib/types/session";
 import { useAuthStore } from "@/store/authStore";
 
@@ -101,7 +100,9 @@ export default function SessionsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  // 백엔드 활성 세션 (IN_PROGRESS) — /api/v1/users/me/sessions
+  // 백엔드 활성 세션 (IN_PROGRESS) — /api/v1/users/me/sessions/active
+  // 진행 중 세션만 빠르게 가져오는 가벼운 endpoint. /history 가 IN_PROGRESS 도 포함하지만
+  // 폴링 주기/실시간성 면에서 active 전용 API 쪽이 더 자주 갱신되도록 유지.
   const { data: activeSessions = [] } = useQuery<ActiveSession[]>({
     queryKey: ["activeSessions", user?.id],
     queryFn: async () => {
@@ -111,12 +112,14 @@ export default function SessionsPage() {
     enabled: !!user
   });
 
-  // mock 시드 (데모용 풍부한 history) — 백엔드 완료 리포트 GET 이 더 안정화되면 교체 예정
-  const { data: mockSessions = [], isLoading } = useQuery({
-    queryKey: ["sessions", user?.id],
-    queryFn: () => mockApi.getSessions(user!.id),
+  // 풀이 세션 이력 (전체) — /api/v1/users/me/sessions/history?status=ALL&size=100&sort=LATEST
+  // 백엔드 SessionHistoryItem 가 passRate / solveStatus / endedAt 까지 줘서 mock 시드 완전 대체 가능.
+  const { data: historyResponse, isLoading } = useQuery({
+    queryKey: ["sessionHistory", user?.id],
+    queryFn: () => authApi.getSessionHistory({ status: "ALL", sort: "LATEST", page: 0, size: 100 }),
     enabled: !!user
   });
+  const historyItems = useMemo<SessionHistoryItem[]>(() => historyResponse?.content ?? [], [historyResponse]);
 
   // 백엔드 활성 세션 → SessionListItem 호환 형태로 매핑
   const activeAsList = useMemo<SessionListItem[]>(
@@ -138,12 +141,41 @@ export default function SessionsPage() {
     [activeSessions]
   );
 
-  // 백엔드 활성 세션 + mock 시드 union. sessionId 중복 시 백엔드 우선.
+  // 풀이 이력 → SessionListItem 호환 매핑. solveStatus 기반으로 status/score 결정.
+  // - COMPLETED: status SUBMITTED + score = passRate
+  // - FAILED:    status SUBMITTED + score = passRate (PASS_THRESHOLD 미만 → failed 표시)
+  // - IN_PROGRESS: status IN_PROGRESS (active 와 union 시 dedupe)
+  const historyAsList = useMemo<SessionListItem[]>(
+    () => historyItems.map((h) => {
+      const level = h.problemDifficulty === "level1" ? 1
+        : h.problemDifficulty === "level2" ? 2
+        : 3;
+      const sessionStatus = h.solveStatus === "IN_PROGRESS" ? "IN_PROGRESS" : "SUBMITTED";
+      return {
+        sessionId: String(h.problemSessionId),
+        problemId: String(h.problemId),
+        problemTitle: h.problemTitle,
+        problemLevel: level as 1 | 2 | 3,
+        problemCategory: h.problemCategory,
+        difficulty: h.problemDifficulty,
+        language: h.language.toLowerCase() as ProblemLanguage,
+        status: sessionStatus,
+        startedAt: h.startedAt,
+        endedAt: h.endedAt,
+        aiRequestCount: 0,
+        submissionId: null,
+        score: h.solveStatus === "IN_PROGRESS" ? null : Math.round(h.passRate)
+      } as SessionListItem;
+    }),
+    [historyItems]
+  );
+
+  // active + history union — sessionId 중복 시 active 우선 (실시간성).
   const sessions = useMemo<SessionListItem[]>(() => {
     const activeIds = new Set(activeAsList.map((s) => s.sessionId));
-    const mockFiltered = mockSessions.filter((s) => !activeIds.has(s.sessionId));
-    return [...activeAsList, ...mockFiltered];
-  }, [activeAsList, mockSessions]);
+    const histFiltered = historyAsList.filter((s) => !activeIds.has(s.sessionId));
+    return [...activeAsList, ...histFiltered];
+  }, [activeAsList, historyAsList]);
 
   /* Stats */
   const stats = useMemo(() => {

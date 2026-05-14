@@ -2035,19 +2035,28 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
       // 직전 store 상태에서 startedAt 을 보존해야 elapsed 계산이 안 깨짐.
       const prev = useIdeStore.getState().submissionResult;
+      // 빌드/컴파일 실패 추정: terminal 인데 total=0 + passed=0 + failed=0 — 백엔드가 stderr 를 안 주는 한계.
+      // (백엔드 GetSubmissionResultResponse 가 status·total·passed·failed·passRate 만 노출해서
+      //  컴파일 실패 케이스를 명시적으로 구분 못 함. 백엔드 팀에 buildSucceeded/stderr 추가 요청 필요.)
+      const total = data.total ?? 0;
+      const passed = data.passed ?? 0;
+      const failed = data.failed ?? 0;
+      const buildFailed = isTerminal && total === 0 && passed === 0 && failed === 0;
       setSubmissionResult({
         executionId: String(data.id),
         rawStatus,
-        total: data.total ?? 0,
-        passed: data.passed ?? 0,
-        failed: data.failed ?? 0,
+        total,
+        passed,
+        failed,
         passRate: data.passRate ?? 0,
         publicPassed: data.publicPassed,
         publicTotal: data.publicTotal,
         hiddenPassed: data.hiddenPassed,
         hiddenTotal: data.hiddenTotal,
         startedAt: prev?.startedAt ?? Date.now(),
-        endedAt: isTerminal ? Date.now() : null
+        endedAt: isTerminal ? Date.now() : null,
+        buildFailed,
+        buildStderr: null
       });
 
       if (isTerminal) {
@@ -5885,10 +5894,19 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                 <span>{testElapsedSec ? `${testElapsedSec}초 경과 · ` : ""}도커 러너에서 공개 테스트 케이스를 실행하고 있습니다.</span>
               </>
             ) : testResult ? (
-              <>
-                <strong>{testResult.passed} / {testResult.total} 통과</strong>
-                <span>{testResult.failed}개 실패</span>
-              </>
+              testResult.buildFailed ? (
+                <>
+                  <strong>
+                    빌드 실패 <Badge tone="red">컴파일 에러</Badge>
+                  </strong>
+                  <span>코드가 컴파일되지 않아 테스트가 한 건도 실행되지 못했어요. 아래 stderr 를 확인해 보세요.</span>
+                </>
+              ) : (
+                <>
+                  <strong>{testResult.passed} / {testResult.total} 통과</strong>
+                  <span>{testResult.failed}개 실패</span>
+                </>
+              )
             ) : (
               <>
                 <strong>테스트 결과 없음</strong>
@@ -5898,7 +5916,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           </div>
 
           <div className="stack-12">
-            {!testLoading && testResult
+            {!testLoading && testResult && testResult.buildFailed && testResult.buildStderr ? (
+              <pre className="build-stderr-block">{testResult.buildStderr}</pre>
+            ) : !testLoading && testResult
               ? testResult.results.map((result) => (
                   <TestResultRow key={result.id} result={result} />
                 ))

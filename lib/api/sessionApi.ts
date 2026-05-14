@@ -674,18 +674,28 @@ const toRunResult = (payload: GetExecutionResultResponse): RunResult => ({
   durationMs: payload.results.reduce((sum, item) => sum + (item.durationMs ?? 0), 0)
 });
 
-const toTestRunResult = (payload: GetExecutionResultResponse): TestRunResult => ({
-  total: payload.total,
-  passed: payload.passed,
-  failed: payload.failed,
-  results: payload.results.map((item, index) => ({
-    id: `${payload.executionId}-${index}`,
-    name: item.testName || `Test ${index + 1}`,
-    status: normalizeTestStatus(item.status),
-    time: item.durationMs == null ? "-" : `${item.durationMs}ms`,
-    detail: item.message ?? undefined
-  }))
-});
+const toTestRunResult = (payload: GetExecutionResultResponse): TestRunResult => {
+  // 빌드/컴파일 실패 추정: 백엔드가 COMPLETED 로 와도 total/passed/failed 가 0 이고 stderr 가 있으면
+  // 사실상 컴파일 안 됐다는 뜻 — UI 에서 "0/0 통과" 대신 "빌드 실패 + stderr" 로 노출하기 위한 flag.
+  const noTestsRun = payload.total === 0 && payload.passed === 0 && payload.failed === 0;
+  const hasStderr = !!(payload.stderr && payload.stderr.trim());
+  const buildFailed = noTestsRun && hasStderr;
+  return {
+    total: payload.total,
+    passed: payload.passed,
+    failed: payload.failed,
+    results: payload.results.map((item, index) => ({
+      id: `${payload.executionId}-${index}`,
+      name: item.testName || `Test ${index + 1}`,
+      status: normalizeTestStatus(item.status),
+      time: item.durationMs == null ? "-" : `${item.durationMs}ms`,
+      detail: item.message ?? undefined
+    })),
+    buildFailed,
+    buildStderr: hasStderr ? payload.stderr : null,
+    rawStatus: payload.status
+  };
+};
 
 export const sessionApi = {
   async startSession(
