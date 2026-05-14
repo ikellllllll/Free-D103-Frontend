@@ -63,7 +63,10 @@ const getPathDepth = (path: string) => Math.max(0, normalizeHarnessPath(path).sp
 const getParentPath = (path: string) => normalizeHarnessPath(path).split("/").slice(0, -1).join("/");
 
 const inferFileType = (path: string): UserHarnessFileType | null => {
-  const extension = getFileName(path).toLowerCase().split(".").pop();
+  const normalized = normalizeHarnessPath(path);
+  const extension = getFileName(normalized).toLowerCase().split(".").pop();
+  // sub_agent/ 폴더: 백엔드가 .yaml/.yml/.toml/.json 만 허용 — .md 빌드 오류
+  if (normalized.startsWith("sub_agent/") && (extension === "md" || extension === "markdown")) return null;
   if (extension === "md" || extension === "markdown") return "MARKDOWN";
   if (extension === "toml") return "TOML";
   if (extension === "yaml" || extension === "yml") return "YAML";
@@ -405,7 +408,10 @@ export default function HarnessPage() {
     const name = getFileName(nextPath);
     const fileType = createDraft.nodeType === "FILE" ? inferFileType(nextPath) : null;
     if (createDraft.nodeType === "FILE" && !fileType) {
-      addToast("사용자 하네스 파일은 .md / .toml / .yaml 파일만 만들 수 있습니다.", "warning");
+      const msg = nextPath.startsWith("sub_agent/")
+        ? "sub_agent 폴더에는 .yaml / .toml 파일만 만들 수 있습니다."
+        : "사용자 하네스 파일은 .md / .toml / .yaml 파일만 만들 수 있습니다.";
+      addToast(msg, "warning");
       return;
     }
     if (harnessFiles.some((file) => file.path === nextPath)) {
@@ -1371,7 +1377,7 @@ export default function HarnessPage() {
                 <button
                   type="button"
                   disabled={actionLoading}
-                  className="flex min-h-8 w-full items-center gap-2 rounded-md px-2.5 text-left text-[12px] font-mono text-red-200 transition-colors hover:bg-red-500/15 disabled:opacity-40"
+                  className="flex min-h-8 w-full items-center gap-2 rounded-md px-2.5 text-left text-[12px] font-mono text-red-400 transition-colors hover:bg-red-500/15 hover:text-red-300 disabled:opacity-40"
                   onClick={() => {
                     const target = contextMenu.target;
                     setContextMenu(null);

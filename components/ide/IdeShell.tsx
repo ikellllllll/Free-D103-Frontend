@@ -3964,6 +3964,12 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           addToast("하네스 파일은 .md / .toml / .yaml 만 만들 수 있어요.", "warning");
           return;
         }
+        // sub_agent/ 폴더는 백엔드가 .yaml/.yml/.toml/.json 만 허용 (.md 빌드 오류)
+        const backendPathForCheck = nextPath.slice("agent/".length);
+        if (backendPathForCheck.startsWith("sub_agent/") && fileType === "MARKDOWN") {
+          addToast("sub_agent 폴더에는 .yaml / .toml 파일만 만들 수 있어요.", "warning");
+          return;
+        }
 
         try {
           // 백엔드는 agent/ prefix 없이 raw path 저장 — 매핑은 응답 재조회 시 frontend 가 다시 prefix 붙임
