@@ -803,8 +803,20 @@ export const sessionApi = {
     try {
       const result = await this.getAgentTraceList(sessionId, 1, 10);
       if (result.runs.length === 0) return [];
-      await mockApi.syncExternalTraces(sessionId, toSessionTraces(result.runs));
-      return result.runs;
+      const hydratedRuns = await Promise.all(
+        result.runs.map(async (run) => {
+          const hasPatchSummary = run.spans.some((span) => span.patches.length > 0);
+          if (hasPatchSummary) return run;
+
+          try {
+            return await this.getAgentTraceDetail(sessionId, run.agentTraceId);
+          } catch {
+            return run;
+          }
+        })
+      );
+      await mockApi.syncExternalTraces(sessionId, toSessionTraces(hydratedRuns));
+      return hydratedRuns;
     } catch {
       return [];
     }
