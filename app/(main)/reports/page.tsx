@@ -105,7 +105,7 @@ export default function ReportsPage() {
   const hasAny = pendingMarkers.length > 0 || completed.length > 0;
 
   return (
-    <div className="max-w-5xl mx-auto px-6 pt-10 pb-20">
+    <div className="max-w-5xl mx-auto px-6 pt-28 pb-20">
       <header className="mb-8">
         <div className="flex items-center gap-3 mb-2">
           <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400">

@@ -589,7 +589,7 @@ export default function MyPage() {
                         label: "총 제출",
                         value: profileSummary?.totalSubmissionCount ?? data?.history.length ?? 0,
                         unit: "회",
-                        onClick: () => setActiveTab("history"),
+                        onClick: () => router.push(withPrefix("/reports")),
                         hint: "리포트 보기"
                       },
                       {
