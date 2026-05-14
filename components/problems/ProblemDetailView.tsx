@@ -381,7 +381,7 @@ export function ProblemDetailView({ problemId }: { problemId: string }) {
               <button
                 type="button"
                 onClick={handleStart}
-                className="group w-full flex items-center justify-center space-x-2 text-white font-semibold py-4 rounded-2xl hover:-translate-y-0.5 transition-all"
+                className="group w-full flex items-center justify-center space-x-2 text-white font-semibold py-4 rounded-2xl hover:-translate-y-0.5 hover:brightness-110 hover:shadow-xl transition-all cursor-pointer"
                 style={{
                   backgroundImage: "linear-gradient(90deg, #4F46E5, #7C3AED)",
                   boxShadow: "0 16px 32px -12px rgba(99,102,241,0.5)"

@@ -541,8 +541,8 @@ export default function MyPage() {
                         </div>
                       ) : (
                         <>
-                          <div className="flex items-center gap-2 flex-wrap -mb-[7px]">
-                            <h2 className="font-bold text-gray-900 dark:text-slate-100 text-2xl leading-[1.14] truncate pb-0.5">{name}</h2>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h2 className="font-bold text-gray-900 dark:text-slate-100 text-2xl leading-[1.25] truncate">{name}</h2>
                             <button
                               type="button"
                               onClick={startEditNickname}
@@ -589,6 +589,7 @@ export default function MyPage() {
                         label: "총 제출",
                         value: profileSummary?.totalSubmissionCount ?? data?.history.length ?? 0,
                         unit: "회",
+                        // 리포트 페이지가 별도 /reports 로 분리됨. mypage history 탭 제거.
                         onClick: () => router.push(withPrefix("/reports")),
                         hint: "리포트 보기"
                       },
@@ -616,7 +617,7 @@ export default function MyPage() {
                     ];
                     return items.map((item) => {
                       const clickable = !!item.onClick;
-                      const cardClass = `bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm px-5 py-4 text-center transition-all duration-200 ${
+                      const cardClass = `bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm px-5 py-4 text-center min-h-[110px] flex flex-col justify-center transition-all duration-200 ${
                         clickable ? "hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 cursor-pointer" : ""
                       }`;
                       const inner = (
@@ -636,7 +637,7 @@ export default function MyPage() {
                           key={item.label}
                           type="button"
                           onClick={item.onClick}
-                          className={cardClass + " text-left w-full"}
+                          className={cardClass + " w-full"}
                         >
                           {inner}
                         </button>

@@ -111,34 +111,28 @@ export default function ReportsPage() {
           <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400">
             <FileText size={20} strokeWidth={2.2} />
           </span>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">리포트</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100 tracking-tight">리포트</h1>
         </div>
-        <p className="text-sm text-gray-500 dark:text-slate-400">
+        <p className="text-sm text-gray-500 dark:text-slate-400 ml-[52px]">
           내가 푼 문제의 AI 분석 리포트를 한곳에서 확인하세요.
         </p>
       </header>
 
       {/* Pending 섹션 */}
       {pendingMarkers.length > 0 ? (
-        <section className="mb-6">
-          <h2 className="text-sm font-semibold text-gray-500 dark:text-slate-400 mb-3 uppercase tracking-wide">
-            생성 중인 리포트 ({pendingMarkers.length})
+        <section className="mb-8">
+          <h2 className="text-[11px] font-bold text-gray-500 dark:text-slate-400 mb-3 uppercase tracking-[0.14em]">
+            생성 중 · {pendingMarkers.length}
           </h2>
-          <ul className="space-y-2">
+          <ul className="list-none space-y-2">
             {pendingMarkers.map((m) => (
               <li
                 key={m.problemSessionId}
-                className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm p-4 flex items-center gap-4"
+                className="bg-white dark:bg-slate-900/60 rounded-xl border border-gray-200 dark:border-slate-700/70 shadow-sm px-5 py-4 flex items-center gap-4"
               >
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    {m.problemTitle ? (
-                      <span className="text-sm font-medium text-gray-700 dark:text-slate-200 truncate">
-                        {m.problemTitle}
-                      </span>
-                    ) : (
-                      <span className="text-sm text-gray-500 dark:text-slate-400">풀이</span>
-                    )}
+                  <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 truncate">
+                    {m.problemTitle ?? "풀이"}
                   </div>
                   <div className="mt-1 text-xs text-gray-400 dark:text-slate-500">
                     {new Date(m.startedAt).toLocaleString("ko-KR")}
@@ -153,7 +147,7 @@ export default function ReportsPage() {
                     <button
                       type="button"
                       onClick={() => handleRetry(m)}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors cursor-pointer"
                     >
                       <RefreshCcw size={11} strokeWidth={2.4} />
                       <span>재시도</span>
@@ -162,7 +156,7 @@ export default function ReportsPage() {
                 ) : (
                   <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400">
                     <Loader2 size={11} strokeWidth={2.4} className="animate-spin" />
-                    <span>생성 중…</span>
+                    <span>생성 중</span>
                   </span>
                 )}
               </li>
@@ -173,93 +167,89 @@ export default function ReportsPage() {
 
       {/* Completed 섹션 */}
       <section>
-        <h2 className="text-sm font-semibold text-gray-500 dark:text-slate-400 mb-3 uppercase tracking-wide">
-          내 리포트 ({reportsData?.totalCount ?? 0})
+        <h2 className="text-[11px] font-bold text-gray-500 dark:text-slate-400 mb-3 uppercase tracking-[0.14em]">
+          내 리포트 · {reportsData?.totalCount ?? 0}
         </h2>
         {isLoading ? (
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm p-10 text-center">
+          <div className="bg-white dark:bg-slate-900/60 rounded-xl border border-gray-200 dark:border-slate-700/70 shadow-sm p-10 text-center">
             <div className="text-sm text-gray-400 dark:text-slate-500">불러오는 중...</div>
           </div>
         ) : completed.length === 0 && pendingMarkers.length === 0 ? (
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-gray-200 dark:border-slate-700 shadow-sm p-10 text-center">
+          <div className="bg-white dark:bg-slate-900/60 rounded-xl border border-dashed border-gray-200 dark:border-slate-700/70 shadow-sm p-12 text-center">
             <Sparkles size={28} className="mx-auto text-gray-300 dark:text-slate-600 mb-3" />
-            <p className="text-sm text-gray-500 dark:text-slate-400">아직 제출 후 생성된 리포트가 없어요.</p>
-            <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">문제를 풀고 세션을 종료하면 여기에 누적돼요.</p>
+            <p className="text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">아직 제출한 리포트가 없어요</p>
+            <p className="text-xs text-gray-400 dark:text-slate-500">문제를 풀고 세션을 종료하면 여기에 쌓입니다.</p>
           </div>
         ) : completed.length === 0 ? null : (
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm overflow-hidden">
-            <ul className="divide-y divide-gray-100 dark:divide-slate-800">
-              {completed.map((report) => {
-                const passRate = report.totalCount > 0
-                  ? Math.round((report.passedCount / report.totalCount) * 100)
-                  : 0;
-                const scoreColor =
-                  passRate >= 80 ? "text-emerald-600 dark:text-emerald-400" :
-                  passRate >= 60 ? "text-indigo-600 dark:text-indigo-400" :
-                  "text-rose-600 dark:text-rose-400";
-                const overall = typeof report.overallScore === "string"
-                  ? parseFloat(report.overallScore)
-                  : report.overallScore;
-                return (
-                  <li key={report.feedbackReportId}>
-                    <Link
-                      href={withPrefix(`/submissions/${report.feedbackReportId}/report`)}
-                      className="group block px-5 py-4 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-4">
-                        <CheckCircle2 size={18} className="text-emerald-500 shrink-0" strokeWidth={2.2} />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-mono text-gray-400 dark:text-slate-500 shrink-0">
-                              #{report.problemId}
-                            </span>
-                            <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                              {report.problemTitle}
-                            </h4>
-                          </div>
-                          <div className="text-xs text-gray-400 dark:text-slate-500">
-                            {new Date(report.createdAt).toLocaleString("ko-KR")}
-                            <span className="mx-2">·</span>
-                            <span className={scoreColor}>{report.passedCount}/{report.totalCount} 통과 ({passRate}%)</span>
-                          </div>
-                        </div>
-                        <div className={`text-right shrink-0 ${scoreColor}`}>
-                          <div className="text-xl font-bold tabular-nums">
-                            {overall != null && Number.isFinite(overall) ? overall.toFixed(1) : "-"}
-                          </div>
-                          <div className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-slate-500">score</div>
-                        </div>
+          <ul className="list-none divide-y divide-gray-100 dark:divide-slate-800 rounded-xl border border-gray-200 dark:border-slate-700/70 bg-white dark:bg-slate-900/60 shadow-sm overflow-hidden">
+            {completed.map((report) => {
+              const passRate = report.totalCount > 0
+                ? Math.round((report.passedCount / report.totalCount) * 100)
+                : 0;
+              const scoreColor =
+                passRate >= 80 ? "text-emerald-600 dark:text-emerald-400" :
+                passRate >= 60 ? "text-indigo-600 dark:text-indigo-400" :
+                "text-rose-600 dark:text-rose-400";
+              const overall = typeof report.overallScore === "string"
+                ? parseFloat(report.overallScore)
+                : report.overallScore;
+              return (
+                <li key={report.feedbackReportId}>
+                  <Link
+                    href={withPrefix(`/submissions/${report.feedbackReportId}/report`)}
+                    className="group flex items-center gap-4 px-5 py-4 cursor-pointer transition-colors hover:bg-indigo-50/60 dark:hover:bg-indigo-950/30"
+                  >
+                    <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500 shrink-0 transition-colors">
+                      <CheckCircle2 size={18} strokeWidth={2.2} />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-mono text-gray-400 dark:text-slate-500 shrink-0">#{report.problemId}</span>
+                        <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors">
+                          {report.problemTitle}
+                        </h4>
                       </div>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-            {(reportsData?.totalPages ?? 1) > 1 ? (
-              <div className="flex items-center justify-center gap-2 py-4 border-t border-gray-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                  className="px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-slate-300 disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg"
-                >
-                  이전
-                </button>
-                <span className="text-xs text-gray-500 dark:text-slate-400">
-                  {page} / {reportsData?.totalPages ?? 1}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setPage((p) => Math.min(reportsData?.totalPages ?? 1, p + 1))}
-                  disabled={!reportsData?.hasNext}
-                  className="px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-slate-300 disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg"
-                >
-                  다음
-                </button>
-              </div>
-            ) : null}
-          </div>
+                      <div className="mt-1 text-xs text-gray-400 dark:text-slate-500">
+                        {new Date(report.createdAt).toLocaleString("ko-KR")}
+                        <span className="mx-2">·</span>
+                        <span className={scoreColor}>{report.passedCount}/{report.totalCount} 통과 ({passRate}%)</span>
+                      </div>
+                    </div>
+                    <div className={`text-right shrink-0 ${scoreColor}`}>
+                      <div className="text-xl font-bold tabular-nums leading-none">
+                        {overall != null && Number.isFinite(overall) ? overall.toFixed(1) : "-"}
+                      </div>
+                      <div className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-slate-500 mt-1">score</div>
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
         )}
+        {(reportsData?.totalPages ?? 1) > 1 && completed.length > 0 ? (
+          <div className="flex items-center justify-center gap-3 mt-5">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="px-4 py-1.5 text-xs font-medium text-gray-600 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+            >
+              이전
+            </button>
+            <span className="text-xs text-gray-500 dark:text-slate-400 tabular-nums">
+              {page} / {reportsData?.totalPages ?? 1}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(reportsData?.totalPages ?? 1, p + 1))}
+              disabled={!reportsData?.hasNext}
+              className="px-4 py-1.5 text-xs font-medium text-gray-600 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+            >
+              다음
+            </button>
+          </div>
+        ) : null}
       </section>
 
       {!hasAny ? null : (
