@@ -2726,7 +2726,6 @@ body:has(.ide-route--workspace) .page-shell > * {
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-inline: contain;
-  scroll-behavior: smooth;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -9731,6 +9730,15 @@ html[data-theme="dark"] .harness-page .harness-window {
 
 .harness-page .harness-textarea-v2 {
   color: var(--harness-ide-code) !important;
+}
+
+.harness-page .harness-tabs-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.harness-page .harness-tabs-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .harness-page .harness-preview,

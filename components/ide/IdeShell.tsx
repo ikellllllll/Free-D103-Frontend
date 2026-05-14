@@ -3344,17 +3344,14 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
   const handleTabRailWheel = useCallback((event: ReactWheelEvent<HTMLDivElement>) => {
     const rail = event.currentTarget;
-
-    if (rail.scrollWidth <= rail.clientWidth) {
-      return;
-    }
-
     const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
 
-    if (!delta) {
+    if (!delta || rail.scrollWidth <= rail.clientWidth) {
       return;
     }
 
+    event.preventDefault();
+    event.stopPropagation();
     rail.scrollLeft += delta;
   }, []);
 
