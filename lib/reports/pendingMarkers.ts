@@ -1,11 +1,16 @@
 /**
  * /reports 페이지에서 사용하는 "진행 중/실패" 리포트 마커 — localStorage 기반.
  *
- * 이유: 백엔드의 GET /users/me/reports 는 GENERATED 된 리포트만 응답.
- * PENDING/PROCEEDING/FAILED 단계는 별도 endpoint 없어서 frontend 가 endSession 직후
- * marker 를 박아두고 polling 으로 GENERATED 전이를 감지한다.
+ * 역할: endSession 시점에 사용자가 곧장 /reports 로 이동해도 "생성 중" 카드가 보이도록
+ * 클라이언트 측에서 임시 마커를 박아둠. 실제 상태는 백엔드 endpoint 로 확인.
  *
- * 백엔드가 응답에 PENDING/PROCEEDING/FAILED 도 포함하기 시작하면 이 marker 는 점진 제거.
+ * 상태 전이 (2026-05-14~):
+ *  - GET /api/v1/sessions/{id}/report-status 응답으로 GENERATED → 마커 제거 (리포트 리스트에 노출).
+ *  - 같은 endpoint 응답으로 FAILED → 마커 status=FAILED 로 갱신 (재시도 버튼 노출).
+ *  - 5 분 클라이언트 timeout 은 endpoint 가 답을 못 줄 때만 동작하는 안전 fallback.
+ *
+ * 이 marker 자체는 폴링 중 상태를 UI 에 매끄럽게 잇기 위한 보조 캐시 — 백엔드가 PENDING/
+ * PROCEEDING/FAILED 도 GET /users/me/reports 응답에 포함하기 시작하면 점진 제거 가능.
  */
 
 export interface PendingReportMarker {

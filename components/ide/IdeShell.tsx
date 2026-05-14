@@ -4650,6 +4650,58 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   };
 
   /**
+   * 적용(approve) 직후 origin 파일 내용을 강제로 백엔드에서 다시 읽어 store 에 hydrate.
+   *
+   * 문제: workspace 쿼리 invalidate 만으로는 에디터가 적용 전 코드를 그대로 보여줌 (#사고: 2026-05-14).
+   * 이유 두 가지가 겹친다.
+   *   (1) loadedBackendFilesRef 는 한 번 로드된 path 를 set 에 박아두고 ensureBackendFileContent
+   *       에서 early return — sessionId 가 바뀌지 않는 한 다시 fetch 하지 않음.
+   *   (2) ideStore.setWorkspace 머지 로직은 "기존 store content 가 비어있지 않으면 보존"
+   *       (createFile race 방어용) — 적용 후 invalidate 가 호출하는 setWorkspace 가 옛 content 를 유지.
+   * 두 가드는 각각 다른 시나리오 보호용으로 정당하지만, 적용 흐름에서는 함께 stale 을 만든다.
+   *
+   * 해결: 적용 성공 직후 영향받은 origin 들에 대해
+   *   - loadedBackendFilesRef 에서 제거
+   *   - sessionApi.getFileContent 로 새 내용을 직접 fetch
+   *   - hydrateFileContent 로 store 갱신 (dirty 가드는 hydrate 안에 그대로 유지 → unsaved 편집 보존)
+   *
+   * dedup: 같은 origin 이 partial + all 동시에 들어오는 경우는 없지만 방어용.
+   * 에러: 개별 fetch 실패는 무시 (loadedBackendFilesRef 에서 빠져있으니 click-to-open 시 재시도됨).
+   */
+  const refreshOriginFilesAfterApply = useCallback(
+    async (worktreePaths: string[]) => {
+      if (!isBackendSessionId(sessionId)) return;
+      const originPaths = Array.from(
+        new Set(
+          worktreePaths
+            .map((p) => (p.startsWith(".worktree/") ? p.slice(".worktree/".length) : p))
+            .filter((p) => p.length > 0)
+        )
+      );
+      if (originPaths.length === 0) return;
+
+      for (const p of originPaths) {
+        loadedBackendFilesRef.current.delete(p);
+      }
+
+      await Promise.all(
+        originPaths.map(async (path) => {
+          try {
+            const payload = await sessionApi.getFileContent(sessionId, path);
+            if (payload) {
+              hydrateFileContent(path, payload.content, payload.language);
+              loadedBackendFilesRef.current.add(path);
+            }
+          } catch {
+            /* leave path cleared so ensureBackendFileContent 에서 재시도 가능 */
+          }
+        })
+      );
+    },
+    [hydrateFileContent, sessionId]
+  );
+
+  /**
    * Worktree diff 탭의 [적용] / [거절] — 백엔드 partialEdit API.
    * - 적용: origin 파일을 worktree 내용으로 덮어쓰고 worktree 제거
    * - 거절: worktree만 제거 (origin 그대로)
@@ -4687,13 +4739,19 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
       // workspace 새로고침 — worktree 파일 사라지고, 적용한 경우 origin 파일 새 내용 hydrate
       await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
+
+      // workspace invalidate 만으로는 origin 파일이 stale 로 남는다 (이중 캐시 가드) — 적용 시
+      // 영향받은 origin 을 명시적으로 다시 fetch. refreshOriginFilesAfterApply 주석 참조.
+      if (isApproved) {
+        await refreshOriginFilesAfterApply([worktreePath]);
+      }
     } catch (error) {
       addToast(error instanceof Error ? error.message : "AI 수정 적용에 실패했습니다.", "error");
     } finally {
       partialEditBusyRef.current = null;
       setPartialEditBusy(null);
     }
-  }, [addToast, closeDiffTabInAllGroups, queryClient, sessionId]);
+  }, [addToast, closeDiffTabInAllGroups, queryClient, refreshOriginFilesAfterApply, sessionId]);
 
   /**
    * 현재 세션의 모든 worktree 파일을 일괄 승인/거절 — 백엔드 allEdit API.
@@ -4737,13 +4795,18 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       });
 
       await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
+
+      // partialEdit 와 동일 — 적용한 모든 worktree 의 origin 파일을 명시적으로 재로드.
+      if (isApproved) {
+        await refreshOriginFilesAfterApply(worktreePaths);
+      }
     } catch (error) {
       addToast(error instanceof Error ? error.message : "AI 수정 일괄 처리에 실패했습니다.", "error");
     } finally {
       allEditBusyRef.current = false;
       setAllEditBusy(false);
     }
-  }, [addToast, closeDiffTabInAllGroups, files, queryClient, sessionId]);
+  }, [addToast, closeDiffTabInAllGroups, files, queryClient, refreshOriginFilesAfterApply, sessionId]);
 
   const handleApplyEdit = async () => {
     if (!editorRef.current || !selectedRange || !suggestion || !activeFile) {

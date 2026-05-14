@@ -1179,6 +1179,24 @@ export const sessionApi = {
   },
 
   /**
+   * 리포트 생성 상태 조회 — GET /api/v1/sessions/{problemSessionId}/report-status (2026-05-14~).
+   * 백엔드 SessionController#getFeedbackStatus → FeedbackStatusResponse { reportStatus }.
+   *
+   * /reports 페이지의 pending 마커 polling 에서 사용. 백엔드가 실제 enum (PENDING/PROCEEDING/
+   * GENERATED/FAILED) 을 노출하므로 GENERATED 즉시 마커 제거, FAILED 즉시 표기 — 이전엔
+   * GET /users/me/reports 가 GENERATED 만 응답한다는 가정 하에 5분 클라이언트 timeout 으로
+   * FAILED 를 추정하던 우회를 대체.
+   */
+  async getReportStatus(problemSessionId: string | number) {
+    const res = await authClient
+      .get(`api/v1/sessions/${problemSessionId}/report-status`)
+      .json<
+        ApiResponse<{ reportStatus: "PENDING" | "PROCEEDING" | "GENERATED" | "FAILED" }>
+      >();
+    return res.data.reportStatus;
+  },
+
+  /**
    * AI 채팅 SSE streaming.
    * 백엔드: POST /api/v1/ai/sessions/{id}/chat/stream (text/event-stream).
    * 응답 프레임: event: {metadata|data|end|error} + data: <json>

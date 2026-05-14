@@ -22,13 +22,16 @@ import { useUiStore } from "@/store/uiStore";
  * 표시 흐름:
  *  1. GET /users/me/reports — 완료된 리포트 (GENERATED) 목록
  *  2. localStorage 의 pending-reports — endSession 직후 박아두는 임시 마커
- *     (백엔드가 PENDING/PROCEEDING/FAILED 리포트도 같이 응답할 때까지의 우회)
  *  3. 두 list 를 union 해서 표시:
  *     · GENERATED: 점수/통과 + "상세 보기"
  *     · PENDING/PROCEEDING: 스피너 + "생성 중..."
- *     · FAILED: 경고 + "재시도" 버튼 (백엔드 retry endpoint 도착 시 활성)
+ *     · FAILED: 경고 + "재시도" 버튼
  *
- * 폴링: localStorage 에 PENDING/PROCEEDING 마커 있으면 3초 polling — 새 리포트가 reports 응답에 들어오는지.
+ * 폴링:
+ *  - reports list: pending 마커가 살아있는 동안만 3초 간격 refetch.
+ *  - 각 pending 마커별로 GET /api/v1/sessions/{id}/report-status 도 함께 호출해서
+ *    실제 백엔드 상태를 즉시 반영 — GENERATED 면 마커 제거, FAILED 면 즉시 표기.
+ *    엔드포인트 호출 실패 시에만 5분 클라이언트 timeout 으로 FAILED 추정 (fallback).
  */
 
 export default function ReportsPage() {
@@ -60,37 +63,73 @@ export default function ReportsPage() {
     refetchInterval: () => (pendingMarkers.some((m) => m.status !== "FAILED") ? 3000 : false)
   });
 
-  // 백엔드 reports 응답에 들어온 problemSessionId 는 pending 마커에서 제거 (이미 GENERATED 됨).
-  // UserReportItem 에 problemSessionId 가 없어서 — feedbackReportId 로 매핑하는 건 불가.
-  // 대신 createdAt 시점 기반으로 추정: pending 마커보다 createdAt 이 늦은 리포트가 있으면 그 마커 제거.
+  // 매 폴링 tick (reportsData 갱신 시) 마다 각 pending 마커의 실제 백엔드 상태를 조회해 반영.
+  //
+  // 우선순위:
+  //   (1) report-status 응답이 GENERATED → 마커 제거 + userReports 즉시 invalidate
+  //       (백엔드 list 응답에 새 리포트가 아직 안 들어왔어도 다음 refetch 에서 잡힘).
+  //   (2) 응답이 FAILED → 마커 status=FAILED 로 갱신 (5분 timeout 안 기다리고 바로).
+  //   (3) 응답이 PENDING/PROCEEDING → 그대로 둠 (status 만 갱신).
+  //   (4) 응답이 null/throw (네트워크/권한 등) → 기존 fallback 작동: 5분 timeout → FAILED.
+  //
+  // 동시성: pendingMarkers 가 효과 도중 다른 origin (handleRetry / 마운트 hydrate) 으로
+  // 바뀌면 setPendingMarkers 호출이 stale 한 변경을 덮어쓸 수 있으므로 cancelled 가드.
   useEffect(() => {
-    if (!reportsData || pendingMarkers.length === 0) return;
-    const latestReportTime = reportsData.reports[0]
-      ? new Date(reportsData.reports[0].createdAt).getTime()
-      : 0;
-    // 두 단계: (1) 5분 timeout 으로 PENDING/PROCEEDING → FAILED 전환 (map),
-    //          (2) GENERATED 로 판정된 마커는 list 에서 제거 (filter).
-    // 이전엔 filter 안에서 객체를 반환해 boolean 으로 truthy 평가만 되고 실제 상태가 안 바뀌는 버그.
-    const transitioned = pendingMarkers.map((m) => {
-      const startedTime = new Date(m.startedAt).getTime();
-      if (m.status !== "FAILED" && Date.now() - startedTime > 5 * 60_000) {
-        return { ...m, status: "FAILED" as const };
+    if (pendingMarkers.length === 0) return;
+    let cancelled = false;
+    void (async () => {
+      const statuses = await Promise.all(
+        pendingMarkers.map(async (m) => {
+          try {
+            const status = await sessionApi.getReportStatus(m.problemSessionId);
+            return { id: m.problemSessionId, status };
+          } catch {
+            return { id: m.problemSessionId, status: null as null };
+          }
+        })
+      );
+      if (cancelled) return;
+
+      const statusMap = new Map(statuses.map((s) => [s.id, s.status]));
+      let generatedFound = false;
+      const next: PendingReportMarker[] = [];
+      for (const m of pendingMarkers) {
+        const fetched = statusMap.get(m.problemSessionId);
+        if (fetched === "GENERATED") {
+          generatedFound = true;
+          continue; // 마커 제거.
+        }
+        if (fetched === "FAILED") {
+          next.push({ ...m, status: "FAILED" });
+          continue;
+        }
+        if (fetched === "PENDING" || fetched === "PROCEEDING") {
+          next.push({ ...m, status: fetched });
+          continue;
+        }
+        // fetched === null (endpoint 호출 실패) → 5분 timeout fallback.
+        const startedTime = new Date(m.startedAt).getTime();
+        if (m.status !== "FAILED" && Date.now() - startedTime > 5 * 60_000) {
+          next.push({ ...m, status: "FAILED" });
+        } else {
+          next.push(m);
+        }
       }
-      return m;
-    });
-    const remaining = transitioned.filter((m) => {
-      const startedTime = new Date(m.startedAt).getTime();
-      // 새 리포트가 마커 이후 시간에 생긴 거면 그 마커는 GENERATED 됐다고 판단 → 제거
-      return latestReportTime <= startedTime;
-    });
-    const changed =
-      remaining.length !== pendingMarkers.length ||
-      remaining.some((m, idx) => m.status !== pendingMarkers[idx]?.status);
-    if (changed) {
-      setPendingMarkers(remaining);
-      savePendingMarkers(remaining);
-    }
-  }, [reportsData, pendingMarkers]);
+      const changed =
+        next.length !== pendingMarkers.length ||
+        next.some((m, idx) => m.status !== pendingMarkers[idx]?.status);
+      if (changed) {
+        setPendingMarkers(next);
+        savePendingMarkers(next);
+      }
+      if (generatedFound) {
+        queryClient.invalidateQueries({ queryKey: ["userReports", user?.id] });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [reportsData, pendingMarkers, queryClient, user?.id]);
 
   const handleRetry = async (marker: PendingReportMarker) => {
     // 백엔드 retry endpoint 가 아직 없어 임시로 endSession 다시 호출 (POST /sessions/{id}/end).
