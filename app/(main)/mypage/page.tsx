@@ -320,7 +320,12 @@ export default function MyPage() {
   useEffect(() => {
     if (!prefsHydrated) return;
     const prefs: UserPreferences = { defaultLang, defaultModel };
-    localStorage.setItem(PREF_STORAGE_KEY, JSON.stringify(prefs));
+    try {
+      // quota/security 예외 (incognito, 디스크 풀, 정책 차단 등) 흡수.
+      localStorage.setItem(PREF_STORAGE_KEY, JSON.stringify(prefs));
+    } catch {
+      /* noop — 선호 저장 실패해도 세션 자체는 계속 사용 가능해야 함 */
+    }
   }, [defaultLang, defaultModel, prefsHydrated]);
 
   const openEdit = (id: ProviderId) => {

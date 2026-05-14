@@ -212,18 +212,31 @@ const readDb = (): MockDb => {
 
   if (!raw) {
     const seeded = createSeedDb();
-    storage.setItem(STORAGE_KEY, JSON.stringify(seeded));
+    try { storage.setItem(STORAGE_KEY, JSON.stringify(seeded)); } catch { /* quota */ }
     return seeded;
   }
 
-  const parsed = JSON.parse(raw) as MockDb;
+  // parse 실패 시 (corrupt mock DB) seed 재생성. 이전엔 throw 가 mock 경로 전체를 crash 시킴.
+  let parsed: MockDb;
+  try {
+    parsed = JSON.parse(raw) as MockDb;
+  } catch {
+    try { storage.removeItem(STORAGE_KEY); } catch { /* noop */ }
+    const seeded = createSeedDb();
+    try { storage.setItem(STORAGE_KEY, JSON.stringify(seeded)); } catch { /* quota */ }
+    return seeded;
+  }
   const refreshed = refreshDb(parsed);
-  storage.setItem(STORAGE_KEY, JSON.stringify(refreshed));
+  try { storage.setItem(STORAGE_KEY, JSON.stringify(refreshed)); } catch { /* quota */ }
   return refreshed;
 };
 
 const writeDb = (db: MockDb) => {
-  getStorage().setItem(STORAGE_KEY, JSON.stringify(db));
+  try {
+    getStorage().setItem(STORAGE_KEY, JSON.stringify(db));
+  } catch {
+    /* quota / security — mock 흐름이 storage 예외로 중단되지 않게 흡수. */
+  }
 };
 
 const getSessionOrThrow = (db: MockDb, sessionId: string) => {

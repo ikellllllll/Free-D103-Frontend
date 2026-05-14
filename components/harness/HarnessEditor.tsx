@@ -122,7 +122,11 @@ function loadFiles(): Record<string, string> {
 }
 
 function saveFiles(files: Record<string, string>) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
+  } catch {
+    /* quota / security 예외 흡수 — 하네스 편집 흐름이 storage 예외로 중단되지 않도록 */
+  }
 }
 
 /* ── Component ───────────────────────────────────────────────── */

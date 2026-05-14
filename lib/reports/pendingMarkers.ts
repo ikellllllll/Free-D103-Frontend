@@ -32,7 +32,11 @@ export function loadPendingMarkers(): PendingReportMarker[] {
 
 export function savePendingMarkers(markers: PendingReportMarker[]) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(markers));
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(markers));
+  } catch {
+    /* quota / security 예외 흡수 — marker 저장 실패해도 세션 종료 흐름은 계속 */
+  }
 }
 
 export function addPendingReportMarker(input: {
