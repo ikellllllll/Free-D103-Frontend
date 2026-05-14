@@ -93,7 +93,17 @@ interface IdeState {
   setActivePath: (path: string) => void;
   updateFileContent: (path: string, content: string) => void;
   hydrateFileContent: (path: string, content: string, language?: string) => void;
-  markSaved: (path?: string, savedAt?: string) => void;
+  /**
+   * 저장 완료 표시. `savedContent` 를 명시하면 그 값을 baseline 으로 박는다.
+   *
+   * Why savedContent 명시: 이전엔 markSaved 내부에서 `state.files[i].content` 를 그대로 baseline
+   * 으로 썼는데, 사용자가 save 요청 in-flight 중에 추가 타이핑한 경우 그 새 content 가 baseline
+   * 으로 굳어버려 (a) dirty 가 false 로 잘못 떨어지고 (b) 다음 save 가 fire 안 되어 결국 저장 안
+   * 된 텍스트가 silent 하게 baseline 으로 올라감 + (c) discard 시 "discard" 대상이 typed text 자체.
+   * 이제 caller (savePaths) 가 save 시작 시점 snapshot content 를 함께 넘기면, baseline 은 그
+   * 값으로 고정되고 현재 content 가 그것과 다르면 unsaved 마커가 유지된다.
+   */
+  markSaved: (path?: string, savedAt?: string, savedContent?: string) => void;
   discardFileChanges: (path: string) => void;
   setSelection: (code: string, range: SelectionRange | null) => void;
   setEditInstruction: (value: string) => void;
@@ -293,20 +303,30 @@ export const useIdeStore = create<IdeState>((set) => ({
         unsavedPaths: state.unsavedPaths.filter((item) => item !== path)
       };
     }),
-  markSaved: (path, savedAt) =>
+  markSaved: (path, savedAt, savedContent) =>
     set((state) => {
       const targetPaths = path ? [path] : state.unsavedPaths;
       const nextSavedContents = { ...state.savedContents };
+      const nextUnsaved = new Set(state.unsavedPaths);
 
       targetPaths.forEach((targetPath) => {
         const file = state.files.find((item) => item.path === targetPath);
-        if (file) {
-          nextSavedContents[targetPath] = file.content;
+        if (!file) return;
+        // baseline 결정: caller 가 savedContent 를 명시 (path 기반 호출에서만 의미 있음) 했으면
+        // 그 값을 그대로 사용. 그렇지 않으면 fallback 으로 현재 content (bulk no-path 호출 등).
+        const baseline =
+          path && targetPath === path && savedContent !== undefined ? savedContent : file.content;
+        nextSavedContents[targetPath] = baseline;
+        // 사용자가 save 도중 타이핑해서 file.content 가 baseline 과 다르면 unsaved 유지.
+        if (file.content === baseline) {
+          nextUnsaved.delete(targetPath);
+        } else {
+          nextUnsaved.add(targetPath);
         }
       });
 
       return {
-        unsavedPaths: path ? state.unsavedPaths.filter((item) => item !== path) : [],
+        unsavedPaths: Array.from(nextUnsaved),
         savedContents: nextSavedContents,
         lastSavedAt: savedAt ?? new Date().toISOString()
       };

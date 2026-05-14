@@ -70,6 +70,9 @@ export function useRouteScope() {
     withPrefix: (href: string) => withRoutePrefix(prefix, href),
     isCurrentPath: (href: string) => {
       const targetPath = stripRoutePrefix(prefix, href);
+      // targetPath === "/" 의 special case: 모든 절대경로가 "/" 로 시작하므로 startsWith("/") 가
+      // 무조건 true → 어떤 페이지에서든 home 메뉴가 active 로 강조되는 버그. strict 일치만 허용.
+      if (targetPath === "/") return currentPath === "/";
       return currentPath === targetPath || currentPath.startsWith(`${targetPath}/`);
     }
   };

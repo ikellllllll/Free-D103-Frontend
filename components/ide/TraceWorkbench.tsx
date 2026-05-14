@@ -737,6 +737,20 @@ export function TraceWorkbench({ sessionId, onClose }: { sessionId: string; onCl
   const [page, setPage] = useState(1);
   const [selectedRunId,  setSelectedRunId]  = useState<string | null>(null);
   const [selectedSpanId, setSelectedSpanId] = useState<string | null>(null);
+  /**
+   * 사용자가 수동으로 span 을 클릭했는지 추적.
+   *
+   * Why: RUNNING 상태의 trace 는 detail 쿼리가 2 초마다 refetch 되고, 응답마다 백엔드는 한 span
+   * 을 `isSelected=true` 로 표시한다. 아래 effect 가 매 refetch 마다 그 값을 우선해서
+   * setSelectedSpanId 호출 → 사용자가 다른 span 을 클릭해도 2 초 뒤 강제 원복돼서 진행 중 trace
+   * 의 이전 span 을 조사할 수 없었던 UX 버그. 사용자가 한 번이라도 직접 선택했으면 backend 의
+   * "선택"을 무시. selectedRunId 가 바뀌면 (다른 run 보기 시작) 다시 초기화.
+   */
+  const userOverrodeSpanForRunRef = useRef<string | null>(null);
+  const markUserSpanSelection = (spanId: string | null) => {
+    userOverrodeSpanForRunRef.current = selectedRunId;
+    setSelectedSpanId(spanId);
+  };
   const traceJumpToId = useIdeStore((state) => state.traceJumpToId);
   const setTraceJumpToId = useIdeStore((state) => state.setTraceJumpToId);
 
@@ -817,7 +831,9 @@ export function TraceWorkbench({ sessionId, onClose }: { sessionId: string; onCl
       return;
     }
     const apiSelectedSpan = selectedRunSpans.find((span) => span.isSelected);
-    if (apiSelectedSpan && apiSelectedSpan.spanId !== selectedSpanId) {
+    // 사용자가 이 run 에서 한 번이라도 직접 span 을 골랐으면 backend "isSelected" 무시.
+    const userOverrodeForThisRun = userOverrodeSpanForRunRef.current === selectedRunId;
+    if (apiSelectedSpan && apiSelectedSpan.spanId !== selectedSpanId && !userOverrodeForThisRun) {
       setSelectedSpanId(apiSelectedSpan.spanId);
       return;
     }
@@ -938,7 +954,7 @@ export function TraceWorkbench({ sessionId, onClose }: { sessionId: string; onCl
                   <SpanList
                     run={selectedRun}
                     selectedSpanId={selectedSpanId}
-                    onSelect={(span) => setSelectedSpanId(span.spanId)}
+                    onSelect={(span) => markUserSpanSelection(span.spanId)}
                     showRunSummary={false}
                   />
                   <div className="twb-col-resizer" />

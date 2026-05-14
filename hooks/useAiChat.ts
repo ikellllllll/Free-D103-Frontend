@@ -154,9 +154,15 @@ export function useAiChat(sessionId: string) {
         // streaming 중 강제로 2.5s 마다 invalidate → trace 가 db 에 들어오자마자 list 반영.
         const tracePollInterval = window.setInterval(() => {
           if (!mountedRef.current) return;
-          queryClient.invalidateQueries({ queryKey: ["agentTraces", sessionId] });
+          // TraceWorkbench 는 page 까지 포함한 key (["agentTraces", sessionId, page]) 를 쓰고
+          // IdeShell/TracePanel 은 page 없는 key 를 쓴다. exact:false 로 prefix match 해서 둘 다
+          // 무효화 — 안 그러면 workbench 가 자체 5s 폴링 도달할 때까지 새 trace 안 보이는 차이.
+          queryClient.invalidateQueries({ queryKey: ["agentTraces", sessionId], exact: false });
         }, 2500);
         tracePollIntervalRef.current = tracePollInterval;
+        // chat 모드와 동일 — 스트림 에러 시 loadMessages skip 해서 patch 한 에러 표시가
+        // 백엔드 빈 응답으로 덮이지 않게 한다.
+        let agentErrored = false;
         try {
           await sessionApi.streamAgentChat(
             sessionId,
@@ -192,6 +198,7 @@ export function useAiChat(sessionId: string) {
                 safePatchAssistant(assistantId, { agentEvents: cappedEvents, traceId });
               },
               onError: (_code, msg) => {
+                agentErrored = true;
                 events.push({ prefix: "❌", type: "ERROR", message: msg });
                 safePatchAssistant(assistantId, { agentEvents: capAgentEvents(events), traceId });
                 accumulated = "❌ " + msg;
@@ -201,6 +208,7 @@ export function useAiChat(sessionId: string) {
           );
           setRequestCount((count) => count + 1);
         } catch (error) {
+          agentErrored = true;
           // AbortError 는 사용자가 의도적으로 중지한 케이스 — 별도 메시지 표시.
           const isAbort = error instanceof DOMException && error.name === "AbortError";
           const errMsg = isAbort
@@ -214,18 +222,23 @@ export function useAiChat(sessionId: string) {
           tracePollIntervalRef.current = null;
           abortControllerRef.current = null;
           if (mountedRef.current) setStreaming(false);
-          // unmount 후엔 invalidate / loadMessages 모두 skip — 이탈한 세션의 메시지로 store 가
-          // 덮이거나 다음 진입 직후 race 가 나는 케이스 차단.
+          // unmount / 에러 시 loadMessages skip.
+          // - unmount: 이탈한 세션 store 오염 차단.
+          // - error: 위에 patch 한 에러 이벤트가 backend stored version 으로 덮이지 않도록.
+          //   workspace/session/agentTraces invalidate 는 실패 시에도 유의미 (agent 가 worktree
+          //   를 부분적으로 만들었을 수 있음) 이므로 그대로 실행.
           if (mountedRef.current) {
             // Agent 가 worktree 에 새 파일을 만들고 끝났는데 workspace query 가 stale 상태로 남으면
             // 파일 트리에 .worktree (ai) 자식이 안 보임. invalidate 로 강제 refetch 해서 즉시 hydrate.
-            // session(트레이스 카운트 갱신용) / agentTraces (Trace 탭) 도 같이 무효화.
             await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
             await queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
-            await queryClient.invalidateQueries({ queryKey: ["agentTraces", sessionId] });
-            // SSE 누적은 "🚀 작업 시작 / 📖 파일 읽음 / ..." 진행 로그라, 종료 후엔 백엔드가 저장한
-            // 최종 assistant 메시지(변경 요약 등) 로 덮어써야 새로고침 없이도 깔끔한 결과를 본다.
-            try { await loadMessages(); } catch { /* noop — 다음 진입 시 재시도 */ }
+            // exact:false: TraceWorkbench 의 page 포함 키도 함께 invalidate.
+            await queryClient.invalidateQueries({ queryKey: ["agentTraces", sessionId], exact: false });
+            if (!agentErrored) {
+              // SSE 누적은 "🚀 작업 시작 / 📖 파일 읽음 / ..." 진행 로그라, 정상 종료 시엔 백엔드가
+              // 저장한 최종 assistant 메시지(변경 요약 등) 로 덮어써야 새로고침 없이 깔끔한 결과.
+              try { await loadMessages(); } catch { /* noop — 다음 진입 시 재시도 */ }
+            }
           }
         }
         return;
@@ -237,6 +250,11 @@ export function useAiChat(sessionId: string) {
       // 등록해서 abort() 호출 가능하게.
       const chatController = new AbortController();
       abortControllerRef.current = chatController;
+      // 스트림 실패 여부 — 실패 시 finally 의 loadMessages 를 skip 해서 방금 patch 한 에러 메시지가
+      // 백엔드 GET /messages 응답으로 덮어써지지 않게 한다. (백엔드는 stream 실패 케이스에서 user
+      // message / assistant placeholder 를 보통 저장 안 함 → 무조건 loadMessages 하면 사용자
+      // 입장에선 "메시지 비워지고 아무 일도 안 일어난 것처럼" 보임.)
+      let chatErrored = false;
       try {
         await sessionApi.streamChat(
           sessionId,
@@ -247,6 +265,7 @@ export function useAiChat(sessionId: string) {
               safePatchAssistant(assistantId, { content: accumulated });
             },
             onError: (_code, msg) => {
+              chatErrored = true;
               accumulated = accumulated
                 ? `${accumulated}\n\n[오류] ${msg}`
                 : `[오류] ${msg}`;
@@ -257,6 +276,7 @@ export function useAiChat(sessionId: string) {
         );
         setRequestCount((count) => count + 1);
       } catch (error) {
+        chatErrored = true;
         // AbortError 는 사용자가 의도적으로 중지 or unmount 한 케이스 — 별도 메시지.
         const isAbort = error instanceof DOMException && error.name === "AbortError";
         const errMsg = isAbort
@@ -268,8 +288,10 @@ export function useAiChat(sessionId: string) {
       } finally {
         abortControllerRef.current = null;
         if (mountedRef.current) setStreaming(false);
-        // unmount 후엔 loadMessages skip — 이탈한 세션 store 오염 차단.
-        if (mountedRef.current) {
+        // unmount 또는 에러 시 loadMessages skip.
+        // - unmount: 이탈한 세션 store 오염 차단.
+        // - error: 위에 patch 한 [오류] 메시지가 backend stored version (empty) 으로 덮이지 않도록.
+        if (mountedRef.current && !chatErrored) {
           // chat 모드도 SSE chunk 가 백엔드 저장본과 미세하게 다를 수 있고, 멀티턴 멤버십을 보장하기 위해
           // 종료 후 백엔드 messages 로 최종 동기화. 실패해도 다음 진입 시 자동 hydrate 되니 silent.
           try { await loadMessages(); } catch { /* noop */ }

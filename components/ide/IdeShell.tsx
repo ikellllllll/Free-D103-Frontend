@@ -3948,7 +3948,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         results.forEach((result, i) => {
           const file = targetFiles[i];
           if (result.status === "fulfilled") {
-            markSaved(file.path, savedAt);
+            // file.content 는 save 시작 시점 snapshot (closure 로 캡처된 객체). markSaved 에
+            // 명시 전달해서 baseline 이 그 값으로 박히도록 — in-flight 중 사용자 타이핑이 baseline
+            // 으로 굳어 dirty 가 잘못 풀리는 race 방지. (store/ideStore.ts markSaved 주석 참조.)
+            markSaved(file.path, savedAt, file.content);
           } else {
             failedFiles.push({
               name: file.path.split("/").pop() ?? file.path,

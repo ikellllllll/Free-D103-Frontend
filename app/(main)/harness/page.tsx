@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -250,13 +250,13 @@ export default function HarnessPage() {
       return;
     }
 
-    if (initializedActiveRef.current) {
-      setActiveId(null);
-      return;
-    }
-
+    // activeId 가 현재 list 에 없는 경우.
+    // 이전엔 initializedActiveRef 가 true 면 setActiveId(null) 로 reset 했는데, 트리 query
+    // refetch (create/rename 직후) 가 transient 하게 새 파일을 list 에서 빼고 응답하면 사용자의
+    // 활성 선택과 텍스트 영역 포커스가 사라지던 버그. 명시적 null 대신 first editable 로 fallback.
+    // 진짜 "모든 탭 닫음" 케이스는 handleCloseTab 가 명시적으로 activeId 를 null 로 박는다.
     const firstFile = editableFiles[0] ?? harnessFiles[0];
-    setActiveId(String(firstFile.userHarnessFileId));
+    setActiveId(firstFile ? String(firstFile.userHarnessFileId) : null);
     initializedActiveRef.current = true;
   }, [activeId, editableFiles, harnessFiles]);
 
@@ -305,15 +305,28 @@ export default function HarnessPage() {
     }
   };
 
-  const handleSaveActive = async () => {
+  /**
+   * 단일 파일 저장. save 시작 시점 content 를 snapshot 으로 캡처해서:
+   *  - in-flight 동안 사용자가 추가 타이핑 → 현재 contents[key] 가 snapshot 과 다르면 dirty 유지
+   *  - 새로 타이핑한 내용이 baseline 으로 굳어 저장 안 된 채 dirty 가 풀리는 버그 방지
+   *
+   * useCallback 으로 memoize — 아래 Ctrl-S effect 가 deps 로 참조해서, 매 render 마다
+   * global keydown listener 가 add/remove 반복되던 thrash 도 함께 해결.
+   */
+  const handleSaveActive = useCallback(async () => {
     if (!activeFile || !activeFileKey || !activeIsFile) return;
+    const snapshotContent = activeContent;
     setActionLoading(true);
     try {
-      await userHarnessApi.saveFile(activeFile.userHarnessFileId, activeContent);
+      await userHarnessApi.saveFile(activeFile.userHarnessFileId, snapshotContent);
       await queryClient.invalidateQueries({ queryKey: ["userHarnessFile", activeFileKey] });
+      // contents[activeFileKey] 가 그 사이 새로 타이핑된 거면 dirty 유지.
       setDirty((prev) => {
         const next = new Set(prev);
-        next.delete(activeFileKey);
+        const currentContent = contents[activeFileKey];
+        if (currentContent === undefined || currentContent === snapshotContent) {
+          next.delete(activeFileKey);
+        }
         return next;
       });
       addToast(`${activeFile.name} 저장 완료`, "success");
@@ -322,7 +335,7 @@ export default function HarnessPage() {
     } finally {
       setActionLoading(false);
     }
-  };
+  }, [activeFile, activeFileKey, activeIsFile, activeContent, contents, queryClient, addToast]);
 
   useEffect(() => {
     const handleSaveShortcut = (event: KeyboardEvent) => {
@@ -336,29 +349,46 @@ export default function HarnessPage() {
     return () => window.removeEventListener("keydown", handleSaveShortcut);
   }, [activeFileKey, activeIsFile, actionLoading, dirty, handleSaveActive]);
 
-  const handleSaveAll = async () => {
-    const targets = editableFiles.filter((file) => dirty.has(String(file.userHarnessFileId)));
+  const handleSaveAll = useCallback(async () => {
+    // targets 와 그 시점의 snapshot 을 한 번에 캡처 — save 도중 사용자가 다른 파일을 더 편집해도
+    // 그 새 dirty 가 blanket reset 으로 같이 풀리지 않도록 한다.
+    const targets = editableFiles
+      .filter((file) => dirty.has(String(file.userHarnessFileId)))
+      .map((file) => ({
+        file,
+        key: String(file.userHarnessFileId),
+        snapshot: contents[String(file.userHarnessFileId)] ?? ""
+      }));
     if (targets.length === 0) return;
     setActionLoading(true);
     try {
       await Promise.all(
-        targets.map((file) => {
-          const key = String(file.userHarnessFileId);
-          return userHarnessApi.saveFile(file.userHarnessFileId, contents[key] ?? "");
-        })
+        targets.map(({ file, snapshot }) => userHarnessApi.saveFile(file.userHarnessFileId, snapshot))
       );
       await queryClient.invalidateQueries({ queryKey: ["userHarnessTree"] });
-      targets.forEach((file) => {
-        void queryClient.invalidateQueries({ queryKey: ["userHarnessFile", String(file.userHarnessFileId)] });
+      targets.forEach(({ key }) => {
+        void queryClient.invalidateQueries({ queryKey: ["userHarnessFile", key] });
       });
-      setDirty(new Set());
+      // 저장 시작 시점 snapshot 과 현재 contents[key] 가 같은 파일만 dirty 해제. 사용자가 in-flight
+      // 동안 추가 타이핑한 파일은 dirty 유지 → 다음 save 가 새 내용을 보냄. blanket `new Set()`
+      // 는 그 새 dirty 까지 같이 wipe 하던 버그.
+      setDirty((prev) => {
+        const next = new Set(prev);
+        for (const { key, snapshot } of targets) {
+          const currentContent = contents[key];
+          if (currentContent === undefined || currentContent === snapshot) {
+            next.delete(key);
+          }
+        }
+        return next;
+      });
       addToast(`${targets.length}개 파일 저장 완료`, "success");
     } catch (error) {
       addToast(error instanceof Error ? error.message : "하네스 파일 저장에 실패했습니다.", "error");
     } finally {
       setActionLoading(false);
     }
-  };
+  }, [editableFiles, dirty, contents, queryClient, addToast]);
 
   const handleReset = async (targetFile = activeFile) => {
     if (!targetFile || targetFile.nodeType !== "FILE") return;
