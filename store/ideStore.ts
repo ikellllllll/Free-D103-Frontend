@@ -27,6 +27,29 @@ const isSameSelectionRange = (left: SelectionRange | null, right: SelectionRange
   );
 };
 
+/**
+ * 한 세션의 메시지 / agent 이벤트 누적량 상한.
+ *
+ * - MESSAGE 무한 누적 → 긴 세션에서 탭 OOM (수십 turn × agentEvents 수백 개 × O(N²) re-render).
+ * - AGENT_EVENT 무한 누적 → 한 agent run 안에서 수백 이벤트가 들어오면 같은 메시지 객체에
+ *   `agentEvents: [...events]` 으로 매번 새 배열 생성 → O(N²) 메모리/렌더 부하.
+ *
+ * 둘 다 head-trim. 가장 오래된 항목부터 제거. 사용자가 백엔드 hydrate (loadMessages) 호출하면
+ * 서버가 최신 N 개만 줘서 자연스레 같은 상한 안으로 들어옴.
+ */
+const MAX_MESSAGES_PER_SESSION = 500;
+const MAX_AGENT_EVENTS_PER_MESSAGE = 600;
+
+const capMessages = (messages: AiMessage[]): AiMessage[] => {
+  if (messages.length <= MAX_MESSAGES_PER_SESSION) return messages;
+  return messages.slice(messages.length - MAX_MESSAGES_PER_SESSION);
+};
+
+export const capAgentEvents = <T>(events: T[]): T[] => {
+  if (events.length <= MAX_AGENT_EVENTS_PER_MESSAGE) return events;
+  return events.slice(events.length - MAX_AGENT_EVENTS_PER_MESSAGE);
+};
+
 interface IdeState {
   files: WorkspaceFile[];
   activePath: string | null;
@@ -78,6 +101,13 @@ interface IdeState {
   setAiMode: (value: "chat" | "edit") => void;
   setMessages: (messages: AiMessage[]) => void;
   appendMessages: (messages: AiMessage[]) => void;
+  /**
+   * 특정 메시지 id 를 patch — useAiChat 의 SSE 콜백이 자신의 assistant 메시지만 갱신하려고 사용.
+   * 이전엔 send() 시점 messages snapshot 을 [...baseMessages, updatedAssistant] 로 통째 덮어써서
+   * 두 send 가 겹치거나 storage event 로 messages 가 바뀐 사이에 도착한 chunk 가 그 변경을 wipe.
+   * id 매칭 안 되면 state 그대로 (사용자가 메시지를 정리/리셋한 사이에 늦은 chunk 도착해도 안전).
+   */
+  updateMessageById: (id: string, patch: Partial<AiMessage>) => void;
   setRunResult: (result: RunResult | null) => void;
   setTestResult: (result: TestRunResult | null) => void;
   setSubmissionResult: (result: SubmissionResult | null) => void;
@@ -312,11 +342,22 @@ export const useIdeStore = create<IdeState>((set) => ({
   setEditInstruction: (value) => set({ editInstruction: value }),
   setSuggestion: (value) => set({ suggestion: value }),
   setAiMode: (value) => set({ aiMode: value }),
-  setMessages: (messages) => set({ messages }),
+  setMessages: (messages) =>
+    // 너무 긴 세션에서 messages 배열이 무한히 누적되는 걸 차단. backend 도 페이지네이션 없이
+    // 응답해도 IDE 메모리 한도가 먼저 망가지지 않도록 head trim. (대화 맨 처음 메시지부터 잘림)
+    set({ messages: capMessages(messages) }),
   appendMessages: (messages) =>
     set((state) => ({
-      messages: [...state.messages, ...messages]
+      messages: capMessages([...state.messages, ...messages])
     })),
+  updateMessageById: (id, patch) =>
+    set((state) => {
+      const idx = state.messages.findIndex((m) => m.id === id);
+      if (idx === -1) return state; // 매칭 없음 — 사용자가 리셋한 사이에 늦게 도착한 chunk 등.
+      const nextMessages = state.messages.slice();
+      nextMessages[idx] = { ...nextMessages[idx], ...patch };
+      return { messages: nextMessages };
+    }),
   setRunResult: (result) => set({ runResult: result, bottomPanelOpen: true, bottomPanelTab: "output" }),
   setTestResult: (result) => set({ testResult: result, bottomPanelOpen: true, bottomPanelTab: "tests" }),
   setSubmissionResult: (result) => set({ submissionResult: result }),

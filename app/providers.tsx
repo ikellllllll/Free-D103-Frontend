@@ -16,6 +16,10 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           queries: {
             retry: 1,
             staleTime: 30_000,
+            // IDE 세션이 길어지면 모든 useQuery 응답이 메모리에 쌓여 OOM 위험이 있어 명시적 cap.
+            // 5분 (default) 보다 짧게 설정해서 백그라운드 query 가 idle 상태로 오래 머물지 않게 한다.
+            // staleTime=30s 이라 사용자가 다시 화면 들어오면 어차피 refetch 되니 체감 차이 없음.
+            gcTime: 2 * 60_000,
             refetchOnWindowFocus: false
           }
         }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/common/Badge";
 import { Card } from "@/components/common/Card";
@@ -257,6 +257,11 @@ export function WorkshopConsole() {
   }, [form.targetPath, withPrefix]);
   const workerHealth = useMemo(() => getWorkerHealth(state), [state]);
 
+  // 폴링 중 연속 실패 카운트. submission 폴링과 동일한 3-strike 패턴: 처음 1회만 토스트
+  // 띄우고, 3회 연속 실패 시 폴링 자체 정지. 이전엔 isBusy 동안 4초 폴링 + 실패할 때마다
+  // addToast 가 분당 ~15 회 폭격하던 케이스가 있었음.
+  const pollErrorCountRef = useRef(0);
+
   const loadStatus = async (silent = false) => {
     if (!silent) {
       setIsBooting(true);
@@ -265,6 +270,7 @@ export function WorkshopConsole() {
     try {
       const nextState = await readJson<WorkshopState>("/api/workshop/status");
       setState(nextState);
+      pollErrorCountRef.current = 0; // 성공하면 카운트 리셋.
 
       if (!form.targetPath.trim() && nextState.targetPath) {
         setForm((current) => ({
@@ -275,7 +281,12 @@ export function WorkshopConsole() {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "워크숍 상태를 불러오지 못했습니다.";
-      addToast(message, "error");
+      pollErrorCountRef.current += 1;
+      // silent 폴링이면 첫 실패에만 토스트. 사용자가 명시적으로 새로고침한 케이스 (silent=false)
+      // 면 매번 표시 — 자기 동작 결과는 즉시 피드백이 자연.
+      if (!silent || pollErrorCountRef.current === 1) {
+        addToast(message, "error");
+      }
     } finally {
       setIsBooting(false);
     }
@@ -290,7 +301,14 @@ export function WorkshopConsole() {
       return undefined;
     }
 
+    pollErrorCountRef.current = 0; // 새 폴링 사이클 시작 — 카운트 초기화.
     const intervalId = window.setInterval(() => {
+      // 연속 3회 실패면 폴링 자체 정지. busy 가 다시 시작되거나 사용자가 refresh 누르면
+      // 위 useEffect 가 재실행되며 자동 회복.
+      if (pollErrorCountRef.current >= 3) {
+        window.clearInterval(intervalId);
+        return;
+      }
       void loadStatus(true);
     }, 4000);
 

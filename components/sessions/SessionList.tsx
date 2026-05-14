@@ -19,15 +19,22 @@ const FILTER_LABELS: Record<Filter, string> = {
   SUBMITTED: "완료"
 };
 
+// SessionStatus = "CREATING" | "IN_PROGRESS" | "ENDED" | "EXPIRED" | "SUBMITTED".
+// ENDED 와 EXPIRED 는 백엔드 ProblemSessionStatus 그대로 노출 — SUBMITTED 가 우리쪽에서
+// 매핑되기 전 상태가 보일 수 있어 빠짐없이 처리.
 const STATUS_TONE = {
   IN_PROGRESS: "accent",
   SUBMITTED: "green",
+  ENDED: "green",
+  EXPIRED: "neutral",
   CREATING: "neutral"
 } as const;
 
 const STATUS_LABEL = {
   IN_PROGRESS: "진행 중",
   SUBMITTED: "완료",
+  ENDED: "종료",
+  EXPIRED: "만료",
   CREATING: "준비 중"
 } as const;
 

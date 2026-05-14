@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 /* ── Types ─────────────────────────────────────────────────── */
 
@@ -235,9 +235,27 @@ export function HarnessPanel() {
     [selectedAgent, selectedSkills, instruction],
   );
 
+  // 2초 후 "적용됨" 배지 사라지는 setTimeout — id 를 ref 에 저장해서 unmount 시 cleanup.
+  // 이전엔 추적 안 해서 unmount 직후에도 타이머가 살아서 setApplied(false) → "setState on unmounted"
+  // React 경고. StrictMode 에서 두 번 마운트 시 증폭.
+  const applyResetTimerRef = useRef<number | null>(null);
+  useEffect(() => {
+    return () => {
+      if (applyResetTimerRef.current != null) {
+        window.clearTimeout(applyResetTimerRef.current);
+        applyResetTimerRef.current = null;
+      }
+    };
+  }, []);
   const handleApply = () => {
     setApplied(true);
-    setTimeout(() => setApplied(false), 2000);
+    if (applyResetTimerRef.current != null) {
+      window.clearTimeout(applyResetTimerRef.current);
+    }
+    applyResetTimerRef.current = window.setTimeout(() => {
+      setApplied(false);
+      applyResetTimerRef.current = null;
+    }, 2000);
   };
 
   /* ── Step renderers ── */

@@ -25,6 +25,7 @@ import { LangIcon } from "@/components/common/LangIcon";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { authApi, type ApiKeyVendor, type APIKeyItem } from "@/lib/api/authApi";
 import { mockApi } from "@/lib/api/mockApi";
+import { performLogout } from "@/lib/auth/logout";
 import { useAuthStore } from "@/store/authStore";
 import { useThemeStore } from "@/store/themeStore";
 import { useUiStore } from "@/store/uiStore";
@@ -932,8 +933,8 @@ export default function MyPage() {
                 onSuccess={() => {
                   setWithdrawModalOpen(false);
                   addToast("계정이 삭제되었습니다.", "success");
-                  signOut();
-                  router.replace(withPrefix("/login"));
+                  // 탈퇴 = 로그아웃과 동일 cleanup (캐시/스토어/sessionStorage). 본인 데이터를 다음 사용자에게 안 남기도록.
+                  void performLogout(queryClient).finally(() => router.replace(withPrefix("/login")));
                 }}
                 addToast={addToast}
               />

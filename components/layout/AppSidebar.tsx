@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BookOpen, History, User, Sun, Moon, LogOut } from "lucide-react";
 
+import { useQueryClient } from "@tanstack/react-query";
+
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
-import { authApi } from "@/lib/api/authApi";
+import { performLogout } from "@/lib/auth/logout";
 import { useAuthStore } from "@/store/authStore";
 import { useThemeStore } from "@/store/themeStore";
 import { useUiStore } from "@/store/uiStore";
@@ -57,19 +59,16 @@ function SidebarThemeLogo() {
 export function AppSidebar() {
   const router = useRouter();
   const { currentPath, withPrefix } = useRouteScope();
+  const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
-  const signOut = useAuthStore((state) => state.signOut);
   const theme = useThemeStore((state) => state.theme);
   const hydrated = useThemeStore((state) => state.hydrated);
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
   const addToast = useUiStore((state) => state.addToast);
 
   const handleLogout = async () => {
-    const { tokens } = useAuthStore.getState();
-    if (tokens?.refreshToken) {
-      try { await authApi.logout(tokens.refreshToken); } catch { /* 서버 오류여도 로컬 로그아웃 진행 */ }
-    }
-    signOut();
+    // performLogout: 서버 + authStore + queryClient + ideStore + sessionStorage 일괄 정리. lib/auth/logout.ts.
+    await performLogout(queryClient);
     addToast("로그아웃되었습니다.", "success");
     router.replace(withPrefix("/login"));
   };

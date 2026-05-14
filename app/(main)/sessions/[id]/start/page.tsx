@@ -8,7 +8,7 @@ import { Code2, Clock, ArrowLeft } from "lucide-react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { mockApi } from "@/lib/api/mockApi";
-import { isBackendProblemId } from "@/lib/api/sessionApi";
+import { isBackendProblemId, isBackendSessionId, sessionApi } from "@/lib/api/sessionApi";
 import { problemApi } from "@/lib/api/problemApi";
 import { getProblemById } from "@/lib/mock-data";
 
@@ -23,7 +23,11 @@ export default function SessionStartPage({
 
   const { data: session } = useQuery({
     queryKey: ["session", sessionId],
-    queryFn: () => mockApi.getSession(sessionId),
+    // IdeShell 과 동일 hydrate. deep-link 케이스 sessionApi.getOrHydrateSession 주석 참조.
+    queryFn: () =>
+      isBackendSessionId(sessionId)
+        ? sessionApi.getOrHydrateSession(sessionId)
+        : mockApi.getSession(sessionId),
     // IN_PROGRESS 이면 IDE 로 이동 직전이라 stop, ENDED/EXPIRED 같은 terminal 도 stop.
     // 에러 3회 누적이면 not found 추정 — stop. 이전엔 IN_PROGRESS 외에는 영원히 500ms 폴링.
     refetchInterval: (query) => {

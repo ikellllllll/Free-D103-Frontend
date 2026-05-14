@@ -6,12 +6,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { mockApi } from "@/lib/api/mockApi";
 import { isBackendSessionId, sessionApi } from "@/lib/api/sessionApi";
 import type { AgentProgressEvent, AiMessage } from "@/lib/types/ai";
-import { useIdeStore } from "@/store/ideStore";
+import { capAgentEvents, useIdeStore } from "@/store/ideStore";
 
 export function useAiChat(sessionId: string) {
   const messages = useIdeStore((state) => state.messages);
   const setMessages = useIdeStore((state) => state.setMessages);
   const appendMessages = useIdeStore((state) => state.appendMessages);
+  const updateMessageById = useIdeStore((state) => state.updateMessageById);
   const queryClient = useQueryClient();
   const [streaming, setStreaming] = useState(false);
   const [requestCount, setRequestCount] = useState(0);
@@ -41,6 +42,24 @@ export function useAiChat(sessionId: string) {
       }
     };
   }, []);
+
+  // sessionId 변경 시 진행 중인 스트림 abort. 이전엔 useAiChat 의 ref 들이 hook 수명 내내 유지돼
+  // sessionId 가 바뀌어도 이전 SSE 가 계속 돌며 새 세션 store 를 오염시킬 수 있었음. abort 누르면
+  // streamChat/streamAgentChat 의 fetch 가 AbortError 로 빠져나가 finally cleanup 까지 정상 진행.
+  useEffect(() => {
+    return () => {
+      try { abortControllerRef.current?.abort(); } catch { /* noop */ }
+      abortControllerRef.current = null;
+      if (tracePollIntervalRef.current != null) {
+        window.clearInterval(tracePollIntervalRef.current);
+        tracePollIntervalRef.current = null;
+      }
+      if (mockStreamTimerRef.current != null) {
+        window.clearInterval(mockStreamTimerRef.current);
+        mockStreamTimerRef.current = null;
+      }
+    };
+  }, [sessionId]);
 
   const loadMessages = useCallback(async () => {
     const data = isBackendSessionId(sessionId)
@@ -93,22 +112,24 @@ export function useAiChat(sessionId: string) {
       origin: mode === "agent" ? "AGENT" : "CHAT"
     };
 
-    const baseMessages = [...messages, optimistic];
-    setMessages(baseMessages);
+    // optimistic + assistant 메시지를 모두 append. 이후 SSE 콜백은 assistantId 로 patch 하므로
+    // baseMessages 스냅샷에 의존하지 않는다 (#FE-H3 fix: 두 send 가 겹치거나 storage event 가
+    // 사이에 끼어 messages 가 바뀌어도 다른 메시지는 영향 없음).
+    appendMessages([optimistic]);
     setStreaming(true);
 
-    // unmount 후엔 store 갱신 하지 않도록 guard. agent/chat 스트림 callback 들이 abort
-    // 직전 도착한 chunk 로 store 를 오염시키던 케이스 + loadMessages() 가 이탈한 세션의
-    // 메시지로 덮어쓰던 케이스 둘 다 차단.
-    const safeSetMessages = (next: typeof messages) => {
+    // unmount 후엔 store 갱신 안 하도록 guard.
+    const safePatchAssistant = (id: string, patch: Partial<AiMessage>) => {
       if (!mountedRef.current) return;
-      setMessages(next);
+      updateMessageById(id, patch);
     };
 
     // 백엔드 세션이면 SSE streaming 으로 실 AI 응답을 받는다.
     // mock 세션이면 기존 페이크 streaming (28ms per 6 chars) 유지.
     if (isBackendSessionId(sessionId)) {
-      const assistantId = `assistant-${Date.now()}`;
+      // assistantId: 두 send 가 동시에 진행 중일 때 patch 충돌 안 나도록 고유. Date.now() 만으로는
+      // 같은 ms 안에 두 번 호출하면 충돌 가능 — Math.random 일부 섞어 충돌 방지.
+      const assistantId = `assistant-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const assistantBase: AiMessage = {
         id: assistantId,
         role: "assistant",
@@ -166,17 +187,13 @@ export function useAiChat(sessionId: string) {
                 if (!finalMessage) return;
 
                 events.push({ prefix, type, message: finalMessage, detail });
-                safeSetMessages([
-                  ...baseMessages,
-                  { ...assistantBase, content: "", agentEvents: [...events], traceId }
-                ]);
+                // capAgentEvents: 한 run 안에서 수백 이벤트가 쌓이는 걸 head-trim.
+                const cappedEvents = capAgentEvents(events);
+                safePatchAssistant(assistantId, { agentEvents: cappedEvents, traceId });
               },
               onError: (_code, msg) => {
                 events.push({ prefix: "❌", type: "ERROR", message: msg });
-                safeSetMessages([
-                  ...baseMessages,
-                  { ...assistantBase, content: "", agentEvents: [...events], traceId }
-                ]);
+                safePatchAssistant(assistantId, { agentEvents: capAgentEvents(events), traceId });
                 accumulated = "❌ " + msg;
               }
             },
@@ -190,10 +207,7 @@ export function useAiChat(sessionId: string) {
             ? "사용자가 중지했습니다."
             : error instanceof Error ? error.message : "Agent 실행에 실패했습니다.";
           events.push({ prefix: isAbort ? "⏹️" : "❌", type: isAbort ? "ABORTED" : "EXCEPTION", message: errMsg });
-          safeSetMessages([
-            ...baseMessages,
-            { ...assistantBase, content: "", agentEvents: [...events] }
-          ]);
+          safePatchAssistant(assistantId, { agentEvents: capAgentEvents(events) });
           accumulated = (isAbort ? "⏹️ " : "❌ ") + errMsg;
         } finally {
           window.clearInterval(tracePollInterval);
@@ -230,19 +244,13 @@ export function useAiChat(sessionId: string) {
           {
             onChunk: (content) => {
               accumulated += content;
-              safeSetMessages([
-                ...baseMessages,
-                { ...assistantBase, content: accumulated }
-              ]);
+              safePatchAssistant(assistantId, { content: accumulated });
             },
             onError: (_code, msg) => {
               accumulated = accumulated
                 ? `${accumulated}\n\n[오류] ${msg}`
                 : `[오류] ${msg}`;
-              safeSetMessages([
-                ...baseMessages,
-                { ...assistantBase, content: accumulated }
-              ]);
+              safePatchAssistant(assistantId, { content: accumulated });
             }
           },
           chatController.signal
@@ -254,10 +262,9 @@ export function useAiChat(sessionId: string) {
         const errMsg = isAbort
           ? "사용자가 중지했습니다."
           : error instanceof Error ? error.message : "AI 호출에 실패했습니다.";
-        safeSetMessages([
-          ...baseMessages,
-          { ...assistantBase, content: accumulated ? `${accumulated}\n\n[오류] ${errMsg}` : `[오류] ${errMsg}` }
-        ]);
+        safePatchAssistant(assistantId, {
+          content: accumulated ? `${accumulated}\n\n[오류] ${errMsg}` : `[오류] ${errMsg}`
+        });
       } finally {
         abortControllerRef.current = null;
         if (mountedRef.current) setStreaming(false);
@@ -294,19 +301,19 @@ export function useAiChat(sessionId: string) {
         }
         cursor += 6;
         const nextContent = assistantMessage.content.slice(0, cursor);
-        setMessages([...baseMessages, { ...assistantMessage, content: nextContent }]);
+        updateMessageById(assistantMessage.id, { content: nextContent });
 
         if (cursor >= assistantMessage.content.length) {
           window.clearInterval(timer);
           mockStreamTimerRef.current = null;
-          setMessages([...baseMessages, assistantMessage]);
+          updateMessageById(assistantMessage.id, { content: assistantMessage.content });
           setStreaming(false);
           resolve();
         }
       }, 28);
       mockStreamTimerRef.current = timer;
     });
-  }, [appendMessages, loadMessages, messages, queryClient, sessionId, setMessages]);
+  }, [appendMessages, loadMessages, queryClient, sessionId, updateMessageById]);
 
   // 현재 진행 중인 SSE 를 사용자가 중지하도록. 진행 카드에 "⏹️ 사용자가 중지했습니다" 가 push 되고
   // streaming 상태도 풀려서 composer 가 다시 활성화됨.

@@ -19,8 +19,10 @@ import {
   type LucideIcon
 } from "lucide-react";
 
+import { useQueryClient } from "@tanstack/react-query";
+
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
-import { authApi } from "@/lib/api/authApi";
+import { performLogout } from "@/lib/auth/logout";
 import { useAuthStore } from "@/store/authStore";
 import { useThemeStore } from "@/store/themeStore";
 import { useUiStore } from "@/store/uiStore";
@@ -46,8 +48,8 @@ type PaletteItem = {
 export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { currentPath, withPrefix } = useRouteScope();
+  const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
-  const signOut = useAuthStore((s) => s.signOut);
   const theme = useThemeStore((s) => s.theme);
   const hydrated = useThemeStore((s) => s.hydrated);
   const toggleTheme = useThemeStore((s) => s.toggleTheme);
@@ -85,11 +87,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [userMenuOpen]);
 
   const handleLogout = async () => {
-    const { tokens } = useAuthStore.getState();
-    if (tokens?.refreshToken) {
-      try { await authApi.logout(tokens.refreshToken); } catch { /* 서버 오류여도 로컬 로그아웃 진행 */ }
-    }
-    signOut();
+    // performLogout: 서버 로그아웃 + authStore + queryClient + ideStore + sessionStorage 전부 정리.
+    // 단일 진입점이라 새 cleanup 항목 추가 시 여기 한 곳만 손대면 된다 (lib/auth/logout.ts).
+    await performLogout(queryClient);
     addToast("로그아웃되었습니다.", "success");
     router.replace(withPrefix("/login"));
   };

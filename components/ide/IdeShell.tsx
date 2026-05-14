@@ -1117,12 +1117,25 @@ function ChatCodeBlock({
   onInsertCurrent?: (code: string) => void;
 }) {
   const [isCopied, setIsCopied] = useState(false);
+  const copyResetTimerRef = useRef<number | null>(null);
+  useEffect(() => {
+    // 1.5초 후 "복사됨" 라벨 리셋 타이머 — unmount 시 정리해서 dead component setState 경고 차단.
+    return () => {
+      if (copyResetTimerRef.current != null) {
+        window.clearTimeout(copyResetTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(code);
       setIsCopied(true);
-      window.setTimeout(() => setIsCopied(false), 1500);
+      if (copyResetTimerRef.current != null) window.clearTimeout(copyResetTimerRef.current);
+      copyResetTimerRef.current = window.setTimeout(() => {
+        setIsCopied(false);
+        copyResetTimerRef.current = null;
+      }, 1500);
     } catch {
       /* noop */
     }
@@ -1274,13 +1287,25 @@ function AttachedCodeChip({ data }: { data: { path: string; code: string; lineRa
 
 function ProblemBriefCodeBlock({ language, code }: { language?: string; code: string }) {
   const [isCopied, setIsCopied] = useState(false);
+  const copyResetTimerRef = useRef<number | null>(null);
+  useEffect(() => {
+    return () => {
+      if (copyResetTimerRef.current != null) {
+        window.clearTimeout(copyResetTimerRef.current);
+      }
+    };
+  }, []);
   const lines = code.trimEnd().split("\n");
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(code.trimEnd());
       setIsCopied(true);
-      window.setTimeout(() => setIsCopied(false), 1500);
+      if (copyResetTimerRef.current != null) window.clearTimeout(copyResetTimerRef.current);
+      copyResetTimerRef.current = window.setTimeout(() => {
+        setIsCopied(false);
+        copyResetTimerRef.current = null;
+      }, 1500);
     } catch {
       // noop
     }
@@ -2007,7 +2032,12 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   });
   const { data: session, isLoading } = useQuery({
     queryKey: ["session", sessionId],
-    queryFn: () => mockApi.getSession(sessionId)
+    // 백엔드 세션 ID 인데 mockDb 에 entry 가 없는 경우 (deep-link / 다른 브라우저 / localStorage
+    // 클리어) /users/me/sessions/active 로 hydrate. 자세한 사유는 sessionApi.getOrHydrateSession 주석 참조.
+    queryFn: () =>
+      isBackendSessionId(sessionId)
+        ? sessionApi.getOrHydrateSession(sessionId)
+        : mockApi.getSession(sessionId)
   });
   const { data: workspace } = useQuery({
     queryKey: ["workspace", sessionId],

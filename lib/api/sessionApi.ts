@@ -1,4 +1,4 @@
-import { authClient, BASE_URL, tryRefreshAccessToken } from "@/lib/api/authApi";
+import { authApi, authClient, BASE_URL, tryRefreshAccessToken, type ActiveSession } from "@/lib/api/authApi";
 import { useAuthStore } from "@/store/authStore";
 import { mockApi } from "@/lib/api/mockApi";
 import { normalizeApiDateTime, parseApiDateTime } from "@/lib/dateTime";
@@ -303,6 +303,31 @@ const resolveRememberedFileId = async (sessionId: string, path: string) => {
     .json<ApiResponse<GetFileTreeResponse>>();
   rememberFileIds(sessionId, res.data);
   return externalFileIdBySession.get(sessionId)?.get(path) ?? null;
+};
+
+const buildSessionStubFromActive = (item: ActiveSession): SolveSession => {
+  // /users/me/sessions/active 응답 → SolveSession 최소 스텁.
+  // files/messages/traces 는 IdeShell 의 workspace/agentTraces 쿼리가 별도로 채움.
+  // problemId 가 있어야 problem 쿼리가 enable 되므로 반드시 채워야 한다.
+  const language: ProblemLanguage = item.language === "PYTHON" ? "python" : "java";
+  const authUserId = useAuthStore.getState().user?.id ?? "";
+  return {
+    id: String(item.problemSessionId),
+    workspaceId: `ws-${item.problemSessionId}`,
+    problemId: String(item.problemId),
+    userId: String(authUserId),
+    language,
+    status: "IN_PROGRESS",
+    aiRequestCount: 0,
+    lastSavedAt: item.startedAt,
+    createdAt: item.startedAt,
+    readyAt: Date.now(),
+    files: [],
+    messages: [],
+    traces: [],
+    aiModel: "aig-default",
+    aiProvider: "default"
+  };
 };
 
 const buildExternalSession = (
@@ -720,8 +745,44 @@ export const sessionApi = {
     return session;
   },
 
+  /**
+   * 세션 메타데이터 조회 (deep-link / 다른 브라우저 / localStorage 클리어 대응).
+   *
+   * 백엔드에는 `GET /api/v1/sessions/{id}` 단일 조회 엔드포인트가 없고, 프론트는 startSession
+   * 응답을 mockDb 에 캐싱해서 후속 페이지에서 재사용한다. 그러나 다음 케이스에서 mockDb 에
+   * entry 가 없을 수 있다.
+   *   1. 다른 브라우저/탭에서 startSession 했고 사용자가 현재 브라우저로 deep-link 진입
+   *   2. localStorage 가 클리어된 직후 새로고침
+   *   3. 시크릿 모드 / 캐시 무효 환경에서 직접 URL 입력
+   * 이 때 mockApi.getSession 이 throw → useQuery 가 isLoading 으로 영원히 머묾 → IDE
+   * 가 "코드 한 줄도 안 보임" 상태. (#사고: 2026-05-14 세션 236 화면 stale 의 더 깊은 원인 후보)
+   *
+   * 해결: 활성 세션 목록 (`/users/me/sessions/active`) 에서 매칭되는 항목을 찾아 SolveSession
+   * 스텁으로 mockDb 에 등록. files/messages/traces 는 후속 workspace/trace 쿼리가 채운다.
+   * 활성 목록에도 없으면 ENDED/EXPIRED 로 보고 원래 에러를 그대로 던진다 (호출자가 fallback UI).
+   */
+  async getOrHydrateSession(sessionId: string): Promise<SolveSession> {
+    try {
+      return await mockApi.getSession(sessionId);
+    } catch (notFoundError) {
+      if (!isBackendSessionId(sessionId)) throw notFoundError;
+      try {
+        const active = await authApi.getActiveSessions();
+        const found = active.find((s) => String(s.problemSessionId) === sessionId);
+        if (!found) throw notFoundError;
+        const stub = buildSessionStubFromActive(found);
+        await mockApi.registerExternalSession(stub);
+        return stub;
+      } catch (hydrateError) {
+        // active 조회 실패 시 (네트워크/401) 도 원래 not-found 그대로. 호출자가 보여줄 메시지.
+        throw notFoundError;
+      }
+    }
+  },
+
   async getWorkspace(sessionId: string) {
-    const existingSession = await mockApi.getSession(sessionId);
+    // getWorkspace 도 mockDb 의존 — 같은 hydrate 보장.
+    const existingSession = await this.getOrHydrateSession(sessionId);
     const res = await authClient.get(`api/v1/sessions/${sessionId}/files`)
       .json<ApiResponse<GetFileTreeResponse>>();
 
@@ -1310,11 +1371,11 @@ export const sessionApi = {
         }
       }
     } finally {
-      try {
-        reader.releaseLock();
-      } catch {
-        /* noop */
-      }
+      // event:end / event:error / 에러 throw 로 빠져나갈 때 reader.releaseLock() 만 하면 백엔드는
+      // 클라이언트가 끊은 줄 모르고 한참 더 스트리밍 시도 (소켓 잡고 있음). 명시적 cancel() 로 신호.
+      // cancel() 은 자동으로 lock 도 풀지만, race 가능성 있어 release 한 번 더 시도.
+      try { await reader.cancel(); } catch { /* already cancelled / locked elsewhere */ }
+      try { reader.releaseLock(); } catch { /* already released by cancel */ }
     }
   },
 
@@ -1418,11 +1479,9 @@ export const sessionApi = {
         }
       }
     } finally {
-      try {
-        reader.releaseLock();
-      } catch {
-        /* noop */
-      }
+      // streamChat 과 동일 — 명시적 cancel() 로 백엔드에 종료 통지.
+      try { await reader.cancel(); } catch { /* already cancelled */ }
+      try { reader.releaseLock(); } catch { /* already released */ }
     }
   },
 

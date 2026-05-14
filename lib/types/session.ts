@@ -1,6 +1,12 @@
 import type { AiMessage, TraceEvent } from "./ai";
 
-export type SessionStatus = "CREATING" | "IN_PROGRESS" | "SUBMITTED";
+/**
+ * 세션 상태. 백엔드 `ProblemSessionStatus` 와 프론트 전용 상태가 섞여있다.
+ *  - CREATING: 프론트 startSession 직후 IDE 진입 전 단계 (백엔드는 모르는 값).
+ *  - IN_PROGRESS / ENDED / EXPIRED: 백엔드 `ProblemSessionStatus` enum 그대로.
+ *  - SUBMITTED: 프론트가 제출 완료를 표시할 때 쓰는 보조 상태 (백엔드의 ENDED 가 보통 매칭).
+ */
+export type SessionStatus = "CREATING" | "IN_PROGRESS" | "ENDED" | "EXPIRED" | "SUBMITTED";
 
 export interface WorkspaceFile {
   path: string;
