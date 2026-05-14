@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
 import {
   Sparkles,
   ArrowRight,
@@ -143,9 +143,23 @@ export default function WorkshopPage() {
     return selected?.url ?? variantA?.url ?? "#";
   }, [variantA?.url, workshopState.selectedVariant, workshopState.variants]);
 
-  const loadWorkshopState = async (silent = false) => {
+  // busy polling 중 fetch 가 겹칠 때 늦게 끝난 응답이 최신 상태를 덮어쓰지 않도록 inFlight + mounted 가드.
+  // 또한 unmount 후 setState 호출 차단.
+  const loadInFlightRef = useRef<boolean>(false);
+  const mountedRef = useRef<boolean>(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const loadWorkshopState = useCallback(async (silent = false) => {
+    if (loadInFlightRef.current) return;
+    loadInFlightRef.current = true;
     try {
       const next = await readWorkshopJson<WorkshopState>("/api/workshop/status");
+      if (!mountedRef.current) return;
       setWorkshopState(next);
       setWorkshopForm((current) => {
         if (current.targetPath.trim() || !next.targetPath) return current;
@@ -155,16 +169,18 @@ export default function WorkshopPage() {
         addToast("워크샵 상태를 새로고침했습니다.", "success");
       }
     } catch (error) {
+      if (!mountedRef.current) return;
       if (!silent) {
         addToast(error instanceof Error ? error.message : "워크샵 상태를 불러오지 못했습니다.", "error");
       }
+    } finally {
+      loadInFlightRef.current = false;
     }
-  };
+  }, [addToast]);
 
   useEffect(() => {
     void loadWorkshopState(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadWorkshopState]);
 
   useEffect(() => {
     if (!isWorkshopBusy) return;
@@ -172,8 +188,7 @@ export default function WorkshopPage() {
       void loadWorkshopState(true);
     }, 4000);
     return () => window.clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isWorkshopBusy]);
+  }, [isWorkshopBusy, loadWorkshopState]);
 
   useEffect(() => {
     const id = window.setInterval(() => setTick((tick) => tick + 1), 1000);

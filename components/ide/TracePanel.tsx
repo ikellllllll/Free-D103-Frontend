@@ -152,7 +152,14 @@ export function TracePanel({ sessionId }: { sessionId: string }) {
       isBackendSessionId(sessionId)
         ? sessionApi.getAgentTraces(sessionId)
         : mockApi.getAgentTraces(sessionId),
-    refetchInterval: 10000
+    // RUNNING/PENDING trace 가 있을 때만 10초 폴링. 전부 terminal 이거나 빈 list 면 idle.
+    // 이전엔 항상 10초 폴링이라 trace 없는 세션도 백엔드를 계속 두드림.
+    refetchInterval: (q) => {
+      const list = q.state.data ?? [];
+      const TERMINAL: string[] = ["COMPLETED", "FAILED", "CANCELLED"];
+      const hasActive = list.some((r) => !TERMINAL.includes(r.status));
+      return hasActive ? 10000 : false;
+    }
   });
 
   if (isLoading) {

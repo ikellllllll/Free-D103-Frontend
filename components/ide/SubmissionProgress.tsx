@@ -23,12 +23,21 @@ export function SubmissionProgress({ submissionId }: { submissionId: string }) {
       isBackendExecution
         ? sessionApi.getSubmissionResult(submissionId)
         : mockApi.getSubmission(submissionId),
-    refetchInterval: (query) => (query.state.data?.status === "COMPLETED" ? false : 1200)
+    // COMPLETED 또는 errorCount >= 3 이면 stop (404/500 무한 폴링 차단)
+    refetchInterval: (query) => {
+      if (query.state.data?.status === "COMPLETED") return false;
+      if (query.state.errorUpdateCount >= 3) return false;
+      return 1200;
+    }
   });
   const { data: report } = useQuery({
     queryKey: ["report", submissionId],
     queryFn: () => feedbackApi.getFeedbackReport(submissionId),
-    refetchInterval: (query) => (query.state.data?.status === "COMPLETED" ? false : 1200)
+    refetchInterval: (query) => {
+      if (query.state.data?.status === "COMPLETED") return false;
+      if (query.state.errorUpdateCount >= 3) return false;
+      return 1200;
+    }
   });
 
   const steps = useMemo(() => {

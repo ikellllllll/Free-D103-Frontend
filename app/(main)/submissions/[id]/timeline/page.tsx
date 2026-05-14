@@ -233,17 +233,25 @@ export default function TimelinePage({
   const [collapsed, setCollapsed] = useState(false);
   const [copiedShare, setCopiedShare] = useState(false);
 
-  const { data: timeline = [], isLoading, isError } = useQuery({
+  // 응답 자체를 { items, loaded } 로 감싸 "한 번이라도 성공 응답" 을 stop 기준으로 사용.
+  // 이전엔 q.state.data?.length 기준이라 timeline 이 비어있는 정상 리포트도 영원히 1.5초 폴링.
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["timeline", submissionId],
     queryFn: async () => {
       if (!isBackendFeedbackReportId(submissionId)) {
-        return mockApi.getTimeline(submissionId);
+        const items = await mockApi.getTimeline(submissionId);
+        return { items, loaded: true } as const;
       }
       const report = await feedbackApi.getFeedbackReport(submissionId);
-      return report.timeline;
+      return { items: report.timeline, loaded: true } as const;
     },
-    refetchInterval: (q) => (q.state.data?.length ? false : 1500)
+    refetchInterval: (q) => {
+      if (q.state.data?.loaded) return false;
+      if (q.state.errorUpdateCount >= 3) return false;
+      return 1500;
+    }
   });
+  const timeline = data?.items ?? [];
 
   const spans = useMemo(() => synthesize(timeline), [timeline]);
   const totalMs = useMemo(() => spans.reduce((a, s) => a + s.durationMs, 0), [spans]);

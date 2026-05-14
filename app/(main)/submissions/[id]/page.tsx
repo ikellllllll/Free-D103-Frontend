@@ -51,12 +51,21 @@ export default function SubmissionProgressPage({
       isBackendExecution
         ? sessionApi.getSubmissionResult(submissionId)
         : mockApi.getSubmission(submissionId),
-    refetchInterval: (q) => (q.state.data?.status === "COMPLETED" ? false : 1000)
+    // COMPLETED 이거나 (data 없는데) errorCount 가 3 이상이면 stop — 404/500 이 영원히 폴링되는 거 차단.
+    refetchInterval: (q) => {
+      if (q.state.data?.status === "COMPLETED") return false;
+      if (q.state.errorUpdateCount >= 3) return false;
+      return 1000;
+    }
   });
   const { data: report } = useQuery({
     queryKey: ["report", submissionId],
     queryFn: () => feedbackApi.getFeedbackReport(submissionId),
-    refetchInterval: (q) => (q.state.data?.status === "COMPLETED" ? false : 1000)
+    refetchInterval: (q) => {
+      if (q.state.data?.status === "COMPLETED") return false;
+      if (q.state.errorUpdateCount >= 3) return false;
+      return 1000;
+    }
   });
 
   // 페이지 진입 시점을 한 번만 stamp (어댑터의 submittedAt 이 폴링마다 갱신되는 깜빡임 방지)

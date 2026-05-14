@@ -2032,7 +2032,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
   // 제출 채점 결과 폴링 — handleSubmit 에서 submissionExecutionId 가 set 되면 활성화.
   // terminal (COMPLETED/FAILED) 도달 시 refetchInterval=false 로 알아서 멈춤.
-  useQuery({
+  // 추가: 네트워크/서버 에러 3회 누적 시 폴링 중단 + submissionLoading 해제 — 이전엔 404/500 시
+  // submissionLoading 이 true 인 채로 1초 폴링이 영원히 돌고 사용자에게 "진행 중" 으로만 보였음.
+  const submissionQuery = useQuery({
     queryKey: ["submission-poll", submissionExecutionId],
     queryFn: async () => {
       const data = await sessionApi.getSubmissionResult(submissionExecutionId!);
@@ -2082,9 +2084,18 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     refetchInterval: (q) => {
       const status = q.state.data?.rawStatus;
       if (status === "COMPLETED" || status === "FAILED") return false;
+      if (q.state.errorUpdateCount >= 3) return false;
       return 1000;
     }
   });
+
+  // submission 폴링이 에러 3회 누적되면 loading 해제 + 사용자 안내.
+  useEffect(() => {
+    if (submissionQuery.errorUpdateCount >= 3 && submissionLoading) {
+      setSubmissionLoading(false);
+      addToast("제출 결과를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.", "error");
+    }
+  }, [submissionQuery.errorUpdateCount, submissionLoading, setSubmissionLoading, addToast]);
 
   const activeEditorGroup = useMemo(
     () => editorGroups.find((group) => group.id === activeEditorGroupId) ?? editorGroups[0],

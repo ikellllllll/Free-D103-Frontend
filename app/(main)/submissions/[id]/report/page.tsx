@@ -80,7 +80,12 @@ export default function FeedbackReportPage({ params }: { params: Promise<{ id: s
   const { data: report, isLoading, isError } = useQuery({
     queryKey: ["report", submissionId],
     queryFn: () => feedbackApi.getFeedbackReport(submissionId),
-    refetchInterval: (q) => (q.state.data?.status === "COMPLETED" ? false : 1500)
+    // COMPLETED 또는 errorCount >= 3 이면 stop (리포트 404 / id mismatch 무한 폴링 차단)
+    refetchInterval: (q) => {
+      if (q.state.data?.status === "COMPLETED") return false;
+      if (q.state.errorUpdateCount >= 3) return false;
+      return 1500;
+    }
   });
 
   const problemTitle = useMemo(() => report?.problemTitle ?? "풀이 과제", [report?.problemTitle]);

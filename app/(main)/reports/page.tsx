@@ -55,8 +55,9 @@ export default function ReportsPage() {
       }
     },
     enabled: !!user,
-    // pending 마커가 있으면 3초 폴링 — 백엔드가 GENERATED 로 전이하면 list 에 나타남.
-    refetchInterval: () => (pendingMarkers.length > 0 ? 3000 : false)
+    // PENDING/PROCEEDING 마커만 폴링. FAILED 는 사용자가 [재시도] 누를 때까지 idle.
+    // 이전엔 `pendingMarkers.length > 0` 라 FAILED 도 영원히 3초 폴링 돌리던 버그가 있었음.
+    refetchInterval: () => (pendingMarkers.some((m) => m.status !== "FAILED") ? 3000 : false)
   });
 
   // 백엔드 reports 응답에 들어온 problemSessionId 는 pending 마커에서 제거 (이미 GENERATED 됨).
@@ -67,16 +68,25 @@ export default function ReportsPage() {
     const latestReportTime = reportsData.reports[0]
       ? new Date(reportsData.reports[0].createdAt).getTime()
       : 0;
-    const remaining = pendingMarkers.filter((m) => {
+    // 두 단계: (1) 5분 timeout 으로 PENDING/PROCEEDING → FAILED 전환 (map),
+    //          (2) GENERATED 로 판정된 마커는 list 에서 제거 (filter).
+    // 이전엔 filter 안에서 객체를 반환해 boolean 으로 truthy 평가만 되고 실제 상태가 안 바뀌는 버그.
+    const transitioned = pendingMarkers.map((m) => {
       const startedTime = new Date(m.startedAt).getTime();
-      // 5분 넘게 PENDING/PROCEEDING 이면 FAILED 로 자동 전환 (백엔드 evaluator timeout 보다 길게)
       if (m.status !== "FAILED" && Date.now() - startedTime > 5 * 60_000) {
         return { ...m, status: "FAILED" as const };
       }
+      return m;
+    });
+    const remaining = transitioned.filter((m) => {
+      const startedTime = new Date(m.startedAt).getTime();
       // 새 리포트가 마커 이후 시간에 생긴 거면 그 마커는 GENERATED 됐다고 판단 → 제거
       return latestReportTime <= startedTime;
     });
-    if (remaining.length !== pendingMarkers.length) {
+    const changed =
+      remaining.length !== pendingMarkers.length ||
+      remaining.some((m, idx) => m.status !== pendingMarkers[idx]?.status);
+    if (changed) {
       setPendingMarkers(remaining);
       savePendingMarkers(remaining);
     }

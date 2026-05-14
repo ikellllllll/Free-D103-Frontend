@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { mockApi } from "@/lib/api/mockApi";
@@ -17,6 +17,30 @@ export function useAiChat(sessionId: string) {
   const [requestCount, setRequestCount] = useState(0);
   // 현재 진행 중인 SSE 요청의 AbortController — 사용자가 "중지" 누르면 abort() 호출.
   const abortControllerRef = useRef<AbortController | null>(null);
+  // Agent streaming 중 동작하는 trace 폴링 interval id.
+  // unmount 시 cleanup 에서 clearInterval — 페이지 이탈 후에도 invalidate 가 늦게 실행되던 버그 차단.
+  const tracePollIntervalRef = useRef<number | null>(null);
+  // mock streaming 의 setInterval id — unmount 시 timer 가 끝까지 store/state 갱신하던 leak 차단.
+  const mockStreamTimerRef = useRef<number | null>(null);
+  // unmount 후 setState 호출 차단용.
+  const mountedRef = useRef<boolean>(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      // 진행 중인 SSE / interval / mock timer 모두 정리.
+      try { abortControllerRef.current?.abort(); } catch { /* noop */ }
+      if (tracePollIntervalRef.current != null) {
+        window.clearInterval(tracePollIntervalRef.current);
+        tracePollIntervalRef.current = null;
+      }
+      if (mockStreamTimerRef.current != null) {
+        window.clearInterval(mockStreamTimerRef.current);
+        mockStreamTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const loadMessages = useCallback(async () => {
     const data = isBackendSessionId(sessionId)
@@ -100,8 +124,10 @@ export function useAiChat(sessionId: string) {
         // 첫 trace 가 list 에 보이기 전엔 TraceWorkbench 의 useQuery 가 폴링 안 함 (hasActive 가 false).
         // streaming 중 강제로 2.5s 마다 invalidate → trace 가 db 에 들어오자마자 list 반영.
         const tracePollInterval = window.setInterval(() => {
+          if (!mountedRef.current) return;
           queryClient.invalidateQueries({ queryKey: ["agentTraces", sessionId] });
         }, 2500);
+        tracePollIntervalRef.current = tracePollInterval;
         try {
           await sessionApi.streamAgentChat(
             sessionId,
@@ -163,8 +189,9 @@ export function useAiChat(sessionId: string) {
           accumulated = (isAbort ? "⏹️ " : "❌ ") + errMsg;
         } finally {
           window.clearInterval(tracePollInterval);
+          tracePollIntervalRef.current = null;
           abortControllerRef.current = null;
-          setStreaming(false);
+          if (mountedRef.current) setStreaming(false);
           // Agent 가 worktree 에 새 파일을 만들고 끝났는데 workspace query 가 stale 상태로 남으면
           // 파일 트리에 .worktree (ai) 자식이 안 보임. invalidate 로 강제 refetch 해서 즉시 hydrate.
           // session(트레이스 카운트 갱신용) / agentTraces (Trace 탭) 도 같이 무효화.
@@ -232,17 +259,26 @@ export function useAiChat(sessionId: string) {
     let cursor = 0;
     await new Promise<void>((resolve) => {
       const timer = window.setInterval(() => {
+        // unmount 되었거나 외부에서 clear 됐으면 즉시 종료 (store 갱신 leak 차단).
+        if (!mountedRef.current) {
+          window.clearInterval(timer);
+          mockStreamTimerRef.current = null;
+          resolve();
+          return;
+        }
         cursor += 6;
         const nextContent = assistantMessage.content.slice(0, cursor);
         setMessages([...baseMessages, { ...assistantMessage, content: nextContent }]);
 
         if (cursor >= assistantMessage.content.length) {
           window.clearInterval(timer);
+          mockStreamTimerRef.current = null;
           setMessages([...baseMessages, assistantMessage]);
           setStreaming(false);
           resolve();
         }
       }, 28);
+      mockStreamTimerRef.current = timer;
     });
   }, [appendMessages, loadMessages, messages, queryClient, sessionId, setMessages]);
 

@@ -24,7 +24,15 @@ export default function SessionStartPage({
   const { data: session } = useQuery({
     queryKey: ["session", sessionId],
     queryFn: () => mockApi.getSession(sessionId),
-    refetchInterval: (query) => (query.state.data?.status === "IN_PROGRESS" ? false : 500)
+    // IN_PROGRESS 이면 IDE 로 이동 직전이라 stop, ENDED/EXPIRED 같은 terminal 도 stop.
+    // 에러 3회 누적이면 not found 추정 — stop. 이전엔 IN_PROGRESS 외에는 영원히 500ms 폴링.
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      const TERMINAL: string[] = ["IN_PROGRESS", "ENDED", "EXPIRED", "SUBMITTED"];
+      if (status && TERMINAL.includes(status)) return false;
+      if (query.state.errorUpdateCount >= 3) return false;
+      return 500;
+    }
   });
   const isApiProblem = isBackendProblemId(session?.problemId ?? "");
   const { data: apiProblem } = useQuery({
