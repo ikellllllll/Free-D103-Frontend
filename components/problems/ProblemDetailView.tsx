@@ -319,7 +319,7 @@ export function ProblemDetailView({ problemId }: { problemId: string }) {
                     </span>
                   }
                 />
-                <MetaRow label="통과율" value={`${problem.passRate.toFixed(2)}%`} />
+                <MetaRow label="정답률" value={`${problem.passRate.toFixed(2)}%`} />
               </div>
 
               {/* Language */}
