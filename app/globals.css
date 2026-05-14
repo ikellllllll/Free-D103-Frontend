@@ -4249,6 +4249,42 @@ html[data-theme="light"] .test-result-card__trace-body {
 .build-status__pill svg { flex-shrink: 0; }
 .build-status__pill-count { font-variant-numeric: tabular-nums; line-height: 1; }
 
+/* 리포트 "최종 요약" 마크다운 본문 스타일.
+ * react-markdown 이 렌더한 p/ul/ol/strong/code/h1-3 에 적절한 spacing/typography 부여. */
+.report-summary-md p { margin: 0.55em 0; }
+.report-summary-md p:first-child { margin-top: 0; }
+.report-summary-md p:last-child { margin-bottom: 0; }
+.report-summary-md strong { font-weight: 700; color: #111827; }
+html[data-theme="dark"] .report-summary-md strong { color: #f1f5f9; }
+.report-summary-md ul, .report-summary-md ol { padding-left: 1.4em; margin: 0.55em 0; }
+.report-summary-md ul { list-style: disc; }
+.report-summary-md ol { list-style: decimal; }
+.report-summary-md li { margin: 0.18em 0; }
+.report-summary-md li > p { margin: 0; }
+.report-summary-md code {
+  background: rgba(15, 23, 42, 0.06);
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+}
+html[data-theme="dark"] .report-summary-md code {
+  background: rgba(255, 255, 255, 0.08);
+}
+.report-summary-md h1, .report-summary-md h2, .report-summary-md h3 {
+  font-weight: 700; margin: 0.9em 0 0.35em; color: #111827;
+}
+html[data-theme="dark"] .report-summary-md h1,
+html[data-theme="dark"] .report-summary-md h2,
+html[data-theme="dark"] .report-summary-md h3 { color: #f1f5f9; }
+.report-summary-md h1 { font-size: 1.1em; }
+.report-summary-md h2 { font-size: 1.05em; }
+.report-summary-md h3 { font-size: 1em; }
+.report-summary-md a { color: #4f46e5; text-decoration: underline; }
+html[data-theme="dark"] .report-summary-md a { color: #a5b4fc; }
+.report-summary-md hr { border: 0; border-top: 1px solid rgba(15,23,42,0.1); margin: 0.8em 0; }
+html[data-theme="dark"] .report-summary-md hr { border-top-color: rgba(255,255,255,0.1); }
+
 /* 빌드/컴파일 실패 시 bottom panel 에 표시할 stderr 블록. */
 .build-stderr-block {
   max-height: 280px;

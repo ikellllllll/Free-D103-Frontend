@@ -40,7 +40,11 @@ interface BackendFeedbackReportResponse {
   };
   evaluationBasis?: {
     problemTitle?: string | null;
+    // 2026-05-14 백엔드 응답에 추가됨 (used* 키 삭제 대신).
+    problemCategory?: string | null;
+    language?: string | null;
     runStatus?: string | null;
+    traceCount?: number | null;
     usedHarnessFiles?: string[] | null;
     usedRunTrace?: {
       traceId?: number | null;
@@ -269,7 +273,10 @@ const toBasis = (payload: BackendFeedbackReportResponse): EvaluationBasis | unde
   if (!b) return undefined;
   return {
     problemTitle: b.problemTitle ?? undefined,
+    problemCategory: b.problemCategory ?? undefined,
+    language: b.language ?? undefined,
     runStatus: b.runStatus ?? undefined,
+    traceCount: b.traceCount ?? undefined,
     usedHarnessFiles: b.usedHarnessFiles ?? undefined,
     usedRunTrace: b.usedRunTrace
       ? {

@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { use, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   ArrowLeft,
   ArrowRight,
@@ -215,9 +217,13 @@ export default function FeedbackReportPage({ params }: { params: Promise<{ id: s
 
         {/* ── SUMMARY ── */}
         {report.summary && (
-          <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-7 animate-slide-up">
-            <h2 className="font-display font-bold text-gray-900 text-lg mb-3">최종 요약</h2>
-            <p className="text-[15px] text-gray-700 leading-relaxed">{report.summary}</p>
+          <section className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm p-6 md:p-7 animate-slide-up">
+            <h2 className="font-display font-bold text-gray-900 dark:text-slate-100 text-lg mb-3">최종 요약</h2>
+            {/* report.summary 는 evaluator 가 markdown 으로 작성 (**굵게**, - 불릿, 코드 등) — 평문 렌더 시
+                작성 의도와 다르게 보였음. remarkGfm 으로 GFM 확장까지 지원. */}
+            <div className="report-summary-md text-[15px] text-gray-700 dark:text-slate-300 leading-relaxed">
+              <Markdown remarkPlugins={[remarkGfm]}>{report.summary}</Markdown>
+            </div>
           </section>
         )}
 
@@ -261,9 +267,9 @@ export default function FeedbackReportPage({ params }: { params: Promise<{ id: s
 
 function ScoreOverviewSection({ dimensions }: { dimensions: DimensionScoreItem[] }) {
   return (
-    <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 md:p-8 animate-slide-up">
-      <h2 className="font-display font-bold text-gray-900 text-lg mb-1">Harness 영역별 점수</h2>
-      <p className="text-sm text-gray-500 mb-6">AGENTS / HARNESS 평가 기준에 따른 다섯 가지 영역의 점수입니다.</p>
+    <section className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-sm p-6 md:p-8 animate-slide-up">
+      <h2 className="font-display font-bold text-gray-900 dark:text-slate-100 text-lg mb-1">Harness 영역별 점수</h2>
+      <p className="text-sm text-gray-500 dark:text-slate-400 mb-6">AGENTS / HARNESS 평가 기준에 따른 다섯 가지 영역의 점수입니다.</p>
       <div className="flex flex-col md:flex-row md:items-center gap-8">
         <div className="shrink-0 mx-auto md:mx-0">
           <ReportRadarChart dimensions={dimensions} />
@@ -274,18 +280,21 @@ function ScoreOverviewSection({ dimensions }: { dimensions: DimensionScoreItem[]
             const isLow = dim.score < 70;
             return (
               <div key={dim.code} className="flex items-center gap-3">
-                <span className="w-[108px] shrink-0 text-sm font-semibold text-gray-700 truncate">{dim.label}</span>
-                <div className="flex-1 h-2.5 rounded-full bg-gray-100 overflow-hidden">
+                <span className="w-[108px] shrink-0 text-sm font-semibold text-gray-700 dark:text-slate-300 truncate">{dim.label}</span>
+                <div className="flex-1 h-2.5 rounded-full bg-gray-100 dark:bg-slate-800 overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-700"
                     style={{ width: `${dim.score}%`, backgroundColor: visual.barColor }}
                   />
                 </div>
+                {/* 점수 색상: 70 미만이면 빨강, 그 외엔 일반 — 이전엔 inline style 로 라이트 hex 만 박혀 있어
+                    다크모드에서 검은 글씨로 보이지 않던 버그. dark variant 적용 가능한 className 으로 전환. */}
                 <span
-                  className="w-[72px] shrink-0 text-right text-sm font-bold tabular-nums"
-                  style={{ color: isLow ? "#EF4444" : "#111827" }}
+                  className={`w-[72px] shrink-0 text-right text-sm font-bold tabular-nums ${
+                    isLow ? "text-rose-500" : "text-gray-900 dark:text-slate-100"
+                  }`}
                 >
-                  {dim.score} <span className="text-gray-400 font-normal text-xs">/ 100</span>
+                  {dim.score} <span className="text-gray-400 dark:text-slate-500 font-normal text-xs">/ 100</span>
                 </span>
               </div>
             );
@@ -392,18 +401,18 @@ function DimensionDetailsSection({ dimensions }: { dimensions: DimensionScoreIte
 
   return (
     <section className="space-y-2 animate-slide-up">
-      <h2 className="font-display font-bold text-gray-900 text-lg px-1 mb-3">영역별 세부 평가</h2>
+      <h2 className="font-display font-bold text-gray-900 dark:text-slate-100 text-lg px-1 mb-3">영역별 세부 평가</h2>
       {dimensions.map((dim) => {
         const visual = AXIS_VISUAL[dim.code] ?? FALLBACK_VISUAL;
         const isOpen = openCode === dim.code;
         const hasCriteria = (dim.criteria?.length ?? 0) > 0;
         return (
-          <div key={dim.code} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div key={dim.code} className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-sm overflow-hidden">
             {/* Header row */}
             <button
               type="button"
               onClick={() => setOpenCode(isOpen ? null : dim.code)}
-              className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-gray-50 transition-colors"
+              className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-gray-50 dark:hover:bg-slate-800/60 transition-colors"
             >
               <span
                 className="shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-xl text-white shadow-sm font-bold text-[10px] tracking-wide"
@@ -414,63 +423,65 @@ function DimensionDetailsSection({ dimensions }: { dimensions: DimensionScoreIte
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-bold text-gray-900 text-[15px]">{dim.label}</span>
+                  <span className="font-bold text-gray-900 dark:text-slate-100 text-[15px]">{dim.label}</span>
                   {dim.tone === "warn" && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 text-[10px] font-bold">
                       개선 필요
                     </span>
                   )}
                 </div>
                 {!isOpen && dim.rationale && (
-                  <p className="text-[12.5px] text-gray-500 mt-0.5 line-clamp-1">{dim.rationale}</p>
+                  <p className="text-[12.5px] text-gray-500 dark:text-slate-400 mt-0.5 line-clamp-1">{dim.rationale}</p>
                 )}
               </div>
 
               <div className="shrink-0 flex items-center gap-3">
                 {/* Mini bar */}
                 <div className="hidden sm:flex items-center gap-2">
-                  <div className="w-24 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                  <div className="w-24 h-1.5 rounded-full bg-gray-100 dark:bg-slate-800 overflow-hidden">
                     <div
                       className="h-full rounded-full"
                       style={{ width: `${dim.score}%`, backgroundColor: visual.barColor }}
                     />
                   </div>
                 </div>
+                {/* 점수 색상: 70 미만 빨강, 외엔 일반 — inline hex 대신 className 으로 dark variant 적용. */}
                 <span
-                  className="text-xl font-display font-bold tabular-nums leading-none"
-                  style={{ color: dim.score < 70 ? "#EF4444" : "#111827" }}
+                  className={`text-xl font-display font-bold tabular-nums leading-none ${
+                    dim.score < 70 ? "text-rose-500" : "text-gray-900 dark:text-slate-100"
+                  }`}
                 >
                   {dim.score}
                 </span>
-                <span className="text-xs text-gray-400">/ 100</span>
+                <span className="text-xs text-gray-400 dark:text-slate-500">/ 100</span>
                 <ChevronDown
                   size={16}
-                  className={`text-gray-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+                  className={`text-gray-400 dark:text-slate-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
                 />
               </div>
             </button>
 
             {/* Expanded content */}
             {isOpen && (
-              <div className="border-t border-gray-100 px-5 py-5 space-y-5">
+              <div className="border-t border-gray-100 dark:border-slate-800 px-5 py-5 space-y-5">
                 {/* Rationale */}
                 {dim.rationale && (
-                  <p className="text-sm text-gray-700 leading-relaxed">{dim.rationale}</p>
+                  <p className="text-sm text-gray-700 dark:text-slate-300 leading-relaxed">{dim.rationale}</p>
                 )}
 
                 {/* Strength / Improvement summaries */}
                 {(dim.strengthSummary || dim.improvementSummary) && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {dim.strengthSummary && (
-                      <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3">
-                        <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-600 mb-1">강점</div>
-                        <p className="text-[13px] text-emerald-800 leading-relaxed">{dim.strengthSummary}</p>
+                      <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/50 px-4 py-3">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-600 dark:text-emerald-400 mb-1">강점</div>
+                        <p className="text-[13px] text-emerald-800 dark:text-emerald-200 leading-relaxed">{dim.strengthSummary}</p>
                       </div>
                     )}
                     {dim.improvementSummary && (
-                      <div className="rounded-xl bg-amber-50 border border-amber-100 px-4 py-3">
-                        <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-amber-600 mb-1">개선</div>
-                        <p className="text-[13px] text-amber-800 leading-relaxed">{dim.improvementSummary}</p>
+                      <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 px-4 py-3">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-amber-600 dark:text-amber-400 mb-1">개선</div>
+                        <p className="text-[13px] text-amber-800 dark:text-amber-200 leading-relaxed">{dim.improvementSummary}</p>
                       </div>
                     )}
                   </div>
@@ -479,7 +490,7 @@ function DimensionDetailsSection({ dimensions }: { dimensions: DimensionScoreIte
                 {/* Criteria table */}
                 {hasCriteria && (
                   <div>
-                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-gray-500 mb-2">세부 기준</div>
+                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-gray-500 dark:text-slate-400 mb-2">세부 기준</div>
                     <div className="space-y-2">
                       {dim.criteria!.map((c) => (
                         <CriterionRow key={c.name} criterion={c} />
@@ -742,51 +753,95 @@ function ImprovementsAccordion({ findings }: { findings: FindingItem[] }) {
 function BasisSection({ report }: { report: FeedbackReport }) {
   const basis = report.basis;
   if (!basis) return null;
+
+  // 신규 응답 키 (problemCategory / language / traceCount) + 구 응답 키 (used*) 둘 다 받음.
+  // 구 키들은 백엔드 현재 응답에서 빠져 있어 안 보이고, 부활하면 자동 노출.
   const trace = basis.usedRunTrace;
   const reviews = basis.usedFileChangeReviews;
   const exec = basis.usedExecutionResults?.at(-1);
   const harnessFiles = basis.usedHarnessFiles ?? [];
 
+  // 신규 응답 키 기반 메타 chip 들.
+  type MetaChip = { label: string; value: string };
+  const metaChips: MetaChip[] = [];
+  if (basis.problemCategory) {
+    metaChips.push({ label: "분야", value: basis.problemCategory === "BUG" ? "버그 수정" : basis.problemCategory === "API" ? "API 구현" : basis.problemCategory });
+  }
+  if (basis.language) {
+    metaChips.push({ label: "언어", value: basis.language });
+  }
+  if (basis.runStatus) {
+    metaChips.push({ label: "실행 상태", value: basis.runStatus });
+  }
+  if (typeof basis.traceCount === "number") {
+    metaChips.push({ label: "Trace", value: `${basis.traceCount}회` });
+  }
+
+  const hasOldDetail = !!trace || !!exec || !!reviews || harnessFiles.length > 0;
+
+  // 메타 chip 도, 구버전 카드도 둘 다 없으면 섹션 자체 숨김.
+  if (metaChips.length === 0 && !hasOldDetail) return null;
+
   return (
-    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-7 animate-slide-up">
+    <section className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm p-6 md:p-7 animate-slide-up">
       <div className="flex items-center gap-2.5 mb-5">
-        <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 text-gray-600">
+        <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300">
           <FileText size={14} strokeWidth={2.2} />
         </span>
-        <h2 className="font-display font-bold text-gray-900 text-[17px]">평가 근거</h2>
-        <span className="text-xs text-gray-500">이 리포트가 본 자료들</span>
+        <h2 className="font-display font-bold text-gray-900 dark:text-slate-100 text-[17px]">평가 근거</h2>
+        <span className="text-xs text-gray-500 dark:text-slate-400">이 리포트가 본 자료들</span>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-        {trace && (
-          <BasisStat label="Trace" items={[
-            { k: "Span", v: trace.spanCount ?? 0 },
-            { k: "Tool", v: trace.toolCallCount ?? 0 },
-            { k: "LLM",  v: trace.llmCallCount ?? 0 },
-            { k: "Patch", v: trace.patchCount ?? 0 }
-          ]} />
-        )}
-        {exec && (
-          <BasisStat label="실행 결과" items={[
-            { k: "통과", v: exec.passedTestCount ?? 0 },
-            { k: "총",   v: exec.totalTestCount ?? 0 },
-            { k: "빌드", v: exec.buildSucceeded === false ? "실패" : "성공" }
-          ]} />
-        )}
-        {reviews && (
-          <BasisStat label="파일 변경 검토" items={[
-            { k: "요청", v: reviews.changeRequestCount ?? 0 },
-            { k: "승인", v: reviews.approvedCount ?? 0 },
-            { k: "거절", v: reviews.rejectedCount ?? 0 },
-            { k: "적용", v: reviews.appliedCount ?? 0 }
-          ]} />
-        )}
-      </div>
+
+      {/* 신규 메타 chips */}
+      {metaChips.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {metaChips.map((chip) => (
+            <span
+              key={chip.label}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700"
+            >
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500 dark:text-slate-400">{chip.label}</span>
+              <span className="text-xs font-semibold text-gray-800 dark:text-slate-100">{chip.value}</span>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* 구 응답 키 (used*) 가 살아있으면 BasisStat 카드 — 백엔드가 다시 채워주면 자동 노출 */}
+      {hasOldDetail && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+          {trace && (
+            <BasisStat label="Trace" items={[
+              { k: "Span", v: trace.spanCount ?? 0 },
+              { k: "Tool", v: trace.toolCallCount ?? 0 },
+              { k: "LLM",  v: trace.llmCallCount ?? 0 },
+              { k: "Patch", v: trace.patchCount ?? 0 }
+            ]} />
+          )}
+          {exec && (
+            <BasisStat label="실행 결과" items={[
+              { k: "통과", v: exec.passedTestCount ?? 0 },
+              { k: "총",   v: exec.totalTestCount ?? 0 },
+              { k: "빌드", v: exec.buildSucceeded === false ? "실패" : "성공" }
+            ]} />
+          )}
+          {reviews && (
+            <BasisStat label="파일 변경 검토" items={[
+              { k: "요청", v: reviews.changeRequestCount ?? 0 },
+              { k: "승인", v: reviews.approvedCount ?? 0 },
+              { k: "거절", v: reviews.rejectedCount ?? 0 },
+              { k: "적용", v: reviews.appliedCount ?? 0 }
+            ]} />
+          )}
+        </div>
+      )}
+
       {harnessFiles.length > 0 && (
         <div>
-          <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-500 mb-2">사용된 하네스 파일</div>
+          <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-500 dark:text-slate-400 mb-2">사용된 하네스 파일</div>
           <div className="flex flex-wrap gap-1.5">
             {harnessFiles.map((p) => (
-              <span key={p} className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-50 border border-gray-200 font-mono text-[11.5px] text-gray-700">
+              <span key={p} className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 font-mono text-[11.5px] text-gray-700 dark:text-slate-300">
                 {p}
               </span>
             ))}
@@ -799,13 +854,13 @@ function BasisSection({ report }: { report: FeedbackReport }) {
 
 function BasisStat({ label, items }: { label: string; items: { k: string; v: number | string }[] }) {
   return (
-    <div className="rounded-xl bg-gray-50 border border-gray-200 p-4">
-      <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-600 mb-2.5">{label}</div>
+    <div className="rounded-xl bg-gray-50 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700 p-4">
+      <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-600 dark:text-slate-400 mb-2.5">{label}</div>
       <div className="grid" style={{ gridTemplateColumns: `repeat(${items.length}, 1fr)` }}>
         {items.map((it) => (
           <div key={it.k} className="text-center">
-            <div className="text-[10px] uppercase tracking-[0.1em] text-gray-500 mb-0.5 font-semibold">{it.k}</div>
-            <div className="font-display font-bold text-gray-900 text-lg tabular-nums leading-none">{it.v}</div>
+            <div className="text-[10px] uppercase tracking-[0.1em] text-gray-500 dark:text-slate-400 mb-0.5 font-semibold">{it.k}</div>
+            <div className="font-display font-bold text-gray-900 dark:text-slate-100 text-lg tabular-nums leading-none">{it.v}</div>
           </div>
         ))}
       </div>

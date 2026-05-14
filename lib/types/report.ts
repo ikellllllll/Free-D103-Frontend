@@ -61,10 +61,21 @@ export interface ActionGuideItem {
   expectedImpact?: string;
 }
 
-/** 평가에 사용된 자료 요약 — 평가 근거를 사용자에게 노출. */
+/** 평가에 사용된 자료 요약 — 평가 근거를 사용자에게 노출.
+ *
+ * 백엔드 응답 키 변경 이력:
+ *  - 이전: problemTitle / runStatus / usedHarnessFiles / usedRunTrace / usedExecutionResults / usedFileChangeReviews
+ *  - 현재: problemTitle / problemCategory / language / runStatus / traceCount
+ *  - 새 키들은 problemSession 기준 메타 + trace 횟수만 노출. 상세 카운트(span/tool/LLM 등)는 제거됨.
+ *
+ * 호환을 위해 양쪽 키를 모두 optional 로 유지. used* 가 다시 부활하면 자동 반영.
+ */
 export interface EvaluationBasis {
   problemTitle?: string;
+  problemCategory?: string;
+  language?: string;
   runStatus?: string;
+  traceCount?: number;
   usedHarnessFiles?: string[];
   usedRunTrace?: {
     traceId?: number;
