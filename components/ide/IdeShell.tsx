@@ -2870,6 +2870,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   }, []);
 
   useEffect(() => {
+    // sessionId 변경 (Next 라우팅으로 IDE A → B 이동 등 컴포넌트 재사용 시) 시작 시점에
+    // 이전 세션의 editor subscription / monaco model 을 먼저 정리. 이전엔 refs/maps 만 clear
+    // 하고 selection listener / model URI tracking 은 unmount 까지 미뤘기 때문에 세션 간
+    // stale callback / leaked model 이 누적될 수 있었음.
+    cleanupEditorSubscriptions();
+    disposeTrackedMonacoModels();
+
     setExplorerContextMenu(null);
     setExplorerCreateDraft(null);
     setExplorerRenameDraft(null);
@@ -2886,7 +2893,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     editorHostRefsRef.current.clear();
     editorGroupRefsRef.current.clear();
     setEditorGroupSizes({});
-  }, [sessionId]);
+  }, [sessionId, cleanupEditorSubscriptions, disposeTrackedMonacoModels]);
 
   useEffect(() => {
     const isValidTabId = (tabId: string) => {
@@ -3374,6 +3381,24 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     });
     editorDisposablesRef.current.push(selectionDisposable);
 
+    // editor dispose 시점에 refs / disposable cleanup — handleDiffMount 와 대칭.
+    // 이전엔 일반 MonacoEditor 만 onDidDispose 등록이 누락돼서, 탭 닫기/세션 전환 후
+    // requestEditorLayout / handleInsertIntoCurrent / handleApplyEdit 가 disposed editor 에
+    // 접근할 수 있었음.
+    try {
+      editor.onDidDispose?.(() => {
+        if (editorRefsRef.current.get(groupId) === editor) {
+          editorRefsRef.current.delete(groupId);
+        }
+        if (editorRef.current === editor) {
+          editorRef.current = null;
+        }
+        try { selectionDisposable.dispose?.(); } catch { /* noop */ }
+      });
+    } catch {
+      /* monaco API 버전 차이로 onDidDispose 없으면 무시 */
+    }
+
     requestEditorLayout();
     syncMonacoAuxInputs();
   };
@@ -3465,8 +3490,11 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const focusEditorGroup = useCallback((groupId: string) => {
     setActiveEditorGroupId(groupId);
     activeEditorGroupIdRef.current = groupId;
-    editorRef.current = editorRefsRef.current.get(groupId) ?? editorRef.current;
-    diffEditorRef.current = diffEditorRefsRef.current.get(groupId) ?? diffEditorRef.current;
+    // 빈 group / diff-only group / preview group 으로 focus 가 이동했을 때 fallback 으로
+    // 이전 editorRef.current 를 유지하면, 그 뒤 AI 삽입/적용이 잘못된 group 의 editor 에
+    // 가서 사용자 의도와 다른 파일이 수정되는 버그. null 로 비우고 sender 쪽에서 검증.
+    editorRef.current = editorRefsRef.current.get(groupId) ?? null;
+    diffEditorRef.current = diffEditorRefsRef.current.get(groupId) ?? null;
   }, []);
 
   const openTabInEditorGroup = useCallback(
@@ -3493,16 +3521,35 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     openTabInEditorGroup(path, groupId);
     setActivePath(path);
 
-    window.requestAnimationFrame(() => {
-      const editor = editorRefsRef.current.get(groupId) ?? editorRef.current;
-      if (!editor || !lineNumber) {
+    if (!lineNumber) return;
+
+    // 이전엔 RAF 1회만 기다려서 새 탭이 아직 mount 전이면 fallback 으로 이전 editor 에서
+    // reveal/setPosition 이 실행되던 버그. target file 의 model 이 실제 mount 될 때까지
+    // 최대 20프레임 (~333ms) 재시도. 그래도 못 찾으면 silent fail (사용자 경험 손상 없음).
+    const targetModelMatchesPath = (editor: any): boolean => {
+      const model = editor?.getModel?.();
+      const uri = model?.uri?.toString?.() ?? "";
+      return uri.includes(path);
+    };
+
+    let attempts = 0;
+    const tryFocus = () => {
+      attempts += 1;
+      const editor = editorRefsRef.current.get(groupId);
+      if (editor && targetModelMatchesPath(editor)) {
+        try {
+          editor.focus();
+          editor.revealLineInCenter(lineNumber);
+          editor.setPosition({ lineNumber, column: 1 });
+        } catch { /* monaco 가 dispose 직전이면 swallow */ }
         return;
       }
-
-      editor.focus();
-      editor.revealLineInCenter(lineNumber);
-      editor.setPosition({ lineNumber, column: 1 });
-    });
+      if (attempts < 20) {
+        window.requestAnimationFrame(tryFocus);
+      }
+      // 20프레임 동안 못 찾았으면 포기. 잘못된 editor 에 line jump 하느니 noop.
+    };
+    window.requestAnimationFrame(tryFocus);
   };
 
   const openDiffTab = (targetPath: string, groupId = activeEditorGroupId) => {
@@ -4364,6 +4411,17 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     closeTabImmediate(tabId, groupId);
   };
 
+  /** 같은 diff 탭이 split group 양쪽에 동시에 열려 있을 수도 있어서, 모든 group 에서 제거하는 헬퍼.
+   * worktree 적용/거절 직후 invalidate 가 들어가는데 한쪽 group 에 DiffEditor 가 남아있으면
+   * disposed model 에 접근하며 Monaco race 가 재발함. */
+  const closeDiffTabInAllGroups = useCallback((tabId: string) => {
+    editorGroups.forEach((group) => {
+      if (group.tabIds.includes(tabId)) {
+        closeTabImmediate(tabId, group.id);
+      }
+    });
+  }, [editorGroups]);
+
   const clearTabDragState = useCallback(() => {
     setDraggedTabId(null);
     setDraggedTabSourceGroupId(null);
@@ -4611,9 +4669,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       await sessionApi.partialEdit(sessionId, { worktreePath, isApproved });
       addToast(isApproved ? "AI 수정이 적용되었습니다." : "AI 수정 제안을 거절했습니다.", "success");
 
-      // diff 탭 닫기 (탭 모델은 diff:<path>)
+      // diff 탭 닫기 (탭 모델은 diff:<path>) — split 양쪽 group 에 떠 있을 수 있어 전부 제거.
+      // 한쪽만 닫으면 남은 group 의 DiffEditor 가 invalidate 직후 disposed model 에 붙어 race.
       const diffTabId = createDiffTabId(worktreePath);
-      handleCloseFileTab(diffTabId, activeEditorGroupId);
+      closeDiffTabInAllGroups(diffTabId);
 
       // React commit + Monaco unmount 사이 race 회피 — handleCloseFileTab 직후 곧바로
       // invalidate 하면 DiffEditor 가 새 props 받기 전에 model 이 disposed 돼 콘솔에
@@ -4634,7 +4693,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       partialEditBusyRef.current = null;
       setPartialEditBusy(null);
     }
-  }, [activeEditorGroupId, addToast, handleCloseFileTab, queryClient, sessionId]);
+  }, [addToast, closeDiffTabInAllGroups, queryClient, sessionId]);
 
   /**
    * 현재 세션의 모든 worktree 파일을 일괄 승인/거절 — 백엔드 allEdit API.
@@ -4664,10 +4723,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         "success"
       );
 
-      // 모든 diff 탭 닫기
+      // 모든 diff 탭 닫기 — split group 양쪽 다 정리.
       for (const path of worktreePaths) {
         const diffTabId = createDiffTabId(path);
-        handleCloseFileTab(diffTabId, activeEditorGroupId);
+        closeDiffTabInAllGroups(diffTabId);
       }
 
       // React commit yield — handlePartialEdit 와 동일 race 회피 (RAF 두 번 + setTimeout).
@@ -4684,7 +4743,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       allEditBusyRef.current = false;
       setAllEditBusy(false);
     }
-  }, [activeEditorGroupId, addToast, files, handleCloseFileTab, queryClient, sessionId]);
+  }, [addToast, closeDiffTabInAllGroups, files, queryClient, sessionId]);
 
   const handleApplyEdit = async () => {
     if (!editorRef.current || !selectedRange || !suggestion || !activeFile) {
@@ -6505,6 +6564,11 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   original={groupActiveTab.sourceFile.content}
                   modified={groupActiveTab.targetFile.content}
                   language={groupActiveTab.sourceFile.language}
+                  // 모델 identity 를 group.id + tab.id + 원본/타겟 path 로 안정화 — 같은 diff 가
+                  // split group 양쪽에 동시에 떴을 때 monaco-editor/react 가 동일 model 을
+                  // 공유해서 한쪽 unmount 가 다른 쪽 model 까지 dispose 시키던 race 차단.
+                  originalModelPath={`diff-original://${group.id}/${groupActiveTab.id}/${groupActiveTab.sourceFile.path}`}
+                  modifiedModelPath={`diff-modified://${group.id}/${groupActiveTab.id}/${groupActiveTab.targetFile.path}`}
                   onMount={handleDiffMount(group.id)}
                   options={{
                     readOnly: true,
