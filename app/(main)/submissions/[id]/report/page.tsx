@@ -136,7 +136,7 @@ export default function FeedbackReportPage({ params }: { params: Promise<{ id: s
     .sort((a, b) => b.severity - a.severity);
 
   return (
-    <div className="relative min-h-screen">
+    <div className="relative min-h-screen bg-[#EEF2FF]">
       <div className="relative max-w-6xl mx-auto px-6 pt-28 pb-16 space-y-6">
 
         {/* ── HERO ── */}

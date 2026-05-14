@@ -8859,7 +8859,11 @@ html[data-theme="light"] .ide-theme-blue .ide-route--workspace {
   position: relative;
   overflow: hidden;
   border-radius: 14px;
-  background: #ffffff;
+  background: #0f1221;
+}
+
+html[data-theme="light"] .landing-ide-preview {
+  background: #f6f7fb;
 }
 
 .landing-ide-preview .landing-ide-preview__scaled {
@@ -8952,13 +8956,18 @@ html[data-theme="light"] .ide-theme-blue .ide-route--workspace {
   min-height: 0;
   overflow: hidden;
   padding: 18px 20px;
+  background: var(--ide-editor-bg);
+  color: #e2e8f0;
+  font-family: var(--font-mono), "SFMono-Regular", Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.72;
+}
+
+html[data-theme="light"] .landing-ide-preview .landing-code-editor {
   background:
     linear-gradient(180deg, rgba(247, 250, 255, 0.88), rgba(255, 255, 255, 0.98)),
     var(--ide-editor-bg);
   color: #1e293b;
-  font-family: var(--font-mono), "SFMono-Regular", Consolas, monospace;
-  font-size: 13px;
-  line-height: 1.72;
 }
 
 .landing-ide-preview .landing-code-editor pre {
@@ -8979,18 +8988,30 @@ html[data-theme="light"] .ide-theme-blue .ide-route--workspace {
   min-height: 34px;
   margin-bottom: 14px;
   padding: 8px 10px;
-  border: 1px solid rgba(99, 102, 241, 0.16);
+  border: 1px solid rgba(99, 102, 241, 0.24);
   border-radius: 8px;
-  background: rgba(99, 102, 241, 0.07);
-  color: #475569;
+  background: rgba(99, 102, 241, 0.12);
+  color: #a6b0cb;
   font-family: var(--font-sans), system-ui, sans-serif;
   font-size: 12px;
 }
 
 .landing-ide-preview .landing-code-editor__banner strong,
 .landing-ide-preview .landing-diff-preview__head strong {
-  color: #1e293b;
+  color: #eef2ff;
   font-size: 13px;
+}
+
+html[data-theme="light"] .landing-ide-preview .landing-code-editor__banner,
+html[data-theme="light"] .landing-ide-preview .landing-diff-preview__head {
+  border-color: rgba(99, 102, 241, 0.16);
+  background: rgba(99, 102, 241, 0.07);
+  color: #475569;
+}
+
+html[data-theme="light"] .landing-ide-preview .landing-code-editor__banner strong,
+html[data-theme="light"] .landing-ide-preview .landing-diff-preview__head strong {
+  color: #1e293b;
 }
 
 .landing-ide-preview .landing-code-editor__caret {
@@ -9105,6 +9126,10 @@ html[data-theme="light"] .ide-theme-blue .ide-route--workspace {
 
 .landing-ide-preview .landing-code-editor__line--added {
   background: rgba(16, 185, 129, 0.13);
+  color: #6ee7b7;
+}
+
+html[data-theme="light"] .landing-ide-preview .landing-code-editor__line--added {
   color: #065f46;
 }
 
@@ -9116,7 +9141,7 @@ html[data-theme="light"] .ide-theme-blue .ide-route--workspace {
 
 .landing-ide-preview .landing-code-editor__title {
   margin: 0 0 8px;
-  color: #64748b;
+  color: #a6b0cb;
   font-family: var(--font-sans), system-ui, sans-serif;
   font-size: 12px;
   font-weight: 800;
@@ -9175,10 +9200,14 @@ html[data-theme="light"] .ide-theme-blue .ide-route--workspace {
   min-height: 0;
   overflow: hidden;
   background: var(--ide-editor-bg);
-  color: #1f2937;
+  color: #e2e8f0;
   font-family: var(--font-mono), "SFMono-Regular", Consolas, monospace;
   font-size: 13px;
   line-height: 22px;
+}
+
+html[data-theme="light"] .landing-ide-preview .landing-monaco-diff {
+  color: #1f2937;
 }
 
 .landing-ide-preview .landing-monaco-diff__columns {
@@ -9246,10 +9275,14 @@ html[data-theme="light"] .ide-theme-blue .ide-route--workspace {
 
 .landing-ide-preview .landing-monaco-diff__line code {
   overflow: hidden;
-  color: #334155;
+  color: #e2e8f0;
   font-family: inherit;
   text-overflow: ellipsis;
   white-space: pre;
+}
+
+html[data-theme="light"] .landing-ide-preview .landing-monaco-diff__line code {
+  color: #334155;
 }
 
 .landing-ide-preview .landing-monaco-diff__no {
@@ -9275,6 +9308,11 @@ html[data-theme="light"] .ide-theme-blue .ide-route--workspace {
 
 .landing-ide-preview .landing-monaco-diff__line--removed code,
 .landing-ide-preview .landing-monaco-diff__line--removed .landing-monaco-diff__sign {
+  color: #fca5a5;
+}
+
+html[data-theme="light"] .landing-ide-preview .landing-monaco-diff__line--removed code,
+html[data-theme="light"] .landing-ide-preview .landing-monaco-diff__line--removed .landing-monaco-diff__sign {
   color: #b42318;
 }
 
@@ -9285,6 +9323,11 @@ html[data-theme="light"] .ide-theme-blue .ide-route--workspace {
 
 .landing-ide-preview .landing-monaco-diff__line--added code,
 .landing-ide-preview .landing-monaco-diff__line--added .landing-monaco-diff__sign {
+  color: #6ee7b7;
+}
+
+html[data-theme="light"] .landing-ide-preview .landing-monaco-diff__line--added code,
+html[data-theme="light"] .landing-ide-preview .landing-monaco-diff__line--added .landing-monaco-diff__sign {
   color: #047857;
 }
 
@@ -9343,9 +9386,14 @@ html[data-theme="light"] .ide-theme-blue .ide-route--workspace {
   display: block;
   padding: 7px 9px;
   border-radius: 7px;
+  background: rgba(99, 102, 241, 0.12);
+  color: #a6b0cb;
+  font-size: 12px;
+}
+
+html[data-theme="light"] .landing-ide-preview .landing-build-card span {
   background: rgba(99, 102, 241, 0.08);
   color: #475569;
-  font-size: 12px;
 }
 
 .landing-ide-preview .landing-build-card__bar {
@@ -9377,13 +9425,13 @@ html[data-theme="light"] .ide-theme-blue .ide-route--workspace {
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid rgba(139, 140, 255, 0.16);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--ide-tab-bg, #202840);
 }
 
 .landing-ide-preview .landing-trace-list__item span {
-  color: #4f46e5;
+  color: #8b8cff;
   font-family: var(--font-mono), "SFMono-Regular", Consolas, monospace;
   font-size: 11px;
   font-weight: 900;
@@ -9392,8 +9440,21 @@ html[data-theme="light"] .ide-theme-blue .ide-route--workspace {
 
 .landing-ide-preview .landing-trace-list__item p {
   margin: 0;
-  color: #475569;
+  color: #a6b0cb;
   font-size: 12px;
+}
+
+html[data-theme="light"] .landing-ide-preview .landing-trace-list__item {
+  border-color: rgba(148, 163, 184, 0.18);
+  background: #ffffff;
+}
+
+html[data-theme="light"] .landing-ide-preview .landing-trace-list__item span {
+  color: #4f46e5;
+}
+
+html[data-theme="light"] .landing-ide-preview .landing-trace-list__item p {
+  color: #475569;
 }
 
 .landing-ide-preview .landing-trace-list__item--active {

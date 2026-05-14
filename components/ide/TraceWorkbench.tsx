@@ -806,7 +806,7 @@ export function TraceWorkbench({ sessionId, onClose }: { sessionId: string; onCl
 
   // 페이지 수 줄어들면 현재 페이지 클램프
   useEffect(() => {
-    setPage((cur) => Math.min(cur, totalPages));
+    setPage((cur) => Math.max(1, Math.min(cur, totalPages)));
   }, [totalPages]);
 
   // 선택된 Trace가 사라지면 초기화, 첫 Span 자동 선택

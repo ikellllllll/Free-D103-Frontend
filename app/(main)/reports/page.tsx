@@ -115,6 +115,7 @@ export default function ReportsPage() {
   const hasAny = pendingMarkers.length > 0 || completed.length > 0;
 
   return (
+    <div className="min-h-screen bg-[#EEF2FF]">
     <div className="max-w-5xl mx-auto px-6 pt-28 pb-20">
       <header className="mb-8">
         <div className="flex items-center gap-3 mb-2">
@@ -294,6 +295,7 @@ export default function ReportsPage() {
           생성이 완료되면 자동으로 완료된 리포트 목록에 표시됩니다.
         </p>
       )}
+    </div>
     </div>
   );
 }
