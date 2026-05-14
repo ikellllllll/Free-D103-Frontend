@@ -9,6 +9,16 @@ export interface ScoreItem {
   note: string;
 }
 
+/** 세부 평가 기준 항목 (metric.criteria 배열 원소). score 는 0~1 정규화. */
+export interface DimensionCriterion {
+  name: string;
+  score: number;
+  finding?: string;
+  evidence?: string;
+  suggestion?: string;
+  evidenceFile?: string;
+}
+
 /** 5축 평가 (HARNESS_GOAL_CLARITY / WORKFLOW_DESIGN / CONTEXT_QUALITY / SKILL_MODULARITY / VERIFICATION_LOOP).
  *  백엔드 feedback_report.harness_*_score 직매핑. */
 export interface DimensionScoreItem {
@@ -27,6 +37,8 @@ export interface DimensionScoreItem {
   improvementSummary?: string;
   /** 구체 추천 행동 */
   recommendedActions?: string[];
+  /** 세부 평가 기준 목록 */
+  criteria?: DimensionCriterion[];
 }
 
 export type FindingCategory = "STRENGTH" | "IMPROVEMENT";

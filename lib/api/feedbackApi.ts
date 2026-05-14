@@ -2,6 +2,7 @@ import { authClient } from "@/lib/api/authApi";
 import { mockApi } from "@/lib/api/mockApi";
 import type {
   ActionGuideItem,
+  DimensionCriterion,
   DimensionScoreItem,
   EvaluationBasis,
   FeedbackReport,
@@ -164,12 +165,38 @@ const extractDimensionCode = (evalTarget?: Record<string, unknown> | null): stri
   return null;
 };
 
+/** 백엔드가 다른 이름으로 보낼 수 있는 코드 alias 매핑. */
+const CODE_ALIASES: Record<string, string> = {
+  HARNESS_GOAL_CONTRACT: "HARNESS_GOAL_CLARITY",
+  HARNESS_VERIFICATION_LOOP_DESIGN: "HARNESS_VERIFICATION_LOOP"
+};
+
+/** metric.criteria 배열을 DimensionCriterion[] 으로 변환. */
+const parseCriteria = (metric: Record<string, unknown> | null | undefined): DimensionCriterion[] => {
+  if (!metric) return [];
+  const raw = metric["criteria"];
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((c): c is Record<string, unknown> => !!c && typeof c === "object")
+    .map((c) => ({
+      name: String(c.name ?? ""),
+      score: toNumber(c.score as number | string | null),
+      finding: typeof c.finding === "string" ? c.finding.trim() || undefined : undefined,
+      evidence: typeof c.evidence === "string" ? c.evidence.trim() || undefined : undefined,
+      suggestion: typeof c.suggestion === "string" ? c.suggestion.trim() || undefined : undefined,
+      evidenceFile: typeof c.evidence_file === "string" ? c.evidence_file.trim() || undefined : undefined
+    }))
+    .filter((c) => c.name);
+};
+
 const toDimensions = (payload: BackendFeedbackReportResponse): DimensionScoreItem[] => {
-  // dimensionScores 배열의 항목들을 code 기준으로 인덱싱.
+  // dimensionScores 배열의 항목들을 code 기준으로 인덱싱 (alias 처리 포함).
   const dimensionByCode = new Map<string, NonNullable<BackendFeedbackReportResponse["dimensionScores"]>[number]>();
   for (const item of payload.dimensionScores ?? []) {
-    const code = extractDimensionCode(item.evalTarget);
-    if (code) dimensionByCode.set(code, item);
+    const rawCode = extractDimensionCode(item.evalTarget);
+    if (!rawCode) continue;
+    const code = CODE_ALIASES[rawCode] ?? rawCode;
+    dimensionByCode.set(code, item);
   }
 
   // 5축 고정 순서로 출력 — report 5개 컬럼을 기본 점수 source로 쓰고, dimensionScores 가 있으면 더 풍부한 정보 덮어씀.
@@ -186,7 +213,8 @@ const toDimensions = (payload: BackendFeedbackReportResponse): DimensionScoreIte
       rationale: detail?.rationale?.trim() || axis.fallbackNote,
       strengthSummary: detail?.strengthSummary?.trim() || undefined,
       improvementSummary: detail?.improvementSummary?.trim() || undefined,
-      recommendedActions: (detail?.recommendedActions ?? []).filter((a) => a?.trim()).map((a) => a.trim())
+      recommendedActions: (detail?.recommendedActions ?? []).filter((a) => a?.trim()).map((a) => a.trim()),
+      criteria: parseCriteria(detail?.metric)
     };
   });
 };

@@ -1,23 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { use, useEffect, useMemo } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
   ArrowRight,
   Sparkles,
-  Shield,
-  Code2,
-  Share2,
-  Layers,
-  RefreshCcw,
   Check,
   AlertTriangle,
   GitBranch,
   Lightbulb,
   FileText,
-  type LucideIcon
+  ChevronDown
 } from "lucide-react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
@@ -26,66 +21,58 @@ import { feedbackApi } from "@/lib/api/feedbackApi";
 import { useAuthStore } from "@/store/authStore";
 import type {
   ActionGuideItem,
+  DimensionCriterion,
   DimensionScoreItem,
   FeedbackReport,
   FindingItem
 } from "@/lib/types/report";
 
-/** 5축 시각 설정 — code 기반 매핑. */
-type AxisVisual = {
-  icon: LucideIcon;
-  iconBg: string;
-  barFill: string;
-};
+/* ─── Axis visual config ─── */
+type AxisVisual = { abbr: string; color: string; barColor: string };
+
 const AXIS_VISUAL: Record<string, AxisVisual> = {
-  HARNESS_GOAL_CLARITY: {
-    icon: Shield,
-    iconBg: "linear-gradient(135deg, #4F46E5, #6366F1)",
-    barFill: "linear-gradient(90deg, #4F46E5, #6366F1)"
-  },
-  HARNESS_WORKFLOW_DESIGN: {
-    icon: Code2,
-    iconBg: "linear-gradient(135deg, #0D9488, #14B8A6)",
-    barFill: "linear-gradient(90deg, #0D9488, #14B8A6)"
-  },
-  HARNESS_CONTEXT_QUALITY: {
-    icon: Share2,
-    iconBg: "linear-gradient(135deg, #7C3AED, #A855F7)",
-    barFill: "linear-gradient(90deg, #7C3AED, #A855F7)"
-  },
-  HARNESS_SKILL_MODULARITY: {
-    icon: Layers,
-    iconBg: "linear-gradient(135deg, #DB2777, #EC4899)",
-    barFill: "linear-gradient(90deg, #DB2777, #EC4899)"
-  },
-  HARNESS_VERIFICATION_LOOP: {
-    icon: RefreshCcw,
-    iconBg: "linear-gradient(135deg, #F59E0B, #F97316)",
-    barFill: "linear-gradient(90deg, #F59E0B, #F97316)"
-  }
+  HARNESS_GOAL_CLARITY:      { abbr: "GOAL",  color: "#4F46E5", barColor: "#6366F1" },
+  HARNESS_WORKFLOW_DESIGN:   { abbr: "FLOW",  color: "#0D9488", barColor: "#14B8A6" },
+  HARNESS_CONTEXT_QUALITY:   { abbr: "INFO",  color: "#7C3AED", barColor: "#A855F7" },
+  HARNESS_SKILL_MODULARITY:  { abbr: "SKILL", color: "#DB2777", barColor: "#EC4899" },
+  HARNESS_VERIFICATION_LOOP: { abbr: "LOOP",  color: "#F59E0B", barColor: "#F97316" }
 };
 const FALLBACK_VISUAL: AxisVisual = AXIS_VISUAL.HARNESS_GOAL_CLARITY;
 
-/** severity → tone + label */
+/* ─── Criterion label map ─── */
+const CRITERION_LABELS: Record<string, string> = {
+  goal_definition: "목표 정의", done_criteria: "완료 조건", success_criteria: "성공 기준",
+  artifact_criteria: "산출물 기준", failure_criteria: "실패 기준",
+  step_separation: "단계 분리", role_separation: "역할 분리", execution_order: "실행 순서",
+  iteration_structure: "반복 구조", responsibility_boundaries: "책임 경계",
+  problem_context: "문제 컨텍스트", file_context: "파일 컨텍스트", constraint_context: "제약 조건",
+  information_density: "정보 밀도", conflict_priority: "충돌 우선순위",
+  functional_separation: "기능 분리", trigger_clarity: "트리거 명확도", scope_non_overlap: "범위 비중복",
+  reusability: "재사용성", composability: "조합성",
+  test_execution: "테스트 실행", failure_log_analysis: "실패 로그 분석", cause_classification: "원인 분류",
+  reverify_after_fix: "수정 후 재검증", final_reporting: "최종 보고"
+};
+
+const criterionLabel = (name: string) =>
+  CRITERION_LABELS[name] ?? name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+/* ─── Severity → badge (API uses 0~10 scale) ─── */
 const severityMeta = (severity: number) => {
-  if (severity >= 3) return { tone: "amber", label: "치명" } as const;
-  if (severity >= 2) return { tone: "rose", label: "중요" } as const;
-  if (severity >= 1) return { tone: "indigo", label: "보통" } as const;
+  if (severity >= 8) return { tone: "rose",  label: "치명" } as const;
+  if (severity >= 6) return { tone: "amber", label: "중요" } as const;
+  if (severity >= 3) return { tone: "indigo", label: "보통" } as const;
   return { tone: "gray", label: "참고" } as const;
 };
 
 const toneClass = {
-  amber: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
-  rose: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
-  indigo: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300",
-  gray: "bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-slate-300"
+  amber: "bg-amber-100 text-amber-700",
+  rose:  "bg-rose-100 text-rose-700",
+  indigo:"bg-indigo-100 text-indigo-700",
+  gray:  "bg-gray-100 text-gray-600"
 } as const;
 
-export default function FeedbackReportPage({
-  params
-}: {
-  params: Promise<{ id: string }>;
-}) {
+/* ─── Page ─── */
+export default function FeedbackReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: submissionId } = use(params);
   const { withPrefix } = useRouteScope();
   const user = useAuthStore((s) => s.user);
@@ -98,7 +85,6 @@ export default function FeedbackReportPage({
 
   const problemTitle = useMemo(() => report?.problemTitle ?? "풀이 과제", [report?.problemTitle]);
 
-  // 🎉 리포트 로딩 끝났고 점수 90 이상이면 폭죽. 같은 submissionId 로는 한 번만 (useCelebrate 내부 dedupe).
   const { fire: fireConfetti } = useCelebrate();
   useEffect(() => {
     if (report?.status === "COMPLETED" && (report.overallScore ?? 0) >= 90) {
@@ -110,14 +96,11 @@ export default function FeedbackReportPage({
     return (
       <div className="max-w-2xl mx-auto px-6 pt-28 pb-20 text-center">
         <AlertTriangle size={28} className="mx-auto text-amber-500 mb-3" />
-        <p className="text-gray-800 dark:text-slate-100 font-semibold mb-2">리포트를 찾을 수 없습니다.</p>
-        <p className="text-sm text-gray-500 dark:text-slate-400 mb-5">제출 처리 화면에서 상태를 다시 확인해 주세요.</p>
-        <Link
-          href={withPrefix(`/submissions/${submissionId}`)}
-          className="inline-flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-colors"
-        >
-          <span>제출 상태 보기</span>
-          <ArrowRight size={14} strokeWidth={2.4} />
+        <p className="font-semibold text-gray-800 mb-2">리포트를 찾을 수 없습니다.</p>
+        <p className="text-sm text-gray-500 mb-5">제출 처리 화면에서 상태를 다시 확인해 주세요.</p>
+        <Link href={withPrefix(`/submissions/${submissionId}`)}
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-colors">
+          <span>제출 상태 보기</span><ArrowRight size={14} strokeWidth={2.4} />
         </Link>
       </div>
     );
@@ -126,17 +109,14 @@ export default function FeedbackReportPage({
   if (isLoading || !report || report.status !== "COMPLETED") {
     return (
       <div className="max-w-2xl mx-auto px-6 pt-28 pb-20 text-center">
-        <div className="inline-flex items-center space-x-2 text-gray-500 dark:text-slate-400">
+        <div className="inline-flex items-center gap-2 text-gray-500">
           <Sparkles size={18} className="animate-pulse" />
           <span>리포트를 생성하는 중…</span>
         </div>
         <div className="mt-5">
-          <Link
-            href={withPrefix(`/submissions/${submissionId}`)}
-            className="inline-flex items-center justify-center space-x-2 px-4 py-2 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 font-semibold text-sm transition-colors"
-          >
-            <span>처리 단계 보기</span>
-            <ArrowRight size={14} strokeWidth={2.4} />
+          <Link href={withPrefix(`/submissions/${submissionId}`)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-semibold text-sm transition-colors">
+            <span>처리 단계 보기</span><ArrowRight size={14} strokeWidth={2.4} />
           </Link>
         </div>
       </div>
@@ -153,18 +133,15 @@ export default function FeedbackReportPage({
   return (
     <div className="relative min-h-screen">
       <div className="relative max-w-6xl mx-auto px-6 pt-28 pb-16 space-y-6">
+
         {/* ── HERO ── */}
         <section
           className="relative rounded-3xl overflow-hidden text-white animate-slide-up"
-          style={{
-            backgroundImage:
-              "linear-gradient(135deg, #3B3A9E 0%, #4F46E5 30%, #7C3AED 70%, #6D28D9 100%)"
-          }}
+          style={{ backgroundImage: "linear-gradient(135deg, #3B3A9E 0%, #4F46E5 30%, #7C3AED 70%, #6D28D9 100%)" }}
         >
           <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-6 p-8 md:p-12">
-            {/* Left */}
             <div className="flex-1 min-w-0">
-              <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-white/15 backdrop-blur-sm text-xs font-semibold mb-6">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/15 backdrop-blur-sm text-xs font-semibold mb-6">
                 <Sparkles size={12} strokeWidth={2.4} />
                 <span>Report · Submission #{shortId}</span>
               </div>
@@ -175,59 +152,43 @@ export default function FeedbackReportPage({
                 {problemTitle} 과제를 풀었어요. AIG가 분석한 결과를 한눈에 확인해 보세요.
               </p>
             </div>
-
-            {/* Right — score + grade + diagnosis */}
             <div className="shrink-0 md:text-right">
               <div className="flex items-end justify-start md:justify-end gap-1.5">
                 <span className="text-6xl md:text-7xl font-display font-bold leading-none tracking-tight">
                   {report.overallScore}
                 </span>
-                <span className="text-2xl md:text-3xl font-display font-semibold text-white/70 mb-1.5">
-                  / 100
-                </span>
+                <span className="text-2xl font-display font-semibold text-white/70 mb-1.5">/ 100</span>
               </div>
               <div className="mt-2 flex items-center justify-start md:justify-end gap-2">
-                {report.scoreGrade ? (
+                {report.scoreGrade && (
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-white/20 text-white text-xs font-bold tracking-wide">
                     {report.scoreGrade}
                   </span>
-                ) : null}
-                {report.diagnosisLevel ? (
-                  <span className="text-white/85 text-sm font-medium">
-                    {report.diagnosisLevel}
-                  </span>
-                ) : null}
+                )}
+                {report.diagnosisLevel && (
+                  <span className="text-white/85 text-sm font-medium">{report.diagnosisLevel}</span>
+                )}
               </div>
-              <p className="text-sm text-white/80 font-semibold mt-1 tracking-wide">
-                Overall AIG Score
-              </p>
+              <p className="text-sm text-white/80 font-semibold mt-1 tracking-wide">Overall AIG Score</p>
             </div>
           </div>
         </section>
 
-        {/* ── 5축 METRICS — 모바일 1열 / md 2열 / xl 5열 ── */}
-        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
-          {report.dimensions.map((dimension, i) => (
-            <DimensionCard
-              key={dimension.code}
-              dimension={dimension}
-              visual={AXIS_VISUAL[dimension.code] ?? FALLBACK_VISUAL}
-              delay={i * 50}
-            />
-          ))}
-        </section>
+        {/* ── SCORE OVERVIEW: Radar + Bars ── */}
+        <ScoreOverviewSection dimensions={report.dimensions} />
 
-        {/* ── ACTION GUIDES (priority) ── */}
-        {report.actionGuides.length > 0 ? (
-          <section className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm p-6 md:p-7 animate-slide-up">
+        {/* ── DIMENSION DETAILS (accordion) ── */}
+        <DimensionDetailsSection dimensions={report.dimensions} />
+
+        {/* ── ACTION GUIDES ── */}
+        {report.actionGuides.length > 0 && (
+          <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-7 animate-slide-up">
             <div className="flex items-center gap-2.5 mb-5">
-              <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300">
+              <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600">
                 <Lightbulb size={15} strokeWidth={2.2} />
               </span>
-              <h2 className="font-display font-bold text-gray-900 dark:text-slate-100 text-[17px]">
-                다음 액션 가이드
-              </h2>
-              <span className="text-xs text-gray-500 dark:text-slate-400">priority 순</span>
+              <h2 className="font-display font-bold text-gray-900 text-[17px]">다음 액션 가이드</h2>
+              <span className="text-xs text-gray-500">priority 순</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {report.actionGuides.map((g) => (
@@ -235,83 +196,55 @@ export default function FeedbackReportPage({
               ))}
             </div>
           </section>
-        ) : null}
+        )}
 
-        {/* ── STRENGTHS + IMPROVEMENTS (findings 우선, fallback legacy) ── */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {strengthFindings.length > 0 ? (
-            <FindingsCard title="강점" tone="good" findings={strengthFindings} />
-          ) : (
-            <LegacyFeedbackCard title="강점" tone="good" items={report.strengths} />
-          )}
-          {improvementFindings.length > 0 ? (
-            <FindingsCard title="개선 포인트" tone="warn" findings={improvementFindings} />
-          ) : (
-            <LegacyFeedbackCard title="개선 포인트" tone="warn" items={report.improvements} />
-          )}
-        </section>
+        {/* ── STRENGTHS (compact) ── */}
+        {strengthFindings.length > 0 && (
+          <StrengthsCompactCard findings={strengthFindings} />
+        )}
 
-        {/* ── SUMMARY (one-liner) ── */}
+        {/* ── IMPROVEMENTS (accordion) ── */}
+        {improvementFindings.length > 0 && (
+          <ImprovementsAccordion findings={improvementFindings} />
+        )}
+
+        {/* ── SUMMARY ── */}
         {report.summary && (
-          <section className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm p-6 md:p-7 flex items-start gap-4 animate-slide-up">
-            <span className="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300">
-              <Sparkles size={16} strokeWidth={2.2} />
-            </span>
-            <div className="flex-1 min-w-0">
-              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-indigo-600 dark:text-indigo-400 mb-1">
-                한 줄 요약
-              </div>
-              <p className="text-[15px] md:text-base text-gray-800 dark:text-slate-200 font-medium leading-relaxed">
-                {report.summary}
-              </p>
-            </div>
+          <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-7 animate-slide-up">
+            <h2 className="font-display font-bold text-gray-900 text-lg mb-3">최종 요약</h2>
+            <p className="text-[15px] text-gray-700 leading-relaxed">{report.summary}</p>
           </section>
         )}
 
-        {/* ── EVALUATION BASIS — 평가 근거 ── */}
-        {report.basis ? <BasisSection report={report} /> : null}
+        {/* ── EVALUATION BASIS ── */}
+        {report.basis && <BasisSection report={report} />}
 
-        {/* ── TRACE TIMELINE CTA ── */}
-        <section
-          className="bg-white dark:bg-slate-900 rounded-2xl border-2 border-dashed border-indigo-200 dark:border-indigo-500/40 p-5 md:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-slide-up"
-        >
+        {/* ── TRACE CTA ── */}
+        <section className="bg-white rounded-2xl border-2 border-dashed border-indigo-200 p-5 md:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-slide-up">
           <div className="flex items-center gap-4 min-w-0">
-            <span className="shrink-0 inline-flex items-center justify-center w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300">
+            <span className="shrink-0 inline-flex items-center justify-center w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600">
               <GitBranch size={20} strokeWidth={2.2} />
             </span>
             <div className="min-w-0">
-              <div className="font-display font-bold text-gray-900 dark:text-slate-100 text-[17px]">
-                Trace 타임라인
-              </div>
-              <div className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">
-                모든 LLM 호출, Tool 실행, 재시도 단계를 한 번에 확인할 수 있어요.
-              </div>
+              <div className="font-display font-bold text-gray-900 text-[17px]">Trace 타임라인</div>
+              <div className="text-sm text-gray-500 mt-0.5">모든 LLM 호출, Tool 실행, 재시도 단계를 한 번에 확인할 수 있어요.</div>
             </div>
           </div>
-          <Link
-            href={withPrefix(`/submissions/${submissionId}/timeline`)}
-            className="shrink-0 inline-flex items-center justify-center space-x-1.5 px-5 py-2.5 rounded-xl border-2 border-indigo-500 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 font-semibold text-sm transition-colors"
-          >
-            <span>타임라인 보기</span>
-            <ArrowRight size={14} strokeWidth={2.4} />
+          <Link href={withPrefix(`/submissions/${submissionId}/timeline`)}
+            className="shrink-0 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border-2 border-indigo-500 text-indigo-600 hover:bg-indigo-50 font-semibold text-sm transition-colors">
+            <span>타임라인 보기</span><ArrowRight size={14} strokeWidth={2.4} />
           </Link>
         </section>
 
-        {/* ── FOOTER ACTION ROW ── */}
+        {/* ── FOOTER ── */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 pt-4">
-          <Link
-            href={withPrefix("/problems")}
-            className="inline-flex items-center justify-center space-x-2 px-6 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 font-semibold text-sm transition-colors"
-          >
-            <ArrowLeft size={14} strokeWidth={2.4} />
-            <span>과제 목록으로</span>
+          <Link href={withPrefix("/problems")}
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-semibold text-sm transition-colors">
+            <ArrowLeft size={14} strokeWidth={2.4} /><span>과제 목록으로</span>
           </Link>
-          <Link
-            href={withPrefix("/problems")}
-            className="inline-flex items-center justify-center space-x-2 px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-colors shadow-sm"
-          >
-            <span>다음 과제 풀기</span>
-            <ArrowRight size={14} strokeWidth={2.4} />
+          <Link href={withPrefix("/problems")}
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-colors shadow-sm">
+            <span>다음 과제 풀기</span><ArrowRight size={14} strokeWidth={2.4} />
           </Link>
         </div>
       </div>
@@ -319,102 +252,371 @@ export default function FeedbackReportPage({
   );
 }
 
-/* ─── DimensionCard — 5축 한 칸 ─── */
+/* ─── Score Overview (Radar + Bars) ─── */
 
-function DimensionCard({
-  dimension,
-  visual,
-  delay
-}: {
-  dimension: DimensionScoreItem;
-  visual: AxisVisual;
-  delay: number;
-}) {
-  const Icon = visual.icon;
-  const hasDetail =
-    !!dimension.strengthSummary ||
-    !!dimension.improvementSummary ||
-    (dimension.recommendedActions?.length ?? 0) > 0;
+function ScoreOverviewSection({ dimensions }: { dimensions: DimensionScoreItem[] }) {
+  return (
+    <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 md:p-8 animate-slide-up">
+      <h2 className="font-display font-bold text-gray-900 text-lg mb-1">Harness 영역별 점수</h2>
+      <p className="text-sm text-gray-500 mb-6">AGENTS / HARNESS 평가 기준에 따른 다섯 가지 영역의 점수입니다.</p>
+      <div className="flex flex-col md:flex-row md:items-center gap-8">
+        <div className="shrink-0 mx-auto md:mx-0">
+          <ReportRadarChart dimensions={dimensions} />
+        </div>
+        <div className="flex-1 min-w-0 space-y-3.5">
+          {dimensions.map((dim) => {
+            const visual = AXIS_VISUAL[dim.code] ?? FALLBACK_VISUAL;
+            const isLow = dim.score < 70;
+            return (
+              <div key={dim.code} className="flex items-center gap-3">
+                <span className="w-[108px] shrink-0 text-sm font-semibold text-gray-700 truncate">{dim.label}</span>
+                <div className="flex-1 h-2.5 rounded-full bg-gray-100 overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{ width: `${dim.score}%`, backgroundColor: visual.barColor }}
+                  />
+                </div>
+                <span
+                  className="w-[72px] shrink-0 text-right text-sm font-bold tabular-nums"
+                  style={{ color: isLow ? "#EF4444" : "#111827" }}
+                >
+                  {dim.score} <span className="text-gray-400 font-normal text-xs">/ 100</span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─── Radar Chart SVG ─── */
+
+function ReportRadarChart({ dimensions }: { dimensions: DimensionScoreItem[] }) {
+  const SIZE = 220;
+  const CENTER = SIZE / 2;
+  const MAX_R = 80;
+  const N = dimensions.length;
+  const angleFor = (i: number) => -Math.PI / 2 + (i * 2 * Math.PI) / N;
+  const pointFor = (i: number, r: number) => ({
+    x: CENTER + r * Math.cos(angleFor(i)),
+    y: CENTER + r * Math.sin(angleFor(i))
+  });
+
+  const rings = [25, 50, 75, 100];
+  const scorePoints = dimensions.map((d, i) => {
+    const p = pointFor(i, (d.score / 100) * MAX_R);
+    return `${p.x},${p.y}`;
+  }).join(" ");
 
   return (
-    <div
-      className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm p-5 animate-slide-up flex flex-col"
-      style={{ animationDelay: `${delay}ms`, animationFillMode: "both" }}
-    >
-      <div className="flex items-center gap-2.5 mb-3">
-        <span
-          className="inline-flex items-center justify-center w-9 h-9 rounded-xl text-white shadow-sm shrink-0"
-          style={{ backgroundImage: visual.iconBg }}
-        >
-          <Icon size={15} strokeWidth={2.2} />
-        </span>
-        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-gray-500 dark:text-slate-400 leading-tight">
-          {dimension.label}
-        </span>
-      </div>
+    <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} className="overflow-visible">
+      <defs>
+        <linearGradient id="radarFill" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#6366F1" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0.2" />
+        </linearGradient>
+      </defs>
 
-      <div className="flex items-baseline gap-1 mb-3">
-        <span className="text-4xl font-display font-bold text-gray-900 dark:text-slate-100 leading-none tracking-tight tabular-nums">
-          {dimension.score}
-        </span>
-        <span className="text-base font-display font-semibold text-gray-400 dark:text-slate-500">/ 100</span>
-      </div>
+      {/* Grid rings */}
+      {rings.map((ring) => {
+        const pts = dimensions.map((_, i) => {
+          const p = pointFor(i, (ring / 100) * MAX_R);
+          return `${p.x},${p.y}`;
+        }).join(" ");
+        return (
+          <polygon
+            key={ring}
+            points={pts}
+            fill={ring === 100 ? "#F8FAFC" : "none"}
+            stroke="#E5E7EB"
+            strokeWidth={1}
+          />
+        );
+      })}
 
-      <div className="h-1.5 bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden mb-3">
-        <div
-          className="h-full rounded-full transition-all"
-          style={{
-            width: `${Math.min(100, Math.max(0, dimension.score))}%`,
-            backgroundImage: visual.barFill
-          }}
-        />
-      </div>
+      {/* Axis lines */}
+      {dimensions.map((_, i) => {
+        const end = pointFor(i, MAX_R);
+        return <line key={i} x1={CENTER} y1={CENTER} x2={end.x} y2={end.y} stroke="#E5E7EB" strokeWidth={1} />;
+      })}
 
-      {dimension.rationale ? (
-        <p className="text-[12.5px] text-gray-600 dark:text-slate-400 leading-relaxed">{dimension.rationale}</p>
-      ) : null}
+      {/* Score polygon */}
+      <polygon
+        points={scorePoints}
+        fill="url(#radarFill)"
+        stroke="#4F46E5"
+        strokeWidth={2}
+        strokeLinejoin="round"
+      />
 
-      {hasDetail ? (
-        <details className="mt-3 group">
-          <summary className="cursor-pointer text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors select-none list-none flex items-center gap-1">
-            <span className="group-open:hidden">자세히 보기 ▾</span>
-            <span className="hidden group-open:inline">접기 ▴</span>
-          </summary>
-          <div className="mt-2.5 space-y-2.5 text-[12.5px] leading-relaxed">
-            {dimension.strengthSummary ? (
-              <div>
-                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-600 dark:text-emerald-400 mb-0.5">
-                  강점
+      {/* Score dots */}
+      {dimensions.map((d, i) => {
+        const p = pointFor(i, (d.score / 100) * MAX_R);
+        return <circle key={i} cx={p.x} cy={p.y} r={3.5} fill="#4F46E5" />;
+      })}
+
+      {/* Axis labels */}
+      {dimensions.map((d, i) => {
+        const p = pointFor(i, MAX_R + 20);
+        const label = d.label.split(" ")[0];
+        return (
+          <text
+            key={i}
+            x={p.x}
+            y={p.y}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontSize={11}
+            fontWeight={600}
+            fill="#6B7280"
+          >
+            {label}
+          </text>
+        );
+      })}
+    </svg>
+  );
+}
+
+/* ─── Dimension Details Accordion ─── */
+
+function DimensionDetailsSection({ dimensions }: { dimensions: DimensionScoreItem[] }) {
+  const [openCode, setOpenCode] = useState<string | null>(null);
+
+  return (
+    <section className="space-y-2 animate-slide-up">
+      <h2 className="font-display font-bold text-gray-900 text-lg px-1 mb-3">영역별 세부 평가</h2>
+      {dimensions.map((dim) => {
+        const visual = AXIS_VISUAL[dim.code] ?? FALLBACK_VISUAL;
+        const isOpen = openCode === dim.code;
+        const hasCriteria = (dim.criteria?.length ?? 0) > 0;
+        return (
+          <div key={dim.code} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            {/* Header row */}
+            <button
+              type="button"
+              onClick={() => setOpenCode(isOpen ? null : dim.code)}
+              className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-gray-50 transition-colors"
+            >
+              <span
+                className="shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-xl text-white shadow-sm font-bold text-[10px] tracking-wide"
+                style={{ backgroundColor: visual.color }}
+              >
+                {visual.abbr}
+              </span>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-gray-900 text-[15px]">{dim.label}</span>
+                  {dim.tone === "warn" && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">
+                      개선 필요
+                    </span>
+                  )}
                 </div>
-                <p className="text-gray-700 dark:text-slate-300">{dimension.strengthSummary}</p>
+                {!isOpen && dim.rationale && (
+                  <p className="text-[12.5px] text-gray-500 mt-0.5 line-clamp-1">{dim.rationale}</p>
+                )}
               </div>
-            ) : null}
-            {dimension.improvementSummary ? (
-              <div>
-                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-amber-600 dark:text-amber-400 mb-0.5">
-                  개선
+
+              <div className="shrink-0 flex items-center gap-3">
+                {/* Mini bar */}
+                <div className="hidden sm:flex items-center gap-2">
+                  <div className="w-24 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${dim.score}%`, backgroundColor: visual.barColor }}
+                    />
+                  </div>
                 </div>
-                <p className="text-gray-700 dark:text-slate-300">{dimension.improvementSummary}</p>
+                <span
+                  className="text-xl font-display font-bold tabular-nums leading-none"
+                  style={{ color: dim.score < 70 ? "#EF4444" : "#111827" }}
+                >
+                  {dim.score}
+                </span>
+                <span className="text-xs text-gray-400">/ 100</span>
+                <ChevronDown
+                  size={16}
+                  className={`text-gray-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+                />
               </div>
-            ) : null}
-            {dimension.recommendedActions && dimension.recommendedActions.length > 0 ? (
-              <div>
-                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500 dark:text-slate-400 mb-1">
-                  추천 행동
-                </div>
-                <ul className="space-y-1">
-                  {dimension.recommendedActions.map((a) => (
-                    <li key={a} className="flex items-start gap-1.5 text-gray-700 dark:text-slate-300">
-                      <span className="text-indigo-500 dark:text-indigo-400 mt-0.5">·</span>
-                      <span>{a}</span>
-                    </li>
-                  ))}
-                </ul>
+            </button>
+
+            {/* Expanded content */}
+            {isOpen && (
+              <div className="border-t border-gray-100 px-5 py-5 space-y-5">
+                {/* Rationale */}
+                {dim.rationale && (
+                  <p className="text-sm text-gray-700 leading-relaxed">{dim.rationale}</p>
+                )}
+
+                {/* Strength / Improvement summaries */}
+                {(dim.strengthSummary || dim.improvementSummary) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {dim.strengthSummary && (
+                      <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-600 mb-1">강점</div>
+                        <p className="text-[13px] text-emerald-800 leading-relaxed">{dim.strengthSummary}</p>
+                      </div>
+                    )}
+                    {dim.improvementSummary && (
+                      <div className="rounded-xl bg-amber-50 border border-amber-100 px-4 py-3">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-amber-600 mb-1">개선</div>
+                        <p className="text-[13px] text-amber-800 leading-relaxed">{dim.improvementSummary}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Criteria table */}
+                {hasCriteria && (
+                  <div>
+                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-gray-500 mb-2">세부 기준</div>
+                    <div className="space-y-2">
+                      {dim.criteria!.map((c) => (
+                        <CriterionRow key={c.name} criterion={c} />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            ) : null}
+            )}
           </div>
-        </details>
-      ) : null}
+        );
+      })}
+    </section>
+  );
+}
+
+/* ─── SimpleMarkdown: \n + ## + 리스트 + 인라인 코드 파싱 ─── */
+
+function renderInline(text: string): React.ReactNode[] {
+  // 백틱 코드, 작은따옴표 안의 마크다운 섹션명('## ...' / '# ...'), 일반 텍스트 순서로 분리
+  const parts = text.split(/(`[^`]+`|'#{1,2} ?[^']+')/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("`") && part.endsWith("`"))
+      return <code key={i} className="px-1 py-0.5 rounded bg-gray-100 font-mono text-[11.5px] text-gray-700">{part.slice(1, -1)}</code>;
+    if (part.startsWith("'") && part.endsWith("'")) {
+      const inner = part.slice(1, -1).replace(/^#{1,2}\s*/, "");
+      return <code key={i} className="px-1 py-0.5 rounded bg-gray-100 font-mono text-[11.5px] text-gray-700">{inner}</code>;
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
+function SimpleMarkdown({ text, className }: { text: string; className?: string }) {
+  const lines = text.replace(/\\n/g, "\n").replace(/```\w*/g, "").split("\n");
+  const nodes: React.ReactNode[] = [];
+  let listItems: string[] = [];
+  let listType: "ol" | "ul" | null = null;
+
+  const flushList = () => {
+    if (!listItems.length) return;
+    if (listType === "ol") {
+      nodes.push(
+        <ol key={nodes.length} className="list-decimal list-inside space-y-0.5 my-1 text-inherit">
+          {listItems.map((item, i) => <li key={i}>{renderInline(item)}</li>)}
+        </ol>
+      );
+    } else {
+      nodes.push(
+        <ul key={nodes.length} className="list-disc list-inside space-y-0.5 my-1 text-inherit">
+          {listItems.map((item, i) => <li key={i}>{renderInline(item)}</li>)}
+        </ul>
+      );
+    }
+    listItems = [];
+    listType = null;
+  };
+
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    const h2 = line.match(/^##\s+(.+)/);
+    const h1 = line.match(/^#\s+(.+)/);
+    const ol = line.match(/^\d+\.\s+(.*)/);
+    const ul = line.match(/^[-*]\s+(.*)/);
+
+    if (h2 || h1) {
+      flushList();
+      nodes.push(<p key={nodes.length} className="font-bold mt-2 mb-0.5">{renderInline((h2 ?? h1)![1])}</p>);
+    } else if (ol) {
+      if (listType !== "ol") { flushList(); listType = "ol"; }
+      listItems.push(ol[1]);
+    } else if (ul) {
+      if (listType !== "ul") { flushList(); listType = "ul"; }
+      listItems.push(ul[1]);
+    } else if (line === "") {
+      flushList();
+    } else {
+      flushList();
+      nodes.push(<p key={nodes.length} className="my-0.5">{renderInline(line)}</p>);
+    }
+  }
+  flushList();
+
+  return <div className={className}>{nodes}</div>;
+}
+
+/* ─── Criterion Row ─── */
+
+function CriterionRow({ criterion }: { criterion: DimensionCriterion }) {
+  const [expanded, setExpanded] = useState(false);
+  const pct = Math.round(criterion.score * 100);
+  const scoreColor = pct >= 80 ? "#10B981" : pct >= 50 ? "#F59E0B" : "#EF4444";
+  const scoreBg = pct >= 80 ? "#ECFDF5" : pct >= 50 ? "#FFFBEB" : "#FEF2F2";
+
+  return (
+    <div className="rounded-xl border border-gray-100 bg-gray-50 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-100 transition-colors"
+      >
+        <span
+          className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold"
+          style={{ backgroundColor: scoreBg, color: scoreColor }}
+        >
+          {pct}%
+        </span>
+        <span className="flex-1 text-[13px] font-semibold text-gray-800">{criterionLabel(criterion.name)}</span>
+        {(criterion.finding || criterion.suggestion) && (
+          <ChevronDown
+            size={14}
+            className={`shrink-0 text-gray-400 transition-transform duration-150 ${expanded ? "rotate-180" : ""}`}
+          />
+        )}
+      </button>
+
+      {expanded && (
+        <div className="px-4 pb-4 space-y-3 border-t border-gray-100 pt-3">
+          {criterion.finding && (
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-gray-500 mb-1">분석</div>
+              <SimpleMarkdown text={criterion.finding} className="text-[13px] text-gray-700 leading-relaxed" />
+            </div>
+          )}
+          {criterion.evidence && (
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-gray-500 mb-1">근거</div>
+              <SimpleMarkdown text={criterion.evidence} className="text-[12px] font-mono text-gray-600 bg-white rounded-lg border border-gray-100 px-3 py-2 leading-relaxed" />
+              {criterion.evidenceFile && (
+                <span className="mt-1 inline-block text-[11px] text-gray-400 font-mono">
+                  📄 {criterion.evidenceFile}
+                </span>
+              )}
+            </div>
+          )}
+          {criterion.suggestion && (
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-indigo-600 mb-1">개선 제안</div>
+              <SimpleMarkdown text={criterion.suggestion} className="text-[13px] text-indigo-800 bg-indigo-50 rounded-lg border border-indigo-100 px-3 py-2 leading-relaxed" />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -423,146 +625,114 @@ function DimensionCard({
 
 function ActionGuideCard({ guide }: { guide: ActionGuideItem }) {
   return (
-    <div className="relative pl-14 pr-4 py-4 rounded-xl border border-gray-100 dark:border-slate-800 bg-gradient-to-br from-indigo-50/40 to-white dark:from-indigo-500/10 dark:to-slate-900">
-      <span className="absolute left-4 top-4 inline-flex items-center justify-center w-7 h-7 rounded-full text-white font-bold text-xs"
+    <div className="relative pl-14 pr-4 py-4 rounded-xl border border-gray-100 bg-gradient-to-br from-indigo-50/40 to-white">
+      <span
+        className="absolute left-4 top-4 inline-flex items-center justify-center w-7 h-7 rounded-full text-white font-bold text-xs"
         style={{ backgroundImage: "linear-gradient(135deg, #6366F1, #8B5CF6)" }}
       >
         {guide.priority}
       </span>
-      <div className="font-display font-bold text-gray-900 dark:text-slate-100 text-[15px] mb-1">{guide.title}</div>
-      {guide.description ? (
-        <p className="text-sm text-gray-600 dark:text-slate-400 leading-relaxed">{guide.description}</p>
-      ) : null}
-      {guide.expectedImpact ? (
-        <div className="mt-2 inline-block px-2.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 text-[11px] font-semibold">
+      <div className="font-display font-bold text-gray-900 text-[15px] mb-1">{guide.title}</div>
+      {guide.description && <p className="text-sm text-gray-600 leading-relaxed">{guide.description}</p>}
+      {guide.expectedImpact && (
+        <div className="mt-2 inline-block px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[11px] font-semibold">
           기대 효과 · {guide.expectedImpact}
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
 
-/* ─── FindingsCard — severity 보존된 풍부한 강점/개선 카드 ─── */
+/* ─── StrengthsCompactCard ─── */
 
-function FindingsCard({
-  title,
-  tone,
-  findings
-}: {
-  title: string;
-  tone: "good" | "warn";
-  findings: FindingItem[];
-}) {
-  const isGood = tone === "good";
+function StrengthsCompactCard({ findings }: { findings: FindingItem[] }) {
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm p-6 md:p-7 animate-slide-up">
-      <div className="flex items-center gap-2.5 mb-5">
-        {isGood ? (
-          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white shadow-sm">
-            <Check size={14} strokeWidth={3} />
-          </span>
-        ) : (
-          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500 text-white shadow-sm">
-            <AlertTriangle size={13} strokeWidth={2.4} />
-          </span>
-        )}
-        <h2 className="font-display font-bold text-gray-900 dark:text-slate-100 text-[17px]">{title}</h2>
+    <section className="bg-emerald-50 border border-emerald-100 rounded-2xl px-5 py-4 md:px-6 md:py-5 animate-slide-up">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500 text-white shrink-0">
+          <Check size={11} strokeWidth={3} />
+        </span>
+        <h2 className="font-display font-bold text-emerald-900 text-[15px]">잘한 점</h2>
+        <span className="ml-auto text-xs text-emerald-600 font-semibold">{findings.length}개</span>
       </div>
+      <ul className="space-y-2">
+        {findings.map((f) => (
+          <li key={f.id} className="flex items-start gap-2.5">
+            <span className="mt-1 shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <div className="min-w-0">
+              <span className="text-[13.5px] font-semibold text-emerald-900">{f.title}</span>
+              {f.description && (
+                <span className="text-[12.5px] text-emerald-700"> — {f.description}</span>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
-      <ul className="space-y-4">
+/* ─── ImprovementsAccordion ─── */
+
+function ImprovementsAccordion({ findings }: { findings: FindingItem[] }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  return (
+    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 md:p-6 animate-slide-up">
+      <div className="flex items-center gap-2.5 mb-4">
+        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500 text-white shadow-sm shrink-0">
+          <AlertTriangle size={13} strokeWidth={2.4} />
+        </span>
+        <h2 className="font-display font-bold text-gray-900 text-[17px]">개선 포인트</h2>
+        <span className="ml-1 inline-flex items-center px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[11px] font-bold">
+          {findings.length}개
+        </span>
+      </div>
+      <div className="space-y-1.5">
         {findings.map((f) => {
           const sev = severityMeta(f.severity);
+          const isOpen = openId === f.id;
+          const hasDetail = !!(f.description || f.recommendation);
           return (
-            <li key={f.id} className="border-l-2 pl-3.5"
-              style={{ borderColor: isGood ? "#10B981" : "#F59E0B" }}
-            >
-              <div className="flex items-start justify-between gap-2 mb-1">
-                <div className="font-semibold text-gray-900 dark:text-slate-100 text-[14px] leading-snug">
-                  {f.title}
-                </div>
-                {!isGood ? (
-                  <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${toneClass[sev.tone]}`}>
-                    {sev.label}
-                  </span>
-                ) : null}
-              </div>
-              {f.description ? (
-                <p className="text-[13px] text-gray-600 dark:text-slate-400 leading-relaxed">{f.description}</p>
-              ) : null}
-              {f.recommendation ? (
-                <p className="mt-1.5 text-[12.5px] text-gray-700 dark:text-slate-300 leading-relaxed flex items-start gap-1.5">
-                  <Lightbulb size={12} className="mt-0.5 shrink-0 text-amber-500 dark:text-amber-400" />
-                  <span>{f.recommendation}</span>
-                </p>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
-/* ─── LegacyFeedbackCard — findings 가 없는 경우 폴백 (strengths/improvements string[]) ─── */
-
-function LegacyFeedbackCard({
-  title,
-  tone,
-  items
-}: {
-  title: string;
-  tone: "good" | "warn";
-  items: string[];
-}) {
-  const isGood = tone === "good";
-  return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm p-6 md:p-7 animate-slide-up">
-      <div className="flex items-center gap-2.5 mb-5">
-        {isGood ? (
-          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white shadow-sm">
-            <Check size={14} strokeWidth={3} />
-          </span>
-        ) : (
-          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500 text-white shadow-sm">
-            <AlertTriangle size={13} strokeWidth={2.4} />
-          </span>
-        )}
-        <h2 className="font-display font-bold text-gray-900 dark:text-slate-100 text-[17px]">{title}</h2>
-      </div>
-
-      <ul className="space-y-3.5">
-        {items.map((item, i) => {
-          const { head, tail } = splitHead(item);
-          return (
-            <li key={`${title}-${i}`} className="flex items-start gap-3">
-              <span
-                className={`shrink-0 mt-0.5 inline-flex items-center justify-center w-5 h-5 rounded-full ${
-                  isGood
-                    ? "bg-green-100 text-green-600 dark:bg-green-500/15 dark:text-green-300"
-                    : "bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300"
-                }`}
+            <div key={f.id} className="rounded-xl border border-gray-100 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => hasDetail && setOpenId(isOpen ? null : f.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${hasDetail ? "hover:bg-gray-50 cursor-pointer" : "cursor-default"}`}
               >
-                {isGood ? (
-                  <Check size={11} strokeWidth={3} />
-                ) : (
-                  <AlertTriangle size={10} strokeWidth={2.6} />
+                <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${toneClass[sev.tone]}`}>
+                  {sev.label}
+                </span>
+                <span className="flex-1 text-[13.5px] font-semibold text-gray-800 leading-snug">{f.title}</span>
+                {hasDetail && (
+                  <ChevronDown
+                    size={15}
+                    className={`shrink-0 text-gray-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+                  />
                 )}
-              </span>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-bold text-gray-900 dark:text-slate-100 leading-snug">{head}</div>
-                {tail && (
-                  <div className="text-sm text-gray-500 dark:text-slate-400 leading-relaxed mt-0.5">{tail}</div>
-                )}
-              </div>
-            </li>
+              </button>
+              {isOpen && hasDetail && (
+                <div className="px-4 pb-4 pt-2 border-t border-gray-100 space-y-2.5">
+                  {f.description && (
+                    <SimpleMarkdown text={f.description} className="text-[13px] text-gray-600 leading-relaxed" />
+                  )}
+                  {f.recommendation && (
+                    <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-100 px-3 py-2.5">
+                      <Lightbulb size={13} className="shrink-0 mt-1 text-amber-500" />
+                      <SimpleMarkdown text={f.recommendation} className="text-[12.5px] text-amber-800 leading-relaxed" />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           );
         })}
-      </ul>
-    </div>
+      </div>
+    </section>
   );
 }
 
-/* ─── BasisSection — 평가에 사용된 자료 요약 ─── */
+/* ─── BasisSection ─── */
 
 function BasisSection({ report }: { report: FeedbackReport }) {
   const basis = report.basis;
@@ -573,92 +743,64 @@ function BasisSection({ report }: { report: FeedbackReport }) {
   const harnessFiles = basis.usedHarnessFiles ?? [];
 
   return (
-    <section className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm p-6 md:p-7 animate-slide-up">
+    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-7 animate-slide-up">
       <div className="flex items-center gap-2.5 mb-5">
-        <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300">
+        <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 text-gray-600">
           <FileText size={14} strokeWidth={2.2} />
         </span>
-        <h2 className="font-display font-bold text-gray-900 dark:text-slate-100 text-[17px]">평가 근거</h2>
-        <span className="text-xs text-gray-500 dark:text-slate-400">이 리포트가 본 자료들</span>
+        <h2 className="font-display font-bold text-gray-900 text-[17px]">평가 근거</h2>
+        <span className="text-xs text-gray-500">이 리포트가 본 자료들</span>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-        {trace ? (
-          <BasisStat
-            label="Trace"
-            items={[
-              { k: "Span", v: trace.spanCount ?? 0 },
-              { k: "Tool", v: trace.toolCallCount ?? 0 },
-              { k: "LLM", v: trace.llmCallCount ?? 0 },
-              { k: "Patch", v: trace.patchCount ?? 0 }
-            ]}
-          />
-        ) : null}
-        {exec ? (
-          <BasisStat
-            label="실행 결과"
-            items={[
-              { k: "통과", v: exec.passedTestCount ?? 0 },
-              { k: "총", v: exec.totalTestCount ?? 0 },
-              { k: "빌드", v: exec.buildSucceeded === false ? "실패" : "성공" }
-            ]}
-          />
-        ) : null}
-        {reviews ? (
-          <BasisStat
-            label="파일 변경 검토"
-            items={[
-              { k: "요청", v: reviews.changeRequestCount ?? 0 },
-              { k: "승인", v: reviews.approvedCount ?? 0 },
-              { k: "거절", v: reviews.rejectedCount ?? 0 },
-              { k: "적용", v: reviews.appliedCount ?? 0 }
-            ]}
-          />
-        ) : null}
+        {trace && (
+          <BasisStat label="Trace" items={[
+            { k: "Span", v: trace.spanCount ?? 0 },
+            { k: "Tool", v: trace.toolCallCount ?? 0 },
+            { k: "LLM",  v: trace.llmCallCount ?? 0 },
+            { k: "Patch", v: trace.patchCount ?? 0 }
+          ]} />
+        )}
+        {exec && (
+          <BasisStat label="실행 결과" items={[
+            { k: "통과", v: exec.passedTestCount ?? 0 },
+            { k: "총",   v: exec.totalTestCount ?? 0 },
+            { k: "빌드", v: exec.buildSucceeded === false ? "실패" : "성공" }
+          ]} />
+        )}
+        {reviews && (
+          <BasisStat label="파일 변경 검토" items={[
+            { k: "요청", v: reviews.changeRequestCount ?? 0 },
+            { k: "승인", v: reviews.approvedCount ?? 0 },
+            { k: "거절", v: reviews.rejectedCount ?? 0 },
+            { k: "적용", v: reviews.appliedCount ?? 0 }
+          ]} />
+        )}
       </div>
-
-      {harnessFiles.length > 0 ? (
+      {harnessFiles.length > 0 && (
         <div>
-          <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-500 dark:text-slate-400 mb-2">
-            사용된 하네스 파일
-          </div>
+          <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-500 mb-2">사용된 하네스 파일</div>
           <div className="flex flex-wrap gap-1.5">
             {harnessFiles.map((p) => (
-              <span
-                key={p}
-                className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 font-mono text-[11.5px] text-gray-700 dark:text-slate-300"
-              >
+              <span key={p} className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-50 border border-gray-200 font-mono text-[11.5px] text-gray-700">
                 {p}
               </span>
             ))}
           </div>
         </div>
-      ) : null}
+      )}
     </section>
   );
 }
 
-function BasisStat({
-  label,
-  items
-}: {
-  label: string;
-  items: { k: string; v: number | string }[];
-}) {
+function BasisStat({ label, items }: { label: string; items: { k: string; v: number | string }[] }) {
   return (
-    <div className="rounded-xl bg-gray-50 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 p-4">
-      <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-600 dark:text-slate-300 mb-2.5">
-        {label}
-      </div>
+    <div className="rounded-xl bg-gray-50 border border-gray-200 p-4">
+      <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-600 mb-2.5">{label}</div>
       <div className="grid" style={{ gridTemplateColumns: `repeat(${items.length}, 1fr)` }}>
         {items.map((it) => (
           <div key={it.k} className="text-center">
-            <div className="text-[10px] uppercase tracking-[0.1em] text-gray-500 dark:text-slate-400 mb-0.5 font-semibold">
-              {it.k}
-            </div>
-            <div className="font-display font-bold text-gray-900 dark:text-slate-100 text-lg tabular-nums leading-none">
-              {it.v}
-            </div>
+            <div className="text-[10px] uppercase tracking-[0.1em] text-gray-500 mb-0.5 font-semibold">{it.k}</div>
+            <div className="font-display font-bold text-gray-900 text-lg tabular-nums leading-none">{it.v}</div>
           </div>
         ))}
       </div>
@@ -666,24 +808,3 @@ function BasisStat({
   );
 }
 
-/**
- * Split a Korean sentence into a short "head" (title-like) and the rest as detail.
- * Heuristics:
- *   1. If the string contains "—" or " — ", split on it.
- *   2. Otherwise, take content up to the first comma / first period as head.
- *   3. Fallback: whole string as head, no tail.
- */
-function splitHead(s: string): { head: string; tail: string } {
-  const emdashMatch = s.match(/^(.+?)\s*[—–-]\s*(.+)$/);
-  if (emdashMatch) return { head: emdashMatch[1].trim(), tail: emdashMatch[2].trim() };
-
-  const commaIdx = s.indexOf(",");
-  if (commaIdx > 0 && commaIdx <= 26) {
-    return { head: s.slice(0, commaIdx).trim(), tail: s.slice(commaIdx + 1).trim() };
-  }
-
-  const endingMatch = s.match(/^(.{6,40}?[다요])\.\s*(.+)$/);
-  if (endingMatch) return { head: endingMatch[1].trim(), tail: endingMatch[2].trim() };
-
-  return { head: s, tail: "" };
-}
