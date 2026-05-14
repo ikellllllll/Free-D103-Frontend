@@ -1864,6 +1864,10 @@ body:has(.ide-route--workspace) .page-shell > * {
 .assistant-changes-card {
   display: grid;
   gap: 10px;
+  /* mini-panel--flat 가 background 를 거의 투명(rgba(255,255,255,0.03))으로 만들어서
+   * 다크모드에서 카드 아래 채팅 컨텐츠가 비쳐 들어와 "겹쳐 보이는" 버그가 있었음.
+   * 명확한 surface 색으로 덮어 시각적 경계 확보. */
+  background: var(--ide-surface) !important;
 }
 
 .assistant-changes__head {
@@ -1871,6 +1875,17 @@ body:has(.ide-route--workspace) .page-shell > * {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+}
+
+.assistant-changes__head-text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.assistant-changes__head-text strong {
+  display: block;
+}
+.assistant-changes__head-text .muted-copy {
+  word-break: keep-all;
 }
 
 .assistant-changes__head .muted-copy,

@@ -1922,6 +1922,12 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [endSessionLoading, setEndSessionLoading] = useState(false);
   const [agentBuildLoading, setAgentBuildLoading] = useState(false);
+  // worktree 파일별 [적용]/[거절] 진행 중 표시 — null=idle, 문자열=그 path 처리 중.
+  // ref + state 둘 다: ref 는 즉시 동기 가드 (useCallback 안에서), state 는 버튼 disabled/스피너 렌더용.
+  const [partialEditBusy, setPartialEditBusy] = useState<string | null>(null);
+  const [allEditBusy, setAllEditBusy] = useState<boolean>(false);
+  const partialEditBusyRef = useRef<string | null>(null);
+  const allEditBusyRef = useRef<boolean>(false);
   const [extensionQuery, setExtensionQuery] = useState("");
   const [completedTutorialSteps, setCompletedTutorialSteps] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
@@ -4578,12 +4584,18 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
    * Worktree diff 탭의 [적용] / [거절] — 백엔드 partialEdit API.
    * - 적용: origin 파일을 worktree 내용으로 덮어쓰고 worktree 제거
    * - 거절: worktree만 제거 (origin 그대로)
+   *
+   * partialEditBusy: 동시 더블클릭 방지 + 버튼 loading 상태용. 현재 어떤 worktreePath 에 대한
+   * 요청이 진행 중인지를 기록한다 (null = idle, 문자열 = 그 path 처리 중).
    */
   const handlePartialEdit = useCallback(async (worktreePath: string, isApproved: boolean) => {
     if (!isBackendSessionId(sessionId)) {
       addToast("로컬 mock 세션에는 적용 동작이 없습니다.", "warning");
       return;
     }
+    if (partialEditBusyRef.current) return;
+    partialEditBusyRef.current = worktreePath;
+    setPartialEditBusy(worktreePath);
     try {
       await sessionApi.partialEdit(sessionId, { worktreePath, isApproved });
       addToast(isApproved ? "AI 수정이 적용되었습니다." : "AI 수정 제안을 거절했습니다.", "success");
@@ -4607,6 +4619,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
     } catch (error) {
       addToast(error instanceof Error ? error.message : "AI 수정 적용에 실패했습니다.", "error");
+    } finally {
+      partialEditBusyRef.current = null;
+      setPartialEditBusy(null);
     }
   }, [activeEditorGroupId, addToast, handleCloseFileTab, queryClient, sessionId]);
 
@@ -4626,6 +4641,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       addToast("처리할 AI 수정이 없습니다.", "warning");
       return;
     }
+    if (allEditBusyRef.current) return;
+    allEditBusyRef.current = true;
+    setAllEditBusy(true);
     try {
       await sessionApi.allEdit(sessionId, { worktreePaths, isApproved });
       addToast(
@@ -4651,6 +4669,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
     } catch (error) {
       addToast(error instanceof Error ? error.message : "AI 수정 일괄 처리에 실패했습니다.", "error");
+    } finally {
+      allEditBusyRef.current = false;
+      setAllEditBusy(false);
     }
   }, [activeEditorGroupId, addToast, files, handleCloseFileTab, queryClient, sessionId]);
 
@@ -6425,17 +6446,19 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                           type="button"
                           className="button button--ghost"
                           onClick={() => void handleAllEdit(false)}
+                          disabled={allEditBusy || partialEditBusy != null}
                           title="이 세션의 모든 AI 수정 제안 거절"
                         >
-                          모두 거절
+                          {allEditBusy ? "처리 중..." : "모두 거절"}
                         </button>
                         <button
                           type="button"
                           className="button button--ghost"
                           onClick={() => void handleAllEdit(true)}
+                          disabled={allEditBusy || partialEditBusy != null}
                           title="이 세션의 모든 AI 수정 제안 일괄 적용"
                         >
-                          모두 적용
+                          {allEditBusy ? "처리 중..." : "모두 적용"}
                         </button>
                         <span className="diff-pane__divider" aria-hidden>|</span>
                       </>
@@ -6444,15 +6467,17 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                       type="button"
                       className="button button--ghost"
                       onClick={() => void handlePartialEdit(groupActiveTab.targetFile.path, false)}
+                      disabled={partialEditBusy === groupActiveTab.targetFile.path || allEditBusy}
                     >
-                      거절
+                      {partialEditBusy === groupActiveTab.targetFile.path ? "처리 중..." : "거절"}
                     </button>
                     <button
                       type="button"
                       className="button button--primary"
                       onClick={() => void handlePartialEdit(groupActiveTab.targetFile.path, true)}
+                      disabled={partialEditBusy === groupActiveTab.targetFile.path || allEditBusy}
                     >
-                      적용
+                      {partialEditBusy === groupActiveTab.targetFile.path ? "적용 중..." : "적용"}
                     </button>
                   </div>
                 </div>
@@ -6932,9 +6957,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                     </div>
 
                       {aiMode === "edit" && agentPatchPreviews.length ? (
-                        <Card className="mini-panel mini-panel--flat assistant-changes-card">
+                        <Card className="mini-panel assistant-changes-card">
                           <div className="assistant-changes__head">
-                            <div>
+                            <div className="assistant-changes__head-text">
                               <strong>Agent worktree 변경</strong>
                               <p className="muted-copy">
                                 {agentPatchPreviews.length}개 파일에 수정 제안이 준비되었습니다. 클릭하면 diff 탭에서 적용/거절할 수 있어요.
@@ -6942,9 +6967,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                             </div>
                             <span className="ai-context-chip">{agentPatchPreviews.length} files</span>
                           </div>
-                          {latestAgentPatchSummary ? (
-                            <p className="muted-copy assistant-changes__summary">{latestAgentPatchSummary}</p>
-                          ) : null}
+                          {/* latestAgentPatchSummary 는 채팅 메시지에 이미 풀 텍스트가 들어가 있어 카드에서는 노출하지 않음.
+                              (전에는 <p> 안에 plain text 로 박혀 markdown 이 깨지고 채팅 버블과 시각적으로 겹쳐 보여 혼란스러웠음) */}
                           <div className="assistant-changes__list">
                             {agentPatchPreviews.map((preview) => (
                               <button
