@@ -147,6 +147,36 @@ interface JwtPayload {
 
 let refreshPromise: Promise<TokenResponse> | null = null;
 
+/**
+ * Access token 갱신 헬퍼 — SSE / 직접 fetch 코드에서도 401 시 재시도 가능하도록 export.
+ * 성공: 새 토큰을 store 에 저장 + 반환. 실패: signOut + null 반환 (호출자가 throw 결정).
+ * 동시 호출 시 in-flight refreshPromise 를 공유해서 race 없음.
+ */
+export async function tryRefreshAccessToken(): Promise<TokenResponse | null> {
+  const { tokens, setTokens, signOut } = useAuthStore.getState();
+  if (!tokens?.refreshToken) {
+    signOut();
+    return null;
+  }
+  try {
+    refreshPromise ??= ky.post(`${BASE_URL}/api/v1/auth/refresh`, {
+      json: { refreshToken: tokens.refreshToken },
+      retry: 0
+    })
+      .json<ApiResponse<TokenResponse>>()
+      .then((refreshRes) => refreshRes.data)
+      .finally(() => {
+        refreshPromise = null;
+      });
+    const nextTokens = await refreshPromise;
+    setTokens(nextTokens);
+    return nextTokens;
+  } catch {
+    signOut();
+    return null;
+  }
+}
+
 // 인증 불필요 요청용 기본 클라이언트
 const api = ky.create({
   prefixUrl: BASE_URL,
@@ -313,9 +343,9 @@ export const authApi = {
     return res.data;
   },
 
-  /** 진행 중 세션 목록 조회 — GET /api/v1/users/me/sessions (2026-05-09~) */
+  /** 진행 중 세션 목록 조회 — GET /api/v1/users/me/sessions/active (2026-05-14~ 경로 변경) */
   async getActiveSessions(): Promise<ActiveSession[]> {
-    const res = await authClient.get("api/v1/users/me/sessions")
+    const res = await authClient.get("api/v1/users/me/sessions/active")
       .json<ApiResponse<ActiveSession[]>>();
     return res.data;
   },

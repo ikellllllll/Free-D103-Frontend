@@ -4217,18 +4217,22 @@ html[data-theme="light"] .test-result-card__trace-body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   min-width: 28px;
   height: 24px;
-  padding: 0 8px;
+  padding: 0 9px;
   border-radius: 999px;
   border: 1px solid transparent;
   background: transparent;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   font-family: var(--font-mono);
   cursor: pointer;
   transition: filter 0.15s ease, transform 0.1s ease;
+  line-height: 1;
 }
+.build-status__pill svg { flex-shrink: 0; }
+.build-status__pill-count { font-variant-numeric: tabular-nums; line-height: 1; }
 
 .build-status__pill:hover { filter: brightness(1.15); transform: translateY(-1px); }
 .build-status__pill--ok   { background: rgba(34, 197, 94, 0.18);  color: #4ade80; border-color: rgba(34, 197, 94, 0.4); }
@@ -4608,9 +4612,21 @@ html[data-theme="light"] .chat-bubble__markdown code {
   font-weight: 500;
   cursor: pointer;
   transition: background 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .agent-progress-card__trace-link:hover {
   background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+/* 좁은 채팅 사이드바에서 "에이전트 진행 (n단계)" 텍스트가 Trace 버튼을 짜부시키지 않도록.
+ * 텍스트가 ellipsis 되도록 min-width:0 + flex:1 1 auto + overflow */
+.agent-progress-card__summary > span:first-of-type {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .agent-progress-card__list {
@@ -8386,6 +8402,14 @@ html[data-theme="dark"] .main-app-shell :is(.text-indigo-700, .text-indigo-600, 
 }
 
 html[data-theme="dark"] .main-app-shell :is(.shadow-sm, .shadow-md, .shadow-lg, .shadow-xl) {
+  box-shadow: var(--main-app-shadow) !important;
+}
+
+/* 다크모드에서 라이트모드용 inset 흰색 하이라이트 차단.
+ * Tailwind 임의값 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),...] 패턴이
+ * .shadow-sm/md/lg/xl 셀렉터에 안 잡혀서 다크 카드 위에 흰 줄로 보이던 버그.
+ * bg-white 계열 카드(다크모드에서는 surface 색으로 변환됨)의 box-shadow 를 통일 */
+html[data-theme="dark"] .main-app-shell :is(.bg-white, .bg-white\/60, .bg-white\/70, .bg-white\/80, .bg-white\/95) {
   box-shadow: var(--main-app-shadow) !important;
 }
 

@@ -780,7 +780,14 @@ export function TraceWorkbench({ sessionId, onClose }: { sessionId: string; onCl
     queryFn: async (): Promise<AgentRunTrace> =>
       sessionApi.getAgentTraceDetail(sessionId, selectedRunId ?? ""),
     enabled: isBackendSessionId(sessionId) && !!selectedRunId,
-    staleTime: 30_000
+    staleTime: 30_000,
+    // 선택된 run 이 진행 중이면 2초마다 detail 도 폴링 — spans 가 실시간으로 늘어나도록.
+    refetchInterval: (query) => {
+      const TERMINAL: string[] = ["COMPLETED", "FAILED", "CANCELLED"];
+      const status = query.state.data?.status;
+      if (!status || TERMINAL.includes(status)) return false;
+      return 2000;
+    }
   });
 
   const selectedRun = useMemo(

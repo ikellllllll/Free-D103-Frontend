@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Sun, Moon, Copy, Check, LogOut, Save, Eye, PencilLine } from "lucide-react";
+import { Sun, Moon, Copy, Check, LogOut, Save, Eye, PencilLine, CheckCircle2, AlertTriangle, XCircle, Circle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { DragEvent as ReactDragEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
 import React, { Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, type JSX } from "react";
@@ -960,6 +960,34 @@ const appendLocalFolder = (folders: string[], folderPath: string | null) => {
   return [...folders, folderPath];
 };
 
+// Agent 진행 이벤트 list 를 자동 스크롤 to bottom 으로 렌더.
+// max-height 280px 안에서 새 단계가 추가될 때마다 마지막 항목으로 스크롤.
+function AgentEventList({ events }: { events: Array<{ prefix: string; type: string; message: string; detail?: string }> }) {
+  const listRef = useRef<HTMLOListElement | null>(null);
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    // 사용자가 위로 직접 스크롤한 상태(끝에서 24px 이상 멀어짐)면 강제 스크롤 안 함 — UX 보존.
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+    if (atBottom) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [events.length]);
+  return (
+    <ol ref={listRef} className="agent-progress-card__list">
+      {events.map((event, idx) => (
+        <li key={`${event.type}-${idx}`} className="agent-progress-card__item">
+          <span className="agent-progress-card__prefix">{event.prefix}</span>
+          <span className="agent-progress-card__message">{event.message}</span>
+          {event.detail ? (
+            <code className="agent-progress-card__detail">{event.detail}</code>
+          ) : null}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 // Agent UI 상태 섹션 — 진행 카드 안 또는 종료 카드 안에서 변경 파일 list 표시.
 // 백엔드 ui-state API 가 traceId 별로 changed_files + diff stats + reviewStatus 를 준다.
 function AgentUIStateSection({
@@ -1160,8 +1188,11 @@ function BuildStatusIndicator({
   const status = result.compileStatus ?? (errCount === 0 ? "COMPLETED" : "FAILED");
   const variant =
     status === "COMPLETED" ? "ok" : status === "PARTIAL" ? "warn" : status === "FAILED" ? "err" : "idle";
-  const icon = variant === "ok" ? "✓" : variant === "warn" ? "⚠" : variant === "err" ? "✗" : "·";
-  const label = errCount > 0 ? `${icon} ${errCount}` : icon;
+  const IconCmp =
+    variant === "ok" ? CheckCircle2 :
+    variant === "warn" ? AlertTriangle :
+    variant === "err" ? XCircle :
+    Circle;
   const builtRel = (() => {
     const diff = Date.now() - new Date(result.builtAt).getTime();
     if (diff < 60_000) return "방금 전";
@@ -1177,7 +1208,8 @@ function BuildStatusIndicator({
         onClick={() => setOpen((v) => !v)}
         title={`마지막 빌드: ${status}${result.baseModel ? ` · ${result.baseModel}` : ""} · ${builtRel}${errCount ? ` · 오류 ${errCount}개` : ""}`}
       >
-        {label}
+        <IconCmp size={13} strokeWidth={2.4} aria-hidden="true" />
+        {errCount > 0 ? <span className="build-status__pill-count">{errCount}</span> : null}
       </button>
       {open && errCount > 0 ? (
         <div className="build-status__dropdown" role="dialog" aria-label="빌드 오류 목록">
@@ -3032,9 +3064,11 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     if (activeTab.kind === "diff") {
       setSelection("", null);
       setSuggestion(null);
-      setAiMode("chat");
+      // 이전엔 여기서 setAiMode("chat") 강제 — diff 탭 진입 시 자동으로 Chat 으로 토글했는데
+      // 사용자가 Agent 모드를 의도적으로 켜둔 상태에서 diff/포커싱만으로 모드가 바뀌는 게 거슬려서 제거.
+      // suggestion/selection 만 비워두고, 모드는 사용자 선택 그대로 유지.
     }
-  }, [activePath, activeTab, files, setActivePath, setAiMode, setSelection, setSuggestion]);
+  }, [activePath, activeTab, files, setActivePath, setSelection, setSuggestion]);
 
   useEffect(() => {
     if (!activeFile?.path) {
@@ -3452,7 +3486,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     openTabInEditorGroup(diffTabId, groupId);
     setSelection("", null);
     setSuggestion(null);
-    setAiMode("chat");
+    // setAiMode("chat") 제거 — 사용자가 의도적으로 Agent 모드를 켜둔 경우 diff 열어도 그대로 유지.
 
     // diff 좌(원본) / 우(worktree) 모두 lazy content fetch — 백엔드 /files API 는
     // 트리 메타만 주고 content 는 GET /files/{fileId} / /worktrees/{id} 별도라서,
@@ -3541,8 +3575,22 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           return { ...group, tabIds, activeTabId };
         });
       });
+
+      // 그룹 닫고 남은 그룹이 1개면 editorGroupSizes 초기화 — 남은 그룹이 컨테이너를 꽉 채우도록.
+      // 안 그러면 split 당시 저장된 pixel width 가 그대로 살아 있어서 한쪽이 빈 공간으로 남음.
+      setEditorGroupSizes((sizes) => {
+        const remaining = editorGroups.filter((g) => g.id !== groupId);
+        if (remaining.length <= 1) {
+          return {};
+        }
+        // 2개 이상 남으면 닫힌 그룹의 size 만 제거.
+        if (sizes[groupId] == null) return sizes;
+        const next = { ...sizes };
+        delete next[groupId];
+        return next;
+      });
     },
-    [editorGroups.length]
+    [editorGroups]
   );
 
   const handleOpenCodeWorkbench = () => {
@@ -6977,17 +7025,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                                       </button>
                                     ) : null}
                                   </summary>
-                                  <ol className="agent-progress-card__list">
-                                    {message.agentEvents!.map((event, idx) => (
-                                      <li key={`${event.type}-${idx}`} className="agent-progress-card__item">
-                                        <span className="agent-progress-card__prefix">{event.prefix}</span>
-                                        <span className="agent-progress-card__message">{event.message}</span>
-                                        {event.detail ? (
-                                          <code className="agent-progress-card__detail">{event.detail}</code>
-                                        ) : null}
-                                      </li>
-                                    ))}
-                                  </ol>
+                                  <AgentEventList events={message.agentEvents!} />
                                 </details>
                               ) : null}
                               {/* ui-state — message.traceId 가 있는 한 카드 fold/unmount 와 무관하게 항상 노출.

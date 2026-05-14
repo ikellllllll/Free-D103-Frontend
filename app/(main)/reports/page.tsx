@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, Sparkles, AlertTriangle, RefreshCcw, CheckCircle2, Loader2 } from "lucide-react";
+import { FileText, Sparkles, AlertTriangle, RefreshCcw, Loader2, ChevronRight } from "lucide-react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { authApi } from "@/lib/api/authApi";
@@ -181,45 +181,72 @@ export default function ReportsPage() {
             <p className="text-xs text-gray-400 dark:text-slate-500">문제를 풀고 세션을 종료하면 여기에 쌓입니다.</p>
           </div>
         ) : completed.length === 0 ? null : (
-          <ul className="list-none divide-y divide-gray-100 dark:divide-slate-800 rounded-xl border border-gray-200 dark:border-slate-700/70 bg-white dark:bg-slate-900/60 shadow-sm overflow-hidden">
+          <ul className="list-none space-y-2.5">
             {completed.map((report) => {
               const passRate = report.totalCount > 0
                 ? Math.round((report.passedCount / report.totalCount) * 100)
                 : 0;
-              const scoreColor =
-                passRate >= 80 ? "text-emerald-600 dark:text-emerald-400" :
-                passRate >= 60 ? "text-indigo-600 dark:text-indigo-400" :
-                "text-rose-600 dark:text-rose-400";
               const overall = typeof report.overallScore === "string"
                 ? parseFloat(report.overallScore)
                 : report.overallScore;
+              const tone =
+                passRate >= 80 ? {
+                  stripe: "bg-emerald-500",
+                  score: "text-emerald-600 dark:text-emerald-400",
+                  chip: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-800/60"
+                } :
+                passRate >= 60 ? {
+                  stripe: "bg-indigo-500",
+                  score: "text-indigo-600 dark:text-indigo-400",
+                  chip: "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border-indigo-200/60 dark:border-indigo-800/60"
+                } :
+                {
+                  stripe: "bg-rose-500",
+                  score: "text-rose-600 dark:text-rose-400",
+                  chip: "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border-rose-200/60 dark:border-rose-800/60"
+                };
               return (
                 <li key={report.feedbackReportId}>
                   <Link
                     href={withPrefix(`/submissions/${report.feedbackReportId}/report`)}
-                    className="group flex items-center gap-4 px-5 py-4 cursor-pointer transition-colors hover:bg-indigo-50/60 dark:hover:bg-indigo-950/30"
+                    className="group relative flex items-stretch overflow-hidden rounded-xl border border-gray-200 dark:border-slate-700/70 bg-white dark:bg-slate-900/60 transition-all hover:border-indigo-400 dark:hover:border-indigo-600 hover:shadow-[0_4px_18px_-6px_rgba(99,102,241,0.25)] dark:hover:shadow-[0_4px_18px_-6px_rgba(99,102,241,0.4)]"
                   >
-                    <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500 shrink-0 transition-colors">
-                      <CheckCircle2 size={18} strokeWidth={2.2} />
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-mono text-gray-400 dark:text-slate-500 shrink-0">#{report.problemId}</span>
-                        <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors">
-                          {report.problemTitle}
-                        </h4>
-                      </div>
-                      <div className="mt-1 text-xs text-gray-400 dark:text-slate-500">
-                        {new Date(report.createdAt).toLocaleString("ko-KR")}
-                        <span className="mx-2">·</span>
-                        <span className={scoreColor}>{report.passedCount}/{report.totalCount} 통과 ({passRate}%)</span>
+                    {/* 점수 컬러 좌측 스트라이프 */}
+                    <span className={`${tone.stripe} w-1 shrink-0`} aria-hidden="true" />
+
+                    {/* 점수 박스 */}
+                    <div className="flex items-center justify-center px-5 py-4 shrink-0 min-w-[88px] border-r border-gray-100 dark:border-slate-800">
+                      <div className="text-center">
+                        <div className={`font-display font-black text-[26px] leading-none tabular-nums ${tone.score}`}>
+                          {overall != null && Number.isFinite(overall) ? overall.toFixed(1) : "-"}
+                        </div>
+                        <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-slate-500">score</div>
                       </div>
                     </div>
-                    <div className={`text-right shrink-0 ${scoreColor}`}>
-                      <div className="text-xl font-bold tabular-nums leading-none">
-                        {overall != null && Number.isFinite(overall) ? overall.toFixed(1) : "-"}
+
+                    {/* 본문 */}
+                    <div className="flex-1 min-w-0 flex items-center gap-3 px-5 py-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="text-[11px] font-mono text-gray-400 dark:text-slate-500 shrink-0">#{report.problemId}</span>
+                          <h4 className="text-[15px] font-semibold text-gray-900 dark:text-slate-100 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors">
+                            {report.problemTitle}
+                          </h4>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${tone.chip}`}>
+                            {report.passedCount}/{report.totalCount} 통과 · {passRate}%
+                          </span>
+                          <span className="text-xs text-gray-400 dark:text-slate-500">
+                            {new Date(report.createdAt).toLocaleString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </div>
                       </div>
-                      <div className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-slate-500 mt-1">score</div>
+                      <ChevronRight
+                        size={18}
+                        className="shrink-0 text-gray-300 dark:text-slate-600 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all"
+                        strokeWidth={2.2}
+                      />
                     </div>
                   </Link>
                 </li>

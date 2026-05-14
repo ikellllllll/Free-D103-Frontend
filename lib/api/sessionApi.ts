@@ -1,4 +1,4 @@
-import { authClient, BASE_URL } from "@/lib/api/authApi";
+import { authClient, BASE_URL, tryRefreshAccessToken } from "@/lib/api/authApi";
 import { useAuthStore } from "@/store/authStore";
 import { mockApi } from "@/lib/api/mockApi";
 import { normalizeApiDateTime, parseApiDateTime } from "@/lib/dateTime";
@@ -1200,21 +1200,29 @@ export const sessionApi = {
     if (payload.systemPrompt) body.systemPrompt = payload.systemPrompt;
     if (payload.referenceContents) body.referenceContents = payload.referenceContents;
 
-    const res = await fetch(`${BASE_URL}/api/v1/ai/sessions/${sessionId}/chat/stream`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${tokens.accessToken}`,
-        "Content-Type": "application/json",
-        Accept: "text/event-stream"
-      },
-      body: JSON.stringify(body),
-      signal
-    });
+    const doFetch = (accessToken: string) =>
+      fetch(`${BASE_URL}/api/v1/ai/sessions/${sessionId}/chat/stream`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          Accept: "text/event-stream"
+        },
+        body: JSON.stringify(body),
+        signal
+      });
 
-    if (!res.ok) {
-      if (res.status === 401) {
+    let res = await doFetch(tokens.accessToken);
+    // 토큰 만료 시 자동 갱신 후 한 번만 재시도 (refresh token 도 죽었으면 signOut + throw)
+    if (res.status === 401) {
+      const refreshed = await tryRefreshAccessToken();
+      if (!refreshed) {
         throw new Error("세션이 만료됐습니다. 다시 로그인해주세요.");
       }
+      res = await doFetch(refreshed.accessToken);
+    }
+
+    if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(`AI 응답 실패 (${res.status})${text ? `: ${text.slice(0, 200)}` : ""}`);
     }
@@ -1303,21 +1311,28 @@ export const sessionApi = {
       throw new Error("로그인이 필요합니다.");
     }
 
-    const res = await fetch(`${BASE_URL}/api/v1/ai/sessions/${sessionId}/agent-runs`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${tokens.accessToken}`,
-        "Content-Type": "application/json",
-        Accept: "text/event-stream"
-      },
-      body: JSON.stringify({ message: payload.message }),
-      signal
-    });
+    const doFetch = (accessToken: string) =>
+      fetch(`${BASE_URL}/api/v1/ai/sessions/${sessionId}/agent-runs`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          Accept: "text/event-stream"
+        },
+        body: JSON.stringify({ message: payload.message }),
+        signal
+      });
 
-    if (!res.ok) {
-      if (res.status === 401) {
+    let res = await doFetch(tokens.accessToken);
+    if (res.status === 401) {
+      const refreshed = await tryRefreshAccessToken();
+      if (!refreshed) {
         throw new Error("세션이 만료됐습니다. 다시 로그인해주세요.");
       }
+      res = await doFetch(refreshed.accessToken);
+    }
+
+    if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(`Agent 실행 실패 (${res.status})${text ? `: ${text.slice(0, 200)}` : ""}`);
     }

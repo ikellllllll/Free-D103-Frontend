@@ -102,7 +102,7 @@ export default function LoginPage() {
               <span className="login-v0-lite__field-label block text-sm font-semibold text-gray-800">
                 비밀번호
               </span>
-              <button type="button" className="login-v0-lite__text-link text-xs">
+              <button type="button" tabIndex={-1} className="login-v0-lite__text-link text-xs">
                 비밀번호 찾기
               </button>
             </div>
@@ -117,6 +117,7 @@ export default function LoginPage() {
               />
               <button
                 type="button"
+                tabIndex={-1}
                 onClick={() => setShowPassword((v) => !v)}
                 className="login-v0-lite__peek absolute right-3 inset-y-0 flex items-center"
                 aria-label="비밀번호 표시"
