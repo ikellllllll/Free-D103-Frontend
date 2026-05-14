@@ -97,6 +97,14 @@ export function useAiChat(sessionId: string) {
     setMessages(baseMessages);
     setStreaming(true);
 
+    // unmount 후엔 store 갱신 하지 않도록 guard. agent/chat 스트림 callback 들이 abort
+    // 직전 도착한 chunk 로 store 를 오염시키던 케이스 + loadMessages() 가 이탈한 세션의
+    // 메시지로 덮어쓰던 케이스 둘 다 차단.
+    const safeSetMessages = (next: typeof messages) => {
+      if (!mountedRef.current) return;
+      setMessages(next);
+    };
+
     // 백엔드 세션이면 SSE streaming 으로 실 AI 응답을 받는다.
     // mock 세션이면 기존 페이크 streaming (28ms per 6 chars) 유지.
     if (isBackendSessionId(sessionId)) {
@@ -158,14 +166,14 @@ export function useAiChat(sessionId: string) {
                 if (!finalMessage) return;
 
                 events.push({ prefix, type, message: finalMessage, detail });
-                setMessages([
+                safeSetMessages([
                   ...baseMessages,
                   { ...assistantBase, content: "", agentEvents: [...events], traceId }
                 ]);
               },
               onError: (_code, msg) => {
                 events.push({ prefix: "❌", type: "ERROR", message: msg });
-                setMessages([
+                safeSetMessages([
                   ...baseMessages,
                   { ...assistantBase, content: "", agentEvents: [...events], traceId }
                 ]);
@@ -182,7 +190,7 @@ export function useAiChat(sessionId: string) {
             ? "사용자가 중지했습니다."
             : error instanceof Error ? error.message : "Agent 실행에 실패했습니다.";
           events.push({ prefix: isAbort ? "⏹️" : "❌", type: isAbort ? "ABORTED" : "EXCEPTION", message: errMsg });
-          setMessages([
+          safeSetMessages([
             ...baseMessages,
             { ...assistantBase, content: "", agentEvents: [...events] }
           ]);
@@ -192,20 +200,29 @@ export function useAiChat(sessionId: string) {
           tracePollIntervalRef.current = null;
           abortControllerRef.current = null;
           if (mountedRef.current) setStreaming(false);
-          // Agent 가 worktree 에 새 파일을 만들고 끝났는데 workspace query 가 stale 상태로 남으면
-          // 파일 트리에 .worktree (ai) 자식이 안 보임. invalidate 로 강제 refetch 해서 즉시 hydrate.
-          // session(트레이스 카운트 갱신용) / agentTraces (Trace 탭) 도 같이 무효화.
-          await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
-          await queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
-          await queryClient.invalidateQueries({ queryKey: ["agentTraces", sessionId] });
-          // SSE 누적은 "🚀 작업 시작 / 📖 파일 읽음 / ..." 진행 로그라, 종료 후엔 백엔드가 저장한
-          // 최종 assistant 메시지(변경 요약 등) 로 덮어써야 새로고침 없이도 깔끔한 결과를 본다.
-          try { await loadMessages(); } catch { /* noop — 다음 진입 시 재시도 */ }
+          // unmount 후엔 invalidate / loadMessages 모두 skip — 이탈한 세션의 메시지로 store 가
+          // 덮이거나 다음 진입 직후 race 가 나는 케이스 차단.
+          if (mountedRef.current) {
+            // Agent 가 worktree 에 새 파일을 만들고 끝났는데 workspace query 가 stale 상태로 남으면
+            // 파일 트리에 .worktree (ai) 자식이 안 보임. invalidate 로 강제 refetch 해서 즉시 hydrate.
+            // session(트레이스 카운트 갱신용) / agentTraces (Trace 탭) 도 같이 무효화.
+            await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
+            await queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
+            await queryClient.invalidateQueries({ queryKey: ["agentTraces", sessionId] });
+            // SSE 누적은 "🚀 작업 시작 / 📖 파일 읽음 / ..." 진행 로그라, 종료 후엔 백엔드가 저장한
+            // 최종 assistant 메시지(변경 요약 등) 로 덮어써야 새로고침 없이도 깔끔한 결과를 본다.
+            try { await loadMessages(); } catch { /* noop — 다음 진입 시 재시도 */ }
+          }
         }
         return;
       }
 
       // === Chat 모드 (기본) — text-only LLM chunks. ===
+      // 이전엔 chat 모드 streamChat 호출에 abort signal 을 안 넘겨서 UI "중지" 버튼이나
+      // 페이지 이탈 시 fetch/read loop 가 계속 살아 있었음. agent 모드와 동일하게 controller
+      // 등록해서 abort() 호출 가능하게.
+      const chatController = new AbortController();
+      abortControllerRef.current = chatController;
       try {
         await sessionApi.streamChat(
           sessionId,
@@ -213,7 +230,7 @@ export function useAiChat(sessionId: string) {
           {
             onChunk: (content) => {
               accumulated += content;
-              setMessages([
+              safeSetMessages([
                 ...baseMessages,
                 { ...assistantBase, content: accumulated }
               ]);
@@ -222,25 +239,34 @@ export function useAiChat(sessionId: string) {
               accumulated = accumulated
                 ? `${accumulated}\n\n[오류] ${msg}`
                 : `[오류] ${msg}`;
-              setMessages([
+              safeSetMessages([
                 ...baseMessages,
                 { ...assistantBase, content: accumulated }
               ]);
             }
-          }
+          },
+          chatController.signal
         );
         setRequestCount((count) => count + 1);
       } catch (error) {
-        const errMsg = error instanceof Error ? error.message : "AI 호출에 실패했습니다.";
-        setMessages([
+        // AbortError 는 사용자가 의도적으로 중지 or unmount 한 케이스 — 별도 메시지.
+        const isAbort = error instanceof DOMException && error.name === "AbortError";
+        const errMsg = isAbort
+          ? "사용자가 중지했습니다."
+          : error instanceof Error ? error.message : "AI 호출에 실패했습니다.";
+        safeSetMessages([
           ...baseMessages,
           { ...assistantBase, content: accumulated ? `${accumulated}\n\n[오류] ${errMsg}` : `[오류] ${errMsg}` }
         ]);
       } finally {
-        setStreaming(false);
-        // chat 모드도 SSE chunk 가 백엔드 저장본과 미세하게 다를 수 있고, 멀티턴 멤버십을 보장하기 위해
-        // 종료 후 백엔드 messages 로 최종 동기화. 실패해도 다음 진입 시 자동 hydrate 되니 silent.
-        try { await loadMessages(); } catch { /* noop */ }
+        abortControllerRef.current = null;
+        if (mountedRef.current) setStreaming(false);
+        // unmount 후엔 loadMessages skip — 이탈한 세션 store 오염 차단.
+        if (mountedRef.current) {
+          // chat 모드도 SSE chunk 가 백엔드 저장본과 미세하게 다를 수 있고, 멀티턴 멤버십을 보장하기 위해
+          // 종료 후 백엔드 messages 로 최종 동기화. 실패해도 다음 진입 시 자동 hydrate 되니 silent.
+          try { await loadMessages(); } catch { /* noop */ }
+        }
       }
       return;
     }

@@ -5356,6 +5356,12 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     if (!chatInput.trim()) {
       return;
     }
+    // streaming 중이면 즉시 차단 — 이전엔 textarea Ctrl+Enter 가 두 번째 stream 을 열어
+    // 메시지가 섞이고 중지 버튼이 마지막 controller 만 abort 하는 race 가 있었음.
+    // (버튼 자체는 streaming 중 "중지" 로 바뀌지만 키보드 경로는 안 막혀 있었음.)
+    if (streaming) {
+      return;
+    }
 
     const mode = aiMode === "edit" ? "agent" : "chat";
 
