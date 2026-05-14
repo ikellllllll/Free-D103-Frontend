@@ -199,11 +199,36 @@ const toDimensions = (payload: BackendFeedbackReportResponse): DimensionScoreIte
     dimensionByCode.set(code, item);
   }
 
-  // 5축 고정 순서로 출력 — report 5개 컬럼을 기본 점수 source로 쓰고, dimensionScores 가 있으면 더 풍부한 정보 덮어씀.
+  // 5축 고정 순서로 출력.
+  //
+  // 점수 source 우선순위 (백엔드 실제 응답을 본 결과):
+  //  1. dimensionScores[].score (0~maxScore) — 항상 들어와 있는 가장 신뢰 가능한 source.
+  //     백엔드 응답 예시: { evalTarget: { id: "HARNESS_GOAL_CONTRACT" }, score: 100, maxScore: 100 }.
+  //  2. payload.report.harnessXxxScore — 백엔드 record 에 컬럼은 있지만 GET /feedback/{id} 응답 DTO
+  //     에 빠져 있는 경우가 있어 폴백.
+  //
+  // 이전 버그: source 1을 detail 로만 쓰고 점수 본체로 안 써서 응답에서 report 컬럼이 빠지면 전부 0 으로
+  // 떨어지던 케이스가 있었음 (feedback_report 1번 → 모든 축 0 표시).
   return DIMENSION_AXES.map((axis): DimensionScoreItem => {
-    const rawScore = payload.report[axis.reportKey];
-    const score = clampScore(toNumber(rawScore));
     const detail = dimensionByCode.get(axis.code);
+
+    // dimensionScores 의 score 는 maxScore 기준이라 100점 만점으로 normalize.
+    let detailScore: number | null = null;
+    if (detail) {
+      const raw = toNumber(detail.score, NaN);
+      const max = toNumber(detail.maxScore, 100);
+      if (Number.isFinite(raw)) {
+        detailScore = max > 0 && max !== 100 ? (raw / max) * 100 : raw;
+      }
+    }
+
+    const reportRaw = payload.report[axis.reportKey];
+    const reportScore = toNumber(reportRaw, NaN);
+
+    const chosen = detailScore != null
+      ? detailScore
+      : Number.isFinite(reportScore) ? reportScore : 0;
+    const score = clampScore(chosen);
 
     return {
       code: axis.code,
