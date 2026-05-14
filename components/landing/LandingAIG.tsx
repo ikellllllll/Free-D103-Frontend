@@ -109,6 +109,14 @@ const SHOWCASE_STATS = [
   { value: "14기", label: "SSAFY" }
 ];
 
+const REPORT_AXES = [
+  { label: "목표", fullLabel: "목표 명확도", score: 86, color: "#4F46E5", softColor: "#EEF2FF", textColor: "#3730A3" },
+  { label: "흐름", fullLabel: "작업 흐름 설계도", score: 56, color: "#8B5CF6", softColor: "#F5F3FF", textColor: "#6D28D9" },
+  { label: "정보", fullLabel: "정보 제공 적절도", score: 88, color: "#0D9488", softColor: "#CCFBF1", textColor: "#0F766E" },
+  { label: "스킬", fullLabel: "스킬 구성도", score: 52, color: "#2563EB", softColor: "#DBEAFE", textColor: "#1D4ED8" },
+  { label: "검증", fullLabel: "검증 루프 설계도", score: 86, color: "#DB2777", softColor: "#FCE7F3", textColor: "#BE185D" }
+];
+
 const HERO_IDE_PREVIEW_WIDTH = 1440;
 const HERO_IDE_PREVIEW_HEIGHT = 810;
 const AGENT_COMMAND = "TodoService를 문제 요구사항에 맞게 구현하고 테스트까지 실행해줘";
@@ -796,6 +804,117 @@ function HeroIdePreviewMock({ step }: { step: number }) {
   );
 }
 
+function LandingScoreRadar() {
+  const SIZE = 230;
+  const CENTER = SIZE / 2;
+  const MAX_RADIUS = 76;
+  const N = REPORT_AXES.length;
+  const angleFor = (i: number) => -Math.PI / 2 + (i * 2 * Math.PI) / N;
+  const pointFor = (i: number, radius: number) => {
+    const a = angleFor(i);
+    return { x: CENTER + radius * Math.cos(a), y: CENTER + radius * Math.sin(a) };
+  };
+  const rings = [25, 50, 75, 100];
+  const points = REPORT_AXES.map((axis, i) => {
+    const p = pointFor(i, (axis.score / 100) * MAX_RADIUS);
+    return `${p.x},${p.y}`;
+  }).join(" ");
+
+  return (
+    <div className="grid gap-5 md:grid-cols-[230px_1fr] md:items-center">
+      <div className="relative mx-auto h-[230px] w-[230px]">
+        <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} className="overflow-visible">
+          <defs>
+            <radialGradient id="landingRadarFill" cx="50%" cy="50%" r="55%">
+              <stop offset="0%" stopColor="#A78BFA" stopOpacity="0.5" />
+              <stop offset="55%" stopColor="#60A5FA" stopOpacity="0.28" />
+              <stop offset="100%" stopColor="#14B8A6" stopOpacity="0.22" />
+            </radialGradient>
+            <linearGradient id="landingRadarStroke" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#4F46E5" />
+              <stop offset="42%" stopColor="#8B5CF6" />
+              <stop offset="72%" stopColor="#06B6D4" />
+              <stop offset="100%" stopColor="#DB2777" />
+            </linearGradient>
+          </defs>
+
+          {rings.map((ring) => {
+            const ringPoints = REPORT_AXES.map((_, i) => {
+              const p = pointFor(i, (ring / 100) * MAX_RADIUS);
+              return `${p.x},${p.y}`;
+            }).join(" ");
+            return (
+              <polygon
+                key={ring}
+                points={ringPoints}
+                fill={ring === 100 ? "#F8FAFC" : "none"}
+                stroke="#E5E7EB"
+                strokeWidth={1}
+              />
+            );
+          })}
+
+          {REPORT_AXES.map((_, i) => {
+            const end = pointFor(i, MAX_RADIUS);
+            return <line key={i} x1={CENTER} y1={CENTER} x2={end.x} y2={end.y} stroke="#E5E7EB" strokeWidth={1} />;
+          })}
+
+          <polygon points={points} fill="url(#landingRadarFill)" stroke="url(#landingRadarStroke)" strokeWidth={2.5} />
+          {REPORT_AXES.map((axis, i) => {
+            const p = pointFor(i, (axis.score / 100) * MAX_RADIUS);
+            return (
+              <g key={axis.label}>
+                <circle cx={p.x} cy={p.y} r={5.5} fill="white" stroke={axis.color} strokeWidth={2.5} />
+                <circle cx={p.x} cy={p.y} r={2.3} fill={axis.color} />
+              </g>
+            );
+          })}
+
+          {REPORT_AXES.map((axis, i) => {
+            const label = pointFor(i, MAX_RADIUS + 21);
+            const a = angleFor(i);
+            const anchor = Math.abs(Math.cos(a)) < 0.2 ? "middle" : Math.cos(a) > 0 ? "start" : "end";
+            return (
+              <text key={axis.fullLabel} x={label.x} y={label.y} textAnchor={anchor} dominantBaseline="middle" fill="#334155" fontSize="11" fontWeight="800">
+                {axis.label}
+              </text>
+            );
+          })}
+        </svg>
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="rounded-full bg-white/90 px-3 py-2 text-center shadow-sm ring-1 ring-gray-100">
+            <div className="font-display text-2xl font-black leading-none text-gray-950">84</div>
+            <div className="text-[10px] font-bold text-gray-400">TOTAL</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-2">
+        {REPORT_AXES.map((axis) => (
+          <div
+            key={axis.fullLabel}
+            className="relative overflow-hidden rounded-xl px-3 py-2 text-xs font-bold ring-1 ring-black/5"
+            style={{ backgroundColor: axis.softColor, color: axis.textColor }}
+          >
+            <div
+              className="absolute inset-y-0 left-0 opacity-20"
+              style={{
+                width: `${axis.score}%`,
+                backgroundColor: axis.color
+              }}
+              aria-hidden="true"
+            />
+            <div className="relative flex items-center justify-between gap-3">
+              <span className="truncate">{axis.fullLabel}</span>
+              <span className="tabular-nums">{axis.score}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function LandingAIG() {
   const sectionRefs = useRef<Record<SectionId, HTMLElement | null>>({
     hero: null,
@@ -1121,20 +1240,20 @@ export function LandingAIG() {
                     aria-label={`${w.step} ${w.label}`}
                     className={`min-w-0 rounded-2xl border px-3 py-3 text-left backdrop-blur-2xl transition-all cursor-pointer ${
                       i === activeStep
-                        ? "border-sky-100/55 bg-white/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,0.34),inset_0_-1px_0_rgba(255,255,255,0.08),0_18px_36px_-24px_rgba(125,211,252,0.7)]"
+                        ? "border-white/55 bg-white/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,0.34),inset_0_-1px_0_rgba(255,255,255,0.08),0_18px_36px_-24px_rgba(255,255,255,0.55)]"
                         : "border-white/[0.2] bg-white/[0.015] shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-1px_0_rgba(255,255,255,0.04)] hover:border-sky-100/35 hover:bg-white/[0.03]"
                     }`}
                   >
-                    <span className={`block font-mono text-[11px] font-black ${i === activeStep ? "text-sky-200" : "text-indigo-100/[0.74]"}`}>
+                    <span className={`block font-mono text-[11px] font-black ${i === activeStep ? "text-white" : "text-indigo-100/[0.74]"}`}>
                       {w.step}
                     </span>
-                    <span className={`mt-1 block truncate text-sm font-black ${i === activeStep ? "text-sky-200" : "text-indigo-100/[0.74]"}`}>
+                    <span className={`mt-1 block truncate text-sm font-black ${i === activeStep ? "text-white" : "text-indigo-100/[0.74]"}`}>
                       {w.label}
                     </span>
                     <span
                       className={`mt-2 inline-flex max-w-full rounded-full border px-2 py-0.5 text-[10px] font-bold ${
                         i === activeStep
-                          ? "border-sky-100/35 bg-white/[0.045] text-sky-200"
+                          ? "border-white/40 bg-white/[0.045] text-white"
                           : "border-white/[0.16] bg-white/[0.018] text-indigo-100/[0.7]"
                       }`}
                     >
@@ -1251,37 +1370,37 @@ export function LandingAIG() {
                 <div className="relative flex items-start justify-between gap-6">
                   <div className="min-w-0">
                     <div className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-indigo-500">
-                      AI Utilization Score
+                      Feedback Report
                     </div>
                     <h3 className="font-display text-2xl font-bold tracking-tight text-gray-950">
-                      종합 점수
+                      Todo CRUD API 구현 리포트
                     </h3>
                     <p className="mt-2 max-w-[260px] text-sm leading-6 text-gray-500">
-                      설계, 실행, Trace 활용을 합산한 AI 협업 역량 지표입니다.
+                      문제 요구사항 파악, 하네스 구성, 검증 루프를 합산한 AI 협업 리포트입니다.
                     </p>
                   </div>
 
                   <div className="relative shrink-0">
                     <div
                       className="flex h-32 w-32 items-center justify-center rounded-full p-2 shadow-[0_18px_40px_-22px_rgba(79,70,229,0.65)]"
-                      style={{ background: "conic-gradient(from 220deg, #4F46E5 0deg 295deg, #E5E7EB 295deg 360deg)" }}
+                      style={{ background: "conic-gradient(from 220deg, #4F46E5 0deg 302deg, #E5E7EB 302deg 360deg)" }}
                     >
                       <div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-white">
-                        <span className="font-display text-4xl font-bold leading-none text-gray-950">82</span>
+                        <span className="font-display text-4xl font-bold leading-none text-gray-950">84</span>
                         <span className="mt-1 text-xs font-semibold text-gray-400">/100</span>
                       </div>
                     </div>
                     <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-teal-50 px-3 py-1 text-xs font-bold text-teal-700 ring-1 ring-teal-100">
-                      상위 27%
+                      우수
                     </div>
                   </div>
                 </div>
 
                 <div className="relative mt-8 grid grid-cols-3 gap-2">
                   {[
-                    { label: "등급", value: "A-" },
-                    { label: "강점", value: "Trace" },
-                    { label: "개선", value: "+8점" }
+                    { label: "등급", value: "B+" },
+                    { label: "테스트", value: "8/10" },
+                    { label: "Trace", value: "12 span" }
                   ].map((item) => (
                     <div key={item.label} className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3 text-center">
                       <div className="text-[11px] font-semibold text-gray-400">{item.label}</div>
@@ -1290,37 +1409,14 @@ export function LandingAIG() {
                   ))}
                 </div>
 
-                <div className="relative mt-6 space-y-4 border-t border-gray-100 pt-5">
-                  {[
-                    { label: "하네스 품질", score: 85, note: "요구사항 분해 우수", bar: "linear-gradient(90deg, #6366F1, #4F46E5)" },
-                    { label: "실행 품질", score: 78, note: "예외 처리 보강 필요", bar: "linear-gradient(90deg, #8B5CF6, #7C3AED)" },
-                    { label: "Trace 활용", score: 84, note: "근거 기록 안정적", bar: "linear-gradient(90deg, #14B8A6, #0D9488)" }
-                  ].map((item) => (
-                    <div key={item.label}>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div>
-                          <span className="text-sm font-semibold text-gray-800">{item.label}</span>
-                          <span className="ml-2 text-xs text-gray-400">{item.note}</span>
-                        </div>
-                        <span className="text-sm font-bold text-gray-950">{item.score}</span>
-                      </div>
-                      <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${item.score}%`,
-                            backgroundImage: item.bar
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
+                <div className="relative mt-6 border-t border-gray-100 pt-5">
+                  <LandingScoreRadar />
                 </div>
 
                 <div className="relative mt-6 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4">
-                  <div className="text-sm font-bold text-indigo-900">다음 추천 액션</div>
+                  <div className="text-sm font-bold text-indigo-900">검증 루프 강화</div>
                   <p className="mt-1 text-sm leading-6 text-indigo-900/70">
-                    Agent Mode에서 테스트 실패 원인과 수정 근거를 함께 남기면 실행 품질 점수를 더 끌어올릴 수 있습니다.
+                    수정 직후 테스트 실행 결과를 Trace에 함께 남기면 회귀 오류를 줄이고 리포트 품질을 높일 수 있습니다.
                   </p>
                 </div>
               </div>
