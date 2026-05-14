@@ -28,7 +28,10 @@ interface ProblemDetailResponse {
   passRate: number;
   userBestPassRate?: number | null;
   category: string;
+  // 백엔드 GetProblemResponse 는 solveStatus 키를 쓰는데, 리스트 응답은 status 키를 씀 (DTO 불일치).
+  // 둘 다 받아서 fallback 처리 — 백엔드가 통일하기 전까진 양쪽 키 모두 사용.
   status?: string;
+  solveStatus?: string;
 }
 
 interface AnnotatedProblemListItem {
@@ -152,7 +155,8 @@ export const problemApi = {
       category: mapCategory(item.category),
       passRate: item.passRate,
       userBestPassRate: mapUserPassRate(item),
-      status: mapStatus(item.status ?? "NOT_STARTED"),
+      // 상세 응답은 solveStatus, 리스트 응답은 status — 양쪽 키 모두 받기.
+      status: mapStatus(item.solveStatus ?? item.status ?? "NOT_STARTED"),
       estimate: formatEstimate(item.timeLimit),
       description: item.description,
       // 백엔드 미구현 필드 - 추후 API 연동 시 교체

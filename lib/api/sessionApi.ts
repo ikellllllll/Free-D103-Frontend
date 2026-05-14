@@ -110,8 +110,10 @@ interface GetWorktreeFileResponse {
   name: string;
   language: string;
   content: string;
-  originType: "COPIED_FROM_REAL" | "GENERATED";
-  presenceStatus: "ACTIVE" | "DELETED";
+  // 백엔드 OriginType enum: DELETED | EDITED | GENERATED.
+  // 이전엔 "COPIED_FROM_REAL" | "GENERATED" 로 잘못 적혀 있었음 (실제로는 EDITED 가 옴).
+  // presenceStatus 는 백엔드 응답에 없음 — 잠복 리스크라 제거.
+  originType?: "DELETED" | "EDITED" | "GENERATED" | null;
 }
 
 type SessionFileNodeType = "FILE" | "DIRECTORY";

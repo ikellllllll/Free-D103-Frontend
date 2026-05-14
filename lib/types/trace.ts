@@ -5,7 +5,9 @@ export type SpanStatus = "RUNNING" | "PENDING" | "COMPLETED" | "FAILED";
 
 export interface AgentLlmCall {
   llmCallId: string;
-  vendor: "OPENAI" | "CLAUDE";
+  // 백엔드 Vendor enum 은 "OPENAI" | "ANTHROPIC" 로 정의됨. 이전 코드가 "CLAUDE" 로 잘못 적혀
+  // 있어서 vendor 기반 필터/라벨이 들어가면 타입 계약 밖 값이 흘러들었음. ANTHROPIC 으로 맞춤.
+  vendor: "OPENAI" | "ANTHROPIC";
   modelName: string;
   inputTokens: number;
   outputTokens: number;
