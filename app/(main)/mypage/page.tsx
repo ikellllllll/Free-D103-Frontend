@@ -80,8 +80,9 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "내 정보",
     items: [
-      { id: "profile", label: "프로필", icon: User },
-      { id: "history", label: "리포트", icon: FileText }
+      { id: "profile", label: "프로필", icon: User }
+      // 리포트 탭은 별도 페이지 /reports 로 분리 (2026-05-13~).
+      // 진행 중/실패/완료 통합 표시 + 재시도 흐름은 그쪽에서 처리.
     ]
   },
   {
@@ -669,20 +670,7 @@ export default function MyPage() {
               </div>
             )}
 
-            {/* HISTORY (리포트) — GET /users/me/reports 백엔드 endpoint */}
-            {activeTab === "history" && (
-              <div className="animate-slide-up">
-                <SectionHeader title="리포트" desc="제출 후 생성된 AI 분석 리포트 — 점수 / 통과 / 일자" />
-                <ReportsTable
-                  data={reportsData}
-                  loading={reportsLoading}
-                  page={reportsPage}
-                  setPage={setReportsPage}
-                  pageSize={REPORTS_PAGE_SIZE}
-                  withPrefix={withPrefix}
-                />
-              </div>
-            )}
+            {/* HISTORY 탭은 /reports 별도 페이지로 분리됨. activeTab === "history" 진입 시 안내 후 자동 이동. */}
 
             {/* API KEYS */}
             {activeTab === "apikeys" && (

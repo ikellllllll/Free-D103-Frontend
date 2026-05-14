@@ -4630,8 +4630,15 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
     setEndSessionLoading(true);
     try {
+      // endSession 응답에서 reportStatus 받음. PENDING/PROCEEDING/GENERATED 이면
+      // evaluator 가 비동기로 리포트 만드는 중 → /reports 페이지로 보내 사용자에게 진행 상황 노출.
+      // FAILED 또는 null (agent 미사용) 이면 그대로 /problems.
+      let reportStatus: string | null = null;
+      let endedProblemSessionId: number | null = null;
       if (isBackendSessionId(sessionId)) {
-        await sessionApi.endSession(sessionId);
+        const result = await sessionApi.endSession(sessionId);
+        reportStatus = (result.reportStatus as string | undefined) ?? null;
+        endedProblemSessionId = result.problemSessionId ?? null;
       }
       addToast("세션이 종료되었습니다.", "success");
 
@@ -4644,13 +4651,33 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
       await queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
       await queryClient.invalidateQueries({ queryKey: ["sessions"] });
+
+      // 리포트 생성이 트리거된 경우 — pending marker 박고 /reports 로 이동.
+      if (
+        endedProblemSessionId &&
+        (reportStatus === "PENDING" || reportStatus === "PROCEEDING" || reportStatus === "GENERATED")
+      ) {
+        try {
+          const { addPendingReportMarker } = await import("@/lib/reports/pendingMarkers");
+          addPendingReportMarker({
+            problemSessionId: endedProblemSessionId,
+            problemTitle: problem?.title,
+            problemId: session?.problemId ? Number(session.problemId) : undefined
+          });
+        } catch {
+          /* noop — addPendingReportMarker 못 import 해도 페이지 이동은 진행 */
+        }
+        router.push(withPrefix("/reports"));
+        return;
+      }
+
       router.push(withPrefix("/problems"));
     } catch (error) {
       addToast(error instanceof Error ? error.message : "세션 종료에 실패했습니다.", "error");
     } finally {
       setEndSessionLoading(false);
     }
-  }, [addToast, endSessionLoading, queryClient, router, sessionId, withPrefix]);
+  }, [addToast, endSessionLoading, problem?.title, queryClient, router, session?.problemId, sessionId, withPrefix]);
 
   const handleEndSession = useCallback(() => {
     if (unsavedPaths.length) {

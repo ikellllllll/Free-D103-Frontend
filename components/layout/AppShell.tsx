@@ -9,6 +9,7 @@ import {
   History,
   TestTube,
   User,
+  FileText,
   Sun,
   Moon,
   LogOut,
@@ -29,6 +30,7 @@ type NavItem = { href: string; icon: LucideIcon; label: string };
 const NAV_ITEMS: NavItem[] = [
   { href: "/problems", icon: BookOpen, label: "과제 목록" },
   { href: "/sessions", icon: History, label: "풀이 기록" },
+  { href: "/reports", icon: FileText, label: "리포트" },
   { href: "/harness", icon: TestTube, label: "하네스 설정" },
   { href: "/mypage", icon: User, label: "마이페이지" }
 ];

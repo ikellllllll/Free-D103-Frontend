@@ -14,6 +14,7 @@ import { useUiStore } from "@/store/uiStore";
 
 const navItems = [
   { href: "/problems", label: "과제" },
+  { href: "/reports", label: "리포트" },
   { href: "/mypage", label: "마이페이지" }
 ];
 
