@@ -25,6 +25,10 @@ export function useAiChat(sessionId: string) {
   const mockStreamTimerRef = useRef<number | null>(null);
   // unmount 후 setState 호출 차단용.
   const mountedRef = useRef<boolean>(true);
+  // agent 가 VFS_FILE_WRITTEN/PATCHED/DELETED 이벤트 보낼 때마다 workspace invalidate 를 debounce 로 호출.
+  // 매 이벤트마다 즉시 invalidate 하면 한 run 안에 파일 10~20개를 만드는 경우 GET /workspace 가 그만큼
+  // 폭주 — 600ms 동안 추가 이벤트 없으면 1회만 호출.
+  const workspaceRefreshTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -39,6 +43,10 @@ export function useAiChat(sessionId: string) {
       if (mockStreamTimerRef.current != null) {
         window.clearInterval(mockStreamTimerRef.current);
         mockStreamTimerRef.current = null;
+      }
+      if (workspaceRefreshTimerRef.current != null) {
+        window.clearTimeout(workspaceRefreshTimerRef.current);
+        workspaceRefreshTimerRef.current = null;
       }
     };
   }, []);
@@ -57,6 +65,10 @@ export function useAiChat(sessionId: string) {
       if (mockStreamTimerRef.current != null) {
         window.clearInterval(mockStreamTimerRef.current);
         mockStreamTimerRef.current = null;
+      }
+      if (workspaceRefreshTimerRef.current != null) {
+        window.clearTimeout(workspaceRefreshTimerRef.current);
+        workspaceRefreshTimerRef.current = null;
       }
     };
   }, [sessionId]);
@@ -178,6 +190,25 @@ export function useAiChat(sessionId: string) {
                   traceId = String(payload.agent_trace_id);
                 }
 
+                // VFS / PATCH 이벤트 — 파일 트리에 즉시 반영하기 위해 workspace 를 debounced invalidate.
+                // 이전엔 SSE finally 의 invalidate 1회만 있어서 agent 진행 중 새 파일이 트리에 안 보임 → 사용자가
+                // "agent 가 뭘 만들었는지 모름". 600ms 동안 추가 file event 없으면 1회 fetch — 묶음 변경에 효율.
+                if (
+                  type === "VFS_FILE_WRITTEN" ||
+                  type === "VFS_FILE_PATCHED" ||
+                  type === "VFS_FILE_DELETED" ||
+                  type === "PATCH_APPLIED"
+                ) {
+                  if (workspaceRefreshTimerRef.current != null) {
+                    window.clearTimeout(workspaceRefreshTimerRef.current);
+                  }
+                  workspaceRefreshTimerRef.current = window.setTimeout(() => {
+                    workspaceRefreshTimerRef.current = null;
+                    if (!mountedRef.current) return;
+                    void queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
+                  }, 600);
+                }
+
                 // RUN_FAILED 는 payload.error_message 가 더 정확.
                 const finalMessage =
                   type === "RUN_FAILED" && typeof payload?.error_message === "string"
@@ -221,6 +252,12 @@ export function useAiChat(sessionId: string) {
           window.clearInterval(tracePollInterval);
           tracePollIntervalRef.current = null;
           abortControllerRef.current = null;
+          // pending workspace refresh 가 있으면 즉시 flush — finally 의 invalidate 가 어차피 1회 호출되므로
+          // 별도 timer 는 정리만 하고 invalidate 중복 호출 피한다.
+          if (workspaceRefreshTimerRef.current != null) {
+            window.clearTimeout(workspaceRefreshTimerRef.current);
+            workspaceRefreshTimerRef.current = null;
+          }
           if (mountedRef.current) setStreaming(false);
           // unmount / 에러 시 loadMessages skip.
           // - unmount: 이탈한 세션 store 오염 차단.

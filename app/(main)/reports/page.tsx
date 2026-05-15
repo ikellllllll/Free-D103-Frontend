@@ -150,8 +150,27 @@ export default function ReportsPage() {
     }
   };
 
-  const completed = reportsData?.reports ?? [];
-  const hasAny = pendingMarkers.length > 0 || completed.length > 0;
+  // 백엔드 `GET /users/me/reports` 가 FAILED 상태 리포트도 함께 내려주는 케이스가 있어 — 응답에
+   // status 필드가 없고 overallScore=null + total=0 으로 들어옴 → 점수 "-", "0/0 통과", "Invalid Date" 로 깨져 보임.
+   // 정상 리포트는 점수가 BigDecimal(0.0 포함) 로 채워지므로 `overallScore == null && totalCount === 0` 인 항목만 FAILED 로 보고 list 에서 제외.
+   // 또한 pending markers 의 problemSessionId 와 동일한 sessionId 를 갖는 리포트도 제외 (생성 중인 리포트 중복 노출 방지).
+   // (sessionId 매칭은 백엔드가 응답에 sessionId 를 포함하기 시작하면 사용. 현재 응답에는 feedbackReportId / problemId 만 있어서 problemId 기반 매칭으로 fallback.)
+   const failedPendingProblemIds = new Set(
+     pendingMarkers
+       .filter((m) => m.status === "FAILED" && m.problemId != null)
+       .map((m) => m.problemId as number)
+   );
+   const completed = (reportsData?.reports ?? []).filter((r) => {
+     const overall =
+       typeof r.overallScore === "string" ? parseFloat(r.overallScore) : r.overallScore;
+     const isFailedShape =
+       (overall == null || Number.isNaN(overall)) && (r.totalCount ?? 0) === 0;
+     if (isFailedShape) return false;
+     // pending FAILED 와 problemId 가 겹치면 중복 표시 — pending 카드만 노출.
+     if (failedPendingProblemIds.has(r.problemId)) return false;
+     return true;
+   });
+   const hasAny = pendingMarkers.length > 0 || completed.length > 0;
 
   return (
     <div className="min-h-screen bg-[#EEF2FF]">
@@ -218,7 +237,7 @@ export default function ReportsPage() {
       {/* Completed 섹션 */}
       <section>
         <h2 className="text-[11px] font-bold text-gray-500 dark:text-slate-400 mb-3 uppercase tracking-[0.14em]">
-          내 리포트 · {reportsData?.totalCount ?? 0}
+          내 리포트 · {completed.length}
         </h2>
         {isLoading ? (
           <div className="bg-white dark:bg-slate-900/60 rounded-xl border border-gray-200 dark:border-slate-700/70 shadow-sm p-10 text-center">

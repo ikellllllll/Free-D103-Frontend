@@ -5609,10 +5609,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     });
   }, []);
 
+  // 트리 들여쓰기 간격 — 이전 7px 은 폴더/파일 시각적 구분이 약하다는 피드백이 있어 12px 로 확대.
+  // 동시에 .tree-branch__children::before 로 좌측 가이드 라인을 그어 부모-자식 관계를 명시.
+  const TREE_INDENT_PX = 12;
   const renderTreeNodes = (nodes: TreeNode[], depth = 0): Array<JSX.Element> =>
     nodes.flatMap((node, index) => {
       const isLast = index === nodes.length - 1;
-      const treeGuideLeft = `${6 + depth * 7}px`;
+      const treeGuideLeft = `${6 + depth * TREE_INDENT_PX}px`;
       const treeGuideBottom = isLast ? "50%" : "-4px";
 
       if (node.kind === "folder") {
@@ -5641,7 +5644,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                 ["--tree-depth" as string]: depth,
                 ["--tree-guide-left" as string]: treeGuideLeft,
                 ["--tree-guide-bottom" as string]: treeGuideBottom,
-                paddingLeft: `${7 + depth * 7}px`
+                paddingLeft: `${7 + depth * TREE_INDENT_PX}px`
               }}
               onClick={() => toggleFolder(node.key)}
               onDragOver={(event) => handleExplorerFolderDragOver(event, node.path ?? "")}
@@ -5699,7 +5702,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                 {explorerCreateDraft?.parentPath === node.path ? (
                   <div
                     className="tree-create-row"
-                    style={{ paddingLeft: `${9 + (depth + 1) * 7}px` }}
+                    style={{ paddingLeft: `${9 + (depth + 1) * TREE_INDENT_PX}px` }}
                   >
                     <span
                       className={
@@ -5765,7 +5768,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               ["--tree-depth" as string]: depth,
               ["--tree-guide-left" as string]: treeGuideLeft,
               ["--tree-guide-bottom" as string]: treeGuideBottom,
-              paddingLeft: `${9 + depth * 7}px`
+              paddingLeft: `${9 + depth * TREE_INDENT_PX}px`
             }}
             onClick={() => isWorktree ? openDiffTab(file.path) : focusLine(file.path)}
             onContextMenu={(event) =>
@@ -5807,7 +5810,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             ["--tree-depth" as string]: depth,
             ["--tree-guide-left" as string]: treeGuideLeft,
             ["--tree-guide-bottom" as string]: treeGuideBottom,
-            paddingLeft: `${9 + depth * 7}px`
+            paddingLeft: `${9 + depth * TREE_INDENT_PX}px`
           }}
           draggable
           onDragStart={(event) => handleExplorerFileDragStart(event, file.path)}
@@ -6111,11 +6114,21 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           <div className="stack-12">
             {!testLoading && testResult && testResult.buildFailed && testResult.buildStderr ? (
               <pre className="build-stderr-block">{testResult.buildStderr}</pre>
-            ) : !testLoading && testResult
-              ? testResult.results.map((result) => (
+            ) : !testLoading && testResult ? (
+              <>
+                {testResult.results.map((result) => (
                   <TestResultRow key={result.id} result={result} />
-                ))
-              : null}
+                ))}
+                {/* 일반 테스트 실패(빌드는 성공)에서도 stderr 가 있으면 결과 리스트 하단에 노출 —
+                    이전엔 buildFailed 일 때만 보여줘서 "왜 실패했는지 모르겠다" 케이스가 있었음. */}
+                {!testResult.buildFailed && testResult.stderr && testResult.failed > 0 ? (
+                  <details className="test-stderr-details">
+                    <summary>실패 원인 stderr ({testResult.failed}개 실패)</summary>
+                    <pre className="build-stderr-block test-stderr-block">{testResult.stderr}</pre>
+                  </details>
+                ) : null}
+              </>
+            ) : null}
           </div>
         </div>
       );

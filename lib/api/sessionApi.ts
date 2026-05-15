@@ -720,6 +720,9 @@ const toTestRunResult = (payload: GetExecutionResultResponse): TestRunResult => 
     })),
     buildFailed,
     buildStderr: hasStderr ? payload.stderr : null,
+    // stderr 는 buildFailed 여부와 무관하게 항상 채움 — 일반 실패에서도 사용자가 원인 파악 가능하도록.
+    // (이전엔 buildFailed 가 아닐 때 stderr 가 UI 에 노출되지 않아 "왜 실패했는지 모르겠다" 라는 피드백이 있었음.)
+    stderr: hasStderr ? payload.stderr : null,
     rawStatus: payload.status
   };
 };
