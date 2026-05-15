@@ -7126,12 +7126,16 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               </div>
             ) : groupActiveTab.kind === "diff" ? (
               (() => {
-                // 양쪽 본문 동일 시 안내 — backend 가 source 와 worktree 에 같은 본문 응답하는 케이스.
-                // (AI 가 patch 적용 후 backend 가 worktree → source 동기 적용했거나, AI 결과가 원본 그대로인 경우)
+                // 양쪽 본문 상태 분기. 401 / fetch 실패로 한쪽만 비어있는 케이스
+                // (사용자 보고: 우측 worktree 만 빈 채로 표시되어 "전부 삭제로 보임" 인식) 도 명시.
                 const srcContent = groupActiveTab.sourceFile.content;
                 const tgtContent = groupActiveTab.targetFile.content;
-                const bothEmpty = !srcContent && !tgtContent;
-                const identical = srcContent === tgtContent && !bothEmpty;
+                const srcEmpty = !srcContent;
+                const tgtEmpty = !tgtContent;
+                const bothEmpty = srcEmpty && tgtEmpty;
+                const onlyTgtEmpty = !srcEmpty && tgtEmpty;
+                const onlySrcEmpty = srcEmpty && !tgtEmpty;
+                const identical = !srcEmpty && !tgtEmpty && srcContent === tgtContent;
                 return (
               <div className="diff-pane">
                 <div className="diff-pane__actions">
@@ -7189,6 +7193,14 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                 ) : bothEmpty ? (
                   <div className="diff-pane__notice diff-pane__notice--loading">
                     ⏳ 파일 내용을 불러오는 중…
+                  </div>
+                ) : onlyTgtEmpty ? (
+                  <div className="diff-pane__notice diff-pane__notice--warning">
+                    ⚠️ 수정 제안 본문을 불러오지 못했어요. 잠시 후 다시 클릭하거나 새로고침해 주세요. (토큰 만료 / 네트워크 일시 오류일 수 있어요)
+                  </div>
+                ) : onlySrcEmpty ? (
+                  <div className="diff-pane__notice diff-pane__notice--warning">
+                    ⚠️ 원본 본문을 불러오지 못했어요. 잠시 후 다시 클릭하거나 새로고침해 주세요.
                   </div>
                 ) : null}
                 <SafeDiffEditor

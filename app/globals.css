@@ -3415,6 +3415,11 @@ html[data-theme="light"] .problem-brief-codeblock__content .text-slate-200 {
   background: color-mix(in srgb, #6366f1 8%, var(--ide-surface) 92%);
   color: var(--muted);
 }
+.diff-pane__notice--warning {
+  background: color-mix(in srgb, #ef4444 10%, var(--ide-surface) 90%);
+  color: color-mix(in srgb, #ef4444 65%, var(--text) 35%);
+  border-bottom-color: color-mix(in srgb, #ef4444 30%, var(--ide-border) 70%);
+}
 
 .diff-pane__label .codicon {
   font-size: 14px;
