@@ -6311,7 +6311,15 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               //    baseModel 도 여기서 runtime_config 에 박혀 다음 agent run 의 기본 모델이 됨.
               await sessionApi.buildHarness(sessionId, modelId);
 
+              // 4) store 의 file content 를 즉시 갱신. 이전엔 invalidateQueries 만 호출했는데, store
+              //    .files 의 content 가 stale 인 채로 남아 사용자가 새로고침해야 새 본문 보이던 문제
+              //    (2026-05-15 보고). hydrateFileContent 가 dirty 가드 있어 사용자 편집 중이면 skip.
+              hydrateFileContent(targetDisplayPath, markdown, "markdown");
               await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
+
+              // 5) 사용자가 적용 결과 바로 확인할 수 있게 AGENTS.md 를 IDE 에 열고 활성화.
+              openTabInEditorGroup(targetDisplayPath);
+              setActivePath(targetDisplayPath);
             } else {
               // mock 세션 — store 만 갱신 (빌드 호출 불가, 효과 없음).
               const targetDisplayPath = "agent/AGENTS.md";
@@ -6324,8 +6332,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   false
                 );
               }
+              openTabInEditorGroup(targetDisplayPath);
+              setActivePath(targetDisplayPath);
             }
-            addToast("하네스 설정을 적용했어요. (빌드 완료)", "success");
+            addToast("하네스 설정을 적용했어요. AGENTS.md 를 열었어요.", "success");
           }}
         />
       );
