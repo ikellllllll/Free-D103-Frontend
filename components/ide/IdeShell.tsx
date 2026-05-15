@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { Sun, Moon, Copy, Check, LogOut, Save, Eye, PencilLine, CheckCircle2, AlertTriangle, XCircle, Circle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { DragEvent as ReactDragEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
-import React, { Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, type JSX } from "react";
+import React, { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type JSX } from "react";
 import { flushSync } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Markdown from "react-markdown";
@@ -1177,13 +1177,15 @@ function AgentUIStateSection({
 // 자동 dispose 와 우리 invalidate 사이 race 를 좁힘. swallow + RAF×2 + 이 wrapper 가 3중 안전망.
 function SafeDiffEditor(props: React.ComponentProps<typeof MonacoDiffEditor>) {
   const editorRef = useRef<unknown | null>(null);
-  useEffect(() => {
+  // useLayoutEffect: commit phase에서 동기 실행 → @monaco-editor/react의 passive cleanup보다 먼저
+  // setModel(null) 호출해 TextModel dispose race 방지.
+  useLayoutEffect(() => {
     return () => {
       const ed = editorRef.current as
-        | { setModel?: (m: { original: unknown; modified: unknown } | null) => void }
+        | { setModel?: (m: null) => void }
         | null;
       try {
-        ed?.setModel?.({ original: null, modified: null });
+        ed?.setModel?.(null);
       } catch {
         /* 이미 dispose 된 케이스 — 무시 */
       }
@@ -2532,6 +2534,11 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   }, []);
 
   const disposeTrackedMonacoModels = useCallback(() => {
+    // Clear DiffEditor model refs first to avoid "TextModel got disposed before DiffEditorWidget" race
+    diffEditorRefsRef.current.forEach((editor) => {
+      try { editor?.setModel?.(null); } catch { /* noop */ }
+    });
+
     const monaco = monacoRef.current;
     const trackedUris = trackedModelUrisRef.current;
 
@@ -2542,7 +2549,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     monaco.editor.getModels().forEach((model: any) => {
       const uri = model?.uri?.toString?.();
       if (uri && trackedUris.has(uri)) {
-        model.dispose?.();
+        try { model.dispose?.(); } catch { /* noop */ }
       }
     });
 
