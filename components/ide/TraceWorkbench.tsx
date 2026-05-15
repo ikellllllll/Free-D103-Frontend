@@ -3,12 +3,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import { mockApi } from "@/lib/api/mockApi";
 import { isBackendSessionId, sessionApi } from "@/lib/api/sessionApi";
 import type { AgentRunTrace, AgentSpan } from "@/lib/types/trace";
 import { useAgentUIState } from "@/hooks/useAgentUIState";
 import { useIdeStore } from "@/store/ideStore";
+
+function TraceSummaryMarkdown({ text, className }: { text: string; className?: string }) {
+  return (
+    <div className={`twb-md ${className ?? ""}`}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+    </div>
+  );
+}
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -531,7 +541,7 @@ function SpanList({ run, selectedSpanId, onSelect, showRunSummary = true }: {
               <span>·</span>
               <span>{sortedSpans.length}개 span</span>
             </div>
-            {run.summaryText && <p className="twb-run-card__summary">{run.summaryText}</p>}
+            {run.summaryText && <TraceSummaryMarkdown text={run.summaryText} className="twb-run-card__summary" />}
             {run.errorMessage && <p className="twb-run-card__error">{run.errorMessage}</p>}
           </div>
           <div className="twb-col-divider--strong" />
@@ -946,7 +956,7 @@ export function TraceWorkbench({ sessionId, onClose }: { sessionId: string; onCl
                     <span className="twb-drawer__summary-sep">·</span>
                     <span>{selectedRunSpans.length} spans</span>
                   </div>
-                  {selectedRun.summaryText && <p className="twb-drawer__summary-text">{selectedRun.summaryText}</p>}
+                  {selectedRun.summaryText && <TraceSummaryMarkdown text={selectedRun.summaryText} className="twb-drawer__summary-text" />}
                   {selectedRun.errorMessage && <p className="twb-drawer__summary-error">{selectedRun.errorMessage}</p>}
                 </div>
 
