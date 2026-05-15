@@ -149,10 +149,10 @@ export default function ReportsPage() {
   }, [reportsData, pendingMarkers, queryClient, user?.id]);
 
   const handleRetry = async (marker: PendingReportMarker) => {
-    // 백엔드 retry endpoint 가 아직 없어 임시로 endSession 다시 호출 (POST /sessions/{id}/end).
-    // 백엔드가 reportStatus FAILED 면 endSession 이 evaluator 재트리거하는지 정책 확인 필요.
+    // 정식 retry endpoint 사용 — POST /sessions/{id}/report-retry (백엔드 SessionController#retryReport).
+    // FAILED 상태 세션만 백엔드가 허용. 이전엔 endSession 재호출로 우회했으나 정식 endpoint 로 교체.
     try {
-      await sessionApi.endSession(String(marker.problemSessionId));
+      await sessionApi.retryReport(marker.problemSessionId);
       addToast("리포트 생성을 다시 요청했어요.", "success");
       const next = pendingMarkers.map((m) =>
         m.problemSessionId === marker.problemSessionId
@@ -162,32 +162,62 @@ export default function ReportsPage() {
       setPendingMarkers(next);
       savePendingMarkers(next);
       queryClient.invalidateQueries({ queryKey: ["userReports", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["userReportsAll", user?.id] });
     } catch (e) {
       addToast(e instanceof Error ? e.message : "재시도 실패", "error");
     }
   };
 
-  // 백엔드 `GET /users/me/reports` 가 FAILED 상태 리포트도 함께 내려주는 케이스가 있어 — 응답에
-   // status 필드가 없고 overallScore=null + total=0 으로 들어옴 → 점수 "-", "0/0 통과", "Invalid Date" 로 깨져 보임.
-   // 정상 리포트는 점수가 BigDecimal(0.0 포함) 로 채워지므로 `overallScore == null && totalCount === 0` 인 항목만 FAILED 로 보고 list 에서 제외.
-   // 또한 pending markers 의 problemSessionId 와 동일한 sessionId 를 갖는 리포트도 제외 (생성 중인 리포트 중복 노출 방지).
-   // (sessionId 매칭은 백엔드가 응답에 sessionId 를 포함하기 시작하면 사용. 현재 응답에는 feedbackReportId / problemId 만 있어서 problemId 기반 매칭으로 fallback.)
-   const failedPendingProblemIds = new Set(
-     pendingMarkers
-       .filter((m) => m.status === "FAILED" && m.problemId != null)
-       .map((m) => m.problemId as number)
-   );
-   const completed = (reportsData?.reports ?? []).filter((r) => {
+  // 백엔드 reportStatus 활용 (2026-05-15~): 응답에 reportStatus 가 명시되면 그걸 우선 신뢰.
+   // - COMPLETED / GENERATED → "내 리포트" 섹션
+   // - PENDING / PROCEEDING → "생성 중" 섹션 (backendPending)
+   // - FAILED → "생성 실패" 섹션 (재시도 버튼)
+   // reportStatus 가 없는 옛 응답 호환: overallScore == null && total == 0 인 항목은 FAILED 추정 → 제외.
+   const allReports = reportsData?.reports ?? [];
+   const completed = allReports.filter((r) => {
+     if (r.reportStatus) {
+       return r.reportStatus === "COMPLETED" || r.reportStatus === "GENERATED";
+     }
      const overall =
        typeof r.overallScore === "string" ? parseFloat(r.overallScore) : r.overallScore;
      const isFailedShape =
        (overall == null || Number.isNaN(overall)) && (r.totalCount ?? 0) === 0;
-     if (isFailedShape) return false;
-     // pending FAILED 와 problemId 가 겹치면 중복 표시 — pending 카드만 노출.
-     if (failedPendingProblemIds.has(r.problemId)) return false;
-     return true;
+     return !isFailedShape;
    });
-   const hasAny = pendingMarkers.length > 0 || completed.length > 0;
+
+   // 백엔드가 PENDING/PROCEEDING/FAILED 리포트도 list 에 줄 수 있음 (UserReportItem.reportStatus 활용).
+   // localStorage pendingMarkers 와 problemSessionId 로 union — 백엔드 응답 우선.
+   const backendPending = allReports.filter(
+     (r) => r.reportStatus === "PENDING" || r.reportStatus === "PROCEEDING" || r.reportStatus === "FAILED"
+   );
+   const backendPendingSessionIds = new Set(backendPending.map((r) => r.problemSessionId));
+   const localOnlyPendings = pendingMarkers.filter(
+     (m) => !backendPendingSessionIds.has(m.problemSessionId)
+   );
+   type PendingDisplay = {
+     problemSessionId: number;
+     problemId?: number;
+     problemTitle?: string;
+     status: "PENDING" | "PROCEEDING" | "FAILED";
+     startedAt: string;
+   };
+   const mergedPendings: PendingDisplay[] = [
+     ...backendPending.map((r) => ({
+       problemSessionId: r.problemSessionId,
+       problemId: r.problemId,
+       problemTitle: r.problemTitle,
+       status: r.reportStatus as "PENDING" | "PROCEEDING" | "FAILED",
+       startedAt: r.createdAt ?? r.reportCreatedAt ?? new Date().toISOString(),
+     })),
+     ...localOnlyPendings.map((m) => ({
+       problemSessionId: m.problemSessionId,
+       problemId: m.problemId,
+       problemTitle: m.problemTitle,
+       status: m.status,
+       startedAt: m.startedAt,
+     })),
+   ];
+   const hasAny = mergedPendings.length > 0 || completed.length > 0;
 
   return (
     <div className="min-h-screen bg-[#EEF2FF]">
@@ -204,14 +234,14 @@ export default function ReportsPage() {
         </p>
       </header>
 
-      {/* Pending 섹션 */}
-      {pendingMarkers.length > 0 ? (
+      {/* Pending 섹션 — 백엔드 reportStatus 와 localStorage marker union */}
+      {mergedPendings.length > 0 ? (
         <section className="mb-8">
           <h2 className="text-[11px] font-bold text-gray-500 dark:text-slate-400 mb-3 uppercase tracking-[0.14em]">
-            생성 중 · {pendingMarkers.length}
+            생성 중 · {mergedPendings.length}
           </h2>
           <ul className="list-none space-y-2">
-            {pendingMarkers.map((m) => (
+            {mergedPendings.map((m) => (
               <li
                 key={m.problemSessionId}
                 className="bg-white dark:bg-slate-900/60 rounded-xl border border-gray-200 dark:border-slate-700/70 shadow-sm px-5 py-4 flex items-center gap-4"
@@ -232,7 +262,13 @@ export default function ReportsPage() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => handleRetry(m)}
+                      onClick={() => handleRetry({
+                        problemSessionId: m.problemSessionId,
+                        problemId: m.problemId,
+                        problemTitle: m.problemTitle,
+                        status: m.status,
+                        startedAt: m.startedAt
+                      })}
                       className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors cursor-pointer"
                     >
                       <RefreshCcw size={11} strokeWidth={2.4} />
@@ -260,7 +296,7 @@ export default function ReportsPage() {
           <div className="bg-white dark:bg-slate-900/60 rounded-xl border border-gray-200 dark:border-slate-700/70 shadow-sm p-10 text-center">
             <div className="text-sm text-gray-400 dark:text-slate-500">불러오는 중...</div>
           </div>
-        ) : completed.length === 0 && pendingMarkers.length === 0 ? (
+        ) : completed.length === 0 && mergedPendings.length === 0 ? (
           <div className="bg-white dark:bg-slate-900/60 rounded-xl border border-dashed border-gray-200 dark:border-slate-700/70 shadow-sm p-12 text-center">
             <Sparkles size={28} className="mx-auto text-gray-300 dark:text-slate-600 mb-3" />
             <p className="text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">아직 제출한 리포트가 없어요</p>

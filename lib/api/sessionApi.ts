@@ -1305,6 +1305,20 @@ export const sessionApi = {
   },
 
   /**
+   * 리포트 재생성 요청 — POST /api/v1/sessions/{problemSessionId}/report-retry (2026-05-15~ 확인).
+   * 백엔드 SessionController#retryReport, reportStatus=FAILED 인 세션만 허용.
+   * 응답: { problemSessionId } — feedbackReportId 는 포함 안 됨, 폴링으로 별도 확인.
+   *
+   * 기존엔 endSession (POST /sessions/{id}/end) 재호출로 우회 처리했으나 정식 endpoint 가 있어 교체.
+   */
+  async retryReport(problemSessionId: string | number) {
+    const res = await authClient
+      .post(`api/v1/sessions/${problemSessionId}/report-retry`)
+      .json<ApiResponse<{ problemSessionId: number }>>();
+    return res.data;
+  },
+
+  /**
    * AI 채팅 SSE streaming.
    * 백엔드: POST /api/v1/ai/sessions/{id}/chat/stream (text/event-stream).
    * 응답 프레임: event: {metadata|data|end|error} + data: <json>
@@ -1586,6 +1600,23 @@ export const sessionApi = {
         ? (passedDerived / totalDerived) * 100
         : data.passRate ?? 0;
 
+    // Terminal (COMPLETED/FAILED) 도달 시 추가로 /executions/{id}/results 호출해서 stdout/stderr/exitCode 합침.
+    // 제출 결과 응답엔 컴파일/런타임 에러 텍스트가 없어서, 빌드 실패 케이스에 사용자가 원인 파악 불가했음.
+    // RUNNING 중에는 호출 안 함 (제출 폴링 1.2초마다 도는데 매 tick 마다 두 번 호출하면 백엔드 부담).
+    let stderr: string | null = null;
+    let stdout: string | null = null;
+    let exitCode: number | null = null;
+    if (isTerminal) {
+      try {
+        const execRes = await this.getExecutionResult(String(data.executionId));
+        stderr = execRes?.stderr ?? null;
+        stdout = execRes?.stdout ?? null;
+        exitCode = typeof execRes?.exitCode === "number" ? execRes.exitCode : null;
+      } catch {
+        /* /results 호출 실패해도 메인 응답은 정상 반환 — stderr 만 null */
+      }
+    }
+
     return {
       id: String(data.executionId),
       sessionId: "",
@@ -1602,7 +1633,11 @@ export const sessionApi = {
       publicTotal: hasSplit ? publicTotal : undefined,
       hiddenPassed: hasSplit ? hiddenPassed : undefined,
       hiddenTotal: hasSplit ? hiddenTotal : undefined,
-      rawStatus: data.status
+      rawStatus: data.status,
+      // 빌드/런타임 에러 메시지 — buildFailed 판정 + UI 노출에 사용.
+      stdout,
+      stderr,
+      exitCode
     };
   }
 };

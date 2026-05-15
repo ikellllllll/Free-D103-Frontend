@@ -13,7 +13,7 @@ import {
 
 import { LangIcon } from "@/components/common/LangIcon";
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
-import { authApi, type ActiveSession, type SessionHistoryItem } from "@/lib/api/authApi";
+import { authApi, type ActiveSession, type SessionHistoryItem, type UserReportItem } from "@/lib/api/authApi";
 import type { ProblemLanguage, SessionListItem } from "@/lib/types/session";
 import { useAuthStore } from "@/store/authStore";
 
@@ -121,6 +121,22 @@ export default function SessionsPage() {
   });
   const historyItems = useMemo<SessionHistoryItem[]>(() => historyResponse?.content ?? [], [historyResponse]);
 
+  // 사용자 리포트 전체 — problemSessionId → feedbackReportId 매핑을 위해 한 번에 로드.
+  // 백엔드 SessionHistoryItem 응답에 submissionId/feedbackReportId 가 없어서 리포트 보기 라우팅이
+  // 안 되던 문제 해결을 위함. UserReportItem 은 problemSessionId / reportStatus 둘 다 포함.
+  const { data: reportsAll } = useQuery({
+    queryKey: ["userReportsAll", user?.id],
+    queryFn: () => authApi.getUserReports(1, 100),
+    enabled: !!user
+  });
+  const reportBySession = useMemo(() => {
+    const map = new Map<number, UserReportItem>();
+    (reportsAll?.reports ?? []).forEach((r) => {
+      if (r.problemSessionId != null) map.set(r.problemSessionId, r);
+    });
+    return map;
+  }, [reportsAll]);
+
   // 백엔드 활성 세션 → SessionListItem 호환 형태로 매핑
   const activeAsList = useMemo<SessionListItem[]>(
     () => activeSessions.map((s) => ({
@@ -151,6 +167,17 @@ export default function SessionsPage() {
         : h.problemDifficulty === "level2" ? 2
         : 3;
       const sessionStatus = h.solveStatus === "IN_PROGRESS" ? "IN_PROGRESS" : "SUBMITTED";
+
+      // sessionId 와 매칭되는 리포트가 COMPLETED/GENERATED 면 그 feedbackReportId 로 직접 라우팅 가능.
+      // PENDING/PROCEEDING/FAILED 면 sessions 페이지 카드 클릭 시 /reports 로 fallback (기존 로직).
+      const matchedReport = reportBySession.get(h.problemSessionId);
+      const reportReady =
+        matchedReport &&
+        (matchedReport.reportStatus === "COMPLETED" ||
+          matchedReport.reportStatus === "GENERATED" ||
+          // reportStatus 가 응답에 없는 옛 케이스 — overallScore 가 채워졌으면 완료로 본다.
+          (!matchedReport.reportStatus && matchedReport.overallScore != null));
+
       return {
         sessionId: String(h.problemSessionId),
         problemId: String(h.problemId),
@@ -163,11 +190,11 @@ export default function SessionsPage() {
         startedAt: h.startedAt,
         endedAt: h.endedAt,
         aiRequestCount: 0,
-        submissionId: null,
+        submissionId: reportReady ? String(matchedReport!.feedbackReportId) : null,
         score: h.solveStatus === "IN_PROGRESS" ? null : Math.round(h.passRate)
       } as SessionListItem;
     }),
-    [historyItems]
+    [historyItems, reportBySession]
   );
 
   // active + history union — sessionId 중복 시 active 우선 (실시간성).

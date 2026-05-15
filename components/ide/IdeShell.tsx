@@ -2152,7 +2152,15 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       const total = data.total ?? 0;
       const passed = data.passed ?? 0;
       const failed = data.failed ?? 0;
-      const buildFailed = isTerminal && total === 0 && passed === 0 && failed === 0;
+      // stderr 가 채워졌으면 buildFailed 판정에 활용 — 빌드 실패가 아니더라도 일반 런타임 에러 stderr 도 보존.
+      const submissionStderr = (data as { stderr?: string | null }).stderr ?? null;
+      const hasStderr = !!(submissionStderr && submissionStderr.trim());
+      // 빌드/컴파일 실패: terminal + (total=0 + passed=0 + failed=0) 이거나 exitCode != 0 + stderr 있음
+      const exitCode = (data as { exitCode?: number | null }).exitCode ?? null;
+      const buildFailed =
+        isTerminal &&
+        ((total === 0 && passed === 0 && failed === 0) ||
+          (typeof exitCode === "number" && exitCode !== 0 && total === 0));
       setSubmissionResult({
         executionId: String(data.id),
         rawStatus,
@@ -2167,7 +2175,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         startedAt: prev?.startedAt ?? Date.now(),
         endedAt: isTerminal ? Date.now() : null,
         buildFailed,
-        buildStderr: null
+        // 빌드 실패 케이스: stderr 본문 보여줌. 일반 채점 실패에도 stderr 있으면 보조 표시 가능.
+        buildStderr: hasStderr ? submissionStderr : null
       });
 
       if (isTerminal) {

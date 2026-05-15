@@ -75,9 +75,16 @@ export interface UserStatsResponse {
   dimensions: UserStatsDimension[];
 }
 
-/** GET /api/v1/users/me/reports 응답 (백엔드 UserReportListResponse, 2026-05-08~) */
+/** GET /api/v1/users/me/reports 응답 (백엔드 UserReportListResponse, 2026-05-08~).
+ * 2026-05-15 발견: 백엔드는 problemSessionId / reportStatus 도 응답에 포함하는데
+ * 프론트가 기존엔 사용하지 않아 풀이기록→리포트 직접 라우팅과 reportStatus 분기를 못 했음.
+ */
 export interface UserReportItem {
   feedbackReportId: number;
+  /** 백엔드 ProblemSession.id — sessions/history 의 problemSessionId 와 매칭 */
+  problemSessionId: number;
+  /** 리포트 생성 상태 — PENDING / PROCEEDING / COMPLETED / FAILED (백엔드 ReportStatus enum) */
+  reportStatus?: "PENDING" | "PROCEEDING" | "COMPLETED" | "FAILED" | "GENERATED";
   problemId: number;
   problemTitle: string;
   /** BigDecimal — 백엔드 직렬화는 number */
@@ -85,7 +92,10 @@ export interface UserReportItem {
   passedCount: number;
   failedCount: number;
   totalCount: number;
-  createdAt: string; // LocalDateTime ISO
+  passRate?: number;
+  /** 백엔드 응답 키는 reportCreatedAt — 호환 위해 둘 다 지원 */
+  createdAt: string;
+  reportCreatedAt?: string;
 }
 export interface UserReportListResponse {
   totalCount: number;
@@ -363,7 +373,16 @@ export const authApi = {
     const res = await authClient
       .get("api/v1/users/me/reports", { searchParams: { page, size } })
       .json<ApiResponse<UserReportListResponse>>();
-    return res.data;
+    // 백엔드 record 의 키는 `reportCreatedAt` 이지만 기존 프론트가 `createdAt` 로 참조해서 Invalid Date 가
+    // 나오던 케이스 발견 (2026-05-15). 매퍼에서 alias 보정.
+    const raw = res.data;
+    return {
+      ...raw,
+      reports: raw.reports.map((r) => ({
+        ...r,
+        createdAt: r.createdAt ?? r.reportCreatedAt ?? "",
+      })),
+    };
   },
 
   /** AI 역량 지표 5축 조회 — GET /api/v1/users/me/stats (2026-05-12~).
