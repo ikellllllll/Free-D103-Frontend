@@ -393,6 +393,20 @@ const rememberFileIds = (sessionId: string, payload: GetFileTreeResponse) => {
   externalFileIdBySession.set(sessionId, mapping);
 };
 
+/**
+ * 백엔드 응답에 swagger 예시값 (`path="string"` / `name="string"`) 같은 placeholder noise 가
+ * 섞여 들어오는 케이스를 방어. path 가 비어있거나 "string" 같은 placeholder 면 트리에서 제외.
+ * (실제 사례: GET /sessions/{id}/files 응답에 nodeType=DIRECTORY + path="string" + name="string"
+ *  인 항목이 섞여 나옴 — 백엔드 OpenAPI 예시 직렬화 흔적.)
+ */
+const isNoisePathItem = (item: FileTreeItemResponse): boolean => {
+  const path = (item.path ?? "").trim();
+  const name = (item.name ?? "").trim();
+  if (!path) return true;
+  if (path === "string" && (name === "string" || !name)) return true;
+  return false;
+};
+
 const toWorkspaceFiles = (
   sessionId: string,
   payload: GetFileTreeResponse,
@@ -403,7 +417,7 @@ const toWorkspaceFiles = (
   const sourceContent = new Map<string, string>();
 
   const sourceFiles = payload.files
-    .filter((item) => item.nodeType === "FILE")
+    .filter((item) => item.nodeType === "FILE" && !isNoisePathItem(item))
     .map((item) => {
       const content = existingContent.get(item.path) ?? "";
       sourceContent.set(item.path, content);
@@ -417,7 +431,7 @@ const toWorkspaceFiles = (
 
   // 세션 하네스 파일 — raw path 에 'agent/' prefix 를 붙여 explorer 에서 한 폴더로 묶는다.
   const agentFiles = (payload.agent ?? [])
-    .filter((item) => item.nodeType === "FILE")
+    .filter((item) => item.nodeType === "FILE" && !isNoisePathItem(item))
     .map((item) => {
       const nextPath = toAgentPrefixedPath(item.path);
       return {
@@ -428,7 +442,7 @@ const toWorkspaceFiles = (
     });
 
   const worktreeFiles = payload.worktree
-    .filter((item) => item.nodeType === "FILE")
+    .filter((item) => item.nodeType === "FILE" && !isNoisePathItem(item))
     .map((item) => {
       const nextPath = normalizeWorktreePath(item.path);
       const sourcePath = item.path.replace(/^\.worktree\//, "");

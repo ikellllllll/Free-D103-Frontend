@@ -1820,6 +1820,17 @@ const isAgentConfigExplorerPath = (path: string) => {
     normalizedPath === "skills" ||
     normalizedPath.startsWith("skills/") ||
     normalizedPath.includes("/skills/") ||
+    // prompts/ 와 sub_agent/ raw prefix 도 agent 섹션으로 묶음. 백엔드가 `data.agent` 에 안 담고
+    // `data.files` 에 raw path 로 섞어 보낼 때 일부 확장자 (.toml 등) 가 markdown 매칭에서 빠져
+    // workspace 섹션에 노출되던 문제 방어.
+    normalizedPath === "prompts" ||
+    normalizedPath.startsWith("prompts/") ||
+    normalizedPath === "sub_agent" ||
+    normalizedPath.startsWith("sub_agent/") ||
+    normalizedPath === "sub-agent" ||
+    normalizedPath.startsWith("sub-agent/") ||
+    normalizedPath === "subagent" ||
+    normalizedPath.startsWith("subagent/") ||
     fileName === "agent.md" ||
     fileName === "agents.md" ||
     fileName === "harness.md" ||
@@ -1908,6 +1919,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const trackedModelUrisRef = useRef<Set<string>>(new Set());
   const selectionDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedBackendFilesRef = useRef<Set<string>>(new Set());
+  // 세션별 "agent 비어있어서 1회 재시도 트리거 했는지" 플래그 —
+  // 백엔드 GET /sessions/{id}/files 의 첫 응답에 `agent: []` 인 경우 백엔드 hydration 이 늦은 케이스를 의심,
+  // 3초 후 1회만 invalidate 해서 재요청. 두 번째 응답에서도 비어있으면 진짜 빈 세션으로 보고 더 안 시도.
+  const agentHydrationRetriedRef = useRef<Set<string>>(new Set());
   const allowNextPopStateRef = useRef(false);
   const isDirtyRef = useRef(false);
   const savedBackTargetRef = useRef<string | null>(null);
@@ -2407,6 +2422,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
   useEffect(() => {
     loadedBackendFilesRef.current.clear();
+    // sessionId 가 바뀌면 hydration retry 마크도 비움 — 다른 세션도 첫 응답이 비면 1회 재시도 받게.
+    agentHydrationRetriedRef.current.clear();
   }, [sessionId]);
 
   useEffect(() => {
@@ -2422,6 +2439,25 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       monacoRef.current = null;
     };
   }, [cleanupEditorSubscriptions, disposeTrackedMonacoModels]);
+
+  // 세션 진입 직후 첫 workspace 응답에 agent 파일이 0개면 백엔드 하네스 hydration 지연 의심 —
+  // 3초 후 1회만 invalidate 해서 재요청. 두 번째 응답에서도 비어있으면 "이 세션은 진짜 하네스 없음" 으로 보고
+  // 더 시도 안 함 (무한 폴링 방지). agent 가 채워진 응답을 한 번이라도 받으면 즉시 retry 카운트 잠금.
+  useEffect(() => {
+    if (!sessionId || !workspace) return;
+    if (!isBackendSessionId(sessionId)) return;
+    const hasAgentFiles = (workspace.files ?? []).some((f) => f.path.startsWith("agent/"));
+    if (hasAgentFiles) {
+      agentHydrationRetriedRef.current.add(sessionId);
+      return;
+    }
+    if (agentHydrationRetriedRef.current.has(sessionId)) return;
+    agentHydrationRetriedRef.current.add(sessionId); // 한 번만 시도하도록 즉시 마크
+    const t = window.setTimeout(() => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
+    }, 3000);
+    return () => window.clearTimeout(t);
+  }, [sessionId, workspace, queryClient]);
 
   useEffect(() => {
     if (workspace?.files?.length) {
