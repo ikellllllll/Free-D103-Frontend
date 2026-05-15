@@ -29,6 +29,12 @@ export function useAiChat(sessionId: string) {
   // 매 이벤트마다 즉시 invalidate 하면 한 run 안에 파일 10~20개를 만드는 경우 GET /workspace 가 그만큼
   // 폭주 — 600ms 동안 추가 이벤트 없으면 1회만 호출.
   const workspaceRefreshTimerRef = useRef<number | null>(null);
+  // sessionId 별로 buildHarness 보장 호출 했는지 — agent 모드 첫 호출 전 1회만.
+  // 백엔드가 startSession 후 비동기로 build 트리거하지만 사용자가 build 완료 전 채팅 보내면
+  // "session_harness.runtime_config_json is required" 에러 발생하던 race 차단.
+  const harnessBuildEnsuredRef = useRef<Set<string>>(new Set());
+  // build promise 추적 — 동일 세션에서 첫 send 가 진행 중일 때 두번째 send 가 동시에 build 시도하는 케이스 차단.
+  const harnessBuildInFlightRef = useRef<Map<string, Promise<unknown>>>(new Map());
 
   useEffect(() => {
     mountedRef.current = true;
@@ -70,6 +76,9 @@ export function useAiChat(sessionId: string) {
         window.clearTimeout(workspaceRefreshTimerRef.current);
         workspaceRefreshTimerRef.current = null;
       }
+      // harness ensure flag 는 sessionId 별이라 sessionId 변경 시 cleanup 시점에 따로 제거 안 해도
+      // 다음 세션은 set 에 없어 다시 호출. 다만 메모리 누수 방지 위해 in-flight 만 제거.
+      harnessBuildInFlightRef.current.delete(sessionId);
     };
   }, [sessionId]);
 
@@ -159,6 +168,29 @@ export function useAiChat(sessionId: string) {
 
       // === Agent 모드 — DeepAgent SSE (RUN_STARTED, TOOL_*, VFS_*, RUN_COMPLETED/FAILED 등). ===
       if (mode === "agent") {
+        // ⚠️ Race 가드: 백엔드 SessionServiceImpl.scheduleInitialHarnessBuild 가 afterCommit 안에서
+        //   비동기로 buildAgentAI 트리거 → startSession 응답 받은 시점엔 build 미완료 가능.
+        //   사용자가 build 끝나기 전에 agent 모드 채팅 보내면 AI 서버가
+        //   "session_harness.runtime_config_json is required for runtime loading." 으로 reject.
+        //
+        //   해결: sessionId 별로 첫 agent send 직전에 buildHarness 1회 보장 호출. idempotent —
+        //   이미 build 된 세션이면 AI 가 재컴파일만 함. 동시 send 가 일어나면 in-flight promise 공유.
+        if (isBackendSessionId(sessionId) && !harnessBuildEnsuredRef.current.has(sessionId)) {
+          let inflight = harnessBuildInFlightRef.current.get(sessionId);
+          if (!inflight) {
+            inflight = sessionApi.buildHarness(sessionId, modelName ?? "GPT_5_MINI").catch((err) => {
+              // 실패해도 통과 — 사용자에겐 그 다음 SSE 응답에서 실제 에러로 표시되므로 silent.
+              // (재시도는 다음 send 가 set 에 없으니 자동 발생.)
+              console.warn("[harness ensure build] failed", err);
+              harnessBuildEnsuredRef.current.delete(sessionId);
+            });
+            harnessBuildInFlightRef.current.set(sessionId, inflight);
+          }
+          await inflight;
+          harnessBuildInFlightRef.current.delete(sessionId);
+          harnessBuildEnsuredRef.current.add(sessionId);
+        }
+
         const controller = new AbortController();
         abortControllerRef.current = controller;
         // Trace 목록 실시간 폴링 — agent_runs_traces 에 row 가 insert 되기까지 시간 차이가 있고,
