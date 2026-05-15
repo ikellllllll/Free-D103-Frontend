@@ -246,17 +246,47 @@ function enqueueSessionMutation<T>(sessionId: string, fn: () => Promise<T>): Pro
   return next;
 }
 
+/**
+ * path → Monaco editor language ID 매핑.
+ * IdeShell.tsx 의 동명 함수와 동일 규칙으로 유지 (사용자 보고: 새 파일 highlighting 누락).
+ * Monaco 가 기본 지원 안 하는 toml/dockerfile 등은 시각적으로 가까운 기본 언어로 fallback.
+ */
 const inferLanguageFromPath = (path: string): string => {
   const lower = path.toLowerCase();
+  const fileName = lower.split("/").pop() ?? lower;
+
+  if (fileName === "dockerfile" || fileName.startsWith("dockerfile.")) return "dockerfile";
+  if (fileName === "makefile") return "shell";
 
   if (lower.endsWith(".java")) return "java";
-  if (lower.endsWith(".py")) return "python";
-  if (lower.endsWith(".md")) return "markdown";
+  if (lower.endsWith(".kt") || lower.endsWith(".kts")) return "kotlin";
+  if (lower.endsWith(".ts") || lower.endsWith(".tsx")) return "typescript";
+  if (lower.endsWith(".js") || lower.endsWith(".jsx") || lower.endsWith(".mjs") || lower.endsWith(".cjs"))
+    return "javascript";
+  if (lower.endsWith(".py") || lower.endsWith(".pyi")) return "python";
+  if (lower.endsWith(".rb")) return "ruby";
+  if (lower.endsWith(".go")) return "go";
+  if (lower.endsWith(".rs")) return "rust";
+  if (lower.endsWith(".php")) return "php";
+  if (lower.endsWith(".sh") || lower.endsWith(".bash") || lower.endsWith(".zsh")) return "shell";
+  if (lower.endsWith(".ps1")) return "powershell";
+  if (lower.endsWith(".md") || lower.endsWith(".mdx") || lower.endsWith(".markdown")) return "markdown";
   if (lower.endsWith(".json")) return "json";
   if (lower.endsWith(".yml") || lower.endsWith(".yaml")) return "yaml";
+  // toml/ini/conf/cfg — Monaco 기본 미지원 toml 은 ini 가 시각적으로 가장 가까움.
+  if (lower.endsWith(".toml") || lower.endsWith(".ini") || lower.endsWith(".conf") || lower.endsWith(".cfg"))
+    return "ini";
   if (lower.endsWith(".xml")) return "xml";
+  if (lower.endsWith(".html") || lower.endsWith(".htm")) return "html";
+  if (lower.endsWith(".css")) return "css";
+  if (lower.endsWith(".scss")) return "scss";
+  if (lower.endsWith(".less")) return "less";
   if (lower.endsWith(".properties")) return "properties";
   if (lower.endsWith(".sql")) return "sql";
+  if (lower.endsWith(".gradle") || lower.endsWith(".groovy")) return "groovy";
+  if (lower.endsWith(".cpp") || lower.endsWith(".cc") || lower.endsWith(".cxx") || lower.endsWith(".hpp"))
+    return "cpp";
+  if (lower.endsWith(".c") || lower.endsWith(".h")) return "c";
 
   return "plaintext";
 };

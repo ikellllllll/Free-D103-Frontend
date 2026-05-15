@@ -910,21 +910,37 @@ const isDiffTabId = (value: string) => value.startsWith(DIFF_TAB_PREFIX);
 const createDiffTabId = (path: string) => `${DIFF_TAB_PREFIX}${path}`;
 const getWorktreeSourcePath = (path: string) => path.replace(/^\.worktree\//, "");
 const ENDPOINT_LINE_REGEX = /^-\s+`((?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+[^`]+)`/;
+/**
+ * 파일 path → Monaco editor language ID 매핑.
+ *
+ * 사용자가 직접 만든 파일의 syntax highlighting 이 안 된다는 보고가 있어 (특히 .toml, .py, .sh)
+ * 누락 확장자를 보강. Monaco 가 기본 지원하지 않는 toml/dockerfile 등은 시각적으로 가장 가까운
+ * 기본 언어로 fallback (toml → ini).
+ *
+ * Monaco 기본 지원 list 참고: https://microsoft.github.io/monaco-editor/
+ */
 const inferLanguageFromPath = (path: string) => {
   const lower = path.toLowerCase();
   const extension = lower.includes(".") ? lower.split(".").pop() : "";
+  const fileName = lower.split("/").pop() ?? lower;
+
+  // 확장자 없는 특수 파일명
+  if (fileName === "dockerfile" || fileName.startsWith("dockerfile.")) return "dockerfile";
+  if (fileName === ".gitignore" || fileName === ".gitattributes") return "plaintext";
+  if (fileName === "makefile") return "shell";
 
   switch (extension) {
     case "java":
       return "java";
     case "kt":
+    case "kts":
       return "kotlin";
     case "js":
-      return "javascript";
     case "jsx":
+    case "mjs":
+    case "cjs":
       return "javascript";
     case "ts":
-      return "typescript";
     case "tsx":
       return "typescript";
     case "json":
@@ -932,20 +948,62 @@ const inferLanguageFromPath = (path: string) => {
     case "yml":
     case "yaml":
       return "yaml";
+    case "toml":
+      // Monaco 기본 미지원 — ini 가 토큰 구조가 가장 유사 (섹션 헤더, key=value).
+      return "ini";
+    case "ini":
+    case "conf":
+    case "cfg":
+      return "ini";
     case "md":
+    case "mdx":
+    case "markdown":
       return "markdown";
     case "xml":
       return "xml";
     case "html":
+    case "htm":
       return "html";
     case "css":
       return "css";
     case "scss":
       return "scss";
+    case "less":
+      return "less";
     case "sql":
       return "sql";
     case "properties":
       return "properties";
+    case "py":
+    case "pyi":
+      return "python";
+    case "rb":
+      return "ruby";
+    case "go":
+      return "go";
+    case "rs":
+      return "rust";
+    case "php":
+      return "php";
+    case "sh":
+    case "bash":
+    case "zsh":
+      return "shell";
+    case "ps1":
+      return "powershell";
+    case "dockerfile":
+      return "dockerfile";
+    case "gradle":
+    case "groovy":
+      return "groovy";
+    case "c":
+    case "h":
+      return "c";
+    case "cpp":
+    case "cc":
+    case "cxx":
+    case "hpp":
+      return "cpp";
     default:
       return "plaintext";
   }
@@ -3391,6 +3449,29 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       editorRef.current = editor;
     }
     trackMonacoModels(editor, monaco);
+
+    // 사용자가 직접 만든 파일 (특히 .java) 에서 syntax highlighting 이 안 된다는 보고가 있어,
+    // mount 시점에 명시적으로 model language 를 재설정. `path` prop 이 `${groupId}:${filePath}`
+    // 형태라 Monaco URI 가 group-id:src/Main.java 가 되어 자동 추론이 일관되지 않을 수 있고,
+    // @monaco-editor/react 가 createModel(value, language, uri) 호출할 때 language prop
+    // 적용 race 가 일어나면 plaintext 로 stamp 된 채 남는 케이스를 방어.
+    try {
+      const model = editor.getModel?.();
+      if (model && monaco?.editor?.setModelLanguage) {
+        // URI path 에서 실제 파일 path 추출 — `${groupId}:${path}` 형태일 가능성 가장 높음.
+        const modelPath: string = model.uri?.path ?? model.uri?.fsPath ?? "";
+        const cleaned = modelPath.replace(/^[/\\]+/, "");
+        const actualPath = cleaned.includes(":") ? cleaned.split(":").slice(1).join(":") : cleaned;
+        const expectedLanguage = inferLanguageFromPath(actualPath || cleaned);
+        const currentLanguage = model.getLanguageId?.() ?? null;
+        if (expectedLanguage && expectedLanguage !== "plaintext" && currentLanguage !== expectedLanguage) {
+          monaco.editor.setModelLanguage(model, expectedLanguage);
+        }
+      }
+    } catch {
+      /* Monaco API 버전 차이 — 무시 */
+    }
+
     const initialPosition = editor.getPosition();
 
     if (initialPosition) {
