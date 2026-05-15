@@ -7468,7 +7468,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                       <span className="panel-title panel-title--compact">aig assistant</span>
                       <div className="assistant-header__title">
                         <strong>AI 보조 패널</strong>
-                        <span className="ai-context-chip assistant-version-chip">{agentSnapshotLabel}</span>
                       </div>
                     </div>
 
@@ -7874,13 +7873,18 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                     ? "제출하시겠습니까?"
                     : "세션을 종료할까요?"}
               </strong>
-              <span>
-                {confirmIntent === "test"
-                  ? "공개 테스트 케이스를 도커 러너에서 실행합니다. 평균 30초~2분 정도 걸립니다."
-                  : confirmIntent === "submit"
-                    ? "현재 코드 스냅샷으로 공개·비공개 테스트를 함께 채점합니다. 한 세션에서 여러 번 제출할 수 있습니다."
-                    : "세션을 종료하면 같은 풀이로 돌아올 수 없습니다. 진행 중인 작업이 있다면 먼저 저장하세요."}
-              </span>
+              {confirmIntent === "test" ? (
+                <span>공개 테스트 케이스를 도커 러너에서 실행합니다. 평균 30초~2분 정도 걸립니다.</span>
+              ) : confirmIntent === "submit" ? (
+                <span>현재 코드 스냅샷으로 공개·비공개 테스트를 함께 채점합니다. 한 세션에서 여러 번 제출할 수 있습니다.</span>
+              ) : (
+                <>
+                  <span>세션을 종료하면 같은 풀이로 돌아올 수 없습니다. 진행 중인 작업이 있다면 먼저 저장하세요.</span>
+                  <span style={{ display: "block", marginTop: 8, fontSize: "0.85em", color: "var(--muted, #6b7280)" }}>
+                    ※ 제출 기록이 없거나 에이전트를 실행한 적이 없다면 리포트가 생성되지 않아요.
+                  </span>
+                </>
+              )}
             </div>
             <div className="ide-save-modal__actions">
               <button
