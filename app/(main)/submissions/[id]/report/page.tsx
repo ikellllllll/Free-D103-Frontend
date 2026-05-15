@@ -431,7 +431,7 @@ function DimensionDetailsSection({ dimensions }: { dimensions: DimensionScoreIte
                   )}
                 </div>
                 {!isOpen && dim.rationale && (
-                  <p className="text-[12.5px] text-gray-500 dark:text-slate-400 mt-0.5 line-clamp-1">{dim.rationale}</p>
+                  <PreviewMarkdown text={dim.rationale} className="text-[12.5px] text-gray-500 dark:text-slate-400 mt-0.5 line-clamp-1" />
                 )}
               </div>
 
@@ -466,7 +466,7 @@ function DimensionDetailsSection({ dimensions }: { dimensions: DimensionScoreIte
               <div className="border-t border-gray-100 dark:border-slate-800 px-5 py-5 space-y-5">
                 {/* Rationale */}
                 {dim.rationale && (
-                  <p className="text-sm text-gray-700 dark:text-slate-300 leading-relaxed">{dim.rationale}</p>
+                  <DimMarkdown text={dim.rationale} className="text-sm text-gray-700 dark:text-slate-300" />
                 )}
 
                 {/* Strength / Improvement summaries */}
@@ -475,13 +475,13 @@ function DimensionDetailsSection({ dimensions }: { dimensions: DimensionScoreIte
                     {dim.strengthSummary && (
                       <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/50 px-4 py-3">
                         <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-600 dark:text-emerald-400 mb-1">강점</div>
-                        <p className="text-[13px] text-emerald-800 dark:text-emerald-200 leading-relaxed">{dim.strengthSummary}</p>
+                        <DimMarkdown text={dim.strengthSummary} className="text-[13px] text-emerald-800 dark:text-emerald-200" />
                       </div>
                     )}
                     {dim.improvementSummary && (
                       <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 px-4 py-3">
                         <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-amber-600 dark:text-amber-400 mb-1">개선</div>
-                        <p className="text-[13px] text-amber-800 dark:text-amber-200 leading-relaxed">{dim.improvementSummary}</p>
+                        <DimMarkdown text={dim.improvementSummary} className="text-[13px] text-amber-800 dark:text-amber-200" />
                       </div>
                     )}
                   </div>
@@ -504,6 +504,47 @@ function DimensionDetailsSection({ dimensions }: { dimensions: DimensionScoreIte
         );
       })}
     </section>
+  );
+}
+
+/* ─── PreviewMarkdown: 1줄 preview용 인라인 마크다운 렌더러 ─── */
+// heading/table/list 줄은 건너뛰고 첫 실제 내용 줄을 찾아 **bold** · *italic* · `code` 인라인만 렌더링.
+// line-clamp-1은 block 자식이 있으면 깨지므로 react-markdown 대신 직접 파싱.
+function PreviewMarkdown({ text, className }: { text: string; className?: string }) {
+  const firstLine =
+    text
+      .split("\n")
+      .map((l) => l.trim())
+      .find(
+        (l) =>
+          l.length > 5 &&
+          !l.startsWith("#") &&
+          !l.startsWith("|") &&
+          !l.match(/^[-*+]\s/) &&
+          !l.match(/^\d+\.\s/) &&
+          !l.match(/^[=\-]{3,}$/)
+      ) ?? text.split("\n")[0].trim();
+
+  const parts = firstLine.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g);
+  const nodes = parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**"))
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
+    if (part.startsWith("*") && part.endsWith("*"))
+      return <em key={i}>{part.slice(1, -1)}</em>;
+    if (part.startsWith("`") && part.endsWith("`"))
+      return <code key={i} className="px-1 rounded bg-gray-100 dark:bg-slate-800 font-mono text-[10.5px]">{part.slice(1, -1)}</code>;
+    return <span key={i}>{part}</span>;
+  });
+
+  return <p className={className}>{nodes}</p>;
+}
+
+/* ─── DimMarkdown: dimension rationale/summary 마크다운 렌더러 ─── */
+function DimMarkdown({ text, className }: { text: string; className?: string }) {
+  return (
+    <div className={`report-dim-md ${className ?? ""}`}>
+      <Markdown remarkPlugins={[remarkGfm]}>{text}</Markdown>
+    </div>
   );
 }
 
