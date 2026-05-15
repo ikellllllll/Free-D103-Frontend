@@ -205,7 +205,23 @@ function buildMarkdown(agent: string, skills: string[], instruction: string) {
 
 /* ── Main component ─────────────────────────────────────────── */
 
-export function HarnessPanel() {
+/**
+ * 적용 콜백 — 부모(IdeShell) 가 모델/instruction 을 실제 백엔드에 반영.
+ * - modelId: AGENT_MODELS.id (예 "CLAUDE_4_5_SONNET")
+ * - skills: 선택한 skill id 배열 (현재는 instruction markdown 에 텍스트로만 포함)
+ * - instruction: 사용자가 작성/선택한 instruction 본문
+ * - markdown: buildMarkdown 결과 — AGENTS.md 에 그대로 저장될 본문
+ *
+ * 부모가 reject 하면 "적용 실패" UI 표시.
+ */
+export interface HarnessApplyOptions {
+  modelId: string;
+  skills: string[];
+  instruction: string;
+  markdown: string;
+}
+
+export function HarnessPanel({ onApply }: { onApply?: (options: HarnessApplyOptions) => Promise<void> } = {}) {
   const [step, setStep]                       = useState<WizardStep>(1);
   const [selectedAgent, setSelectedAgent]     = useState<string | null>(null);
   const [selectedSkills, setSelectedSkills]   = useState<string[]>([]);
@@ -213,6 +229,8 @@ export function HarnessPanel() {
   const [instruction, setInstruction]         = useState("");
   const [mdExpanded, setMdExpanded]           = useState(false);
   const [applied, setApplied]                 = useState(false);
+  const [applying, setApplying]               = useState(false);
+  const [applyError, setApplyError]           = useState<string | null>(null);
 
   const toggleSkill = (id: string) =>
     setSelectedSkills((prev) =>
@@ -247,15 +265,35 @@ export function HarnessPanel() {
       }
     };
   }, []);
-  const handleApply = () => {
-    setApplied(true);
-    if (applyResetTimerRef.current != null) {
-      window.clearTimeout(applyResetTimerRef.current);
+  const handleApply = async () => {
+    // 이전엔 setApplied(true) 만 호출하고 2초 후 reset — 실제로는 아무것도 저장 안 되던 mock UI.
+    // 이제 부모 onApply 콜백으로 실제 백엔드 반영 (모델 변경 + AGENTS.md 저장).
+    if (!selectedAgent) {
+      setApplyError("모델을 먼저 선택해 주세요.");
+      return;
     }
-    applyResetTimerRef.current = window.setTimeout(() => {
-      setApplied(false);
-      applyResetTimerRef.current = null;
-    }, 2000);
+    setApplyError(null);
+    setApplying(true);
+    try {
+      await onApply?.({
+        modelId: selectedAgent,
+        skills: selectedSkills,
+        instruction,
+        markdown,
+      });
+      setApplied(true);
+      if (applyResetTimerRef.current != null) {
+        window.clearTimeout(applyResetTimerRef.current);
+      }
+      applyResetTimerRef.current = window.setTimeout(() => {
+        setApplied(false);
+        applyResetTimerRef.current = null;
+      }, 2200);
+    } catch (e) {
+      setApplyError(e instanceof Error ? e.message : "적용에 실패했습니다.");
+    } finally {
+      setApplying(false);
+    }
   };
 
   /* ── Step renderers ── */
@@ -435,11 +473,17 @@ export function HarnessPanel() {
         <button
           type="button"
           className="button button--primary"
-          style={{ width: "100%", justifyContent: "center", fontSize: "0.82rem", padding: "9px 0" }}
+          style={{ width: "100%", justifyContent: "center", fontSize: "0.82rem", padding: "9px 0", opacity: applying ? 0.7 : 1 }}
           onClick={handleApply}
+          disabled={applying}
         >
-          {applied ? "✓ 적용 완료" : "적용하기"}
+          {applying ? "적용 중..." : applied ? "✓ 적용 완료" : "적용하기"}
         </button>
+        {applyError ? (
+          <p style={{ margin: "6px 0 0", fontSize: "0.72rem", color: "#dc2626", textAlign: "center" }}>
+            {applyError}
+          </p>
+        ) : null}
       </div>
     );
   };

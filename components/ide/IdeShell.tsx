@@ -6113,7 +6113,52 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     }
 
     if (sidebarView === "harness") {
-      return <HarnessPanel />;
+      return (
+        <HarnessPanel
+          onApply={async ({ modelId, markdown }) => {
+            // 1) 모델 — IDE 의 chat/agent 요청 시 사용하는 chatModel 과 동기화.
+            //    백엔드는 매 chat/agent 요청마다 model 을 받는 구조라 세션 단위 모델 변경 endpoint 가 따로 없음.
+            //    프론트 selector state 만 갱신해도 다음 요청부터 새 모델이 적용됨.
+            setChatModel(modelId);
+
+            // 2) Instruction (Skills 포함된 markdown) — agent/AGENTS.md 에 저장.
+            //    파일이 이미 있으면 saveFile 로 content 덮어쓰기, 없으면 addHarnessFile 로 생성.
+            //    백엔드 raw path 는 'AGENTS.md' (agent/ prefix 없이) — 프론트 표시용 path 는 'agent/AGENTS.md'.
+            if (isBackendSessionId(sessionId)) {
+              const targetDisplayPath = "agent/AGENTS.md";
+              const hasAgentsMd = files.some((f) => f.path === targetDisplayPath);
+              if (hasAgentsMd) {
+                await sessionApi.saveFile(sessionId, {
+                  path: targetDisplayPath,
+                  content: markdown,
+                });
+              } else {
+                await sessionApi.addHarnessFile(sessionId, {
+                  path: "AGENTS.md",
+                  name: "AGENTS.md",
+                  nodeType: "FILE",
+                  fileType: "MARKDOWN",
+                  content: markdown,
+                });
+              }
+              await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
+            } else {
+              // mock 세션 — store 만 갱신.
+              const targetDisplayPath = "agent/AGENTS.md";
+              const has = files.some((f) => f.path === targetDisplayPath);
+              if (has) {
+                updateFileContent(targetDisplayPath, markdown);
+              } else {
+                createWorkspaceFile(
+                  { path: targetDisplayPath, language: "markdown", content: markdown },
+                  false
+                );
+              }
+            }
+            addToast("하네스 설정을 적용했어요.", "success");
+          }}
+        />
+      );
     }
 
     if (sidebarView === "extensions") {
