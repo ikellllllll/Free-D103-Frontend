@@ -17,7 +17,13 @@ export function SubmissionProgress({ submissionId }: { submissionId: string }) {
   const router = useRouter();
   const { withPrefix } = useRouteScope();
   const isBackendExecution = isBackendSessionId(submissionId);
-  const { data: submission, isLoading, isError } = useQuery({
+  const {
+    data: submission,
+    isLoading,
+    isError,
+    failureCount: submissionFailureCount,
+    refetch: refetchSubmission
+  } = useQuery({
     queryKey: ["submission", submissionId],
     queryFn: () =>
       isBackendExecution
@@ -30,7 +36,11 @@ export function SubmissionProgress({ submissionId }: { submissionId: string }) {
       return 1200;
     }
   });
-  const { data: report } = useQuery({
+  const {
+    data: report,
+    failureCount: reportFailureCount,
+    refetch: refetchReport
+  } = useQuery({
     queryKey: ["report", submissionId],
     queryFn: () => feedbackApi.getFeedbackReport(submissionId),
     refetchInterval: (query) => {
@@ -39,6 +49,20 @@ export function SubmissionProgress({ submissionId }: { submissionId: string }) {
       return 1200;
     }
   });
+
+  // 폴링이 errorUpdateCount 가드로 멈췄는지 감지 — 멈춘 상태라면 자동 라우팅이 영원히 안 일어남.
+  // 사용자에게 "응답이 지연되고 있어요 / 다시 시도" UI 를 보여줘서 영구 정지 상태를 풀 수 있게 한다.
+  // (단, 데이터가 이미 COMPLETED 면 stalled 가 의미 없음 — overallDone 분기가 별도로 라우팅 처리.)
+  const submissionStalled =
+    submissionFailureCount >= 3 && submission?.status !== "COMPLETED";
+  const reportStalled =
+    reportFailureCount >= 3 && report?.status !== "COMPLETED";
+  const isStalled = submissionStalled || reportStalled;
+
+  const handleRetryStalled = () => {
+    if (submissionStalled) void refetchSubmission();
+    if (reportStalled) void refetchReport();
+  };
 
   const steps = useMemo(() => {
     const completed = submission?.status === "COMPLETED";
@@ -113,13 +137,48 @@ export function SubmissionProgress({ submissionId }: { submissionId: string }) {
 
         <div className="submission-progress-bar">
           <div className="submission-progress-bar__head">
-            <strong>{overallDone ? "분석 완료" : "분석 진행 중"}</strong>
+            <strong>
+              {overallDone
+                ? "분석 완료"
+                : isStalled
+                  ? "응답이 지연되고 있어요"
+                  : "분석 진행 중"}
+            </strong>
             <span className="submission-progress-bar__pct">{doneCount} / {steps.length} 단계</span>
           </div>
           <div className="progress-bar progress-bar--lg">
             <span style={{ width: `${Math.round((doneCount / steps.length) * 100)}%` }} />
           </div>
         </div>
+
+        {isStalled && !overallDone ? (
+          <div
+            className="submission-stalled"
+            style={{
+              padding: "12px 14px",
+              borderRadius: 10,
+              background: "rgba(244, 63, 94, 0.08)",
+              border: "1px solid rgba(244, 63, 94, 0.25)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              fontSize: "0.85rem"
+            }}
+          >
+            <span style={{ color: "#be123c" }}>
+              서버 응답이 지연되고 있습니다. 다시 시도하거나 리포트 페이지에서 직접 확인하세요.
+            </span>
+            <button
+              type="button"
+              onClick={handleRetryStalled}
+              className="button button--ghost"
+              style={{ flexShrink: 0 }}
+            >
+              다시 시도
+            </button>
+          </div>
+        ) : null}
 
         <div className="submission-steps">
           {steps.map((step, i) => (

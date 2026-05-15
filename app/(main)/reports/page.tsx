@@ -8,11 +8,28 @@ import { FileText, Sparkles, AlertTriangle, RefreshCcw, Loader2, ChevronRight } 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { authApi } from "@/lib/api/authApi";
 import { sessionApi } from "@/lib/api/sessionApi";
+import { parseApiDateTime } from "@/lib/dateTime";
 import {
   loadPendingMarkers,
   savePendingMarkers,
   type PendingReportMarker
 } from "@/lib/reports/pendingMarkers";
+
+/**
+ * 백엔드 LocalDateTime 응답을 안전하게 포맷 — `new Date(null)` / `new Date("")` / `new Date(undefined)`
+ * 가 "Invalid Date" 로 떨어지던 케이스 방어. parseApiDateTime 가 timezone 보강 + 유효성 검사까지 해줌.
+ */
+const safeFormatReportDate = (iso: string | null | undefined): string => {
+  const d = parseApiDateTime(iso);
+  if (!d) return "-";
+  return d.toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+};
 import { useAuthStore } from "@/store/authStore";
 import { useUiStore } from "@/store/uiStore";
 
@@ -132,10 +149,10 @@ export default function ReportsPage() {
   }, [reportsData, pendingMarkers, queryClient, user?.id]);
 
   const handleRetry = async (marker: PendingReportMarker) => {
-    // 백엔드 retry endpoint 가 아직 없어 임시로 endSession 다시 호출 (POST /sessions/{id}/end).
-    // 백엔드가 reportStatus FAILED 면 endSession 이 evaluator 재트리거하는지 정책 확인 필요.
+    // 정식 retry endpoint 사용 — POST /sessions/{id}/report-retry (백엔드 SessionController#retryReport).
+    // FAILED 상태 세션만 백엔드가 허용. 이전엔 endSession 재호출로 우회했으나 정식 endpoint 로 교체.
     try {
-      await sessionApi.endSession(String(marker.problemSessionId));
+      await sessionApi.retryReport(marker.problemSessionId);
       addToast("리포트 생성을 다시 요청했어요.", "success");
       const next = pendingMarkers.map((m) =>
         m.problemSessionId === marker.problemSessionId
@@ -145,13 +162,62 @@ export default function ReportsPage() {
       setPendingMarkers(next);
       savePendingMarkers(next);
       queryClient.invalidateQueries({ queryKey: ["userReports", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["userReportsAll", user?.id] });
     } catch (e) {
       addToast(e instanceof Error ? e.message : "재시도 실패", "error");
     }
   };
 
-  const completed = reportsData?.reports ?? [];
-  const hasAny = pendingMarkers.length > 0 || completed.length > 0;
+  // 백엔드 reportStatus 활용 (2026-05-15~): 응답에 reportStatus 가 명시되면 그걸 우선 신뢰.
+   // - COMPLETED / GENERATED → "내 리포트" 섹션
+   // - PENDING / PROCEEDING → "생성 중" 섹션 (backendPending)
+   // - FAILED → "생성 실패" 섹션 (재시도 버튼)
+   // reportStatus 가 없는 옛 응답 호환: overallScore == null && total == 0 인 항목은 FAILED 추정 → 제외.
+   const allReports = reportsData?.reports ?? [];
+   const completed = allReports.filter((r) => {
+     if (r.reportStatus) {
+       return r.reportStatus === "COMPLETED" || r.reportStatus === "GENERATED";
+     }
+     const overall =
+       typeof r.overallScore === "string" ? parseFloat(r.overallScore) : r.overallScore;
+     const isFailedShape =
+       (overall == null || Number.isNaN(overall)) && (r.totalCount ?? 0) === 0;
+     return !isFailedShape;
+   });
+
+   // 백엔드가 PENDING/PROCEEDING/FAILED 리포트도 list 에 줄 수 있음 (UserReportItem.reportStatus 활용).
+   // localStorage pendingMarkers 와 problemSessionId 로 union — 백엔드 응답 우선.
+   const backendPending = allReports.filter(
+     (r) => r.reportStatus === "PENDING" || r.reportStatus === "PROCEEDING" || r.reportStatus === "FAILED"
+   );
+   const backendPendingSessionIds = new Set(backendPending.map((r) => r.problemSessionId));
+   const localOnlyPendings = pendingMarkers.filter(
+     (m) => !backendPendingSessionIds.has(m.problemSessionId)
+   );
+   type PendingDisplay = {
+     problemSessionId: number;
+     problemId?: number;
+     problemTitle?: string;
+     status: "PENDING" | "PROCEEDING" | "FAILED";
+     startedAt: string;
+   };
+   const mergedPendings: PendingDisplay[] = [
+     ...backendPending.map((r) => ({
+       problemSessionId: r.problemSessionId,
+       problemId: r.problemId,
+       problemTitle: r.problemTitle,
+       status: r.reportStatus as "PENDING" | "PROCEEDING" | "FAILED",
+       startedAt: r.createdAt ?? r.reportCreatedAt ?? new Date().toISOString(),
+     })),
+     ...localOnlyPendings.map((m) => ({
+       problemSessionId: m.problemSessionId,
+       problemId: m.problemId,
+       problemTitle: m.problemTitle,
+       status: m.status,
+       startedAt: m.startedAt,
+     })),
+   ];
+   const hasAny = mergedPendings.length > 0 || completed.length > 0;
 
   return (
     <div className="min-h-screen bg-[#EEF2FF]">
@@ -168,14 +234,14 @@ export default function ReportsPage() {
         </p>
       </header>
 
-      {/* Pending 섹션 */}
-      {pendingMarkers.length > 0 ? (
+      {/* Pending 섹션 — 백엔드 reportStatus 와 localStorage marker union */}
+      {mergedPendings.length > 0 ? (
         <section className="mb-8">
           <h2 className="text-[11px] font-bold text-gray-500 dark:text-slate-400 mb-3 uppercase tracking-[0.14em]">
-            생성 중 · {pendingMarkers.length}
+            생성 중 · {mergedPendings.length}
           </h2>
           <ul className="list-none space-y-2">
-            {pendingMarkers.map((m) => (
+            {mergedPendings.map((m) => (
               <li
                 key={m.problemSessionId}
                 className="bg-white dark:bg-slate-900/60 rounded-xl border border-gray-200 dark:border-slate-700/70 shadow-sm px-5 py-4 flex items-center gap-4"
@@ -185,7 +251,7 @@ export default function ReportsPage() {
                     {m.problemTitle ?? "풀이"}
                   </div>
                   <div className="mt-1 text-xs text-gray-400 dark:text-slate-500">
-                    {new Date(m.startedAt).toLocaleString("ko-KR")}
+                    {safeFormatReportDate(m.startedAt)}
                   </div>
                 </div>
                 {m.status === "FAILED" ? (
@@ -196,7 +262,13 @@ export default function ReportsPage() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => handleRetry(m)}
+                      onClick={() => handleRetry({
+                        problemSessionId: m.problemSessionId,
+                        problemId: m.problemId,
+                        problemTitle: m.problemTitle,
+                        status: m.status,
+                        startedAt: m.startedAt
+                      })}
                       className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors cursor-pointer"
                     >
                       <RefreshCcw size={11} strokeWidth={2.4} />
@@ -218,13 +290,13 @@ export default function ReportsPage() {
       {/* Completed 섹션 */}
       <section>
         <h2 className="text-[11px] font-bold text-gray-500 dark:text-slate-400 mb-3 uppercase tracking-[0.14em]">
-          내 리포트 · {reportsData?.totalCount ?? 0}
+          내 리포트 · {completed.length}
         </h2>
         {isLoading ? (
           <div className="bg-white dark:bg-slate-900/60 rounded-xl border border-gray-200 dark:border-slate-700/70 shadow-sm p-10 text-center">
             <div className="text-sm text-gray-400 dark:text-slate-500">불러오는 중...</div>
           </div>
-        ) : completed.length === 0 && pendingMarkers.length === 0 ? (
+        ) : completed.length === 0 && mergedPendings.length === 0 ? (
           <div className="bg-white dark:bg-slate-900/60 rounded-xl border border-dashed border-gray-200 dark:border-slate-700/70 shadow-sm p-12 text-center">
             <Sparkles size={28} className="mx-auto text-gray-300 dark:text-slate-600 mb-3" />
             <p className="text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">아직 제출한 리포트가 없어요</p>
@@ -288,7 +360,7 @@ export default function ReportsPage() {
                             {report.passedCount}/{report.totalCount} 통과 · {passRate}%
                           </span>
                           <span className="text-xs text-gray-400 dark:text-slate-500">
-                            {new Date(report.createdAt).toLocaleString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                            {safeFormatReportDate(report.createdAt)}
                           </span>
                         </div>
                       </div>

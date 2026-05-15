@@ -63,8 +63,8 @@ export function addPendingReportMarker(input: {
     },
     ...current
   ];
-  // 누적 방지 — 최대 20 개.
-  savePendingMarkers(next.slice(0, 20));
+  // 누적 방지 — 최대 50 개 (이전 20 → 헤비유저가 연속 종료할 때 마커가 누락되던 케이스 대응).
+  savePendingMarkers(next.slice(0, 50));
 }
 
 export function removePendingMarker(problemSessionId: number) {

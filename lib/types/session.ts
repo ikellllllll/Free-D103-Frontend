@@ -59,6 +59,11 @@ export interface TestRunResult {
   buildFailed?: boolean;
   /** 빌드/컴파일 stderr — buildFailed 일 때 사용자에게 보여줄 에러 본문. */
   buildStderr?: string | null;
+  /**
+   * 일반 테스트 실패에서도 노출할 stderr — 일부 케이스만 실패해도 백엔드가 stderr 를 같이 주는 경우가 있어
+   * 사용자에게 원인을 보여주기 위함. buildFailed 와 무관하게 stderr 가 있으면 항상 채움.
+   */
+  stderr?: string | null;
   /** 백엔드 raw status — bottom panel 에서 ERROR 처리에 사용. */
   rawStatus?: string | null;
 }
@@ -79,7 +84,12 @@ export interface Submission {
  */
 export interface SubmissionResult {
   executionId: string;
-  rawStatus: "RUNNING" | "COMPLETED" | "FAILED";
+  /**
+   * 백엔드 ExecutionStatus enum 그대로 보존.
+   * 2026-05-14 RabbitMQ 큐 도입 (52a90e7) 로 QUEUED 가 추가됨 — 큐 대기 상태에서
+   * consumer 가 잡아 RUNNING 으로 전환. UI 는 QUEUED 도 "진행 중" 으로 표시.
+   */
+  rawStatus: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
   total: number;
   passed: number;
   failed: number;

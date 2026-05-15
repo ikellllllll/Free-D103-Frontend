@@ -910,21 +910,37 @@ const isDiffTabId = (value: string) => value.startsWith(DIFF_TAB_PREFIX);
 const createDiffTabId = (path: string) => `${DIFF_TAB_PREFIX}${path}`;
 const getWorktreeSourcePath = (path: string) => path.replace(/^\.worktree\//, "");
 const ENDPOINT_LINE_REGEX = /^-\s+`((?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+[^`]+)`/;
+/**
+ * 파일 path → Monaco editor language ID 매핑.
+ *
+ * 사용자가 직접 만든 파일의 syntax highlighting 이 안 된다는 보고가 있어 (특히 .toml, .py, .sh)
+ * 누락 확장자를 보강. Monaco 가 기본 지원하지 않는 toml/dockerfile 등은 시각적으로 가장 가까운
+ * 기본 언어로 fallback (toml → ini).
+ *
+ * Monaco 기본 지원 list 참고: https://microsoft.github.io/monaco-editor/
+ */
 const inferLanguageFromPath = (path: string) => {
   const lower = path.toLowerCase();
   const extension = lower.includes(".") ? lower.split(".").pop() : "";
+  const fileName = lower.split("/").pop() ?? lower;
+
+  // 확장자 없는 특수 파일명
+  if (fileName === "dockerfile" || fileName.startsWith("dockerfile.")) return "dockerfile";
+  if (fileName === ".gitignore" || fileName === ".gitattributes") return "plaintext";
+  if (fileName === "makefile") return "shell";
 
   switch (extension) {
     case "java":
       return "java";
     case "kt":
+    case "kts":
       return "kotlin";
     case "js":
-      return "javascript";
     case "jsx":
+    case "mjs":
+    case "cjs":
       return "javascript";
     case "ts":
-      return "typescript";
     case "tsx":
       return "typescript";
     case "json":
@@ -932,20 +948,62 @@ const inferLanguageFromPath = (path: string) => {
     case "yml":
     case "yaml":
       return "yaml";
+    case "toml":
+      // Monaco 기본 미지원 — ini 가 토큰 구조가 가장 유사 (섹션 헤더, key=value).
+      return "ini";
+    case "ini":
+    case "conf":
+    case "cfg":
+      return "ini";
     case "md":
+    case "mdx":
+    case "markdown":
       return "markdown";
     case "xml":
       return "xml";
     case "html":
+    case "htm":
       return "html";
     case "css":
       return "css";
     case "scss":
       return "scss";
+    case "less":
+      return "less";
     case "sql":
       return "sql";
     case "properties":
       return "properties";
+    case "py":
+    case "pyi":
+      return "python";
+    case "rb":
+      return "ruby";
+    case "go":
+      return "go";
+    case "rs":
+      return "rust";
+    case "php":
+      return "php";
+    case "sh":
+    case "bash":
+    case "zsh":
+      return "shell";
+    case "ps1":
+      return "powershell";
+    case "dockerfile":
+      return "dockerfile";
+    case "gradle":
+    case "groovy":
+      return "groovy";
+    case "c":
+    case "h":
+      return "c";
+    case "cpp":
+    case "cc":
+    case "cxx":
+    case "hpp":
+      return "cpp";
     default:
       return "plaintext";
   }
@@ -1820,6 +1878,17 @@ const isAgentConfigExplorerPath = (path: string) => {
     normalizedPath === "skills" ||
     normalizedPath.startsWith("skills/") ||
     normalizedPath.includes("/skills/") ||
+    // prompts/ 와 sub_agent/ raw prefix 도 agent 섹션으로 묶음. 백엔드가 `data.agent` 에 안 담고
+    // `data.files` 에 raw path 로 섞어 보낼 때 일부 확장자 (.toml 등) 가 markdown 매칭에서 빠져
+    // workspace 섹션에 노출되던 문제 방어.
+    normalizedPath === "prompts" ||
+    normalizedPath.startsWith("prompts/") ||
+    normalizedPath === "sub_agent" ||
+    normalizedPath.startsWith("sub_agent/") ||
+    normalizedPath === "sub-agent" ||
+    normalizedPath.startsWith("sub-agent/") ||
+    normalizedPath === "subagent" ||
+    normalizedPath.startsWith("subagent/") ||
     fileName === "agent.md" ||
     fileName === "agents.md" ||
     fileName === "harness.md" ||
@@ -1908,6 +1977,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const trackedModelUrisRef = useRef<Set<string>>(new Set());
   const selectionDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedBackendFilesRef = useRef<Set<string>>(new Set());
+  // 세션별 "agent 비어있어서 1회 재시도 트리거 했는지" 플래그 —
+  // 백엔드 GET /sessions/{id}/files 의 첫 응답에 `agent: []` 인 경우 백엔드 hydration 이 늦은 케이스를 의심,
+  // 3초 후 1회만 invalidate 해서 재요청. 두 번째 응답에서도 비어있으면 진짜 빈 세션으로 보고 더 안 시도.
+  const agentHydrationRetriedRef = useRef<Set<string>>(new Set());
   const allowNextPopStateRef = useRef(false);
   const isDirtyRef = useRef(false);
   const savedBackTargetRef = useRef<string | null>(null);
@@ -2068,7 +2141,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     queryKey: ["submission-poll", submissionExecutionId],
     queryFn: async () => {
       const data = await sessionApi.getSubmissionResult(submissionExecutionId!);
-      const rawStatus = (data.rawStatus ?? "RUNNING") as "RUNNING" | "COMPLETED" | "FAILED";
+      // 백엔드 5/14~ RabbitMQ 도입으로 QUEUED 상태 추가. QUEUED/RUNNING 둘 다 진행 중,
+      // COMPLETED/FAILED 만 terminal. (이전엔 QUEUED 가 정의에 없어 string cast 시 "RUNNING" 으로 떨어짐.)
+      const rawStatus = (data.rawStatus ?? "RUNNING") as "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
       const isTerminal = rawStatus === "COMPLETED" || rawStatus === "FAILED";
 
       // 직전 store 상태에서 startedAt 을 보존해야 elapsed 계산이 안 깨짐.
@@ -2079,7 +2154,15 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       const total = data.total ?? 0;
       const passed = data.passed ?? 0;
       const failed = data.failed ?? 0;
-      const buildFailed = isTerminal && total === 0 && passed === 0 && failed === 0;
+      // stderr 가 채워졌으면 buildFailed 판정에 활용 — 빌드 실패가 아니더라도 일반 런타임 에러 stderr 도 보존.
+      const submissionStderr = (data as { stderr?: string | null }).stderr ?? null;
+      const hasStderr = !!(submissionStderr && submissionStderr.trim());
+      // 빌드/컴파일 실패: terminal + (total=0 + passed=0 + failed=0) 이거나 exitCode != 0 + stderr 있음
+      const exitCode = (data as { exitCode?: number | null }).exitCode ?? null;
+      const buildFailed =
+        isTerminal &&
+        ((total === 0 && passed === 0 && failed === 0) ||
+          (typeof exitCode === "number" && exitCode !== 0 && total === 0));
       setSubmissionResult({
         executionId: String(data.id),
         rawStatus,
@@ -2094,7 +2177,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         startedAt: prev?.startedAt ?? Date.now(),
         endedAt: isTerminal ? Date.now() : null,
         buildFailed,
-        buildStderr: null
+        // 빌드 실패 케이스: stderr 본문 보여줌. 일반 채점 실패에도 stderr 있으면 보조 표시 가능.
+        buildStderr: hasStderr ? submissionStderr : null
       });
 
       if (isTerminal) {
@@ -2407,6 +2491,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
   useEffect(() => {
     loadedBackendFilesRef.current.clear();
+    // sessionId 가 바뀌면 hydration retry 마크도 비움 — 다른 세션도 첫 응답이 비면 1회 재시도 받게.
+    agentHydrationRetriedRef.current.clear();
   }, [sessionId]);
 
   useEffect(() => {
@@ -2422,6 +2508,25 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       monacoRef.current = null;
     };
   }, [cleanupEditorSubscriptions, disposeTrackedMonacoModels]);
+
+  // 세션 진입 직후 첫 workspace 응답에 agent 파일이 0개면 백엔드 하네스 hydration 지연 의심 —
+  // 3초 후 1회만 invalidate 해서 재요청. 두 번째 응답에서도 비어있으면 "이 세션은 진짜 하네스 없음" 으로 보고
+  // 더 시도 안 함 (무한 폴링 방지). agent 가 채워진 응답을 한 번이라도 받으면 즉시 retry 카운트 잠금.
+  useEffect(() => {
+    if (!sessionId || !workspace) return;
+    if (!isBackendSessionId(sessionId)) return;
+    const hasAgentFiles = (workspace.files ?? []).some((f) => f.path.startsWith("agent/"));
+    if (hasAgentFiles) {
+      agentHydrationRetriedRef.current.add(sessionId);
+      return;
+    }
+    if (agentHydrationRetriedRef.current.has(sessionId)) return;
+    agentHydrationRetriedRef.current.add(sessionId); // 한 번만 시도하도록 즉시 마크
+    const t = window.setTimeout(() => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
+    }, 3000);
+    return () => window.clearTimeout(t);
+  }, [sessionId, workspace, queryClient]);
 
   useEffect(() => {
     if (workspace?.files?.length) {
@@ -3363,6 +3468,29 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       editorRef.current = editor;
     }
     trackMonacoModels(editor, monaco);
+
+    // 사용자가 직접 만든 파일 (특히 .java) 에서 syntax highlighting 이 안 된다는 보고가 있어,
+    // mount 시점에 명시적으로 model language 를 재설정. `path` prop 이 `${groupId}:${filePath}`
+    // 형태라 Monaco URI 가 group-id:src/Main.java 가 되어 자동 추론이 일관되지 않을 수 있고,
+    // @monaco-editor/react 가 createModel(value, language, uri) 호출할 때 language prop
+    // 적용 race 가 일어나면 plaintext 로 stamp 된 채 남는 케이스를 방어.
+    try {
+      const model = editor.getModel?.();
+      if (model && monaco?.editor?.setModelLanguage) {
+        // URI path 에서 실제 파일 path 추출 — `${groupId}:${path}` 형태일 가능성 가장 높음.
+        const modelPath: string = model.uri?.path ?? model.uri?.fsPath ?? "";
+        const cleaned = modelPath.replace(/^[/\\]+/, "");
+        const actualPath = cleaned.includes(":") ? cleaned.split(":").slice(1).join(":") : cleaned;
+        const expectedLanguage = inferLanguageFromPath(actualPath || cleaned);
+        const currentLanguage = model.getLanguageId?.() ?? null;
+        if (expectedLanguage && expectedLanguage !== "plaintext" && currentLanguage !== expectedLanguage) {
+          monaco.editor.setModelLanguage(model, expectedLanguage);
+        }
+      }
+    } catch {
+      /* Monaco API 버전 차이 — 무시 */
+    }
+
     const initialPosition = editor.getPosition();
 
     if (initialPosition) {
@@ -5678,10 +5806,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     });
   }, []);
 
+  // 트리 들여쓰기 간격 — 이전 7px 은 폴더/파일 시각적 구분이 약하다는 피드백이 있어 12px 로 확대.
+  // 동시에 .tree-branch__children::before 로 좌측 가이드 라인을 그어 부모-자식 관계를 명시.
+  const TREE_INDENT_PX = 12;
   const renderTreeNodes = (nodes: TreeNode[], depth = 0): Array<JSX.Element> =>
     nodes.flatMap((node, index) => {
       const isLast = index === nodes.length - 1;
-      const treeGuideLeft = `${6 + depth * 7}px`;
+      const treeGuideLeft = `${6 + depth * TREE_INDENT_PX}px`;
       const treeGuideBottom = isLast ? "50%" : "-4px";
 
       if (node.kind === "folder") {
@@ -5710,7 +5841,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                 ["--tree-depth" as string]: depth,
                 ["--tree-guide-left" as string]: treeGuideLeft,
                 ["--tree-guide-bottom" as string]: treeGuideBottom,
-                paddingLeft: `${7 + depth * 7}px`
+                paddingLeft: `${7 + depth * TREE_INDENT_PX}px`
               }}
               onClick={() => toggleFolder(node.key)}
               onDragOver={(event) => handleExplorerFolderDragOver(event, node.path ?? "")}
@@ -5768,7 +5899,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                 {explorerCreateDraft?.parentPath === node.path ? (
                   <div
                     className="tree-create-row"
-                    style={{ paddingLeft: `${9 + (depth + 1) * 7}px` }}
+                    style={{ paddingLeft: `${9 + (depth + 1) * TREE_INDENT_PX}px` }}
                   >
                     <span
                       className={
@@ -5834,7 +5965,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               ["--tree-depth" as string]: depth,
               ["--tree-guide-left" as string]: treeGuideLeft,
               ["--tree-guide-bottom" as string]: treeGuideBottom,
-              paddingLeft: `${9 + depth * 7}px`
+              paddingLeft: `${9 + depth * TREE_INDENT_PX}px`
             }}
             onClick={() => isWorktree ? openDiffTab(file.path) : focusLine(file.path)}
             onContextMenu={(event) =>
@@ -5876,7 +6007,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             ["--tree-depth" as string]: depth,
             ["--tree-guide-left" as string]: treeGuideLeft,
             ["--tree-guide-bottom" as string]: treeGuideBottom,
-            paddingLeft: `${9 + depth * 7}px`
+            paddingLeft: `${9 + depth * TREE_INDENT_PX}px`
           }}
           draggable
           onDragStart={(event) => handleExplorerFileDragStart(event, file.path)}
@@ -6180,11 +6311,21 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           <div className="stack-12">
             {!testLoading && testResult && testResult.buildFailed && testResult.buildStderr ? (
               <pre className="build-stderr-block">{testResult.buildStderr}</pre>
-            ) : !testLoading && testResult
-              ? testResult.results.map((result) => (
+            ) : !testLoading && testResult ? (
+              <>
+                {testResult.results.map((result) => (
                   <TestResultRow key={result.id} result={result} />
-                ))
-              : null}
+                ))}
+                {/* 일반 테스트 실패(빌드는 성공)에서도 stderr 가 있으면 결과 리스트 하단에 노출 —
+                    이전엔 buildFailed 일 때만 보여줘서 "왜 실패했는지 모르겠다" 케이스가 있었음. */}
+                {!testResult.buildFailed && testResult.stderr && testResult.failed > 0 ? (
+                  <details className="test-stderr-details">
+                    <summary>실패 원인 stderr ({testResult.failed}개 실패)</summary>
+                    <pre className="build-stderr-block test-stderr-block">{testResult.stderr}</pre>
+                  </details>
+                ) : null}
+              </>
+            ) : null}
           </div>
         </div>
       );
@@ -6619,10 +6760,14 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         : groupActiveTab?.kind === "file"
           ? groupActiveTab.file
           : null;
-    const groupCanPreviewMarkdown =
-      group.id === activeEditorGroupId && groupActiveTab?.kind === "file" && isMarkdownWorkspaceFile(groupActiveFile);
-    const groupPreviewOpen = groupCanPreviewMarkdown && markdownPreviewOpen;
     const groupIsActive = group.id === activeEditorGroupId;
+    const isMarkdownActiveFile = groupActiveTab?.kind === "file" && isMarkdownWorkspaceFile(groupActiveFile);
+    // 토글 버튼(편집/미리보기) 은 활성 그룹에서만 노출 — 사용자가 의도적으로 모드 변경.
+    const groupCanPreviewMarkdown = groupIsActive && isMarkdownActiveFile;
+    // 비활성 그룹에서 md 파일은 항상 preview 로 유지 — 이전엔 활성 그룹만 preview 라
+    // 사용자가 다른 그룹으로 포커싱 옮기면 md 가 Monaco 편집 모드로 빠지던 문제 (raw 텍스트 노출).
+    // 활성 그룹은 사용자 토글(markdownPreviewOpen) 따름 — 의도적 편집 가능.
+    const groupPreviewOpen = isMarkdownActiveFile && (!groupIsActive || markdownPreviewOpen);
 
     return (
       <section

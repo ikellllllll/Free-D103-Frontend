@@ -2037,6 +2037,22 @@ body:has(.ide-route--workspace) .page-shell > * {
   gap: 1px;
   margin-left: 4px;
   padding: 0;
+  position: relative;
+}
+
+/* 부모-자식 관계 시각화 — 폴더 chevron 위치 직하단에 좌측 가이드 라인.
+   인라인 paddingLeft 가 depth 마다 12px 씩 증가하므로 가이드는 항상 부모 폴더
+   기준 left:11px (chevron 정렬) 에 그린다. dashed/저채도 — 시각 잡음 최소화. */
+.tree-branch--open > .tree-branch__children::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 1px;
+  bottom: 1px;
+  width: 1px;
+  background: var(--ide-border);
+  opacity: 0.45;
+  pointer-events: none;
 }
 
 .tree-branch--open > .tree-folder {
@@ -4299,6 +4315,39 @@ html[data-theme="dark"] .report-summary-md hr { border-top-color: rgba(255,255,2
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* 일반 테스트 실패에서 보조로 보여주는 stderr — collapsible. 빌드 실패 stderr 와 시각적 위계 분리: 살짝 약한 톤. */
+.test-stderr-details {
+  margin-top: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, #f97316 28%, var(--ide-border) 72%);
+  background: color-mix(in srgb, #f97316 6%, var(--ide-surface) 94%);
+}
+.test-stderr-details > summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: color-mix(in srgb, #fdba74 60%, var(--text) 40%);
+  padding: 4px 0;
+  list-style: none;
+}
+.test-stderr-details > summary::-webkit-details-marker {
+  display: none;
+}
+.test-stderr-details > summary::before {
+  content: "▶";
+  display: inline-block;
+  margin-right: 6px;
+  font-size: 9px;
+  transition: transform 0.15s ease;
+}
+.test-stderr-details[open] > summary::before {
+  transform: rotate(90deg);
+}
+.test-stderr-block {
+  margin-top: 6px;
 }
 
 .build-status__pill:hover { filter: brightness(1.15); transform: translateY(-1px); }

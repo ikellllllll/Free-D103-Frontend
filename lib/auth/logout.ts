@@ -43,5 +43,27 @@ export async function performLogout(queryClient: QueryClient): Promise<void> {
     } catch {
       /* security / quota */
     }
+
+    // 5) 세션별 에디터 레이아웃 스냅샷 (`aig:ide-editor-layout:<sessionId>`)
+    //    — IdeShell 이 sessionId 별로 split/그룹/탭 구성을 localStorage 에 저장한다 (EDITOR_LAYOUT_STORAGE_PREFIX).
+    //    정상 종료 경로(EndSession)에서는 IdeShell 이 cleanup 하지만, 탭 강제 종료/브라우저 크래시 시
+    //    잔존 → 다음 사용자에게 키 패턴으로 이전 사용자 sessionId 가 노출됨. logout 에서 일괄 정리.
+    try {
+      const removeKeys: string[] = [];
+      for (let i = 0; i < window.localStorage.length; i += 1) {
+        const key = window.localStorage.key(i);
+        if (!key) continue;
+        if (key.startsWith("aig:ide-editor-layout:")) removeKeys.push(key);
+      }
+      removeKeys.forEach((key) => {
+        try {
+          window.localStorage.removeItem(key);
+        } catch {
+          /* per-key quota — 무시 */
+        }
+      });
+    } catch {
+      /* localStorage 접근 불가 (security mode) — 무시 */
+    }
   }
 }

@@ -246,17 +246,47 @@ function enqueueSessionMutation<T>(sessionId: string, fn: () => Promise<T>): Pro
   return next;
 }
 
+/**
+ * path → Monaco editor language ID 매핑.
+ * IdeShell.tsx 의 동명 함수와 동일 규칙으로 유지 (사용자 보고: 새 파일 highlighting 누락).
+ * Monaco 가 기본 지원 안 하는 toml/dockerfile 등은 시각적으로 가까운 기본 언어로 fallback.
+ */
 const inferLanguageFromPath = (path: string): string => {
   const lower = path.toLowerCase();
+  const fileName = lower.split("/").pop() ?? lower;
+
+  if (fileName === "dockerfile" || fileName.startsWith("dockerfile.")) return "dockerfile";
+  if (fileName === "makefile") return "shell";
 
   if (lower.endsWith(".java")) return "java";
-  if (lower.endsWith(".py")) return "python";
-  if (lower.endsWith(".md")) return "markdown";
+  if (lower.endsWith(".kt") || lower.endsWith(".kts")) return "kotlin";
+  if (lower.endsWith(".ts") || lower.endsWith(".tsx")) return "typescript";
+  if (lower.endsWith(".js") || lower.endsWith(".jsx") || lower.endsWith(".mjs") || lower.endsWith(".cjs"))
+    return "javascript";
+  if (lower.endsWith(".py") || lower.endsWith(".pyi")) return "python";
+  if (lower.endsWith(".rb")) return "ruby";
+  if (lower.endsWith(".go")) return "go";
+  if (lower.endsWith(".rs")) return "rust";
+  if (lower.endsWith(".php")) return "php";
+  if (lower.endsWith(".sh") || lower.endsWith(".bash") || lower.endsWith(".zsh")) return "shell";
+  if (lower.endsWith(".ps1")) return "powershell";
+  if (lower.endsWith(".md") || lower.endsWith(".mdx") || lower.endsWith(".markdown")) return "markdown";
   if (lower.endsWith(".json")) return "json";
   if (lower.endsWith(".yml") || lower.endsWith(".yaml")) return "yaml";
+  // toml/ini/conf/cfg — Monaco 기본 미지원 toml 은 ini 가 시각적으로 가장 가까움.
+  if (lower.endsWith(".toml") || lower.endsWith(".ini") || lower.endsWith(".conf") || lower.endsWith(".cfg"))
+    return "ini";
   if (lower.endsWith(".xml")) return "xml";
+  if (lower.endsWith(".html") || lower.endsWith(".htm")) return "html";
+  if (lower.endsWith(".css")) return "css";
+  if (lower.endsWith(".scss")) return "scss";
+  if (lower.endsWith(".less")) return "less";
   if (lower.endsWith(".properties")) return "properties";
   if (lower.endsWith(".sql")) return "sql";
+  if (lower.endsWith(".gradle") || lower.endsWith(".groovy")) return "groovy";
+  if (lower.endsWith(".cpp") || lower.endsWith(".cc") || lower.endsWith(".cxx") || lower.endsWith(".hpp"))
+    return "cpp";
+  if (lower.endsWith(".c") || lower.endsWith(".h")) return "c";
 
   return "plaintext";
 };
@@ -391,6 +421,20 @@ const rememberFileIds = (sessionId: string, payload: GetFileTreeResponse) => {
   externalFileIdBySession.set(sessionId, mapping);
 };
 
+/**
+ * 백엔드 응답에 swagger 예시값 (`path="string"` / `name="string"`) 같은 placeholder noise 가
+ * 섞여 들어오는 케이스를 방어. path 가 비어있거나 "string" 같은 placeholder 면 트리에서 제외.
+ * (실제 사례: GET /sessions/{id}/files 응답에 nodeType=DIRECTORY + path="string" + name="string"
+ *  인 항목이 섞여 나옴 — 백엔드 OpenAPI 예시 직렬화 흔적.)
+ */
+const isNoisePathItem = (item: FileTreeItemResponse): boolean => {
+  const path = (item.path ?? "").trim();
+  const name = (item.name ?? "").trim();
+  if (!path) return true;
+  if (path === "string" && (name === "string" || !name)) return true;
+  return false;
+};
+
 const toWorkspaceFiles = (
   sessionId: string,
   payload: GetFileTreeResponse,
@@ -401,7 +445,7 @@ const toWorkspaceFiles = (
   const sourceContent = new Map<string, string>();
 
   const sourceFiles = payload.files
-    .filter((item) => item.nodeType === "FILE")
+    .filter((item) => item.nodeType === "FILE" && !isNoisePathItem(item))
     .map((item) => {
       const content = existingContent.get(item.path) ?? "";
       sourceContent.set(item.path, content);
@@ -415,7 +459,7 @@ const toWorkspaceFiles = (
 
   // 세션 하네스 파일 — raw path 에 'agent/' prefix 를 붙여 explorer 에서 한 폴더로 묶는다.
   const agentFiles = (payload.agent ?? [])
-    .filter((item) => item.nodeType === "FILE")
+    .filter((item) => item.nodeType === "FILE" && !isNoisePathItem(item))
     .map((item) => {
       const nextPath = toAgentPrefixedPath(item.path);
       return {
@@ -426,7 +470,7 @@ const toWorkspaceFiles = (
     });
 
   const worktreeFiles = payload.worktree
-    .filter((item) => item.nodeType === "FILE")
+    .filter((item) => item.nodeType === "FILE" && !isNoisePathItem(item))
     .map((item) => {
       const nextPath = normalizeWorktreePath(item.path);
       const sourcePath = item.path.replace(/^\.worktree\//, "");
@@ -451,11 +495,17 @@ const formatTraceTime = (iso: string) =>
 
 const normalizeToolCalls = (calls: AgentToolCall[] | null | undefined): AgentToolCall[] =>
   (calls ?? []).map((call, index) => {
-    // 백엔드는 argsPreview / resultPreview 로 응답. 옛 코드 호환 위해 argsJson 에도 같은 값 미러.
-    const rawArgs = (call as unknown as { argsPreview?: Record<string, unknown> | null }).argsPreview
-      ?? call?.argsJson
+    // 백엔드 TraceDetailResponse refactor (2026-05-12, 6419652) 로 키가 변경됨:
+    //   argsPreview → argsJson, resultPreview → resultJson
+    // 옛 응답(예: 캐시된 trace) 호환을 위해 두 키 모두 시도 후 옛 키 alias 도 유지.
+    const rawArgs =
+      (call as unknown as { argsJson?: Record<string, unknown> | null }).argsJson
+      ?? (call as unknown as { argsPreview?: Record<string, unknown> | null }).argsPreview
       ?? null;
-    const rawResult = (call as unknown as { resultPreview?: Record<string, unknown> | null }).resultPreview ?? null;
+    const rawResult =
+      (call as unknown as { resultJson?: Record<string, unknown> | null }).resultJson
+      ?? (call as unknown as { resultPreview?: Record<string, unknown> | null }).resultPreview
+      ?? null;
     return {
       toolCallId: String(call?.toolCallId ?? `tool-${index + 1}`),
       toolName: String(call?.toolName ?? "tool"),
@@ -481,12 +531,20 @@ const normalizeLlmCalls = (calls: AgentLlmCall[] | null | undefined): AgentLlmCa
   }));
 
 const normalizePatches = (patches: AgentPatch[] | null | undefined): AgentPatch[] =>
-  (patches ?? []).map((patch, index) => ({
-    patchId: String(patch?.patchId ?? `patch-${index + 1}`),
-    filePath: String(patch?.filePath ?? ""),
-    additions: Number(patch?.additions ?? 0),
-    deletions: Number(patch?.deletions ?? 0)
-  }));
+  (patches ?? []).map((patch, index) => {
+    // 백엔드 TraceDetailResponse refactor (2026-05-12, 6419652) 로 patchId → agentPatchId 로 키 변경.
+    // 옛 응답 호환을 위해 두 키 모두 시도.
+    const id =
+      (patch as unknown as { agentPatchId?: string | number | null }).agentPatchId
+      ?? patch?.patchId
+      ?? `patch-${index + 1}`;
+    return {
+      patchId: String(id),
+      filePath: String(patch?.filePath ?? ""),
+      additions: Number(patch?.additions ?? 0),
+      deletions: Number(patch?.deletions ?? 0)
+    };
+  });
 
 const normalizeSpans = (spans: AgentSpan[] | null | undefined): AgentSpan[] =>
   (spans ?? []).map((span, index) => ({
@@ -594,6 +652,9 @@ const normalizeSelectedSpan = (span: AgentTraceSelectedSpanResponse): AgentSpan 
   toolCalls: normalizeToolCalls(span.toolCalls),
   llmCalls: normalizeLlmCalls(span.llmCalls),
   patches: normalizePatches(span.patches),
+  // 백엔드 5/12 TraceDetailResponse refactor 로 preview / logView 두 record 모두 제거됨.
+  // 호환 fallback 유지 (옛 캐시) — 새 응답에선 항상 null 로 떨어져 TraceWorkbench 의 Input/Output 섹션이
+  // "데이터 없음" 표시. 백엔드가 다시 노출하면 자동으로 채워짐.
   inputJson: span.logView?.inputJson ?? span.preview?.input ?? null,
   outputJson: span.logView?.outputJson ?? span.preview?.output ?? null
 });
@@ -718,6 +779,9 @@ const toTestRunResult = (payload: GetExecutionResultResponse): TestRunResult => 
     })),
     buildFailed,
     buildStderr: hasStderr ? payload.stderr : null,
+    // stderr 는 buildFailed 여부와 무관하게 항상 채움 — 일반 실패에서도 사용자가 원인 파악 가능하도록.
+    // (이전엔 buildFailed 가 아닐 때 stderr 가 UI 에 노출되지 않아 "왜 실패했는지 모르겠다" 라는 피드백이 있었음.)
+    stderr: hasStderr ? payload.stderr : null,
     rawStatus: payload.status
   };
 };
@@ -1261,6 +1325,20 @@ export const sessionApi = {
   },
 
   /**
+   * 리포트 재생성 요청 — POST /api/v1/sessions/{problemSessionId}/report-retry (2026-05-15~ 확인).
+   * 백엔드 SessionController#retryReport, reportStatus=FAILED 인 세션만 허용.
+   * 응답: { problemSessionId } — feedbackReportId 는 포함 안 됨, 폴링으로 별도 확인.
+   *
+   * 기존엔 endSession (POST /sessions/{id}/end) 재호출로 우회 처리했으나 정식 endpoint 가 있어 교체.
+   */
+  async retryReport(problemSessionId: string | number) {
+    const res = await authClient
+      .post(`api/v1/sessions/${problemSessionId}/report-retry`)
+      .json<ApiResponse<{ problemSessionId: number }>>();
+    return res.data;
+  },
+
+  /**
    * AI 채팅 SSE streaming.
    * 백엔드: POST /api/v1/ai/sessions/{id}/chat/stream (text/event-stream).
    * 응답 프레임: event: {metadata|data|end|error} + data: <json>
@@ -1542,6 +1620,23 @@ export const sessionApi = {
         ? (passedDerived / totalDerived) * 100
         : data.passRate ?? 0;
 
+    // Terminal (COMPLETED/FAILED) 도달 시 추가로 /executions/{id}/results 호출해서 stdout/stderr/exitCode 합침.
+    // 제출 결과 응답엔 컴파일/런타임 에러 텍스트가 없어서, 빌드 실패 케이스에 사용자가 원인 파악 불가했음.
+    // RUNNING 중에는 호출 안 함 (제출 폴링 1.2초마다 도는데 매 tick 마다 두 번 호출하면 백엔드 부담).
+    let stderr: string | null = null;
+    let stdout: string | null = null;
+    let exitCode: number | null = null;
+    if (isTerminal) {
+      try {
+        const execRes = await this.getExecutionResult(String(data.executionId));
+        stderr = execRes?.stderr ?? null;
+        stdout = execRes?.stdout ?? null;
+        exitCode = typeof execRes?.exitCode === "number" ? execRes.exitCode : null;
+      } catch {
+        /* /results 호출 실패해도 메인 응답은 정상 반환 — stderr 만 null */
+      }
+    }
+
     return {
       id: String(data.executionId),
       sessionId: "",
@@ -1558,7 +1653,11 @@ export const sessionApi = {
       publicTotal: hasSplit ? publicTotal : undefined,
       hiddenPassed: hasSplit ? hiddenPassed : undefined,
       hiddenTotal: hasSplit ? hiddenTotal : undefined,
-      rawStatus: data.status
+      rawStatus: data.status,
+      // 빌드/런타임 에러 메시지 — buildFailed 판정 + UI 노출에 사용.
+      stdout,
+      stderr,
+      exitCode
     };
   }
 };
