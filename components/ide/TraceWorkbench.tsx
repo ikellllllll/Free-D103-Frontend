@@ -20,6 +20,37 @@ function TraceSummaryMarkdown({ text, className }: { text: string; className?: s
   );
 }
 
+// line-clamp 환경용 인라인 마크다운 렌더러 — **bold** / *italic* / `code` 만 처리.
+// heading·table·list 줄은 건너뛰고 첫 실제 내용 단락을 추출.
+function TraceInlineMd({ text, className }: { text: string; className?: string }) {
+  const firstLine =
+    text
+      .split("\n")
+      .map((l) => l.trim())
+      .find(
+        (l) =>
+          l.length > 3 &&
+          !l.startsWith("#") &&
+          !l.startsWith("|") &&
+          !l.match(/^[-*+]\s/) &&
+          !l.match(/^\d+\.\s/) &&
+          !l.match(/^[=\-]{3,}$/)
+      ) ?? text.split("\n")[0].trim();
+
+  const parts = firstLine.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g);
+  const nodes = parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**"))
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
+    if (part.startsWith("*") && part.endsWith("*"))
+      return <em key={i}>{part.slice(1, -1)}</em>;
+    if (part.startsWith("`") && part.endsWith("`"))
+      return <code key={i} className="twb-inline-code">{part.slice(1, -1)}</code>;
+    return <span key={i}>{part}</span>;
+  });
+
+  return <p className={className}>{nodes}</p>;
+}
+
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 const STATUS_DOT: Record<string, string> = {
@@ -699,7 +730,7 @@ function TraceList({ runs, selectedId, isLoading, page, totalPages, totalRuns, o
                 </div>
                 <div className="twb-run-row__date">{fmtDate(run.startedAt)}</div>
                 {run.summaryText && (
-                  <p className="twb-run-row__summary">{run.summaryText}</p>
+                  <TraceInlineMd text={run.summaryText} className="twb-run-row__summary" />
                 )}
                 {run.status === "FAILED" && run.errorMessage && (
                   <p className="twb-run-row__error">{run.errorMessage}</p>

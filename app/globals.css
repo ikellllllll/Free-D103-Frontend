@@ -7877,6 +7877,12 @@ html[data-theme="light"] .twb-col-resizer {
   font-size: 0.7rem; color: var(--muted); margin: 0; line-height: 1.45;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
+.twb-inline-code {
+  font-family: var(--font-mono); font-size: 0.85em;
+  background: var(--surface-2, rgba(255,255,255,0.08));
+  border: 1px solid var(--border); border-radius: 3px; padding: 0 3px;
+  color: var(--text);
+}
 .twb-run-row__error {
   font-size: 0.67rem; color: var(--red, #f87171); margin: 0;
   font-family: var(--font-mono);
