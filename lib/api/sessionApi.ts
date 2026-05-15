@@ -1107,6 +1107,20 @@ export const sessionApi = {
     return res.data;
   },
 
+  /**
+   * 테스트 실행 폴링 1회 — payload 와 함께 toRunResult/toTestRunResult 변환 결과도 같이 반환.
+   * IdeShell 의 testExecutionId useQuery 에서 사용 (페이지 이탈 시 자동 cleanup, 무제한 폴링).
+   * sync runExecution 의 hard timeout 대신 React-Query 가 lifecycle 관리.
+   */
+  async pollTestExecution(executionId: string) {
+    const payload = await this.getExecutionResult(executionId);
+    return {
+      raw: payload,
+      runResult: toRunResult(payload),
+      testResult: toTestRunResult(payload),
+    };
+  },
+
   async runExecution(sessionId: string) {
     const executionId = await this.startExecution(sessionId);
     let payload = await this.getExecutionResult(executionId);

@@ -1998,6 +1998,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
   const [chatInput, setChatInput] = useState("");
   const [chatModel, setChatModel] = useState<string>(DEFAULT_CHAT_MODEL);
+  // 테스트 실행 (handleTest) 의 비동기 폴링 핸들 — sessionApi.runExecution 의 sync for-loop 폴링을
+  // useQuery 기반 비동기로 전환 (2026-05-15). RabbitMQ 큐 길어져도 timeout 없이 결과까지 대기.
+  // 페이지 이탈 / 세션 변경 시 useQuery 가 자동 cleanup.
+  const [testExecutionId, setTestExecutionId] = useState<string | null>(null);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const modelDropdownRef = useRef<HTMLDivElement | null>(null);
 
@@ -2202,6 +2206,51 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       return 1000;
     }
   });
+
+  // 테스트 실행 결과 폴링 — handleTest 에서 testExecutionId 가 set 되면 활성화.
+  // 큐 적체로 길어져도 timeout 없이 끝까지 대기 (submission 폴링과 동일 패턴).
+  // QUEUED / RUNNING 모두 비-terminal — COMPLETED/FAILED 도달 시만 정지. errorUpdateCount 3 가드.
+  const testExecutionQuery = useQuery({
+    queryKey: ["test-execution-poll", testExecutionId],
+    queryFn: async () => {
+      const data = await sessionApi.pollTestExecution(testExecutionId!);
+      const status = data.raw.status;
+      const isTerminal = status === "COMPLETED" || status === "FAILED";
+      if (isTerminal) {
+        setRunResult(data.runResult);
+        setTestResult(data.testResult);
+        setTestLoading(false);
+        setTestStartedAtMs(null);
+        // 토스트는 한 번만 — testExecutionId 가 null 로 바뀌면 useQuery 비활성화.
+        if (status === "COMPLETED") {
+          addToast(`공개 테스트 ${data.testResult.passed}/${data.testResult.total} 통과`, "success");
+        } else {
+          addToast("테스트 실행이 실패했습니다. 출력 패널을 확인하세요.", "error");
+        }
+        refreshSession();
+        setTestExecutionId(null);
+      }
+      return data;
+    },
+    enabled: !!testExecutionId && isBackendSessionId(sessionId),
+    refetchInterval: (q) => {
+      const status = q.state.data?.raw?.status;
+      if (status === "COMPLETED" || status === "FAILED") return false;
+      if (q.state.errorUpdateCount >= 3) return false;
+      return 1000;
+    },
+  });
+
+  // 테스트 실행 폴링도 에러 3회 누적 시 loading 해제 + 사용자 안내.
+  useEffect(() => {
+    if (testExecutionQuery.errorUpdateCount >= 3 && testLoading) {
+      setTestLoading(false);
+      setTestStartedAtMs(null);
+      setTestExecutionId(null);
+      addToast("테스트 결과 조회에 실패했습니다. 잠시 후 다시 시도해 주세요.", "error");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [testExecutionQuery.errorUpdateCount, testLoading]);
 
   // submission 폴링이 에러 3회 누적되면 loading 해제 + 사용자 안내.
   useEffect(() => {
@@ -5418,23 +5467,21 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     setTestLoading(true);
     try {
       if (isBackendSessionId(sessionId)) {
-        const result = await sessionApi.runExecution(sessionId);
-        setRunResult(result.runResult);
-        setTestResult(result.testResult);
-        addToast(
-          result.raw.status === "COMPLETED"
-            ? `공개 테스트 ${result.testResult.passed}/${result.testResult.total} 통과`
-            : "테스트 실행이 실패했습니다. 출력 패널을 확인하세요.",
-          result.raw.status === "COMPLETED" ? "success" : "error"
-        );
+        // 백엔드 5/14 RabbitMQ 도입 이후 sync runExecution 폴링은 큐 적체 시 154초 hard timeout 으로
+        // 결과 못 받던 회귀. startExecution → testExecutionId state 만 박고 useQuery 가 비동기 폴링
+        // (위 testExecutionQuery). terminal 도달 시 toast / store 갱신을 useQuery 안에서 처리.
+        const executionId = await sessionApi.startExecution(sessionId);
+        setTestExecutionId(executionId);
+        // testLoading 은 testExecutionQuery 의 terminal 콜백에서 false 로 전환. 여기선 그대로 유지.
       } else {
         const result = await mockApi.runTests(sessionId);
         setTestResult(result);
+        refreshSession();
+        setTestLoading(false);
+        setTestStartedAtMs(null);
       }
-      refreshSession();
     } catch (error) {
       addToast(error instanceof Error ? error.message : "테스트 실행에 실패했습니다.", "error");
-    } finally {
       setTestLoading(false);
       setTestStartedAtMs(null);
     }
