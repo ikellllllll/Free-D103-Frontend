@@ -2040,20 +2040,6 @@ body:has(.ide-route--workspace) .page-shell > * {
   position: relative;
 }
 
-/* 부모-자식 관계 시각화 — 폴더 chevron 위치 직하단에 좌측 가이드 라인.
-   인라인 paddingLeft 가 depth 마다 12px 씩 증가하므로 가이드는 항상 부모 폴더
-   기준 left:11px (chevron 정렬) 에 그린다. dashed/저채도 — 시각 잡음 최소화. */
-.tree-branch--open > .tree-branch__children::before {
-  content: "";
-  position: absolute;
-  left: 11px;
-  top: 1px;
-  bottom: 1px;
-  width: 1px;
-  background: var(--ide-border);
-  opacity: 0.45;
-  pointer-events: none;
-}
 
 .tree-branch--open > .tree-folder {
   color: var(--text);
