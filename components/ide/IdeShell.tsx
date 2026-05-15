@@ -2651,26 +2651,22 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     if (!files.length) return;
 
-    const anyGroupHasTab = editorGroups.some((g) => g.tabIds.length > 0);
     const validActive = activePath && files.some((f) => f.path === activePath);
-    if (anyGroupHasTab && validActive) return;
-
     const initial = resolveInitialEditorPath(files);
     if (!initial) return;
 
     if (!validActive) setActivePath(initial);
-    if (!anyGroupHasTab) {
-      setEditorGroups((state) => {
-        const anyT = state.some((g) => g.tabIds.length > 0);
-        if (anyT) return state;
-        const firstId = state[0]?.id ?? INITIAL_EDITOR_GROUP_ID;
-        return [
-          { id: firstId, tabIds: [initial], activeTabId: initial },
-          ...state.slice(1)
-        ];
-      });
-    }
-  }, [activePath, editorGroups, files, setActivePath]);
+
+    setEditorGroups((state) => {
+      const anyT = state.some((g) => g.tabIds.length > 0);
+      if (anyT) return state;
+      const firstId = state[0]?.id ?? INITIAL_EDITOR_GROUP_ID;
+      return [
+        { id: firstId, tabIds: [initial], activeTabId: initial },
+        ...state.slice(1)
+      ];
+    });
+  }, [activePath, files, setActivePath]);
 
   const ensureBackendFileContent = useCallback(
     async (path: string) => {
@@ -5674,6 +5670,23 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
     setAgentBuildLoading(true);
     try {
+      // sub-agent/(hyphen) 경로로 저장된 파일을 sub_agent/(underscore) 로 자동 rename.
+      // 백엔드 씨드가 구버전 경로로 파일을 생성한 경우 빌드 validator 가 UNSUPPORTED_HARNESS_PATH 를 반환함.
+      const subAgentHyphenFiles = files.filter((f) =>
+        f.path.startsWith("agent/sub-agent/")
+      );
+      for (const f of subAgentHyphenFiles) {
+        const correctedPath = f.path.replace("agent/sub-agent/", "agent/sub_agent/");
+        try {
+          await sessionApi.moveFile(sessionId, f.path, correctedPath);
+        } catch {
+          // rename 실패해도 빌드는 계속 진행
+        }
+      }
+      if (subAgentHyphenFiles.length > 0) {
+        await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
+      }
+
       const baseModel = resolveHarnessBaseModel(session?.aiModel);
       const result = await sessionApi.buildHarness(sessionId, baseModel);
       const validErrors = result.validErrors ?? [];
@@ -6309,6 +6322,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               //    runtime_config_json 으로 컴파일되어 session_harness 에 저장됨. agent run 시점엔
               //    이 JSON 만 읽음 (raw AGENTS.md 안 봄). 저장만 하고 build 안 부르면 **적용 안 됨**.
               //    baseModel 도 여기서 runtime_config 에 박혀 다음 agent run 의 기본 모델이 됨.
+              // sub-agent/(hyphen) → sub_agent/(underscore) 자동 교정
+              const subAgentFiles = files.filter((f) => f.path.startsWith("agent/sub-agent/"));
+              for (const f of subAgentFiles) {
+                try {
+                  await sessionApi.moveFile(sessionId, f.path, f.path.replace("agent/sub-agent/", "agent/sub_agent/"));
+                } catch { /* 실패해도 빌드 계속 */ }
+              }
               await sessionApi.buildHarness(sessionId, modelId);
 
               // 4) store 의 file content 를 즉시 갱신. 이전엔 invalidateQueries 만 호출했는데, store
