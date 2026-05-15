@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
-  PlayCircle,
   LogOut,
   Save,
   ChevronLeft,
@@ -940,6 +939,11 @@ export function LandingAIG() {
     cta: null
   });
   const previewRef = useRef<HTMLDivElement | null>(null);
+  const showcaseEndRef = useRef<HTMLDivElement | null>(null);
+  const featuresCardRef = useRef<HTMLDivElement | null>(null);
+  const reportsCardRef = useRef<HTMLDivElement | null>(null);
+
+  const [alreadyMemberModal, setAlreadyMemberModal] = useState(false);
 
   // Workflow step selector
   const [activeStep, setActiveStep] = useState(0);
@@ -992,15 +996,29 @@ export function LandingAIG() {
       return;
     }
 
-    if (id === "showcase" && previewRef.current) {
-      const top = previewRef.current.getBoundingClientRect().top + window.scrollY;
-      window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    const TOPBAR = 56;
+    if (id === "showcase" && showcaseEndRef.current && previewRef.current) {
+      const bottom = showcaseEndRef.current.getBoundingClientRect().bottom + window.scrollY;
+      const previewTop = previewRef.current.getBoundingClientRect().top + window.scrollY;
+      const targetByStats = bottom - window.innerHeight + 16;   // stats가 뷰포트 하단에 오는 위치
+      const targetByPreview = previewTop - TOPBAR;              // preview가 topbar 바로 아래에 오는 위치
+      window.scrollTo({ top: Math.max(0, Math.min(targetByStats, targetByPreview)), behavior: "smooth" });
+      return;
+    }
+    if (id === "features" && featuresCardRef.current) {
+      const top = featuresCardRef.current.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({ top: Math.max(0, top - TOPBAR - 24), behavior: "smooth" });
+      return;
+    }
+    if (id === "reports" && reportsCardRef.current) {
+      const top = reportsCardRef.current.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({ top: Math.max(0, top - TOPBAR - 24), behavior: "smooth" });
       return;
     }
     const node = sectionRefs.current[id];
     if (!node) return;
     const top = node.getBoundingClientRect().top + window.scrollY;
-    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    window.scrollTo({ top: Math.max(0, top - TOPBAR), behavior: "smooth" });
   }, []);
 
   const handleAnchorJump = useCallback(
@@ -1026,7 +1044,7 @@ export function LandingAIG() {
         </div>
 
         {/* Topbar */}
-        <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-white/70 shadow-sm">
+        <div className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-white/70 shadow-sm">
           <nav className="mx-auto h-14 max-w-6xl flex items-center justify-between px-6">
             <Link href="/" className="flex items-center space-x-2 font-display font-bold text-lg group cursor-pointer">
               <Image src="/brand/favicon.png" alt="AIG" width={35} height={35} className="rounded-lg object-cover" />
@@ -1048,7 +1066,7 @@ export function LandingAIG() {
         </div>
 
         {/* Hero content */}
-        <div className="relative z-10 flex flex-col items-center px-6 pt-6 pb-10 text-center max-w-4xl mx-auto w-full animate-slide-up md:pt-8">
+        <div className="relative z-10 flex flex-col items-center px-6 pt-20 pb-10 text-center max-w-4xl mx-auto w-full animate-slide-up md:pt-24">
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-bold tracking-tight leading-[1.1] mb-3">
             <span className="block">하네스엔지니어링</span>
             <span className="block">워크스페이스</span>
@@ -1072,14 +1090,6 @@ export function LandingAIG() {
               <span>문제 보기</span>
               <ArrowRight size={16} strokeWidth={2.4} />
             </Link>
-            <a
-              href="#showcase"
-              onClick={handleAnchorJump("showcase")}
-              className="inline-flex items-center space-x-2 bg-white/10 hover:bg-white/15 backdrop-blur-sm border border-white/20 text-white font-semibold px-6 py-3.5 rounded-full transition-colors cursor-pointer"
-            >
-              <PlayCircle size={18} strokeWidth={2.2} />
-              <span>데모 보기</span>
-            </a>
           </div>
         </div>
 
@@ -1124,20 +1134,21 @@ export function LandingAIG() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(99,102,241,0.10),transparent_55%)]" />
           <div className="absolute inset-0 bg-grid-pattern opacity-[0.06]" />
         </div>
-        <div className="relative z-10 max-w-5xl mx-auto px-6 w-full py-10">
-          <div className="grid grid-cols-4 gap-0 border-t border-white/10 pt-8 pb-12">
+        <div className="relative z-10 max-w-5xl mx-auto px-6 w-full py-4">
+          <div className="grid grid-cols-4 gap-0 border-t border-white/10 pt-4 pb-6">
             {showcaseStats.map((s, i) => (
-              <div key={s.label} className={`text-center py-6 ${i < 3 ? "border-r border-white/10" : ""}`}>
+              <div key={s.label} className={`text-center py-3 ${i < 3 ? "border-r border-white/10" : ""}`}>
                 <div
-                  className="text-4xl md:text-5xl font-display font-bold mb-2"
+                  className="text-3xl md:text-4xl font-display font-bold mb-1"
                   style={{ backgroundImage: "linear-gradient(90deg,#A5B4FC,#C4B5FD)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}
                 >
                   {s.value}
                 </div>
-                <div className="text-sm font-bold text-indigo-300/80 uppercase tracking-[0.12em]">{s.label}</div>
+                <div className="text-xs font-bold text-indigo-300/80 uppercase tracking-[0.12em]">{s.label}</div>
               </div>
             ))}
           </div>
+          <div ref={showcaseEndRef} />
         </div>
       </section>
 
@@ -1153,7 +1164,7 @@ export function LandingAIG() {
           <div className="absolute inset-0 bg-grid-pattern opacity-[0.04]" />
         </div>
 
-        <div className="relative max-w-6xl mx-auto px-6 w-full">
+        <div ref={featuresCardRef} className="relative max-w-6xl mx-auto px-6 w-full">
           {/* heading */}
           <div className="mb-12">
             <h2 className="text-4xl md:text-5xl font-display font-bold tracking-tight mb-4 text-slate-950">
@@ -1360,7 +1371,7 @@ export function LandingAIG() {
         <div className="pointer-events-none absolute top-0 left-0 right-0 h-full overflow-hidden">
           <div className="absolute inset-0 bg-grid-pattern opacity-[0.04]" />
         </div>
-        <div className="max-w-6xl mx-auto px-6 w-full relative">
+        <div ref={reportsCardRef} className="max-w-6xl mx-auto px-6 w-full relative">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div className="animate-slide-up">
               <h2 className="text-4xl md:text-5xl font-display font-bold text-gray-900 tracking-tight leading-tight mb-6">
@@ -1527,7 +1538,20 @@ export function LandingAIG() {
                 <h4 className="text-white font-semibold mb-2 uppercase tracking-wider">Start</h4>
                 <ul className="space-y-1.5 list-none pl-0 m-0">
                   <li><Link href="/login" className="hover:text-white transition-colors cursor-pointer">로그인</Link></li>
-                  <li><Link href="/signup" className="hover:text-white transition-colors cursor-pointer">회원가입</Link></li>
+                  <li>
+                    <button
+                      onClick={() => {
+                        if (user) {
+                          setAlreadyMemberModal(true);
+                        } else {
+                          window.location.href = "/signup";
+                        }
+                      }}
+                      className="hover:text-white transition-colors cursor-pointer bg-transparent border-0 p-0 text-inherit"
+                    >
+                      회원가입
+                    </button>
+                  </li>
                 </ul>
               </div>
               <div>
@@ -1550,6 +1574,36 @@ export function LandingAIG() {
           </div>
         </footer>
       </section>
+
+      {alreadyMemberModal && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center"
+          onClick={() => setAlreadyMemberModal(false)}
+        >
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div
+            className="relative bg-white rounded-2xl shadow-2xl px-8 py-7 w-80 flex flex-col items-center gap-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-indigo-500">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+                <path d="M12 8v4m0 4h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </div>
+            <div className="text-center">
+              <p className="text-slate-900 font-semibold text-base">이미 회원입니다</p>
+              <p className="text-slate-500 text-sm mt-1">현재 계정으로 로그인되어 있습니다.</p>
+            </div>
+            <button
+              onClick={() => setAlreadyMemberModal(false)}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl transition-colors text-sm"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
