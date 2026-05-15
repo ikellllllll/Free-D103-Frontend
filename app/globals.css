@@ -1885,7 +1885,11 @@ body:has(.ide-route--workspace) .page-shell > * {
   display: block;
 }
 .assistant-changes__head-text .muted-copy {
-  word-break: keep-all;
+  /* 이전: word-break: keep-all — 한글 단어가 통째로 들어가려다 좁은 너비에서 줄 끝 잘림.
+     break-word + anywhere 로 어디서든 줄바꿈 허용. */
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  margin: 4px 0 0;
 }
 
 .assistant-changes__head .muted-copy,
@@ -3393,6 +3397,23 @@ html[data-theme="light"] .problem-brief-codeblock__content .text-slate-200 {
   gap: 8px;
   font-size: 12px;
   color: var(--ide-text-muted);
+}
+
+/* diff editor 위 안내 — 원본/수정 동일 또는 로딩 중 상황 명시. */
+.diff-pane__notice {
+  padding: 8px 14px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--ide-border);
+  flex: 0 0 auto;
+}
+.diff-pane__notice--identical {
+  background: color-mix(in srgb, #f59e0b 12%, var(--ide-surface) 88%);
+  color: color-mix(in srgb, #f59e0b 65%, var(--text) 35%);
+  border-bottom-color: color-mix(in srgb, #f59e0b 24%, var(--ide-border) 76%);
+}
+.diff-pane__notice--loading {
+  background: color-mix(in srgb, #6366f1 8%, var(--ide-surface) 92%);
+  color: var(--muted);
 }
 
 .diff-pane__label .codicon {

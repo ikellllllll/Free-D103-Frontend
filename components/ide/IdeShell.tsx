@@ -7125,6 +7125,14 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                 </Markdown>
               </div>
             ) : groupActiveTab.kind === "diff" ? (
+              (() => {
+                // 양쪽 본문 동일 시 안내 — backend 가 source 와 worktree 에 같은 본문 응답하는 케이스.
+                // (AI 가 patch 적용 후 backend 가 worktree → source 동기 적용했거나, AI 결과가 원본 그대로인 경우)
+                const srcContent = groupActiveTab.sourceFile.content;
+                const tgtContent = groupActiveTab.targetFile.content;
+                const bothEmpty = !srcContent && !tgtContent;
+                const identical = srcContent === tgtContent && !bothEmpty;
+                return (
               <div className="diff-pane">
                 <div className="diff-pane__actions">
                   <div className="diff-pane__label">
@@ -7174,6 +7182,15 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                     </button>
                   </div>
                 </div>
+                {identical ? (
+                  <div className="diff-pane__notice diff-pane__notice--identical">
+                    ℹ️ 원본과 수정 제안의 내용이 동일합니다. 이미 적용되었거나 AI 가 변경하지 않은 경우일 수 있어요.
+                  </div>
+                ) : bothEmpty ? (
+                  <div className="diff-pane__notice diff-pane__notice--loading">
+                    ⏳ 파일 내용을 불러오는 중…
+                  </div>
+                ) : null}
                 <SafeDiffEditor
                   key={`${group.id}:${groupActiveTab.id}`}
                   theme={theme === "dark" ? "vs-dark" : "vs"}
@@ -7203,6 +7220,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   }}
                 />
               </div>
+                );
+              })()
             ) : (
               <MonacoEditor
                 key={`${group.id}:${groupActiveFile.path}`}
@@ -7662,7 +7681,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                                 {agentPatchPreviews.length}개 파일에 수정 제안이 준비되었습니다. 클릭하면 diff 탭에서 적용/거절할 수 있어요.
                               </p>
                             </div>
-                            <span className="ai-context-chip">{agentPatchPreviews.length} files</span>
+                            <span className="ai-context-chip" style={{ flexShrink: 0 }}>
+                              {agentPatchPreviews.length}개
+                            </span>
                           </div>
                           {/* latestAgentPatchSummary 는 채팅 메시지에 이미 풀 텍스트가 들어가 있어 카드에서는 노출하지 않음.
                               (전에는 <p> 안에 plain text 로 박혀 markdown 이 깨지고 채팅 버블과 시각적으로 겹쳐 보여 혼란스러웠음) */}
