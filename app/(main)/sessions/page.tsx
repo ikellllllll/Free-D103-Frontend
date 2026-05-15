@@ -562,11 +562,15 @@ function SessionRow({
   const isInProgress = state === "in_progress";
   const isAbandoned = state === "abandoned";
 
+  // 백엔드 SessionHistoryItem 에 submissionId/feedbackReportId 가 없어서 (2026-05-15 기준) 종료 세션 카드의
+  // submissionId 는 항상 null. 기존 href="#" 로 떨어져 클릭해도 아무 일 안 일어남.
+  // 임시 대응: submissionId 없으면 /reports 목록 페이지로 라우팅해서 사용자가 거기서 매칭되는 리포트 진입.
+  // 백엔드 팀에 SessionHistoryItem.feedbackReportId 추가 요청 — 추가되면 직접 라우팅으로 복귀.
   const href =
     isDone || isFailed
       ? session.submissionId
         ? withPrefix(`/submissions/${session.submissionId}/report`)
-        : "#"
+        : withPrefix(`/reports`)
       : withPrefix(`/ide/${session.sessionId}`);
 
   const accent = isDone

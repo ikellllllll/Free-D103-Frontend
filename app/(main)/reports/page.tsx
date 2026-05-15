@@ -8,11 +8,28 @@ import { FileText, Sparkles, AlertTriangle, RefreshCcw, Loader2, ChevronRight } 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { authApi } from "@/lib/api/authApi";
 import { sessionApi } from "@/lib/api/sessionApi";
+import { parseApiDateTime } from "@/lib/dateTime";
 import {
   loadPendingMarkers,
   savePendingMarkers,
   type PendingReportMarker
 } from "@/lib/reports/pendingMarkers";
+
+/**
+ * 백엔드 LocalDateTime 응답을 안전하게 포맷 — `new Date(null)` / `new Date("")` / `new Date(undefined)`
+ * 가 "Invalid Date" 로 떨어지던 케이스 방어. parseApiDateTime 가 timezone 보강 + 유효성 검사까지 해줌.
+ */
+const safeFormatReportDate = (iso: string | null | undefined): string => {
+  const d = parseApiDateTime(iso);
+  if (!d) return "-";
+  return d.toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+};
 import { useAuthStore } from "@/store/authStore";
 import { useUiStore } from "@/store/uiStore";
 
@@ -204,7 +221,7 @@ export default function ReportsPage() {
                     {m.problemTitle ?? "풀이"}
                   </div>
                   <div className="mt-1 text-xs text-gray-400 dark:text-slate-500">
-                    {new Date(m.startedAt).toLocaleString("ko-KR")}
+                    {safeFormatReportDate(m.startedAt)}
                   </div>
                 </div>
                 {m.status === "FAILED" ? (
@@ -307,7 +324,7 @@ export default function ReportsPage() {
                             {report.passedCount}/{report.totalCount} 통과 · {passRate}%
                           </span>
                           <span className="text-xs text-gray-400 dark:text-slate-500">
-                            {new Date(report.createdAt).toLocaleString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                            {safeFormatReportDate(report.createdAt)}
                           </span>
                         </div>
                       </div>

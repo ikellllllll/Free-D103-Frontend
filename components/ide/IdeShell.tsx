@@ -6680,10 +6680,14 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         : groupActiveTab?.kind === "file"
           ? groupActiveTab.file
           : null;
-    const groupCanPreviewMarkdown =
-      group.id === activeEditorGroupId && groupActiveTab?.kind === "file" && isMarkdownWorkspaceFile(groupActiveFile);
-    const groupPreviewOpen = groupCanPreviewMarkdown && markdownPreviewOpen;
     const groupIsActive = group.id === activeEditorGroupId;
+    const isMarkdownActiveFile = groupActiveTab?.kind === "file" && isMarkdownWorkspaceFile(groupActiveFile);
+    // 토글 버튼(편집/미리보기) 은 활성 그룹에서만 노출 — 사용자가 의도적으로 모드 변경.
+    const groupCanPreviewMarkdown = groupIsActive && isMarkdownActiveFile;
+    // 비활성 그룹에서 md 파일은 항상 preview 로 유지 — 이전엔 활성 그룹만 preview 라
+    // 사용자가 다른 그룹으로 포커싱 옮기면 md 가 Monaco 편집 모드로 빠지던 문제 (raw 텍스트 노출).
+    // 활성 그룹은 사용자 토글(markdownPreviewOpen) 따름 — 의도적 편집 가능.
+    const groupPreviewOpen = isMarkdownActiveFile && (!groupIsActive || markdownPreviewOpen);
 
     return (
       <section
