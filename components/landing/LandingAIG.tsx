@@ -11,6 +11,10 @@ import {
   ChevronLeft,
   ChevronRight
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+
+import { problemApi } from "@/lib/api/problemApi";
+import { useAuthStore } from "@/store/authStore";
 
 const SECTION_IDS = ["hero", "showcase", "features", "workflow", "reports", "cta"] as const;
 type SectionId = (typeof SECTION_IDS)[number];
@@ -18,9 +22,9 @@ type SectionId = (typeof SECTION_IDS)[number];
 const WORKFLOW = [
   {
     step: "01",
-    label: "세션 시작",
+    label: "과제 목록",
     cmd: "aig session start --problem todo-api",
-    tag: "세션",
+    tag: "과제",
     desc: "과제를 선택하고 AI 에이전트 세션을 초기화합니다. 파일 시스템이 준비되고 AI가 컨텍스트를 파악합니다.",
     img: "/problemsSession.png",
     alt: "세션 시작 화면"
@@ -103,9 +107,8 @@ const IDE_STEPS = [
 ];
 
 const SHOWCASE_STATS = [
-  { value: "5종", label: "하네스 과제" },
   { value: "AI", label: "에이전트 협업" },
-  { value: "3개", label: "평가 지표" },
+  { value: "5개", label: "평가 지표" },
   { value: "14기", label: "SSAFY" }
 ];
 
@@ -916,6 +919,18 @@ function LandingScoreRadar() {
 }
 
 export function LandingAIG() {
+  const user = useAuthStore((state) => state.user);
+  const hydrated = useAuthStore((state) => state.hydrated);
+  const isLoggedIn = hydrated && Boolean(user);
+  const { data: landingProblems } = useQuery({
+    queryKey: ["landingProblemCount"],
+    queryFn: () => problemApi.getProblems({ category: "ALL" }),
+    staleTime: 5 * 60 * 1000
+  });
+  const showcaseStats = [
+    { value: landingProblems ? `${landingProblems.length}종` : "-종", label: "하네스 과제" },
+    ...SHOWCASE_STATS
+  ];
   const sectionRefs = useRef<Record<SectionId, HTMLElement | null>>({
     hero: null,
     showcase: null,
@@ -1023,10 +1038,10 @@ export function LandingAIG() {
               <a href="#reports" onClick={handleAnchorJump("reports")} className="hover:text-indigo-600 transition-colors cursor-pointer">리포트</a>
             </div>
             <Link
-              href="/login"
+              href={isLoggedIn ? "/problems" : "/login"}
               className="inline-flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-md transition-colors shadow-sm cursor-pointer"
             >
-              <span>로그인</span>
+              <span>{isLoggedIn ? "과제 목록" : "로그인"}</span>
               <ArrowRight size={14} strokeWidth={2.4} />
             </Link>
           </nav>
@@ -1111,7 +1126,7 @@ export function LandingAIG() {
         </div>
         <div className="relative z-10 max-w-5xl mx-auto px-6 w-full py-10">
           <div className="grid grid-cols-4 gap-0 border-t border-white/10 pt-8 pb-12">
-            {SHOWCASE_STATS.map((s, i) => (
+            {showcaseStats.map((s, i) => (
               <div key={s.label} className={`text-center py-6 ${i < 3 ? "border-r border-white/10" : ""}`}>
                 <div
                   className="text-4xl md:text-5xl font-display font-bold mb-2"

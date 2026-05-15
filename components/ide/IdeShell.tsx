@@ -2774,7 +2774,12 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     () => explorerFiles.filter((file) => !isAgentConfigExplorerPath(file.path)),
     [explorerFiles]
   );
-  const agentFileTree = useMemo(() => buildFileTree(agentExplorerFiles), [agentExplorerFiles]);
+  const agentFileTree = useMemo(() => {
+    const localAgentFolders = localFolders.filter(isAgentConfigExplorerPath);
+    const apiAgentFolders = (workspace as { agentFolderPaths?: string[] } | undefined)?.agentFolderPaths ?? [];
+    const extraFolders = Array.from(new Set([...localAgentFolders, ...apiAgentFolders]));
+    return buildFileTree(agentExplorerFiles, extraFolders);
+  }, [agentExplorerFiles, localFolders, workspace]);
   const workspaceFileTree = useMemo(() => {
     const extraFolders = Array.from(new Set([...localFolders, ".worktree"]));
     const workspaceFolders = extraFolders.filter((folder) => !isAgentConfigExplorerPath(folder));
@@ -3308,11 +3313,14 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       : savePromptAction?.type === "navigate"
         ? `${unsavedPaths.length}개의 저장되지 않은 파일이 있습니다. 저장하지 않으면 변경 내용이 사라질 수 있습니다.`
         : `${unsavedPaths.length}개의 저장되지 않은 파일이 있습니다. 세션 종료 후에는 파일 저장, 실행, 제출이 차단될 수 있습니다.`;
-  // createdAt 이 없거나 파싱 실패면 IDE 마운트 시각으로 fallback.
-  // toTimestamp 헬퍼는 비어있을 때 Date.now() 를 반환하는데 그건 매 렌더마다 새로 갱신되어
-  // elapsed 가 항상 0 이 되는 함정이라 여기선 직접 createdAt 만 파싱해서 쓴다.
-  // 백엔드 createdAt 이 미래 시각 (timezone 혼동) 으로 해석되는 케이스도 마운트 시각 fallback.
-  const parsedCreatedAtMs = session?.createdAt ? parseApiDateTime(session.createdAt)?.getTime() : null;
+  // 백엔드가 타임존 없이 KST 시각을 내려주므로 Z suffix 를 제거한 뒤 브라우저 로컬 시간으로 파싱.
+  // (로컬 = KST 이므로 Date.now() 와 직접 비교 가능)
+  // localStorage 에 "...Z" 로 잘못 저장된 구세션도 Z 를 벗겨내면 동일하게 처리됨.
+  const rawCreatedAt = session?.createdAt ? session.createdAt.replace(/Z$/, "") : null;
+  const parsedCreatedAtMs = rawCreatedAt ? (() => {
+    const d = new Date(rawCreatedAt);
+    return Number.isFinite(d.getTime()) ? d.getTime() : null;
+  })() : null;
   const sessionStartMs =
     typeof parsedCreatedAtMs === "number" &&
     Number.isFinite(parsedCreatedAtMs) &&
@@ -4084,7 +4092,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
     const nextPath = explorerCreateDraft.parentPath ? `${explorerCreateDraft.parentPath}/${rawName}` : rawName;
 
-    if (explorerCreateDraft.kind === "folder") {
+    if (explorerCreateDraft.kind === "folder" && !isBackendSessionId(sessionId)) {
       setLocalFolders((state) => (state.includes(nextPath) ? state : [...state, nextPath]));
       setExplorerCreateDraft(null);
       addToast(`폴더 '${rawName}' 생성 준비 완료`, "success");
@@ -4104,6 +4112,26 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       const isHarnessPath = nextPath.startsWith("agent/");
 
       if (isHarnessPath) {
+        const backendPath = nextPath.slice("agent/".length);
+
+        if (explorerCreateDraft.kind === "folder") {
+          try {
+            await sessionApi.addHarnessFile(sessionId, {
+              path: backendPath,
+              name: rawName,
+              nodeType: "DIRECTORY"
+            });
+            await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
+            setLocalFolders((state) => (state.includes(nextPath) ? state : [...state, nextPath]));
+            setExplorerCreateDraft(null);
+            addToast(`폴더 '${rawName}'을 생성했어요.`, "success");
+            return;
+          } catch (error) {
+            addToast(error instanceof Error ? error.message : "하네스 폴더 생성에 실패했습니다.", "error");
+            return;
+          }
+        }
+
         // 백엔드 HarnessFileType enum: MARKDOWN / TOML / YAML 만 지원
         const ext = rawName.toLowerCase().split(".").pop();
         const fileTypeMap: Record<string, "MARKDOWN" | "TOML" | "YAML"> = {
@@ -4127,7 +4155,6 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
         try {
           // 백엔드는 agent/ prefix 없이 raw path 저장 — 매핑은 응답 재조회 시 frontend 가 다시 prefix 붙임
-          const backendPath = nextPath.slice("agent/".length);
           await sessionApi.addHarnessFile(sessionId, {
             path: backendPath,
             name: rawName,
@@ -4143,6 +4170,26 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           return;
         } catch (error) {
           addToast(error instanceof Error ? error.message : "하네스 파일 생성에 실패했습니다.", "error");
+          return;
+        }
+      }
+
+      if (explorerCreateDraft.kind === "folder") {
+        try {
+          const workspaceResult = await sessionApi.createFile(sessionId, {
+            path: nextPath,
+            nodeType: "DIRECTORY"
+          });
+
+          setWorkspace(workspaceResult.files, nextPath);
+          setLocalFolders((state) => (state.includes(nextPath) ? state : [...state, nextPath]));
+          setExplorerCreateDraft(null);
+          void queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
+          void queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
+          addToast(`폴더 '${rawName}'을 생성했어요.`, "success");
+          return;
+        } catch (error) {
+          addToast(error instanceof Error ? error.message : "폴더 생성에 실패했습니다.", "error");
           return;
         }
       }
@@ -4243,18 +4290,27 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       return;
     }
 
-    // 폴더 rename — 안의 모든 파일 일괄 PATCH
+    // 폴더 rename — 폴더 자체 PATCH 우선, 구버전 응답이면 내부 파일 단위로 fallback
     const folderFiles = files.filter((file) => file.path.startsWith(`${explorerRenameDraft.targetPath}/`));
-    if (isBackendSessionId(sessionId) && folderFiles.length > 0) {
+    if (isBackendSessionId(sessionId)) {
       try {
-        await Promise.all(
-          folderFiles.map((file) =>
-            sessionApi.moveFile(sessionId, file.path, replacePathPrefix(file.path, explorerRenameDraft.targetPath, nextPath))
-          )
-        );
+        await sessionApi.moveFile(sessionId, explorerRenameDraft.targetPath, nextPath);
       } catch (error) {
-        addToast(error instanceof Error ? error.message : "폴더 이름 변경에 실패했습니다.", "error");
-        return;
+        if (folderFiles.length === 0) {
+          addToast(error instanceof Error ? error.message : "폴더 이름 변경에 실패했습니다.", "error");
+          return;
+        }
+
+        try {
+          await Promise.all(
+            folderFiles.map((file) =>
+              sessionApi.moveFile(sessionId, file.path, replacePathPrefix(file.path, explorerRenameDraft.targetPath, nextPath))
+            )
+          );
+        } catch (fallbackError) {
+          addToast(fallbackError instanceof Error ? fallbackError.message : "폴더 이름 변경에 실패했습니다.", "error");
+          return;
+        }
       }
     }
 
@@ -4307,13 +4363,26 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         : files.filter((file) => file.path.startsWith(`${targetPath}/`)).map((file) => file.path);
 
     // 백엔드 세션이면 실제 DELETE 요청. mock 세션은 store 만 갱신 (기존 흐름).
-    if (isBackendSessionId(sessionId) && pathsToDelete.length > 0) {
+    if (isBackendSessionId(sessionId)) {
       try {
-        await Promise.all(pathsToDelete.map((p) => sessionApi.deleteFile(sessionId, p)));
+        if (targetKind === "folder") {
+          await sessionApi.deleteFile(sessionId, targetPath);
+        } else {
+          await Promise.all(pathsToDelete.map((p) => sessionApi.deleteFile(sessionId, p)));
+        }
       } catch (error) {
-        addToast(error instanceof Error ? error.message : "파일 삭제에 실패했습니다.", "error");
-        // 백엔드 실패 시 store 손대지 않고 종료 — 다음 새로고침에 정합 회복.
-        return;
+        if (targetKind === "folder" && pathsToDelete.length > 0) {
+          try {
+            await Promise.all(pathsToDelete.map((p) => sessionApi.deleteFile(sessionId, p)));
+          } catch (fallbackError) {
+            addToast(fallbackError instanceof Error ? fallbackError.message : "파일 삭제에 실패했습니다.", "error");
+            return;
+          }
+        } else {
+          addToast(error instanceof Error ? error.message : "파일 삭제에 실패했습니다.", "error");
+          // 백엔드 실패 시 store 손대지 않고 종료 — 다음 새로고침에 정합 회복.
+          return;
+        }
       }
     }
 

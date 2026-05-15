@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
 
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
@@ -16,12 +16,19 @@ export default function LoginPage() {
   const router = useRouter();
   const { withPrefix } = useRouteScope();
   const signIn = useAuthStore((s) => s.signIn);
+  const user = useAuthStore((s) => s.user);
+  const hydrated = useAuthStore((s) => s.hydrated);
   const addToast = useUiStore((s) => s.addToast);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const { githubOAuthLoading, startGithubOAuth } = useGithubOAuthLogin();
+
+  useEffect(() => {
+    if (!hydrated || !user) return;
+    router.replace(withPrefix("/problems"));
+  }, [hydrated, router, user, withPrefix]);
 
   const handleLogin = async () => {
     setLoading(true);

@@ -337,7 +337,9 @@ const buildExternalSession = (
   aiModel: string,
   aiProvider: string
 ): SolveSession => {
-  const startedAt = normalizeApiDateTime(payload.startedAt) ?? payload.startedAt;
+  // startedAt 은 백엔드가 타임존 없이 KST 로 내려줌.
+  // normalize(UTC 변환) 하지 않고 raw string 그대로 저장 → IdeShell 타이머가 로컬(KST) 로 파싱해 비교.
+  const startedAt = payload.startedAt;
   const seeded = createInitialSession(
     String(payload.problemSessionId),
     userId,
@@ -365,23 +367,19 @@ const rememberFileIds = (sessionId: string, payload: GetFileTreeResponse) => {
   const mapping = new Map<string, number>();
 
   payload.files.forEach((item) => {
-    if (item.nodeType === "FILE") {
-      // src/main/java 경로 단축 + 원본 경로 둘 다 등록 (어느 쪽으로 lookup 와도 매칭)
-      const normalized = normalizeBackendPath(item.path);
-      mapping.set(item.path, item.fileId);
-      if (normalized !== item.path) {
-        mapping.set(normalized, item.fileId);
-      }
+    // src/main/java 경로 단축 + 원본 경로 둘 다 등록 (어느 쪽으로 lookup 와도 매칭)
+    const normalized = normalizeBackendPath(item.path);
+    mapping.set(item.path, item.fileId);
+    if (normalized !== item.path) {
+      mapping.set(normalized, item.fileId);
     }
   });
 
   // 세션 하네스 파일은 raw path + prefixed path 둘 다 등록 (어느 쪽으로 lookup 와도 매칭)
   (payload.agent ?? []).forEach((item) => {
-    if (item.nodeType === "FILE") {
-      const prefixed = toAgentPrefixedPath(item.path);
-      mapping.set(item.path, item.fileId);
-      mapping.set(prefixed, item.fileId);
-    }
+    const prefixed = toAgentPrefixedPath(item.path);
+    mapping.set(item.path, item.fileId);
+    mapping.set(prefixed, item.fileId);
   });
 
   payload.worktree.forEach((item) => {
@@ -787,7 +785,11 @@ export const sessionApi = {
       .json<ApiResponse<GetFileTreeResponse>>();
 
     const files = toWorkspaceFiles(sessionId, res.data, existingSession.files);
-    return mockApi.syncExternalWorkspace(sessionId, files);
+    const agentFolderPaths = (res.data.agent ?? [])
+      .filter((item) => item.nodeType === "DIRECTORY")
+      .map((item) => toAgentPrefixedPath(item.path));
+    const workspace = await mockApi.syncExternalWorkspace(sessionId, files);
+    return { ...workspace, agentFolderPaths };
   },
 
   async createFile(sessionId: string, input: CreateFileRequest) {
@@ -1102,13 +1104,14 @@ export const sessionApi = {
 
   /**
    * 세션 하네스 파일 생성 — POST /api/v1/sessions/{id}/harness (2026-05-11~).
-   * body: { path, name, nodeType: FILE|DIRECTORY, fileType: INSTRUCTION|SKILL|MEMORY|RULE|OTHER, content? }
+   * body: { path, name, nodeType: FILE|DIRECTORY, fileType?: MARKDOWN|YAML|TOML, content? }
+   * DIRECTORY 노드는 fileType 불필요 — 보내면 백엔드 enum 파싱 에러 발생.
    */
   async addHarnessFile(sessionId: string, input: {
     path: string;
     name: string;
     nodeType: "FILE" | "DIRECTORY";
-    fileType: string;          // HarnessFileType enum 값 (백엔드와 정합)
+    fileType?: string;         // FILE 노드에만 필요 (MARKDOWN|YAML|TOML)
     content?: string;
   }) {
     const res = await authClient
