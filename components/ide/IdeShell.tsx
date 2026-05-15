@@ -6547,23 +6547,73 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     }
 
     if (bottomPanelTab === "trace") {
+      // 이전 동작: useIdeStore.traces (단순 TraceEvent[]) 의 summary 본문을 통째로 깔아서 사용자 입장에서
+      // "AI Chat 본문이랑 똑같다" 인식. mockAgentRuns (AgentRunTrace[]) 를 카드 형태로 요약 표시 +
+      // 카드 클릭 시 TraceWorkbench 전체화면으로 진입 — 자세히 보기는 거기서.
+      const formatRelativeTime = (iso: string | null): string => {
+        if (!iso) return "-";
+        const d = parseApiDateTime(iso) ?? new Date(iso);
+        if (!Number.isFinite(d.getTime())) return "-";
+        return d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+      };
+      const formatDuration = (ms: number | null): string => {
+        if (ms == null) return "—";
+        if (ms < 1000) return `${ms}ms`;
+        if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+        const m = Math.floor(ms / 60_000);
+        const s = Math.floor((ms % 60_000) / 1000);
+        return `${m}m ${s}s`;
+      };
+      const statusBadge: Record<string, { label: string; cls: string }> = {
+        RUNNING: { label: "실행 중", cls: "trace-card__badge--running" },
+        PENDING: { label: "대기", cls: "trace-card__badge--running" },
+        COMPLETED: { label: "완료", cls: "trace-card__badge--done" },
+        FAILED: { label: "실패", cls: "trace-card__badge--failed" },
+        CANCELLED: { label: "취소", cls: "trace-card__badge--cancelled" },
+      };
       return (
         <div className="bottom-panel__body">
-          {traces.length ? (
-            <div className="trace-list">
-              {traces.map((trace: TraceEvent) => (
-                <div key={trace.id} className="trace-row">
-                  <span className="trace-row__time">{trace.time}</span>
-                  <div className="trace-row__body">
-                    <strong>{trace.type}</strong>
-                    <span>{trace.summary}</span>
-                    <small>{trace.detail ?? "상세 정보 없음"}</small>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
+          {mockAgentRuns.length === 0 ? (
             <div className="empty-inline">아직 기록된 Trace가 없습니다.</div>
+          ) : (
+            <div className="trace-card-list">
+              {mockAgentRuns.map((run) => {
+                const badge = statusBadge[run.status] ?? { label: run.status, cls: "" };
+                const summary = (run.headline || run.summaryText || run.outcome || "").trim();
+                const truncated = summary.length > 110 ? summary.slice(0, 110) + "…" : summary;
+                const totalTokens = (run.totalInputTokens ?? 0) + (run.totalOutputTokens ?? 0);
+                return (
+                  <button
+                    key={run.agentTraceId}
+                    type="button"
+                    className="trace-card"
+                    onClick={() => {
+                      // Trace 워크벤치 전체화면으로 진입. 거기서 사용자가 이 run 카드 다시 클릭하면 상세.
+                      setActiveWorkbenchTab("trace");
+                    }}
+                  >
+                    <div className="trace-card__head">
+                      <span className={`trace-card__badge ${badge.cls}`}>{badge.label}</span>
+                      <span className="trace-card__time">{formatRelativeTime(run.startedAt)}</span>
+                      <span className="trace-card__sep">·</span>
+                      <span className="trace-card__meta">{formatDuration(run.durationMs)}</span>
+                      <span className="trace-card__sep">·</span>
+                      <span className="trace-card__meta">{run.totalSpanCount ?? run.spans.length} spans</span>
+                      {totalTokens > 0 ? (
+                        <>
+                          <span className="trace-card__sep">·</span>
+                          <span className="trace-card__meta">{totalTokens.toLocaleString()} tok</span>
+                        </>
+                      ) : null}
+                    </div>
+                    <div className="trace-card__body">
+                      {truncated || <span className="trace-card__empty">요약 없음</span>}
+                    </div>
+                    <div className="trace-card__cta">자세히 보기 →</div>
+                  </button>
+                );
+              })}
+            </div>
           )}
         </div>
       );
