@@ -553,74 +553,6 @@ function DimMarkdown({ text, className }: { text: string; className?: string }) 
   );
 }
 
-/* ─── SimpleMarkdown: \n + ## + 리스트 + 인라인 코드 파싱 ─── */
-
-function renderInline(text: string): React.ReactNode[] {
-  // 백틱 코드, 작은따옴표 안의 마크다운 섹션명('## ...' / '# ...'), 일반 텍스트 순서로 분리
-  const parts = text.split(/(`[^`]+`|'#{1,2} ?[^']+')/g);
-  return parts.map((part, i) => {
-    if (part.startsWith("`") && part.endsWith("`"))
-      return <code key={i} className="px-1 py-0.5 rounded bg-amber-200/50 dark:bg-amber-700/30 font-mono text-[11.5px]">{part.slice(1, -1)}</code>;
-    if (part.startsWith("'") && part.endsWith("'")) {
-      const inner = part.slice(1, -1).replace(/^#{1,2}\s*/, "");
-      return <code key={i} className="px-1 py-0.5 rounded bg-amber-200/50 dark:bg-amber-700/30 font-mono text-[11.5px]">{inner}</code>;
-    }
-    return <span key={i}>{part}</span>;
-  });
-}
-
-function SimpleMarkdown({ text, className }: { text: string; className?: string }) {
-  const lines = text.replace(/\\n/g, "\n").replace(/```\w*/g, "").split("\n");
-  const nodes: React.ReactNode[] = [];
-  let listItems: string[] = [];
-  let listType: "ol" | "ul" | null = null;
-
-  const flushList = () => {
-    if (!listItems.length) return;
-    if (listType === "ol") {
-      nodes.push(
-        <ol key={nodes.length} className="list-decimal list-inside space-y-0.5 my-1 text-inherit">
-          {listItems.map((item, i) => <li key={i}>{renderInline(item)}</li>)}
-        </ol>
-      );
-    } else {
-      nodes.push(
-        <ul key={nodes.length} className="list-disc list-inside space-y-0.5 my-1 text-inherit">
-          {listItems.map((item, i) => <li key={i}>{renderInline(item)}</li>)}
-        </ul>
-      );
-    }
-    listItems = [];
-    listType = null;
-  };
-
-  for (const raw of lines) {
-    const line = raw.trimEnd();
-    const h2 = line.match(/^##\s+(.+)/);
-    const h1 = line.match(/^#\s+(.+)/);
-    const ol = line.match(/^\d+\.\s+(.*)/);
-    const ul = line.match(/^[-*]\s+(.*)/);
-
-    if (h2 || h1) {
-      flushList();
-      nodes.push(<p key={nodes.length} className="font-bold mt-2 mb-0.5">{renderInline((h2 ?? h1)![1])}</p>);
-    } else if (ol) {
-      if (listType !== "ol") { flushList(); listType = "ol"; }
-      listItems.push(ol[1]);
-    } else if (ul) {
-      if (listType !== "ul") { flushList(); listType = "ul"; }
-      listItems.push(ul[1]);
-    } else if (line === "") {
-      flushList();
-    } else {
-      flushList();
-      nodes.push(<p key={nodes.length} className="my-0.5">{renderInline(line)}</p>);
-    }
-  }
-  flushList();
-
-  return <div className={className}>{nodes}</div>;
-}
 
 /* ─── Criterion Row ─── */
 
@@ -657,13 +589,17 @@ function CriterionRow({ criterion }: { criterion: DimensionCriterion }) {
           {criterion.finding && (
             <div>
               <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-gray-500 mb-1">분석</div>
-              <SimpleMarkdown text={criterion.finding} className="text-[13px] text-gray-700 leading-relaxed" />
+              <div className="report-summary-md text-[13px] text-gray-700 leading-relaxed">
+                <Markdown remarkPlugins={[remarkGfm]}>{criterion.finding}</Markdown>
+              </div>
             </div>
           )}
           {criterion.evidence && (
             <div>
               <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-gray-500 mb-1">근거</div>
-              <SimpleMarkdown text={criterion.evidence} className="text-[12px] font-mono text-gray-600 bg-white rounded-lg border border-gray-100 px-3 py-2 leading-relaxed" />
+              <div className="report-summary-md text-[12px] font-mono text-gray-600 bg-white rounded-lg border border-gray-100 px-3 py-2 leading-relaxed">
+                <Markdown remarkPlugins={[remarkGfm]}>{criterion.evidence}</Markdown>
+              </div>
               {criterion.evidenceFile && (
                 <span className="mt-1 inline-block text-[11px] text-gray-400 font-mono">
                   📄 {criterion.evidenceFile}

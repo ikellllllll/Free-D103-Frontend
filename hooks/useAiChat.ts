@@ -7,6 +7,7 @@ import { mockApi } from "@/lib/api/mockApi";
 import { isBackendSessionId, sessionApi } from "@/lib/api/sessionApi";
 import type { AgentProgressEvent, AiMessage } from "@/lib/types/ai";
 import { capAgentEvents, useIdeStore } from "@/store/ideStore";
+import { useApiKeys, type ApiKeyProvider } from "@/hooks/useApiKeys";
 
 export function useAiChat(sessionId: string) {
   const messages = useIdeStore((state) => state.messages);
@@ -14,6 +15,7 @@ export function useAiChat(sessionId: string) {
   const appendMessages = useIdeStore((state) => state.appendMessages);
   const updateMessageById = useIdeStore((state) => state.updateMessageById);
   const queryClient = useQueryClient();
+  const { hasKey } = useApiKeys();
   const [streaming, setStreaming] = useState(false);
   const [requestCount, setRequestCount] = useState(0);
   // 현재 진행 중인 SSE 요청의 AbortController — 사용자가 "중지" 누르면 abort() 호출.
@@ -325,24 +327,35 @@ export function useAiChat(sessionId: string) {
       // 입장에선 "메시지 비워지고 아무 일도 안 일어난 것처럼" 보임.)
       let chatErrored = false;
       try {
-        await sessionApi.streamChat(
-          sessionId,
-          { chat: backendContent, modelName: modelName ?? null },
-          {
-            onChunk: (content) => {
-              accumulated += content;
-              safePatchAssistant(assistantId, { content: accumulated });
-            },
-            onError: (_code, msg) => {
-              chatErrored = true;
-              accumulated = accumulated
-                ? `${accumulated}\n\n[오류] ${msg}`
-                : `[오류] ${msg}`;
-              safePatchAssistant(assistantId, { content: accumulated });
-            }
+        const chatHandlers = {
+          onChunk: (content: string) => {
+            accumulated += content;
+            safePatchAssistant(assistantId, { content: accumulated });
           },
-          chatController.signal
-        );
+          onError: (_code: string, msg: string) => {
+            chatErrored = true;
+            accumulated = accumulated
+              ? `${accumulated}\n\n[오류] ${msg}`
+              : `[오류] ${msg}`;
+            safePatchAssistant(assistantId, { content: accumulated });
+          }
+        };
+        const byokProvider: ApiKeyProvider = modelName?.startsWith("GPT_") ? "openai" : "anthropic";
+        if (hasKey(byokProvider)) {
+          await sessionApi.streamAIChat(
+            sessionId,
+            { vendor: byokProvider === "openai" ? "OPENAI" : "ANTHROPIC", chat: backendContent, modelName: modelName ?? null },
+            chatHandlers,
+            chatController.signal
+          );
+        } else {
+          await sessionApi.streamChat(
+            sessionId,
+            { chat: backendContent, modelName: modelName ?? null },
+            chatHandlers,
+            chatController.signal
+          );
+        }
         setRequestCount((count) => count + 1);
       } catch (error) {
         chatErrored = true;
@@ -404,7 +417,7 @@ export function useAiChat(sessionId: string) {
       }, 28);
       mockStreamTimerRef.current = timer;
     });
-  }, [appendMessages, loadMessages, queryClient, sessionId, updateMessageById]);
+  }, [appendMessages, hasKey, loadMessages, queryClient, sessionId, updateMessageById]);
 
   // 현재 진행 중인 SSE 를 사용자가 중지하도록. 진행 카드에 "⏹️ 사용자가 중지했습니다" 가 push 되고
   // streaming 상태도 풀려서 composer 가 다시 활성화됨.

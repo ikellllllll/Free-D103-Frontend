@@ -1965,6 +1965,7 @@ body:has(.ide-route--workspace) .page-shell > * {
   border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--ide-border) 76%);
   background: color-mix(in srgb, var(--accent) 5%, var(--ide-surface) 95%);
   border-radius: 10px;
+  overflow: hidden;
 }
 .chat-inline-patches__head {
   display: flex;
@@ -5270,6 +5271,26 @@ html[data-theme="light"] .chat-bubble__markdown code {
   min-height: 36px;
   padding: 0 18px;
   font-weight: 600;
+}
+
+/* BYOK 활성 배지 */
+.byok-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: rgba(251, 191, 36, 0.15);
+  color: #d97706;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+}
+html[data-theme="dark"] .byok-badge {
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.3);
 }
 
 /* ─── 모델 셀렉터 — 커스텀 dropdown (다크모드 대응) ─── */
