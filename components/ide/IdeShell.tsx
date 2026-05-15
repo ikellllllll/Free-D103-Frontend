@@ -1694,6 +1694,19 @@ const createMockWorktreeContent = (
   return `${base}\n\n# Mock AI patch preview\n# ${summary ?? `${getFileName(patch.filePath)} updated in worktree.`}`;
 };
 
+/**
+ * trace 의 patches[] 메타와 백엔드 worktree 파일을 매칭해서 AgentPatchPreview 만든다.
+ *
+ * 이전 동작 (2026-05-15 이전): trace patches 마다 frontend 자체적으로 mock content
+ *   (`# Mock worktree preview\n# {summary}`) 를 만들어서 explorer 트리에 inject.
+ *   백엔드 worktree 파일과 path 가 mismatch (예: AI 가 'workspace/app/services.py' 라고
+ *   응답하면 frontend 는 `.worktree/workspace/app/services.py` 로 가짜 파일을 추가)
+ *   해서 같은 파일이 트리에 두 개 보이고 한쪽은 AI 응답 본문 텍스트가 노출되던 버그.
+ *
+ * 신규 동작: trace patches 의 filePath 와 백엔드 worktree 파일을 매칭. 매칭 안 되는
+ *   patch 는 explorer 에서 제외 (백엔드가 적용 안 한 것으로 봄). previewFile 의 content 는
+ *   백엔드 worktree 파일의 실제 content 를 그대로 사용. mock 생성 안 함.
+ */
 const buildAgentPatchPreviews = (files: WorkspaceFile[], runs: AgentRunTrace[]): AgentPatchPreview[] => {
   const latestRunWithPatches = runs.find((run) => run.spans.some((span) => span.patches.length > 0)) ?? runs[0] ?? null;
 
@@ -1701,46 +1714,38 @@ const buildAgentPatchPreviews = (files: WorkspaceFile[], runs: AgentRunTrace[]):
     return [];
   }
 
+  // 백엔드가 응답한 실제 worktree 파일 인덱스. exact path 매칭 우선, basename fallback.
+  const worktreeFiles = files.filter((f) => f.path.startsWith(".worktree/"));
+
   const previews = latestRunWithPatches.spans.flatMap((span) =>
-    span.patches.map((patch) => {
-      const preset = getMockAgentDiffPreset(patch.filePath);
-      const sourceFile =
-        files.find((file) => file.path === patch.filePath) ??
-        (preset?.source
-          ? {
-              path: preset.source.path,
-              language: preset.source.language.toLowerCase(),
-              content: preset.source.content
-            }
-          : preset?.sourceContent
-            ? {
-                path: patch.filePath,
-                language: inferLanguageFromPath(patch.filePath),
-                content: preset.sourceContent
-              }
-          : undefined);
-      const worktreePath = `.worktree/${patch.filePath}`;
-      const language =
-        preset?.worktree?.language.toLowerCase() ?? sourceFile?.language ?? inferLanguageFromPath(patch.filePath);
+    span.patches.map((patch): AgentPatchPreview | null => {
+      const expectedPath = `.worktree/${patch.filePath}`;
+      const worktreeFile =
+        worktreeFiles.find((f) => f.path === expectedPath)
+        ?? worktreeFiles.find((f) => f.path.endsWith("/" + getFileName(patch.filePath)));
+
+      // 백엔드 worktree 에 매칭되는 파일 없음 — trace 만 있고 실제 변경 없거나 path mismatch.
+      // 이전엔 mock preview 박았지만 이젠 그냥 무시 (사용자가 의미 없는 가짜 파일 보던 케이스 차단).
+      if (!worktreeFile) return null;
+
+      const sourceFile = files.find((file) => file.path === patch.filePath);
 
       return {
         patchId: patch.patchId,
         filePath: patch.filePath,
-        worktreePath,
+        worktreePath: worktreeFile.path,
         additions: patch.additions,
         deletions: patch.deletions,
         summary: latestRunWithPatches.summaryText,
         sourceFile,
         previewFile: {
-          path: worktreePath,
-          language,
-          content: createMockWorktreeContent(sourceFile, patch, latestRunWithPatches.summaryText),
+          ...worktreeFile,
           isVirtual: true,
-          badge: "ai"
-        }
-      } satisfies AgentPatchPreview;
+          badge: "ai",
+        },
+      };
     })
-  );
+  ).filter((p): p is AgentPatchPreview => p != null);
 
   return previews.filter(
     (preview, index, list) => list.findIndex((item) => item.worktreePath === preview.worktreePath) === index
