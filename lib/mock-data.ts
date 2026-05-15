@@ -602,7 +602,13 @@ export const createStarterMessages = (): AiMessage[] =>
     createdAt: new Date().toISOString()
   }));
 
-export const createStarterTraces = (): TraceEvent[] => starterTracesSeed.map((trace) => ({ ...trace }));
+/**
+ * 신규 세션의 traces 는 빈 배열로 시작. 이전엔 starterTracesSeed (NPE/orElseThrow 가짜 데이터 2건)
+ * 가 무조건 박혀서, 사용자가 agent 를 한 번도 돌리지 않은 새 세션에서도 bottom panel Trace 탭에
+ * AI 요청/응답 가짜 row 가 표시되던 문제가 있었음 (2026-05-15 보고).
+ * starterTracesSeed export 자체는 demo / 스토리북 용으로 유지.
+ */
+export const createStarterTraces = (): TraceEvent[] => [];
 
 export const createRunResult = (language: ProblemLanguage = "java"): RunResult => ({
   status: "COMPLETED",
