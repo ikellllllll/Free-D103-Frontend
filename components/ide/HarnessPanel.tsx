@@ -62,13 +62,29 @@ const AGENT_MODELS: AgentModel[] = [
   },
 ];
 
+// 실제 백엔드 init-db 시드 하네스의 skills 디렉토리와 매칭 (2026-05-15 update).
+//   AI/lab/default_custom_harness_architecture/skills/{name}/SKILL.md
+// 이전엔 mock 라벨 (web-search/code-runner/file-reader/memory/diff-viewer/test-runner) 이
+// 실제 백엔드 skill 과 mismatch 라 사용자가 체크해도 효과 없음. 백엔드 실제 skill 디렉토리로 동기화.
 const SKILLS: Skill[] = [
-  { id: "web-search",  name: "웹 검색",   desc: "실시간 웹 정보 검색",        icon: "🌐" },
-  { id: "code-runner", name: "코드 실행", desc: "코드 실행 및 결과 확인",      icon: "▶️" },
-  { id: "file-reader", name: "파일 읽기", desc: "워크스페이스 파일 접근",      icon: "📂" },
-  { id: "memory",      name: "메모리",    desc: "대화 컨텍스트 저장 및 참조",  icon: "🧠" },
-  { id: "diff-viewer", name: "Diff 뷰어", desc: "코드 변경 사항 비교",        icon: "📊" },
-  { id: "test-runner", name: "테스트",    desc: "자동 테스트 실행 및 리포트",  icon: "🧪" },
+  {
+    id: "codebase-exploration",
+    name: "코드베이스 탐색",
+    desc: "프로젝트 구조 파악 · 관련 코드 검색",
+    icon: "🔍",
+  },
+  {
+    id: "safe-code-edit",
+    name: "안전한 코드 편집",
+    desc: "변경 전 검증 · diff 단위 적용",
+    icon: "✏️",
+  },
+  {
+    id: "test-and-verify",
+    name: "테스트 및 검증",
+    desc: "테스트 실행 · 실패 분석 · 재검증 루프",
+    icon: "🧪",
+  },
 ];
 
 const INSTRUCTION_TEMPLATES: InstructionTemplate[] = [
