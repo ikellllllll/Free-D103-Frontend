@@ -12,6 +12,10 @@ on:
     branches: [main]
   workflow_dispatch: {}   # GitHub Actions 탭에서 수동 실행도 가능
 
+concurrency:
+  # 같은 브랜치에서 여러 push가 연속 오면 최신 것만 실행
+  group: sync-gitlab-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   mirror:

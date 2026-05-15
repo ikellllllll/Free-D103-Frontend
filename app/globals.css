@@ -1965,6 +1965,7 @@ body:has(.ide-route--workspace) .page-shell > * {
   border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--ide-border) 76%);
   background: color-mix(in srgb, var(--accent) 5%, var(--ide-surface) 95%);
   border-radius: 10px;
+  overflow: hidden;
 }
 .chat-inline-patches__head {
   display: flex;
