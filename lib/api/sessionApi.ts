@@ -227,9 +227,13 @@ const EXECUTION_POLL_INTERVAL_MS = 900;
 // 도커 러너 회귀검증 (108분 × 114 fixtures) 실측:
 //   Java: 평균 107s · max 300s (컨테이너 hard cap)
 //   Python: 평균 6.66s
-// 프로덕트 결정: 154초 (171 × 900ms ≈ 153.9s).
+// 프로덕트 결정: 154초 (171 × 900ms ≈ 153.9s) — RUNNING 진입 후의 실제 실행 시간만 측정.
 // 너무 짧으면 정상 빌드를 끊을 위험, 너무 길면 사용자가 멈춘 줄 모름 — 평균치(107s) 위 약간 위.
 const EXECUTION_POLL_MAX_ATTEMPTS = 171;
+// 2026-05-14 RabbitMQ 도입 (백엔드 52a90e7) 으로 ExecutionStatus.QUEUED 추가.
+// 큐 처리량 한도가 있어 큐 적체 시 수십 초~수 분 대기. 큐 대기 시간은 실행 시간과 분리해서 별도
+// 카운터로 측정. 최대 10분 (666 × 900ms = 599.4s) 까지 허용 — 그 이상이면 큐 dead-letter 의심.
+const QUEUE_WAIT_POLL_MAX_ATTEMPTS = 666;
 const WORKTREE_PREFIX = ".worktree/";
 const externalFileIdBySession = new Map<string, Map<string, number>>();
 
@@ -1107,11 +1111,30 @@ export const sessionApi = {
     const executionId = await this.startExecution(sessionId);
     let payload = await this.getExecutionResult(executionId);
 
-    for (let attempt = 0; payload.status === "RUNNING" && attempt < EXECUTION_POLL_MAX_ATTEMPTS; attempt += 1) {
+    // 백엔드 5/14~ RabbitMQ 큐 도입으로 ExecutionStatus 가 QUEUED → RUNNING → COMPLETED/FAILED 흐름.
+    // QUEUED 와 RUNNING 모두 진행 중이지만 카운터를 분리:
+    //   - QUEUED: 큐 적체 의존 (최대 10분 허용)
+    //   - RUNNING: 도커 러너 실행 (최대 154초)
+    // 이전 코드는 `payload.status === "RUNNING"` 만 진행 중으로 봐서 QUEUED 응답 받자마자
+    // 루프 종료 → 결과 없는 채로 toRunResult/toTestRunResult 가 호출되어 사용자에게 즉시 ERROR
+    // 처리되던 회귀 버그 (2026-05-15 보고).
+    let queueAttempts = 0;
+    let execAttempts = 0;
+    while (payload.status === "QUEUED" || payload.status === "RUNNING") {
+      if (payload.status === "QUEUED") {
+        if (queueAttempts >= QUEUE_WAIT_POLL_MAX_ATTEMPTS) break;
+        queueAttempts += 1;
+      } else {
+        if (execAttempts >= EXECUTION_POLL_MAX_ATTEMPTS) break;
+        execAttempts += 1;
+      }
       await wait(EXECUTION_POLL_INTERVAL_MS);
       payload = await this.getExecutionResult(executionId);
     }
 
+    if (payload.status === "QUEUED") {
+      throw new Error("실행 큐 대기가 너무 길어 중단했습니다. 잠시 후 다시 시도해 주세요.");
+    }
     if (payload.status === "RUNNING") {
       throw new Error("실행 결과 대기 시간이 초과되었습니다.");
     }
