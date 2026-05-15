@@ -477,12 +477,16 @@ const toWorkspaceFiles = (
     .filter((item) => item.nodeType === "FILE" && !isNoisePathItem(item))
     .map((item) => {
       const nextPath = normalizeWorktreePath(item.path);
-      const sourcePath = item.path.replace(/^\.worktree\//, "");
 
+      // ⚠️ source fallback 제거 (2026-05-15) — 이전엔 `sourceContent.get(sourcePath)` 로 fallback
+      //   해서, worktree content fetch 가 도착하기 전에 사용자가 diff 탭 열면 worktree 자리에
+      //   source content 가 박혀 좌우 동일하게 보였음 (DB 의 실제 worktree 와 다른 본문).
+      //   이제 빈 채로 시작 → ensureBackendFileContent 가 GET /worktrees/{id} 로 진짜 content 받아
+      //   hydrateFileContent 호출 시 채워짐. 그 사이엔 diff-pane__notice--loading 으로 "로딩 중" 표시.
       return {
         path: nextPath,
         language: item.language?.toLowerCase() || inferLanguageFromPath(item.path),
-        content: existingContent.get(nextPath) ?? sourceContent.get(sourcePath) ?? ""
+        content: existingContent.get(nextPath) ?? ""
       } satisfies WorkspaceFile;
     });
 
