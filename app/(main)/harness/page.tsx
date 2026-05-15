@@ -1037,7 +1037,7 @@ export default function HarnessPage() {
                             event.preventDefault();
                             openFileInTab(fileKey);
                           }}
-                          className="group relative flex min-w-[150px] max-w-[220px] shrink-0 cursor-grab items-center gap-2 px-3 py-2 text-[12px] font-mono whitespace-nowrap border-r border-b transition-colors active:cursor-grabbing"
+                          className="group relative flex max-w-[220px] shrink-0 cursor-grab items-center gap-1.5 px-2.5 py-2 text-[12px] font-mono whitespace-nowrap border-r border-b transition-colors active:cursor-grabbing"
                           style={{
                             backgroundColor: active ? IDE_TONE.tabActive : "transparent",
                             borderColor: IDE_TONE.divider,
