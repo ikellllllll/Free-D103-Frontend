@@ -6116,15 +6116,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       return (
         <HarnessPanel
           onApply={async ({ modelId, markdown }) => {
-            // 1) 모델 — IDE 의 chat/agent 요청 시 사용하는 chatModel 과 동기화.
-            //    백엔드는 매 chat/agent 요청마다 model 을 받는 구조라 세션 단위 모델 변경 endpoint 가 따로 없음.
-            //    프론트 selector state 만 갱신해도 다음 요청부터 새 모델이 적용됨.
+            // 1) 모델 — IDE 의 chat/agent selector 와 동기화. 백엔드는 매 chat 요청마다 model 을 받는
+            //    구조라 세션 모델 변경 endpoint 가 따로 없음 — selector state 갱신만으로 충분.
+            //    (다만 agent run 의 base_model 은 하네스 빌드 시점에 runtime_config 로 굳음 — 아래 참고.)
             setChatModel(modelId);
 
-            // 2) Instruction (Skills 포함된 markdown) — agent/AGENTS.md 에 저장.
-            //    파일이 이미 있으면 saveFile 로 content 덮어쓰기, 없으면 addHarnessFile 로 생성.
-            //    백엔드 raw path 는 'AGENTS.md' (agent/ prefix 없이) — 프론트 표시용 path 는 'agent/AGENTS.md'.
             if (isBackendSessionId(sessionId)) {
+              // 2) Instruction → agent/AGENTS.md 저장. 백엔드 raw path 는 'AGENTS.md' (agent/ prefix 없이).
               const targetDisplayPath = "agent/AGENTS.md";
               const hasAgentsMd = files.some((f) => f.path === targetDisplayPath);
               if (hasAgentsMd) {
@@ -6141,9 +6139,16 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   content: markdown,
                 });
               }
+
+              // 3) ⚠️ 핵심 — 하네스 빌드 호출. AGENTS.md 는 build 시점에 _compile_runtime_config() 로
+              //    runtime_config_json 으로 컴파일되어 session_harness 에 저장됨. agent run 시점엔
+              //    이 JSON 만 읽음 (raw AGENTS.md 안 봄). 저장만 하고 build 안 부르면 **적용 안 됨**.
+              //    baseModel 도 여기서 runtime_config 에 박혀 다음 agent run 의 기본 모델이 됨.
+              await sessionApi.buildHarness(sessionId, modelId);
+
               await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
             } else {
-              // mock 세션 — store 만 갱신.
+              // mock 세션 — store 만 갱신 (빌드 호출 불가, 효과 없음).
               const targetDisplayPath = "agent/AGENTS.md";
               const has = files.some((f) => f.path === targetDisplayPath);
               if (has) {
@@ -6155,7 +6160,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                 );
               }
             }
-            addToast("하네스 설정을 적용했어요.", "success");
+            addToast("하네스 설정을 적용했어요. (빌드 완료)", "success");
           }}
         />
       );
