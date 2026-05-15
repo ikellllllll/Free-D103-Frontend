@@ -67,10 +67,10 @@ const severityMeta = (severity: number) => {
 };
 
 const toneClass = {
-  amber: "bg-amber-100 text-amber-700",
-  rose:  "bg-rose-100 text-rose-700",
-  indigo:"bg-indigo-100 text-indigo-700",
-  gray:  "bg-gray-100 text-gray-600"
+  amber: "bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400",
+  rose:  "bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400",
+  indigo:"bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-400",
+  gray:  "bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300"
 } as const;
 
 /* ─── Page ─── */
@@ -540,10 +540,15 @@ function PreviewMarkdown({ text, className }: { text: string; className?: string
 }
 
 /* ─── DimMarkdown: dimension rationale/summary 마크다운 렌더러 ─── */
+// '## Section' 패턴은 react-markdown이 인식 못하므로 백틱 코드로 전처리.
+function preprocessMd(text: string): string {
+  return text.replace(/'(#{1,2} ?[^'\n]+)'/g, "`$1`");
+}
+
 function DimMarkdown({ text, className }: { text: string; className?: string }) {
   return (
     <div className={`report-dim-md ${className ?? ""}`}>
-      <Markdown remarkPlugins={[remarkGfm]}>{text}</Markdown>
+      <Markdown remarkPlugins={[remarkGfm]}>{preprocessMd(text)}</Markdown>
     </div>
   );
 }
@@ -555,10 +560,10 @@ function renderInline(text: string): React.ReactNode[] {
   const parts = text.split(/(`[^`]+`|'#{1,2} ?[^']+')/g);
   return parts.map((part, i) => {
     if (part.startsWith("`") && part.endsWith("`"))
-      return <code key={i} className="px-1 py-0.5 rounded bg-gray-100 font-mono text-[11.5px] text-gray-700">{part.slice(1, -1)}</code>;
+      return <code key={i} className="px-1 py-0.5 rounded bg-amber-200/50 dark:bg-amber-700/30 font-mono text-[11.5px]">{part.slice(1, -1)}</code>;
     if (part.startsWith("'") && part.endsWith("'")) {
       const inner = part.slice(1, -1).replace(/^#{1,2}\s*/, "");
-      return <code key={i} className="px-1 py-0.5 rounded bg-gray-100 font-mono text-[11.5px] text-gray-700">{inner}</code>;
+      return <code key={i} className="px-1 py-0.5 rounded bg-amber-200/50 dark:bg-amber-700/30 font-mono text-[11.5px]">{inner}</code>;
     }
     return <span key={i}>{part}</span>;
   });
@@ -668,8 +673,8 @@ function CriterionRow({ criterion }: { criterion: DimensionCriterion }) {
           )}
           {criterion.suggestion && (
             <div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-indigo-600 mb-1">개선 제안</div>
-              <SimpleMarkdown text={criterion.suggestion} className="text-[13px] text-indigo-800 bg-indigo-50 rounded-lg border border-indigo-100 px-3 py-2 leading-relaxed" />
+              <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-indigo-600 dark:text-indigo-400 mb-1">개선 제안</div>
+              <DimMarkdown text={criterion.suggestion} className="text-[13px] text-indigo-900 dark:text-indigo-100 bg-indigo-50 dark:bg-indigo-950/40 rounded-lg border border-indigo-100 dark:border-indigo-800/60 px-3 py-2 leading-relaxed" />
             </div>
           )}
         </div>
@@ -735,13 +740,13 @@ function ImprovementsAccordion({ findings }: { findings: FindingItem[] }) {
   const [openId, setOpenId] = useState<string | null>(null);
 
   return (
-    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 md:p-6 animate-slide-up">
+    <section className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm p-5 md:p-6 animate-slide-up">
       <div className="flex items-center gap-2.5 mb-4">
         <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500 text-white shadow-sm shrink-0">
           <AlertTriangle size={13} strokeWidth={2.4} />
         </span>
-        <h2 className="font-display font-bold text-gray-900 text-[17px]">개선 포인트</h2>
-        <span className="ml-1 inline-flex items-center px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[11px] font-bold">
+        <h2 className="font-display font-bold text-gray-900 dark:text-slate-100 text-[17px]">개선 포인트</h2>
+        <span className="ml-1 inline-flex items-center px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 text-[11px] font-bold">
           {findings.length}개
         </span>
       </div>
@@ -751,32 +756,32 @@ function ImprovementsAccordion({ findings }: { findings: FindingItem[] }) {
           const isOpen = openId === f.id;
           const hasDetail = !!(f.description || f.recommendation);
           return (
-            <div key={f.id} className="rounded-xl border border-gray-100 overflow-hidden">
+            <div key={f.id} className="rounded-xl border border-gray-100 dark:border-slate-700 overflow-hidden">
               <button
                 type="button"
                 onClick={() => hasDetail && setOpenId(isOpen ? null : f.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${hasDetail ? "hover:bg-gray-50 cursor-pointer" : "cursor-default"}`}
+                className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${hasDetail ? "hover:bg-gray-50 dark:hover:bg-slate-800/60 cursor-pointer" : "cursor-default"}`}
               >
                 <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${toneClass[sev.tone]}`}>
                   {sev.label}
                 </span>
-                <span className="flex-1 text-[13.5px] font-semibold text-gray-800 leading-snug">{f.title}</span>
+                <span className="flex-1 text-[13.5px] font-semibold text-gray-800 dark:text-slate-200 leading-snug">{f.title}</span>
                 {hasDetail && (
                   <ChevronDown
                     size={15}
-                    className={`shrink-0 text-gray-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+                    className={`shrink-0 text-gray-400 dark:text-slate-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
                   />
                 )}
               </button>
               {isOpen && hasDetail && (
-                <div className="px-4 pb-4 pt-2 border-t border-gray-100 space-y-2.5">
+                <div className="px-4 pb-4 pt-2 border-t border-gray-100 dark:border-slate-700 space-y-2.5">
                   {f.description && (
-                    <SimpleMarkdown text={f.description} className="text-[13px] text-gray-600 leading-relaxed" />
+                    <DimMarkdown text={f.description} className="text-[13px] text-gray-600 dark:text-slate-300 leading-relaxed" />
                   )}
                   {f.recommendation && (
-                    <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-100 px-3 py-2.5">
+                    <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 px-3 py-2.5">
                       <Lightbulb size={13} className="shrink-0 mt-1 text-amber-500" />
-                      <SimpleMarkdown text={f.recommendation} className="text-[12.5px] text-amber-800 leading-relaxed" />
+                      <DimMarkdown text={f.recommendation} className="text-[12.5px] text-amber-800 dark:text-amber-100 leading-relaxed" />
                     </div>
                   )}
                 </div>
