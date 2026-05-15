@@ -1958,6 +1958,85 @@ body:has(.ide-route--workspace) .page-shell > * {
   font-weight: 700;
 }
 
+/* chat-bubble 안 inline patch list — 별도 카드 대신 마지막 agent 메시지에 첨부. */
+.chat-inline-patches {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--ide-border) 76%);
+  background: color-mix(in srgb, var(--accent) 5%, var(--ide-surface) 95%);
+  border-radius: 10px;
+}
+.chat-inline-patches__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.chat-inline-patches__head strong {
+  flex-shrink: 0;
+}
+.chat-inline-patches__hint {
+  color: var(--muted);
+  font-size: 11px;
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chat-inline-patches__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.chat-inline-patches__row {
+  appearance: none;
+  text-align: left;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--ide-border) 65%, transparent);
+  background: var(--ide-surface);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text);
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+.chat-inline-patches__row:hover {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--ide-border));
+  background: color-mix(in srgb, var(--accent) 6%, var(--ide-surface));
+  transform: translateX(2px);
+}
+.chat-inline-patches__file {
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.chat-inline-patches__path {
+  color: var(--muted-2);
+  font-size: 11px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-inline-patches__stats {
+  flex-shrink: 0;
+  display: inline-flex;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+}
+.chat-inline-patches__add { color: #22c55e; font-weight: 700; }
+.chat-inline-patches__del { color: #ef4444; font-weight: 700; }
+
 .file-row--active,
 .tree-row--active,
 .search-result:hover {

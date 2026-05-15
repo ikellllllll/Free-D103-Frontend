@@ -7684,42 +7684,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                       ) : null}
                     </div>
 
-                      {aiMode === "edit" && agentPatchPreviews.length ? (
-                        <Card className="mini-panel assistant-changes-card">
-                          <div className="assistant-changes__head">
-                            <div className="assistant-changes__head-text">
-                              <strong>Agent worktree 변경</strong>
-                              <p className="muted-copy">
-                                {agentPatchPreviews.length}개 파일에 수정 제안이 준비되었습니다. 클릭하면 diff 탭에서 적용/거절할 수 있어요.
-                              </p>
-                            </div>
-                            <span className="ai-context-chip" style={{ flexShrink: 0 }}>
-                              {agentPatchPreviews.length}개
-                            </span>
-                          </div>
-                          {/* latestAgentPatchSummary 는 채팅 메시지에 이미 풀 텍스트가 들어가 있어 카드에서는 노출하지 않음.
-                              (전에는 <p> 안에 plain text 로 박혀 markdown 이 깨지고 채팅 버블과 시각적으로 겹쳐 보여 혼란스러웠음) */}
-                          <div className="assistant-changes__list">
-                            {agentPatchPreviews.map((preview) => (
-                              <button
-                                key={preview.patchId}
-                                type="button"
-                                className="assistant-change-row"
-                                onClick={() => openDiffTab(preview.worktreePath)}
-                              >
-                                <span className="assistant-change-row__main">
-                                  <strong>{getFileName(preview.filePath)}</strong>
-                                  <small>{preview.filePath}</small>
-                                </span>
-                                <span className="assistant-change-row__stats">
-                                  <span className="assistant-change-row__add">+{preview.additions}</span>
-                                  <span className="assistant-change-row__del">-{preview.deletions}</span>
-                                </span>
-                              </button>
-                            ))}
-                          </div>
-                        </Card>
-                      ) : null}
+                      {/* Agent worktree 변경 카드는 별도 영역이 아닌 채팅 메시지 마지막 assistant 메시지
+                          안에 inline 으로 노출. 이전엔 채팅 영역 위에 큰 Card 가 4개 파일이면 화면 절반을
+                          가려서 사용자가 메시지 못 보던 문제. */}
 
                       <div ref={chatScrollRef} className="chat-stack chat-stack--panel">
                         {(() => {
@@ -7745,9 +7712,18 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                                   </p>
                                 </div>
                               ) : null}
-                              {visibleMessages.map((message) => {
+                              {visibleMessages.map((message, idx) => {
                           const hasAgentEvents = (message.agentEvents?.length ?? 0) > 0;
                           const isEmptyAssistant = message.role === "assistant" && !message.content && !hasAgentEvents;
+                          // 마지막 assistant agent 메시지 끝에 worktree patch 카드 inline 노출.
+                          // 별도 카드로 빠져 채팅을 가리던 이전 동작을 메시지 흐름 안으로 통합.
+                          const isLastMessage = idx === visibleMessages.length - 1;
+                          const showInlinePatches =
+                            isLastMessage &&
+                            message.role === "assistant" &&
+                            aiMode === "edit" &&
+                            agentPatchPreviews.length > 0 &&
+                            !streaming;
                           return (
                             <div
                               key={message.id}
@@ -7828,6 +7804,33 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                                 </div>
                               ) : null}
                               {message.attachedCode ? <AttachedCodeChip data={message.attachedCode} /> : null}
+                              {showInlinePatches ? (
+                                <div className="chat-inline-patches">
+                                  <div className="chat-inline-patches__head">
+                                    <span className="chat-inline-patches__icon">📝</span>
+                                    <strong>{agentPatchPreviews.length}개 파일 수정 제안</strong>
+                                    <span className="chat-inline-patches__hint">클릭하면 diff 탭에서 적용/거절</span>
+                                  </div>
+                                  <ul className="chat-inline-patches__list">
+                                    {agentPatchPreviews.map((preview) => (
+                                      <li key={preview.patchId}>
+                                        <button
+                                          type="button"
+                                          className="chat-inline-patches__row"
+                                          onClick={() => openDiffTab(preview.worktreePath)}
+                                        >
+                                          <span className="chat-inline-patches__file">{getFileName(preview.filePath)}</span>
+                                          <span className="chat-inline-patches__path">{preview.filePath}</span>
+                                          <span className="chat-inline-patches__stats">
+                                            <span className="chat-inline-patches__add">+{preview.additions}</span>
+                                            <span className="chat-inline-patches__del">-{preview.deletions}</span>
+                                          </span>
+                                        </button>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ) : null}
                             </div>
                           );
                               })}
