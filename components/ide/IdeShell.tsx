@@ -22,6 +22,7 @@ import { TraceWorkbench } from "@/components/ide/TraceWorkbench";
 import { useAgentUIState } from "@/hooks/useAgentUIState";
 import { useCelebrate } from "@/hooks/useCelebrate";
 import { useAiChat } from "@/hooks/useAiChat";
+import { useApiKeys } from "@/hooks/useApiKeys";
 import { mockApi } from "@/lib/api/mockApi";
 import { problemApi } from "@/lib/api/problemApi";
 import { isBackendProblemId, isBackendSessionId, sessionApi } from "@/lib/api/sessionApi";
@@ -2054,6 +2055,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const [testExecutionId, setTestExecutionId] = useState<string | null>(null);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const modelDropdownRef = useRef<HTMLDivElement | null>(null);
+  const { hasKey: hasByokKey } = useApiKeys();
 
   // 모델 드롭다운 외부 클릭 닫기
   useEffect(() => {
@@ -7862,6 +7864,14 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                           placeholder="현재 문제나 코드에 대해 질문하세요  (Ctrl+Enter 전송)"
                         />
                         <div className="chat-composer-actions">
+                          {(() => {
+                            const currentProvider = CHAT_MODEL_OPTIONS.find((o) => o.id === chatModel)?.provider;
+                            return currentProvider && hasByokKey(currentProvider) ? (
+                              <span className="byok-badge" title={`${currentProvider === "anthropic" ? "Anthropic" : "OpenAI"} API 키로 응답합니다`}>
+                                🔑 내 키
+                              </span>
+                            ) : null;
+                          })()}
                           <div className="model-dropdown" ref={modelDropdownRef}>
                             <button
                               type="button"

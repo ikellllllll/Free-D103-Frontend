@@ -1502,6 +1502,120 @@ export const sessionApi = {
   },
 
   /**
+   * BYOK 기반 AI 채팅 SSE streaming.
+   * 백엔드: POST /api/v1/ai/sessions/{id}/ai-chat (text/event-stream).
+   * 사용자가 등록한 API Key(AES-256-GCM 서버 저장)로 직접 LLM 호출.
+   * streamChat 과 프레임 구조 동일 — payload 에 vendor 필드 추가.
+   */
+  async streamAIChat(
+    sessionId: string,
+    payload: {
+      vendor: string;
+      chat: string;
+      modelName?: string | null;
+      referenceContents?: string[];
+    },
+    handlers: {
+      onMetadata?: (data: { run_id?: string } & Record<string, unknown>) => void;
+      onChunk: (content: string, modelName: string) => void;
+      onEnd?: () => void;
+      onError?: (code: string, message: string) => void;
+    },
+    signal?: AbortSignal
+  ): Promise<void> {
+    const { tokens } = useAuthStore.getState();
+    if (!tokens?.accessToken) {
+      throw new Error("로그인이 필요합니다.");
+    }
+
+    const body: Record<string, unknown> = { vendor: payload.vendor, chat: payload.chat };
+    if (payload.modelName) body.modelName = payload.modelName;
+    if (payload.referenceContents) body.referenceContents = payload.referenceContents;
+
+    const doFetch = (accessToken: string) =>
+      fetch(`${BASE_URL}/api/v1/ai/sessions/${sessionId}/ai-chat`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          Accept: "text/event-stream"
+        },
+        body: JSON.stringify(body),
+        signal
+      });
+
+    let res = await doFetch(tokens.accessToken);
+    if (res.status === 401) {
+      const refreshed = await tryRefreshAccessToken();
+      if (!refreshed) {
+        throw new Error("세션이 만료됐습니다. 다시 로그인해주세요.");
+      }
+      res = await doFetch(refreshed.accessToken);
+    }
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`AI 응답 실패 (${res.status})${text ? `: ${text.slice(0, 200)}` : ""}`);
+    }
+    if (!res.body) {
+      throw new Error("AI 스트림 응답 본문이 없습니다.");
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let sep: number;
+        while ((sep = buffer.indexOf("\n\n")) !== -1) {
+          const frame = buffer.slice(0, sep);
+          buffer = buffer.slice(sep + 2);
+          if (!frame.trim()) continue;
+
+          let eventName = "message";
+          let dataStr = "";
+          for (const line of frame.split("\n")) {
+            if (line.startsWith("event:")) eventName = line.slice(6).trim();
+            else if (line.startsWith("data:")) dataStr += line.slice(5).trim();
+          }
+          if (!dataStr) continue;
+
+          let parsed: any;
+          try {
+            parsed = JSON.parse(dataStr);
+          } catch {
+            continue;
+          }
+
+          if (eventName === "metadata") {
+            handlers.onMetadata?.(parsed);
+          } else if (eventName === "data") {
+            const content = typeof parsed?.content === "string" ? parsed.content : "";
+            const modelName = typeof parsed?.modelName === "string" ? parsed.modelName : "";
+            if (content) handlers.onChunk(content, modelName);
+          } else if (eventName === "end") {
+            handlers.onEnd?.();
+            return;
+          } else if (eventName === "error") {
+            const code = typeof parsed?.code === "string" ? parsed.code : "AI_ERROR";
+            const message = typeof parsed?.message === "string" ? parsed.message : "AI 응답 중 오류가 발생했습니다.";
+            handlers.onError?.(code, message);
+            return;
+          }
+        }
+      }
+    } finally {
+      try { await reader.cancel(); } catch { /* already cancelled / locked elsewhere */ }
+      try { reader.releaseLock(); } catch { /* already released by cancel */ }
+    }
+  },
+
+  /**
    * Agent (DeepAgent) 실행 SSE streaming.
    * 백엔드: POST /api/v1/ai/sessions/{id}/agent-runs (text/event-stream).
    * 백엔드가 AI 서비스의 NDJSON stream 을 SSE 로 변환해 relay.
