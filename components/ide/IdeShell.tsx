@@ -5161,21 +5161,19 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       await queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
       await queryClient.invalidateQueries({ queryKey: ["sessions"] });
 
-      // 리포트 생성이 트리거된 경우 — pending marker 박고 /reports 로 이동.
+      // 리포트 생성이 트리거된 경우 — /reports 로 이동. 백엔드 reports list 가 reportStatus
+      // PENDING/PROCEEDING 도 포함해서 응답하므로 localStorage 마커 없이도 사용자가 진행 상태 확인 가능.
+      // 단 endSession → 백엔드 evaluator 가 feedback_report row insert 까지 약간 지연이 있을 수 있어
+      // /reports 진입 1초 후 한 번 더 invalidate 해서 갭 메꿈.
       if (
         endedProblemSessionId &&
         (reportStatus === "PENDING" || reportStatus === "PROCEEDING" || reportStatus === "GENERATED")
       ) {
-        try {
-          const { addPendingReportMarker } = await import("@/lib/reports/pendingMarkers");
-          addPendingReportMarker({
-            problemSessionId: endedProblemSessionId,
-            problemTitle: problem?.title,
-            problemId: session?.problemId ? Number(session.problemId) : undefined
-          });
-        } catch {
-          /* noop — addPendingReportMarker 못 import 해도 페이지 이동은 진행 */
-        }
+        window.setTimeout(() => {
+          // queryKey prefix 만 매칭해도 OK — userId 다양 — exact:false 로 모든 page 변형 invalidate.
+          void queryClient.invalidateQueries({ queryKey: ["userReports"], exact: false });
+          void queryClient.invalidateQueries({ queryKey: ["userReportsAll"], exact: false });
+        }, 1000);
         router.push(withPrefix("/reports"));
         return;
       }

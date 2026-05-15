@@ -44,7 +44,16 @@ export async function performLogout(queryClient: QueryClient): Promise<void> {
       /* security / quota */
     }
 
-    // 5) 세션별 에디터 레이아웃 스냅샷 (`aig:ide-editor-layout:<sessionId>`)
+    // 5a) 옛 pending reports 마커 (2026-05-15 이전) — 백엔드 reportStatus 응답 도입으로 더 이상 사용 안 함.
+    //     남아 있으면 다음 사용자에게 이전 사용자 진행 상태가 노출될 수 있어 정리.
+    try {
+      window.localStorage.removeItem("aig-pending-reports-v1");
+      window.localStorage.removeItem("aig-pending-reports");
+    } catch {
+      /* security / quota */
+    }
+
+    // 5b) 세션별 에디터 레이아웃 스냅샷 (`aig:ide-editor-layout:<sessionId>`)
     //    — IdeShell 이 sessionId 별로 split/그룹/탭 구성을 localStorage 에 저장한다 (EDITOR_LAYOUT_STORAGE_PREFIX).
     //    정상 종료 경로(EndSession)에서는 IdeShell 이 cleanup 하지만, 탭 강제 종료/브라우저 크래시 시
     //    잔존 → 다음 사용자에게 키 패턴으로 이전 사용자 sessionId 가 노출됨. logout 에서 일괄 정리.
