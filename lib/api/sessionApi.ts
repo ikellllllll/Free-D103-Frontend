@@ -497,11 +497,17 @@ const formatTraceTime = (iso: string) =>
 
 const normalizeToolCalls = (calls: AgentToolCall[] | null | undefined): AgentToolCall[] =>
   (calls ?? []).map((call, index) => {
-    // 백엔드는 argsPreview / resultPreview 로 응답. 옛 코드 호환 위해 argsJson 에도 같은 값 미러.
-    const rawArgs = (call as unknown as { argsPreview?: Record<string, unknown> | null }).argsPreview
-      ?? call?.argsJson
+    // 백엔드 TraceDetailResponse refactor (2026-05-12, 6419652) 로 키가 변경됨:
+    //   argsPreview → argsJson, resultPreview → resultJson
+    // 옛 응답(예: 캐시된 trace) 호환을 위해 두 키 모두 시도 후 옛 키 alias 도 유지.
+    const rawArgs =
+      (call as unknown as { argsJson?: Record<string, unknown> | null }).argsJson
+      ?? (call as unknown as { argsPreview?: Record<string, unknown> | null }).argsPreview
       ?? null;
-    const rawResult = (call as unknown as { resultPreview?: Record<string, unknown> | null }).resultPreview ?? null;
+    const rawResult =
+      (call as unknown as { resultJson?: Record<string, unknown> | null }).resultJson
+      ?? (call as unknown as { resultPreview?: Record<string, unknown> | null }).resultPreview
+      ?? null;
     return {
       toolCallId: String(call?.toolCallId ?? `tool-${index + 1}`),
       toolName: String(call?.toolName ?? "tool"),
