@@ -1018,6 +1018,40 @@ const appendLocalFolder = (folders: string[], folderPath: string | null) => {
   return [...folders, folderPath];
 };
 
+// 백엔드 AI (deep_agent_factory.execute) 가 도구 출력을 `[Execute output summary]` envelope 으로
+// 감싸 보내는 케이스 (2026-05-15 변경) — message 가 길 수 있어 기본 접힘 + 클릭 시 펼침.
+const EXECUTE_SUMMARY_MARKER = "[Execute output summary]";
+
+function ExecuteSummaryItem({ event }: { event: { prefix: string; type: string; message: string; detail?: string } }) {
+  const [open, setOpen] = useState(false);
+  // 헤더만 한 줄로 — 사용자가 접힌 상태에서 어떤 도구의 요약인지 빠르게 인지하게.
+  const headerLine = event.message
+    .split("\n")
+    .find((line) => line.trim().length > 0 && !line.includes(EXECUTE_SUMMARY_MARKER))
+    ?? "(요약 비어 있음)";
+  return (
+    <li className="agent-progress-card__item agent-progress-card__item--summary">
+      <span className="agent-progress-card__prefix">{event.prefix}</span>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="agent-progress-card__summary-toggle"
+        aria-expanded={open}
+      >
+        <span className="agent-progress-card__summary-label">📦 도구 출력 요약</span>
+        <span className="agent-progress-card__summary-preview">{headerLine.slice(0, 60)}{headerLine.length > 60 ? "…" : ""}</span>
+        <span className="agent-progress-card__summary-caret">{open ? "▾" : "▸"}</span>
+      </button>
+      {open ? (
+        <pre className="agent-progress-card__summary-body">{event.message}</pre>
+      ) : null}
+      {event.detail ? (
+        <code className="agent-progress-card__detail">{event.detail}</code>
+      ) : null}
+    </li>
+  );
+}
+
 // Agent 진행 이벤트 list 를 자동 스크롤 to bottom 으로 렌더.
 // max-height 280px 안에서 새 단계가 추가될 때마다 마지막 항목으로 스크롤.
 function AgentEventList({ events }: { events: Array<{ prefix: string; type: string; message: string; detail?: string }> }) {
@@ -1033,15 +1067,21 @@ function AgentEventList({ events }: { events: Array<{ prefix: string; type: stri
   }, [events.length]);
   return (
     <ol ref={listRef} className="agent-progress-card__list">
-      {events.map((event, idx) => (
-        <li key={`${event.type}-${idx}`} className="agent-progress-card__item">
-          <span className="agent-progress-card__prefix">{event.prefix}</span>
-          <span className="agent-progress-card__message">{event.message}</span>
-          {event.detail ? (
-            <code className="agent-progress-card__detail">{event.detail}</code>
-          ) : null}
-        </li>
-      ))}
+      {events.map((event, idx) => {
+        // Execute output summary 는 별도 컴포넌트로 — 접기/펼치기 지원.
+        if (event.message.includes(EXECUTE_SUMMARY_MARKER)) {
+          return <ExecuteSummaryItem key={`${event.type}-${idx}`} event={event} />;
+        }
+        return (
+          <li key={`${event.type}-${idx}`} className="agent-progress-card__item">
+            <span className="agent-progress-card__prefix">{event.prefix}</span>
+            <span className="agent-progress-card__message">{event.message}</span>
+            {event.detail ? (
+              <code className="agent-progress-card__detail">{event.detail}</code>
+            ) : null}
+          </li>
+        );
+      })}
     </ol>
   );
 }
@@ -6216,8 +6256,30 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     }
 
     if (sidebarView === "harness") {
+      // 부모에서 V AGENT 트리(files) 의 skill / sub_agent 파일을 추출해 HarnessPanel 에 전달.
+      // path 패턴 — backend SessionHarnessFile 의 raw path 에 'agent/' prefix 가 붙은 형태:
+      //   agent/skills/<id>/SKILL.md
+      //   agent/sub_agent/<id>.(toml|yaml|yml)
+      const harnessSkills = Array.from(
+        new Set(
+          files
+            .map((f) => f.path.match(/^agent\/skills\/([^/]+)\//))
+            .filter((m): m is RegExpMatchArray => m != null)
+            .map((m) => m[1])
+        )
+      ).map((id) => ({ id }));
+      const harnessSubAgents = Array.from(
+        new Set(
+          files
+            .map((f) => f.path.match(/^agent\/sub_agent\/([^/]+)\.(toml|yaml|yml)$/))
+            .filter((m): m is RegExpMatchArray => m != null)
+            .map((m) => m[1])
+        )
+      ).map((id) => ({ id }));
+
       return (
         <HarnessPanel
+          available={{ skills: harnessSkills, subAgents: harnessSubAgents }}
           onApply={async ({ modelId, markdown }) => {
             // 1) 모델 — IDE 의 chat/agent selector 와 동기화. 백엔드는 매 chat 요청마다 model 을 받는
             //    구조라 세션 모델 변경 endpoint 가 따로 없음 — selector state 갱신만으로 충분.

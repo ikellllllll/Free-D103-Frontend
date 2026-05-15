@@ -21,6 +21,13 @@ interface Skill {
   icon: string;
 }
 
+interface SubAgent {
+  id: string;
+  name: string;
+  desc: string;
+  icon: string;
+}
+
 interface InstructionTemplate {
   id: string;
   name: string;
@@ -62,30 +69,78 @@ const AGENT_MODELS: AgentModel[] = [
   },
 ];
 
-// 실제 백엔드 init-db 시드 하네스의 skills 디렉토리와 매칭 (2026-05-15 update).
-//   AI/lab/default_custom_harness_architecture/skills/{name}/SKILL.md
-// 이전엔 mock 라벨 (web-search/code-runner/file-reader/memory/diff-viewer/test-runner) 이
-// 실제 백엔드 skill 과 mismatch 라 사용자가 체크해도 효과 없음. 백엔드 실제 skill 디렉토리로 동기화.
-const SKILLS: Skill[] = [
-  {
-    id: "codebase-exploration",
+// 실제 백엔드 init-db 시드 (AI/lab/default_custom_harness_architecture) 의 skill 라벨 / icon
+// 매핑. dict 에 없는 ID 는 humanizeSkillId() 로 kebab → Title Case 변환해서 표시 (사용자 커스텀 skill 대응).
+const KNOWN_SKILLS: Record<string, { name: string; desc: string; icon: string }> = {
+  "codebase-exploration": {
     name: "코드베이스 탐색",
     desc: "프로젝트 구조 파악 · 관련 코드 검색",
     icon: "🔍",
   },
-  {
-    id: "safe-code-edit",
+  "safe-code-edit": {
     name: "안전한 코드 편집",
     desc: "변경 전 검증 · diff 단위 적용",
     icon: "✏️",
   },
-  {
-    id: "test-and-verify",
+  "test-and-verify": {
     name: "테스트 및 검증",
     desc: "테스트 실행 · 실패 분석 · 재검증 루프",
     icon: "🧪",
   },
-];
+};
+
+const KNOWN_SUB_AGENTS: Record<string, { name: string; desc: string; icon: string }> = {
+  "code_reviewer": {
+    name: "코드 리뷰어",
+    desc: "변경 코드 품질 검토 · 개선 제안",
+    icon: "🔬",
+  },
+  "code-reviewer": {
+    name: "코드 리뷰어",
+    desc: "변경 코드 품질 검토 · 개선 제안",
+    icon: "🔬",
+  },
+  "harness-reviewer": {
+    name: "하네스 리뷰어",
+    desc: "(legacy) 하네스 구성 검토",
+    icon: "🔬",
+  },
+};
+
+const humanizeSkillId = (id: string): string =>
+  id
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+
+/**
+ * 부모 IdeShell 이 SessionHarnessFile 트리에서 추출한 skill / sub_agent 목록을 prop 으로 전달.
+ * 매 세션 진입 시 동적으로 갱신 — 사용자 커스텀 skill 추가도 자동 노출.
+ */
+export interface HarnessAvailable {
+  skills: Array<{ id: string }>;        // path: agent/skills/<id>/SKILL.md
+  subAgents: Array<{ id: string }>;     // path: agent/sub_agent/<id>.toml (or .yaml)
+}
+
+const buildSkillView = (skill: { id: string }): Skill => {
+  const meta = KNOWN_SKILLS[skill.id];
+  return {
+    id: skill.id,
+    name: meta?.name ?? humanizeSkillId(skill.id),
+    desc: meta?.desc ?? "사용자 정의 스킬",
+    icon: meta?.icon ?? "🛠️",
+  };
+};
+
+const buildSubAgentView = (sub: { id: string }): SubAgent => {
+  const meta = KNOWN_SUB_AGENTS[sub.id];
+  return {
+    id: sub.id,
+    name: meta?.name ?? humanizeSkillId(sub.id),
+    desc: meta?.desc ?? "사용자 정의 서브 에이전트",
+    icon: meta?.icon ?? "🤖",
+  };
+};
 
 const INSTRUCTION_TEMPLATES: InstructionTemplate[] = [
   {
@@ -202,9 +257,13 @@ function StepIndicator({ current }: { current: WizardStep }) {
 
 /* ── Generated markdown ─────────────────────────────────────── */
 
-function buildMarkdown(agent: string, skills: string[], instruction: string) {
+function buildMarkdown(
+  agent: string,
+  skills: string[],
+  subAgents: string[],
+  instruction: string,
+) {
   const model = AGENT_MODELS.find((m) => m.id === agent);
-  const skillList = SKILLS.filter((s) => skills.includes(s.id));
   return [
     "# Harness Configuration",
     "",
@@ -212,7 +271,10 @@ function buildMarkdown(agent: string, skills: string[], instruction: string) {
     `model: ${model?.id ?? agent}`,
     "",
     "## Skills",
-    skillList.length ? skillList.map((s) => `- ${s.id}`).join("\n") : "- (none)",
+    skills.length ? skills.map((s) => `- ${s}`).join("\n") : "- (none)",
+    "",
+    "## Sub Agents",
+    subAgents.length ? subAgents.map((s) => `- ${s}`).join("\n") : "- (none)",
     "",
     "## Instruction",
     instruction.trim() || "(비어 있음)",
@@ -233,14 +295,25 @@ function buildMarkdown(agent: string, skills: string[], instruction: string) {
 export interface HarnessApplyOptions {
   modelId: string;
   skills: string[];
+  subAgents: string[];
   instruction: string;
   markdown: string;
 }
 
-export function HarnessPanel({ onApply }: { onApply?: (options: HarnessApplyOptions) => Promise<void> } = {}) {
+export function HarnessPanel(
+  {
+    onApply,
+    available,
+  }: {
+    onApply?: (options: HarnessApplyOptions) => Promise<void>;
+    /** 부모(IdeShell)가 현재 세션 V AGENT 트리에서 추출한 skill / sub_agent 목록. 없으면 빈 배열. */
+    available?: HarnessAvailable;
+  } = {},
+) {
   const [step, setStep]                       = useState<WizardStep>(1);
   const [selectedAgent, setSelectedAgent]     = useState<string | null>(null);
   const [selectedSkills, setSelectedSkills]   = useState<string[]>([]);
+  const [selectedSubAgents, setSelectedSubAgents] = useState<string[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [instruction, setInstruction]         = useState("");
   const [mdExpanded, setMdExpanded]           = useState(false);
@@ -248,8 +321,23 @@ export function HarnessPanel({ onApply }: { onApply?: (options: HarnessApplyOpti
   const [applying, setApplying]               = useState(false);
   const [applyError, setApplyError]           = useState<string | null>(null);
 
+  // 부모가 전달한 동적 목록 → view model 로 변환. KNOWN_* dict 매핑 + humanize fallback.
+  const skillViews = useMemo<Skill[]>(
+    () => (available?.skills ?? []).map(buildSkillView),
+    [available?.skills],
+  );
+  const subAgentViews = useMemo<SubAgent[]>(
+    () => (available?.subAgents ?? []).map(buildSubAgentView),
+    [available?.subAgents],
+  );
+
   const toggleSkill = (id: string) =>
     setSelectedSkills((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
+    );
+
+  const toggleSubAgent = (id: string) =>
+    setSelectedSubAgents((prev) =>
       prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
     );
 
@@ -265,8 +353,8 @@ export function HarnessPanel({ onApply }: { onApply?: (options: HarnessApplyOpti
     step === 4;
 
   const markdown = useMemo(
-    () => buildMarkdown(selectedAgent ?? "", selectedSkills, instruction),
-    [selectedAgent, selectedSkills, instruction],
+    () => buildMarkdown(selectedAgent ?? "", selectedSkills, selectedSubAgents, instruction),
+    [selectedAgent, selectedSkills, selectedSubAgents, instruction],
   );
 
   // 2초 후 "적용됨" 배지 사라지는 setTimeout — id 를 ref 에 저장해서 unmount 시 cleanup.
@@ -294,6 +382,7 @@ export function HarnessPanel({ onApply }: { onApply?: (options: HarnessApplyOpti
       await onApply?.({
         modelId: selectedAgent,
         skills: selectedSkills,
+        subAgents: selectedSubAgents,
         instruction,
         markdown,
       });
@@ -360,38 +449,89 @@ export function HarnessPanel({ onApply }: { onApply?: (options: HarnessApplyOpti
   );
 
   const renderStep2 = () => (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <p style={hint}>사용할 스킬을 선택하세요.</p>
-        {selectedSkills.length > 0 && (
-          <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10, background: "#eef2ff", color: "#6366f1" }}>
-            {selectedSkills.length}개 선택
-          </span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* Skills 섹션 */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <p style={hint}>사용할 스킬을 선택하세요.</p>
+          {selectedSkills.length > 0 && (
+            <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10, background: "#eef2ff", color: "#6366f1" }}>
+              {selectedSkills.length}개 선택
+            </span>
+          )}
+        </div>
+        {skillViews.length === 0 ? (
+          <p style={{ ...hint, fontStyle: "italic", color: "var(--muted, #9ca3af)" }}>
+            현재 세션에 등록된 스킬이 없어요. agent/skills/ 폴더에 추가하면 여기 보입니다.
+          </p>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+            {skillViews.map((sk) => {
+              const active = selectedSkills.includes(sk.id);
+              return (
+                <button
+                  key={sk.id}
+                  type="button"
+                  onClick={() => toggleSkill(sk.id)}
+                  style={{
+                    ...cardBase,
+                    padding: "9px 10px",
+                    borderColor: active ? "#6366f1" : "var(--line, rgba(0,0,0,0.08))",
+                    background:  active ? "#eef2ff" : "var(--subtle-bg, #fafafa)",
+                    boxShadow:   active ? "0 0 0 2px #6366f133" : "none",
+                    textAlign: "left",
+                  }}
+                >
+                  <div style={{ fontSize: 18, marginBottom: 4 }}>{sk.icon}</div>
+                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: active ? "#4338ca" : "var(--text, #111827)", marginBottom: 2 }}>{sk.name}</div>
+                  <div style={{ fontSize: "0.67rem", color: "var(--muted, #6b7280)", lineHeight: 1.3 }}>{sk.desc}</div>
+                </button>
+              );
+            })}
+          </div>
         )}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-        {SKILLS.map((sk) => {
-          const active = selectedSkills.includes(sk.id);
-          return (
-            <button
-              key={sk.id}
-              type="button"
-              onClick={() => toggleSkill(sk.id)}
-              style={{
-                ...cardBase,
-                padding: "9px 10px",
-                borderColor: active ? "#6366f1" : "var(--line, rgba(0,0,0,0.08))",
-                background:  active ? "#eef2ff" : "var(--subtle-bg, #fafafa)",
-                boxShadow:   active ? "0 0 0 2px #6366f133" : "none",
-                textAlign: "left",
-              }}
-            >
-              <div style={{ fontSize: 18, marginBottom: 4 }}>{sk.icon}</div>
-              <div style={{ fontSize: "0.75rem", fontWeight: 700, color: active ? "#4338ca" : "var(--text, #111827)", marginBottom: 2 }}>{sk.name}</div>
-              <div style={{ fontSize: "0.67rem", color: "var(--muted, #6b7280)", lineHeight: 1.3 }}>{sk.desc}</div>
-            </button>
-          );
-        })}
+
+      {/* Sub Agents 섹션 — 같은 step 안에 통합. 백엔드 시드의 agent/sub_agent/ 디렉토리 기반. */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingTop: 10, borderTop: "1px dashed var(--line, rgba(0,0,0,0.08))" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <p style={hint}>활성화할 서브 에이전트.</p>
+          {selectedSubAgents.length > 0 && (
+            <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10, background: "#eef2ff", color: "#6366f1" }}>
+              {selectedSubAgents.length}개 선택
+            </span>
+          )}
+        </div>
+        {subAgentViews.length === 0 ? (
+          <p style={{ ...hint, fontStyle: "italic", color: "var(--muted, #9ca3af)" }}>
+            등록된 서브 에이전트가 없어요. agent/sub_agent/ 에 toml 파일을 추가하면 보입니다.
+          </p>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+            {subAgentViews.map((sa) => {
+              const active = selectedSubAgents.includes(sa.id);
+              return (
+                <button
+                  key={sa.id}
+                  type="button"
+                  onClick={() => toggleSubAgent(sa.id)}
+                  style={{
+                    ...cardBase,
+                    padding: "9px 10px",
+                    borderColor: active ? "#6366f1" : "var(--line, rgba(0,0,0,0.08))",
+                    background:  active ? "#eef2ff" : "var(--subtle-bg, #fafafa)",
+                    boxShadow:   active ? "0 0 0 2px #6366f133" : "none",
+                    textAlign: "left",
+                  }}
+                >
+                  <div style={{ fontSize: 18, marginBottom: 4 }}>{sa.icon}</div>
+                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: active ? "#4338ca" : "var(--text, #111827)", marginBottom: 2 }}>{sa.name}</div>
+                  <div style={{ fontSize: "0.67rem", color: "var(--muted, #6b7280)", lineHeight: 1.3 }}>{sa.desc}</div>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -441,7 +581,9 @@ export function HarnessPanel({ onApply }: { onApply?: (options: HarnessApplyOpti
 
   const renderStep4 = () => {
     const model  = AGENT_MODELS.find((m) => m.id === selectedAgent);
-    const skills = SKILLS.filter((s) => selectedSkills.includes(s.id));
+    // 선택한 skill id 들을 view 로 — skillViews 에 있으면 그대로 사용, 없으면 즉시 humanize.
+    const skills = selectedSkills.map((id) => skillViews.find((sv) => sv.id === id) ?? buildSkillView({ id }));
+    const subs   = selectedSubAgents.map((id) => subAgentViews.find((sv) => sv.id === id) ?? buildSubAgentView({ id }));
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {/* Summary cards */}
@@ -450,6 +592,12 @@ export function HarnessPanel({ onApply }: { onApply?: (options: HarnessApplyOpti
           label="Skills"
           value={skills.length ? skills.map((s) => s.name).join(", ") : "없음"}
           icon="🔧"
+          onEdit={() => setStep(2)}
+        />
+        <SummaryRow
+          label="Sub Agents"
+          value={subs.length ? subs.map((s) => s.name).join(", ") : "없음"}
+          icon="🤝"
           onEdit={() => setStep(2)}
         />
         <SummaryRow
