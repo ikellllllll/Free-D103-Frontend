@@ -3490,7 +3490,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     trace: `${traces.length}`
   };
   const activityMeta: Record<SidebarView | "ai" | "output", string | null> = {
-    explorer: dirtyCount ? `${dirtyCount}` : openTabs.length ? `${openTabs.length}` : `${files.length}`,
+    explorer: dirtyCount ? `${dirtyCount}` : openTabs.length ? `${openTabs.length}` : null,
     search: searchQuery.trim() ? `${searchMatches.length}` : null,
     trace: null,
     extensions: `${extensionItems.length}`,
