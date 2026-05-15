@@ -1985,6 +1985,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const isDirtyRef = useRef(false);
   const savedBackTargetRef = useRef<string | null>(null);
   const sessionTimeoutHandledRef = useRef(false);
+  // 만료 5분/1분 사전 경고 — 한 번씩만 띄우도록 ref 로 중복 차단. sessionId 변경 시 reset.
+  const sessionWarn5MinShownRef = useRef(false);
+  const sessionWarn1MinShownRef = useRef(false);
   // 메시지 hydrate 가 sessionId 별로 한 번만 일어나도록 — chat streaming 중 백엔드 refetch 로
   // 메시지가 덮어씌워지는 패턴 방지.
   const messagesHydratedSessionRef = useRef<string | null>(null);
@@ -3494,22 +3497,27 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
   useEffect(() => {
     sessionTimeoutHandledRef.current = false;
+    sessionWarn5MinShownRef.current = false;
+    sessionWarn1MinShownRef.current = false;
   }, [sessionId]);
 
+  // 만료 5분 / 1분 사전 경고 — 한 번씩만 토스트.
   useEffect(() => {
-    if (!session || !problem || !isTimeExpired || sessionTimeoutHandledRef.current) {
-      return;
+    if (!session || !problem || isTimeExpired || estimateLimitMs <= 0) return;
+    const remainingMs = estimateLimitMs - solveElapsedMs;
+    if (remainingMs <= 60_000 && !sessionWarn1MinShownRef.current) {
+      sessionWarn1MinShownRef.current = true;
+      // 5분 경고도 같이 마크 — 1분 시점에 5분 경고가 안 떴어도 더 안 띄움.
+      sessionWarn5MinShownRef.current = true;
+      addToast("⏰ 1분 남았습니다. 자동 저장 후 종료됩니다.", "warning");
+    } else if (remainingMs <= 300_000 && !sessionWarn5MinShownRef.current) {
+      sessionWarn5MinShownRef.current = true;
+      addToast("⏰ 5분 남았습니다. 마무리 짓고 제출 또는 저장하세요.", "warning");
     }
+  }, [addToast, estimateLimitMs, isTimeExpired, problem, session, solveElapsedMs]);
 
-    sessionTimeoutHandledRef.current = true;
-    setSavePromptOpen(false);
-    setSavePromptAction(null);
-    addToast("제한 시간이 지나 세션이 종료되었습니다.", "warning");
-
-    void queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
-    void queryClient.invalidateQueries({ queryKey: ["sessions"] });
-    router.replace(withPrefix("/problems"));
-  }, [addToast, isTimeExpired, problem, queryClient, router, session, sessionId, withPrefix]);
+  // 만료 처리 useEffect 는 executeEndSession 정의 뒤로 이동 (TS hoist 제약).
+  // 아래 "EXPIRY HANDLER" 마커 위치에 위치.
 
   const handleMount = (groupId: string) => (editor: any, monaco: any) => {
     editorRefsRef.current.set(groupId, editor);
@@ -5185,6 +5193,51 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     void executeEndSession();
   }, [executeEndSession, unsavedPaths.length]);
 
+  // EXPIRY HANDLER — 세션 시간 만료 즉시 종료 흐름.
+  //   1) dirty 파일 강제 저장 — autoSave 30s 주기라 마지막 편집이 손실될 수 있어 명시적으로 저장.
+  //   2) endSession 자동 호출 — 백엔드 status 동기화 (scheduler 가 1분 내 자동 EXPIRED 처리하지만
+  //      그 사이 다른 탭에서 같은 세션 진입 가능). reportStatus 받아서 리포트 진행 중이면 /reports 로.
+  //   3) 토스트 "제한 시간 종료" 안내 + redirect (router 는 executeEndSession 안에서).
+  // useEffect 위치 — executeEndSession useCallback 정의 뒤 (const TDZ 회피).
+  useEffect(() => {
+    if (!session || !problem || !isTimeExpired || sessionTimeoutHandledRef.current) {
+      return;
+    }
+    sessionTimeoutHandledRef.current = true;
+    setSavePromptOpen(false);
+    setSavePromptAction(null);
+    (async () => {
+      addToast("⏰ 제한 시간이 지나 세션이 종료됩니다. 저장 후 마무리...", "warning");
+      try {
+        if (unsavedPaths.length > 0) {
+          await savePaths([...unsavedPaths]);
+        }
+      } catch {
+        /* 저장 실패해도 종료는 진행 — 백엔드 마지막 저장본으로 평가 */
+      }
+      try {
+        await executeEndSession();
+      } catch {
+        // endSession 실패해도 백엔드 scheduler 가 1분 내 EXPIRED 처리. 직접 redirect.
+        void queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
+        void queryClient.invalidateQueries({ queryKey: ["sessions"] });
+        router.replace(withPrefix("/problems"));
+      }
+    })();
+  }, [
+    addToast,
+    executeEndSession,
+    isTimeExpired,
+    problem,
+    queryClient,
+    router,
+    savePaths,
+    session,
+    sessionId,
+    unsavedPaths,
+    withPrefix,
+  ]);
+
   const handleNavigateRequest = useCallback(
     (href: string) => {
       if (unsavedPaths.length) {
@@ -6611,18 +6664,30 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       <div className="editor-tabbar__row editor-tabbar__row--meta">
         <div className="editor-tabbar__context">
           {estimateLimitMs > 0 ? (
-            <div className={`solve-timer-bar solve-timer-bar--${timerPhase}`}>
-              <div className="solve-timer-bar__track">
-                <div
-                  className="solve-timer-bar__fill"
-                  style={{ width: isOvertime ? "100%" : `${timerProgress * 100}%` }}
-                />
-              </div>
-              <span className="solve-timer-bar__label">
-                {isOvertime ? `+${formatSolveElapsed(overtimeMs)}` : solveElapsedLabel}
-              </span>
-              <span className="solve-timer-bar__limit">{problem?.estimate}</span>
-            </div>
+            (() => {
+              // 마지막 60초 카운트다운 — 라벨을 "X초 남음" 으로 전환. 사용자가 시각적으로 임박함 인지.
+              const remainingMs = estimateLimitMs - solveElapsedMs;
+              const showCountdown = !isOvertime && remainingMs > 0 && remainingMs <= 60_000;
+              const countdownSec = Math.max(0, Math.ceil(remainingMs / 1000));
+              return (
+                <div className={`solve-timer-bar solve-timer-bar--${timerPhase}${showCountdown ? " solve-timer-bar--countdown" : ""}`}>
+                  <div className="solve-timer-bar__track">
+                    <div
+                      className="solve-timer-bar__fill"
+                      style={{ width: isOvertime ? "100%" : `${timerProgress * 100}%` }}
+                    />
+                  </div>
+                  <span className="solve-timer-bar__label">
+                    {isOvertime
+                      ? `+${formatSolveElapsed(overtimeMs)}`
+                      : showCountdown
+                        ? `⏱ ${countdownSec}초 남음`
+                        : solveElapsedLabel}
+                  </span>
+                  <span className="solve-timer-bar__limit">{problem?.estimate}</span>
+                </div>
+              );
+            })()
           ) : (
             <span className="editor-tabbar__metric editor-tabbar__metric--time">풀이 {solveElapsedLabel}</span>
           )}

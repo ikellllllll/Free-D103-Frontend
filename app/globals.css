@@ -2716,6 +2716,21 @@ body:has(.ide-route--workspace) .page-shell > * {
   color: #fca5a5;
 }
 
+/* 마지막 60초 카운트다운 — 라벨에 펄스 애니메이션 + 글자 빨강 강조. 사용자가 시간 임박 즉시 인지. */
+.solve-timer-bar--countdown .solve-timer-bar__label {
+  color: #ef4444;
+  animation: solve-timer-pulse 1s ease-in-out infinite;
+}
+
+.solve-timer-bar--countdown .solve-timer-bar__fill {
+  background: #ef4444;
+}
+
+@keyframes solve-timer-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
 @media (max-width: 1180px) {
   .editor-tabbar__row--meta {
     align-items: flex-start;
