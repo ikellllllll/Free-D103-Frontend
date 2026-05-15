@@ -26,11 +26,20 @@ const WORKFLOW = [
     cmd: "aig session start --problem todo-api",
     tag: "과제",
     desc: "과제를 선택하고 AI 에이전트 세션을 초기화합니다. 파일 시스템이 준비되고 AI가 컨텍스트를 파악합니다.",
-    img: "/problemsSession.png",
-    alt: "세션 시작 화면"
+    img: "/problemsList.png",
+    alt: "과제 목록 화면"
   },
   {
     step: "02",
+    label: "하네스 설정",
+    cmd: "aig harness --init --problem todo-api",
+    tag: "하네스",
+    desc: "AGENTS.md, 스킬, 인스트럭션을 구성합니다. 하네스 품질이 AI 에이전트의 풀이 역량을 결정합니다.",
+    img: "/userHarness.png",
+    alt: "하네스 설정 화면"
+  },
+  {
+    step: "03",
     label: "코드 수정 & Diff",
     cmd: "aig diff --show-changes",
     tag: "Diff 뷰",
@@ -39,22 +48,13 @@ const WORKFLOW = [
     alt: "코드 Diff 화면"
   },
   {
-    step: "03",
+    step: "04",
     label: "Trace 분석",
     cmd: "aig trace --session current --detail",
     tag: "Trace",
     desc: "에이전트의 모든 Tool Call, LLM 호출, 실행 스팬을 실시간으로 기록합니다. 에이전트가 어떻게 사고하는지 투명하게 확인하세요.",
     img: "/Trace.png",
     alt: "Trace 분석 화면"
-  },
-  {
-    step: "04",
-    label: "제출 & 분석 중",
-    cmd: "aig submit --session current",
-    tag: "분석 중",
-    desc: "코드를 제출하면 AI가 테스트 케이스 채점, 코드 리뷰, AI 활용 분석을 순차적으로 처리합니다.",
-    img: "/reportrunning.png",
-    alt: "제출 분석 진행 화면"
   },
   {
     step: "05",
@@ -1190,18 +1190,36 @@ export function LandingAIG() {
             </div>
 
             {/* Agent Mode */}
-            <div className="relative min-h-[260px] rounded-3xl border border-gray-200/80 bg-white overflow-hidden group transition-all duration-300 p-8 flex flex-col justify-start shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)] hover:-translate-y-1 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_12px_24px_-12px_rgba(79,70,229,0.25)]">
-              <div className="min-w-0">
-                <h3 className="text-3xl font-display font-bold text-slate-950 tracking-tight mb-5">Agent Mode</h3>
+            <div className="relative min-h-[360px] rounded-3xl border border-gray-200/80 bg-white overflow-hidden group transition-all duration-300 flex flex-col justify-start shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)] hover:-translate-y-1 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_12px_24px_-12px_rgba(79,70,229,0.25)]">
+              <div className="relative h-48 overflow-hidden border-b border-slate-100 bg-slate-100">
+                <Image
+                  src="/problemsSession.png"
+                  alt="Agent Mode 화면 미리보기"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  className="object-contain object-center transition-transform duration-500 group-hover:scale-[1.03]"
+                />
+              </div>
+              <div className="px-8 pb-8 pt-5">
+                <h3 className="text-3xl font-display font-bold text-slate-950 tracking-tight mb-4">Agent Mode</h3>
                 <p className="text-base text-slate-600 leading-7">하네스 구성 문제를 에이전트에게 위임합니다. 자율 실행된 수정 흐름이 Diff와 Trace로 기록되어 근거를 검토할 수 있습니다.</p>
               </div>
               <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-400/50 to-transparent" />
             </div>
 
             {/* AI 피드백 리포트 */}
-            <div className="relative min-h-[260px] rounded-3xl border border-gray-200/80 bg-white overflow-hidden group transition-all duration-300 p-8 flex flex-col justify-start shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)] hover:-translate-y-1 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_12px_24px_-12px_rgba(79,70,229,0.25)]">
-              <div className="min-w-0">
-                <h3 className="text-3xl font-display font-bold text-slate-950 tracking-tight mb-5">AI 피드백 리포트</h3>
+            <div className="relative min-h-[360px] rounded-3xl border border-gray-200/80 bg-white overflow-hidden group transition-all duration-300 flex flex-col justify-start shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_1px_2px_rgba(17,24,39,0.04),0_12px_28px_-16px_rgba(79,70,229,0.18)] hover:-translate-y-1 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_12px_24px_-12px_rgba(79,70,229,0.25)]">
+              <div className="relative h-48 overflow-hidden border-b border-slate-100 bg-slate-100">
+                <Image
+                  src="/report.png"
+                  alt="AI 피드백 리포트 화면 미리보기"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  className="object-contain object-center transition-transform duration-500 group-hover:scale-[1.03]"
+                />
+              </div>
+              <div className="px-8 pb-8 pt-5">
+                <h3 className="text-3xl font-display font-bold text-slate-950 tracking-tight mb-4">AI 피드백 리포트</h3>
                 <p className="text-base text-slate-600 leading-7">하네스 품질 · 실행 품질 · Trace 활용, 3가지 기준으로 이번 풀이에서 무엇이 좋았고 무엇을 보완해야 하는지 수치로 확인합니다.</p>
               </div>
               <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-teal-400/50 to-transparent" />
@@ -1282,7 +1300,7 @@ export function LandingAIG() {
                 className="relative overflow-hidden rounded-2xl border border-white/[0.18] bg-white/[0.025] p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(255,255,255,0.05),0_18px_44px_-28px_rgba(125,211,252,0.45)] backdrop-blur-xl"
                 style={{ aspectRatio: "1.88 / 1" }}
               >
-                <div className="relative h-full w-full overflow-hidden rounded-[14px] bg-[#111124] ring-1 ring-white/[0.12]">
+                <div className="relative h-full w-full overflow-hidden rounded-[14px] bg-slate-100 ring-1 ring-white/[0.12]">
                   {WORKFLOW.map((item, index) => (
                     <Image
                       key={item.step}
@@ -1290,7 +1308,7 @@ export function LandingAIG() {
                       alt={item.alt}
                       fill
                       sizes="(max-width: 1024px) 100vw, 720px"
-                      className={`landing-workflow-image object-contain object-center ${
+                      className={`landing-workflow-image object-contain object-center brightness-105 saturate-50 ${
                         index === displayStep
                           ? "landing-workflow-image--enter"
                           : index === previousStep
@@ -1300,6 +1318,7 @@ export function LandingAIG() {
                       priority={index === 0}
                     />
                   ))}
+                  <div className="absolute inset-0 bg-white/30 pointer-events-none" />
                   <span key={`wipe-${displayStep}`} className="landing-workflow-image__wipe" aria-hidden="true" />
                 </div>
               </div>
