@@ -2141,7 +2141,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     queryKey: ["submission-poll", submissionExecutionId],
     queryFn: async () => {
       const data = await sessionApi.getSubmissionResult(submissionExecutionId!);
-      const rawStatus = (data.rawStatus ?? "RUNNING") as "RUNNING" | "COMPLETED" | "FAILED";
+      // 백엔드 5/14~ RabbitMQ 도입으로 QUEUED 상태 추가. QUEUED/RUNNING 둘 다 진행 중,
+      // COMPLETED/FAILED 만 terminal. (이전엔 QUEUED 가 정의에 없어 string cast 시 "RUNNING" 으로 떨어짐.)
+      const rawStatus = (data.rawStatus ?? "RUNNING") as "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
       const isTerminal = rawStatus === "COMPLETED" || rawStatus === "FAILED";
 
       // 직전 store 상태에서 startedAt 을 보존해야 elapsed 계산이 안 깨짐.

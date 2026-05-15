@@ -533,12 +533,20 @@ const normalizeLlmCalls = (calls: AgentLlmCall[] | null | undefined): AgentLlmCa
   }));
 
 const normalizePatches = (patches: AgentPatch[] | null | undefined): AgentPatch[] =>
-  (patches ?? []).map((patch, index) => ({
-    patchId: String(patch?.patchId ?? `patch-${index + 1}`),
-    filePath: String(patch?.filePath ?? ""),
-    additions: Number(patch?.additions ?? 0),
-    deletions: Number(patch?.deletions ?? 0)
-  }));
+  (patches ?? []).map((patch, index) => {
+    // 백엔드 TraceDetailResponse refactor (2026-05-12, 6419652) 로 patchId → agentPatchId 로 키 변경.
+    // 옛 응답 호환을 위해 두 키 모두 시도.
+    const id =
+      (patch as unknown as { agentPatchId?: string | number | null }).agentPatchId
+      ?? patch?.patchId
+      ?? `patch-${index + 1}`;
+    return {
+      patchId: String(id),
+      filePath: String(patch?.filePath ?? ""),
+      additions: Number(patch?.additions ?? 0),
+      deletions: Number(patch?.deletions ?? 0)
+    };
+  });
 
 const normalizeSpans = (spans: AgentSpan[] | null | undefined): AgentSpan[] =>
   (spans ?? []).map((span, index) => ({
@@ -646,6 +654,9 @@ const normalizeSelectedSpan = (span: AgentTraceSelectedSpanResponse): AgentSpan 
   toolCalls: normalizeToolCalls(span.toolCalls),
   llmCalls: normalizeLlmCalls(span.llmCalls),
   patches: normalizePatches(span.patches),
+  // 백엔드 5/12 TraceDetailResponse refactor 로 preview / logView 두 record 모두 제거됨.
+  // 호환 fallback 유지 (옛 캐시) — 새 응답에선 항상 null 로 떨어져 TraceWorkbench 의 Input/Output 섹션이
+  // "데이터 없음" 표시. 백엔드가 다시 노출하면 자동으로 채워짐.
   inputJson: span.logView?.inputJson ?? span.preview?.input ?? null,
   outputJson: span.logView?.outputJson ?? span.preview?.output ?? null
 });

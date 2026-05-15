@@ -84,7 +84,12 @@ export interface Submission {
  */
 export interface SubmissionResult {
   executionId: string;
-  rawStatus: "RUNNING" | "COMPLETED" | "FAILED";
+  /**
+   * 백엔드 ExecutionStatus enum 그대로 보존.
+   * 2026-05-14 RabbitMQ 큐 도입 (52a90e7) 로 QUEUED 가 추가됨 — 큐 대기 상태에서
+   * consumer 가 잡아 RUNNING 으로 전환. UI 는 QUEUED 도 "진행 중" 으로 표시.
+   */
+  rawStatus: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
   total: number;
   passed: number;
   failed: number;

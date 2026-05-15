@@ -34,7 +34,9 @@ export function SubmissionResultPanel({ result, loading }: Props) {
     );
   }
 
-  const isRunning = result.rawStatus === "RUNNING";
+  // 백엔드 5/14~ RabbitMQ 큐 도입으로 QUEUED 상태 추가. 큐 대기 + 실행 중 모두 "진행 중" 으로 표시.
+  const isQueued = result.rawStatus === "QUEUED";
+  const isRunning = result.rawStatus === "RUNNING" || isQueued;
   const isFailed = result.rawStatus === "FAILED";
   const isCompleted = result.rawStatus === "COMPLETED";
   // buildFailed: 백엔드가 COMPLETED 로 끝났는데 total=0 — 컴파일/실행 단계에서 셋업이 안 됐다는 신호.
@@ -68,7 +70,13 @@ export function SubmissionResultPanel({ result, loading }: Props) {
           )}
         </strong>
         <span>
-          {isRunning ? `채점 중 · ${elapsedSec}초 경과` : isBuildFailed ? "컴파일 또는 실행 환경 셋업 단계에서 실패" : `소요 ${elapsedSec}초`}
+          {isQueued
+            ? `큐 대기 중 · ${elapsedSec}초 경과 (실행 차례 기다리는 중)`
+            : isRunning
+              ? `채점 중 · ${elapsedSec}초 경과`
+              : isBuildFailed
+                ? "컴파일 또는 실행 환경 셋업 단계에서 실패"
+                : `소요 ${elapsedSec}초`}
         </span>
       </div>
 

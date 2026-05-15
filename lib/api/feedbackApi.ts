@@ -29,7 +29,9 @@ interface BackendFeedbackReportResponse {
     overallScore?: number | string | null;
     scoreGrade?: string | null;
     diagnosisLevel?: string | null;
-    /** 5축 점수 — 0~100 정수 (백엔드 NOT NULL DEFAULT 0) */
+    /** 5축 점수 — @deprecated 백엔드 9b713ae (2026-05-12) 에서 report record 의 개별 점수 컬럼 제거됨.
+     * 응답에 더 이상 안 오지만 옛 캐시/세션 호환과 toDimensions 의 fallback 으로 키만 유지.
+     * 실제 점수는 dimensionScores[].score 사용. */
     harnessGoalClarityScore?: number | null;
     harnessWorkflowDesignScore?: number | null;
     harnessContextQualityScore?: number | null;
