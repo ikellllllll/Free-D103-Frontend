@@ -709,8 +709,11 @@ function SessionRow({
             <span>{statusPill.text}</span>
           </span>
 
-          {/* Action */}
-          {isAbandoned || (isFailed && !session.submissionId) ? (
+          {/* Action.
+             - isAbandoned: 30일 이상 방치된 IN_PROGRESS 세션. 라우팅 자체 비활성 ("종료됨").
+             - 종료된 세션 (isDone / isFailed): submissionId 가 있으면 직접 리포트, 없어도 /reports 로 fallback (href 가 미리 결정). 무조건 Link 렌더.
+             (이전엔 isFailed && !submissionId 도 종료됨으로 표시되어 사용자가 클릭조차 못 했음.) */}
+          {isAbandoned ? (
             <span className="hidden md:inline-flex items-center gap-1 text-sm text-gray-400 font-semibold">
               <span>종료됨</span>
             </span>
