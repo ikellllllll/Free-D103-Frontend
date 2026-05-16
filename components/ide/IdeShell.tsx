@@ -6312,12 +6312,20 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               // 2) Instruction → agent/AGENTS.md 저장. 백엔드 raw path 는 'AGENTS.md' (agent/ prefix 없이).
               const targetDisplayPath = "agent/AGENTS.md";
               const hasAgentsMd = files.some((f) => f.path === targetDisplayPath);
+              let savedViaUpdate = false;
               if (hasAgentsMd) {
-                await sessionApi.saveFile(sessionId, {
-                  path: targetDisplayPath,
-                  content: markdown,
-                });
-              } else {
+                try {
+                  await sessionApi.saveFile(sessionId, {
+                    path: targetDisplayPath,
+                    content: markdown,
+                  });
+                  savedViaUpdate = true;
+                } catch {
+                  // GET /files의 agent 배열이 user-harness ID를 반환하는 경우
+                  // PATCH가 404로 실패할 수 있음 → 신규 생성으로 폴백
+                }
+              }
+              if (!savedViaUpdate) {
                 await sessionApi.addHarnessFile(sessionId, {
                   path: "AGENTS.md",
                   name: "AGENTS.md",
