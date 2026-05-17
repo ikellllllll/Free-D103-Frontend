@@ -78,7 +78,7 @@ export default function TermsPage() {
             <ul>
               <li><strong>계정 정보</strong>: 이메일, 닉네임, 비밀번호 해시</li>
               <li><strong>학습 데이터</strong>: 과제 풀이 코드, AI 대화 내역, 실행 Trace</li>
-              <li><strong>BYOK 키</strong>: 본인 API 키 (브라우저 로컬 스토리지에만 저장, 서버 전송 없음)</li>
+              <li><strong>BYOK 키</strong>: 본인 API 키 (서버에 AES-GCM으로 암호화 저장되며, 평문은 등록 이후 다시 표시되지 않음)</li>
             </ul>
             <p>
               위 정보는 AIG의 과제 분석 · 피드백 생성에만 사용되며, 제3자에게 공유하거나
