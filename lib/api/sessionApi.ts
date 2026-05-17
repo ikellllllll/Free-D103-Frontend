@@ -1049,6 +1049,8 @@ export const sessionApi = {
           /** "CHAT" | "AGENT" — 백엔드 2026-05-13~ chat/agent union 조회 후 origin 필드 추가됨.
            *  두 테이블 PK 시퀀스가 별도라 React unique key 충돌 회피용으로 origin 을 prefix 한다. */
           origin?: "CHAT" | "AGENT";
+          agentTraceId?: number | string | null;
+          traceId?: number | string | null;
         }> }>>();
 
       const messages = res.data?.messages ?? [];
@@ -1059,7 +1061,12 @@ export const sessionApi = {
         content: m.content,
         createdAt: m.createdAt,
         // AI Pair 패널이 Chat/Agent 토글에 맞춰 이 origin 으로 필터링한다.
-        origin: m.origin ?? "AGENT"
+        origin: m.origin ?? "AGENT",
+        traceId: m.agentTraceId != null
+          ? String(m.agentTraceId)
+          : m.traceId != null
+            ? String(m.traceId)
+            : undefined
       }));
     } catch {
       // mockApi 폴백 금지 — 일시적 장애에 가짜 시드 채팅 누설 방지.

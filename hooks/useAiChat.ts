@@ -95,17 +95,30 @@ export function useAiChat(sessionId: string) {
   /** agent 이벤트 type 별 prefix — onEvent 에서 받은 frame 을 한 줄씩 메시지에 누적할 때 사용. */
   const AGENT_EVENT_PREFIX: Record<string, string> = {
     RUN_STARTED:           "🚀",
+    WAITING_APPROVAL:      "⏸️",
     ASSISTANT_STATUS:      "💬",
     REASONING_SUMMARY:     "🤔",
+    FINAL_OUTPUT_DELTA:    "✍️",
+    FINAL_OUTPUT_COMPLETED: "✅",
     TOOL_CALL_STARTED:     "🔧",
     TOOL_CALL_COMPLETED:   "✅",
     TOOL_CALL_FAILED:      "❌",
+    TOOL_STARTED:          "🔧",
+    TOOL_COMPLETED:        "✅",
+    TOOL_FAILED:           "❌",
     LLM_CALL_STARTED:      "⚙️",
     LLM_CALL_COMPLETED:    "⚙️",
+    LLM_STARTED:           "⚙️",
+    LLM_COMPLETED:         "⚙️",
+    LLM_FAILED:            "❌",
     VFS_FILE_READ:         "📖",
     VFS_FILE_WRITTEN:      "📝",
     VFS_FILE_PATCHED:      "✏️",
     VFS_FILE_DELETED:      "🗑️",
+    FILE_READ:             "📖",
+    FILE_WRITE_DRAFTED:    "📝",
+    FILE_EDIT_DRAFTED:     "✏️",
+    FILE_DELETE_DRAFTED:   "🗑️",
     PATCH_PROPOSED:        "🩹",
     PATCH_APPLIED:         "✅",
     HITL_REVIEW_REQUESTED: "⏸️",
@@ -209,6 +222,10 @@ export function useAiChat(sessionId: string) {
         // chat 모드와 동일 — 스트림 에러 시 loadMessages skip 해서 patch 한 에러 표시가
         // 백엔드 빈 응답으로 덮이지 않게 한다.
         let agentErrored = false;
+        // WAITING_APPROVAL/RUN_FAILED 는 transport error 가 아니라 data event 로 온다.
+        // 이때도 즉시 loadMessages() 하면 아직 저장된 assistant 본문이 없거나 대기 상태라
+        // 방금 누적한 진행 카드가 사라질 수 있으므로 hydrate 를 보류한다.
+        let shouldHydrateAfterAgent = true;
         try {
           await sessionApi.streamAgentChat(
             sessionId,
@@ -223,6 +240,12 @@ export function useAiChat(sessionId: string) {
                 if (type === "RUN_STARTED" && payload?.agent_trace_id !== undefined && traceId === undefined) {
                   traceId = String(payload.agent_trace_id);
                 }
+                if (type === "RUN_FAILED") {
+                  agentErrored = true;
+                  shouldHydrateAfterAgent = false;
+                } else if (type === "WAITING_APPROVAL") {
+                  shouldHydrateAfterAgent = false;
+                }
 
                 // VFS / PATCH 이벤트 — 파일 트리에 즉시 반영하기 위해 workspace 를 debounced invalidate.
                 // 이전엔 SSE finally 의 invalidate 1회만 있어서 agent 진행 중 새 파일이 트리에 안 보임 → 사용자가
@@ -231,6 +254,9 @@ export function useAiChat(sessionId: string) {
                   type === "VFS_FILE_WRITTEN" ||
                   type === "VFS_FILE_PATCHED" ||
                   type === "VFS_FILE_DELETED" ||
+                  type === "FILE_WRITE_DRAFTED" ||
+                  type === "FILE_EDIT_DRAFTED" ||
+                  type === "FILE_DELETE_DRAFTED" ||
                   type === "PATCH_APPLIED"
                 ) {
                   if (workspaceRefreshTimerRef.current != null) {
@@ -249,6 +275,14 @@ export function useAiChat(sessionId: string) {
                     ? `${message}\n\n> ${payload.error_message}`
                     : message;
 
+                if (type === "FINAL_OUTPUT_DELTA" && typeof payload?.delta === "string") {
+                  accumulated += payload.delta;
+                } else if (type === "FINAL_OUTPUT_COMPLETED" && typeof payload?.output === "string") {
+                  accumulated = payload.output;
+                } else if (type === "RUN_FAILED" && finalMessage) {
+                  accumulated = finalMessage;
+                }
+
                 // tool / vfs 이벤트는 payload 안에 path/tool_name 같은 키 추가 노출.
                 const extras: string[] = [];
                 if (typeof payload?.tool_name === "string") extras.push(`\`${payload.tool_name}\``);
@@ -260,13 +294,22 @@ export function useAiChat(sessionId: string) {
                 events.push({ prefix, type, message: finalMessage, detail });
                 // capAgentEvents: 한 run 안에서 수백 이벤트가 쌓이는 걸 head-trim.
                 const cappedEvents = capAgentEvents(events);
-                safePatchAssistant(assistantId, { agentEvents: cappedEvents, traceId });
+                safePatchAssistant(assistantId, {
+                  agentEvents: cappedEvents,
+                  traceId,
+                  ...(accumulated ? { content: accumulated } : {})
+                });
               },
               onError: (_code, msg) => {
                 agentErrored = true;
+                shouldHydrateAfterAgent = false;
                 events.push({ prefix: "❌", type: "ERROR", message: msg });
-                safePatchAssistant(assistantId, { agentEvents: capAgentEvents(events), traceId });
                 accumulated = "❌ " + msg;
+                safePatchAssistant(assistantId, {
+                  content: accumulated,
+                  agentEvents: capAgentEvents(events),
+                  traceId
+                });
               }
             },
             controller.signal
@@ -280,8 +323,12 @@ export function useAiChat(sessionId: string) {
             ? "사용자가 중지했습니다."
             : error instanceof Error ? error.message : "Agent 실행에 실패했습니다.";
           events.push({ prefix: isAbort ? "⏹️" : "❌", type: isAbort ? "ABORTED" : "EXCEPTION", message: errMsg });
-          safePatchAssistant(assistantId, { agentEvents: capAgentEvents(events) });
           accumulated = (isAbort ? "⏹️ " : "❌ ") + errMsg;
+          safePatchAssistant(assistantId, {
+            content: accumulated,
+            agentEvents: capAgentEvents(events),
+            traceId
+          });
         } finally {
           window.clearInterval(tracePollInterval);
           tracePollIntervalRef.current = null;
@@ -305,7 +352,7 @@ export function useAiChat(sessionId: string) {
             await queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
             // exact:false: TraceWorkbench 의 page 포함 키도 함께 invalidate.
             await queryClient.invalidateQueries({ queryKey: ["agentTraces", sessionId], exact: false });
-            if (!agentErrored) {
+            if (!agentErrored && shouldHydrateAfterAgent) {
               // SSE 누적은 "🚀 작업 시작 / 📖 파일 읽음 / ..." 진행 로그라, 정상 종료 시엔 백엔드가
               // 저장한 최종 assistant 메시지(변경 요약 등) 로 덮어써야 새로고침 없이 깔끔한 결과.
               try { await loadMessages(); } catch { /* noop — 다음 진입 시 재시도 */ }
