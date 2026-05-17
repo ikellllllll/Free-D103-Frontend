@@ -3585,10 +3585,10 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       sessionWarn1MinShownRef.current = true;
       // 5분 경고도 같이 마크 — 1분 시점에 5분 경고가 안 떴어도 더 안 띄움.
       sessionWarn5MinShownRef.current = true;
-      addToast("⏰ 1분 남았습니다. 자동 저장 후 종료됩니다.", "warning");
+      addToast("⏰ 1분 남았습니다. 곧 세션이 종료됩니다. 제출하지 않은 코드는 채점/리포트에 반영되지 않습니다.", "warning");
     } else if (remainingMs <= 300_000 && !sessionWarn5MinShownRef.current) {
       sessionWarn5MinShownRef.current = true;
-      addToast("⏰ 5분 남았습니다. 마무리 짓고 제출 또는 저장하세요.", "warning");
+      addToast("⏰ 5분 남았습니다. 시간 종료 시 자동 제출되지 않습니다. 채점/리포트가 필요하면 제출 버튼을 눌러주세요.", "warning");
     }
   }, [addToast, estimateLimitMs, isTimeExpired, problem, session, solveElapsedMs]);
 
@@ -5281,7 +5281,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     setSavePromptOpen(false);
     setSavePromptAction(null);
     (async () => {
-      addToast("⏰ 제한 시간이 지나 세션이 종료됩니다. 저장 후 마무리...", "warning");
+      addToast("⏰ 제한 시간이 지나 세션이 종료됩니다. 자동 제출은 진행되지 않았습니다.", "warning");
       try {
         if (unsavedPaths.length > 0) {
           await savePaths([...unsavedPaths]);
@@ -8101,9 +8101,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                 <span>현재 코드 스냅샷으로 공개·비공개 테스트를 함께 채점합니다. 한 세션에서 여러 번 제출할 수 있습니다.</span>
               ) : (
                 <>
-                  <span>세션을 종료하면 같은 풀이로 돌아올 수 없습니다. 진행 중인 작업이 있다면 먼저 저장하세요.</span>
+                  <span>세션을 종료하면 같은 풀이로 돌아올 수 없습니다. 종료는 제출이 아니며, 진행 중인 작업이 있다면 먼저 저장하세요.</span>
                   <span style={{ display: "block", marginTop: 8, fontSize: "0.85em", color: "var(--muted, #6b7280)" }}>
-                    ※ 제출 기록이 없거나 에이전트를 실행한 적이 없다면 리포트가 생성되지 않아요.
+                    ※ 리포트는 제출 기록과 에이전트 실행 기록이 있는 세션에서만 생성됩니다.
                   </span>
                 </>
               )}
