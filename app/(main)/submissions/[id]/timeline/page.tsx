@@ -10,7 +10,6 @@ import {
   Wrench,
   Code2,
   Check,
-  Copy,
   Clock,
   Cpu,
   Hash,
@@ -347,7 +346,6 @@ export default function TimelinePage({
   );
   const [tab, setTab] = useState<"input" | "output" | "logs">("input");
   const [collapsed, setCollapsed] = useState(false);
-  const [copiedShare, setCopiedShare] = useState(false);
 
   // 응답 자체를 { items, loaded } 로 감싸 "한 번이라도 성공 응답" 을 stop 기준으로 사용.
   // 이전엔 q.state.data?.length 기준이라 timeline 이 비어있는 정상 리포트도 영원히 1.5초 폴링.
@@ -417,16 +415,6 @@ export default function TimelinePage({
       }
       return next;
     });
-  };
-
-  const handleShare = async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      setCopiedShare(true);
-      setTimeout(() => setCopiedShare(false), 1500);
-    } catch {
-      /* ignore */
-    }
   };
 
   if (isLoading) {
@@ -623,7 +611,7 @@ export default function TimelinePage({
         </div>
 
         {/* ── Bottom bar ── */}
-        <div className="flex items-center justify-between mt-5 pt-5 border-t border-gray-200">
+        <div className="flex items-center mt-5 pt-5 border-t border-gray-200">
           <Link
             href={withPrefix(`/submissions/${submissionId}/report`)}
             className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-sm font-semibold transition-colors"
@@ -631,18 +619,6 @@ export default function TimelinePage({
             <ArrowLeft size={14} strokeWidth={2.2} />
             <span>리포트로</span>
           </Link>
-          <button
-            type="button"
-            onClick={handleShare}
-            className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-xl border-2 border-indigo-500 text-indigo-600 hover:bg-indigo-50 text-sm font-semibold transition-colors"
-          >
-            {copiedShare ? (
-              <Check size={14} strokeWidth={2.4} className="text-green-600" />
-            ) : (
-              <Copy size={14} strokeWidth={2.2} />
-            )}
-            <span>{copiedShare ? "링크 복사됨" : "타임라인 공유"}</span>
-          </button>
         </div>
       </div>
     </div>
