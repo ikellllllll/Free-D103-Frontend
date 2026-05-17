@@ -1,5 +1,6 @@
 import { authClient } from "@/lib/api/authApi";
 import { mockApi } from "@/lib/api/mockApi";
+import { parseApiDateTime } from "@/lib/dateTime";
 import type {
   ActionGuideItem,
   DimensionCriterion,
@@ -310,7 +311,7 @@ const toTimeline = (payload: BackendFeedbackReportResponse): TraceEvent[] => {
   const basis = payload.evaluationBasis;
   const trace = basis?.usedRunTrace;
   const execution = latestExecution(payload);
-  const createdAt = payload.report.createdAt ? new Date(payload.report.createdAt) : new Date();
+  const createdAt = parseApiDateTime(payload.report.createdAt) ?? new Date();
   const time = createdAt.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
   const rows: TraceEvent[] = [];
 
@@ -341,6 +342,14 @@ const toTimeline = (payload: BackendFeedbackReportResponse): TraceEvent[] => {
       type: "AI 응답",
       summary: `Trace ${trace.traceId ?? "-"} 분석`,
       detail: `span ${trace.spanCount ?? 0}, tool ${trace.toolCallCount ?? 0}, LLM ${trace.llmCallCount ?? 0}, patch ${trace.patchCount ?? 0}`
+    });
+  } else if ((basis?.traceCount ?? 0) > 0) {
+    rows.push({
+      id: "trace-summary",
+      time,
+      type: "AI 응답",
+      summary: `Agent Trace ${basis?.traceCount ?? 0}회 기록`,
+      detail: "상세 span 식별자가 없어 평가 근거 수준의 요약 타임라인으로 표시됩니다."
     });
   }
 

@@ -456,15 +456,15 @@ export default function TimelinePage({
     );
   }
 
-  if (!timeline.length) {
+  if (!spans.length) {
     return (
       <div className="max-w-2xl mx-auto px-6 pt-28 pb-20 text-center">
         <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 mb-4">
           <Hash size={20} />
         </div>
-        <p className="text-gray-800 font-semibold mb-2">표시할 Trace가 없습니다.</p>
+        <p className="text-gray-800 font-semibold mb-2">표시할 Trace span이 없습니다.</p>
         <p className="text-sm text-gray-500 mb-5">
-          아직 리포트가 처리 중이거나 이 제출에 기록된 AI/도구 이벤트가 없습니다.
+          Agent 실행이 없었거나 서버 응답에 상세 span 식별자가 포함되지 않았습니다.
         </p>
         <Link
           href={withPrefix(`/submissions/${submissionId}/report`)}

@@ -20,7 +20,9 @@ import {
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { useCelebrate } from "@/hooks/useCelebrate";
 import { feedbackApi } from "@/lib/api/feedbackApi";
+import { problemApi } from "@/lib/api/problemApi";
 import { useAuthStore } from "@/store/authStore";
+import type { ProblemSummary } from "@/lib/types/problem";
 import type {
   ActionGuideItem,
   DimensionCriterion,
@@ -58,6 +60,32 @@ const CRITERION_LABELS: Record<string, string> = {
 const criterionLabel = (name: string) =>
   CRITERION_LABELS[name] ?? name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
+const normalizeTitle = (value?: string | null) =>
+  (value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+
+const isUnsolved = (problem: ProblemSummary) => problem.status !== "풀이한 문제";
+
+function pickNextProblem(problems: ProblemSummary[], currentTitle: string): ProblemSummary | null {
+  if (!problems.length) return null;
+
+  const normalizedCurrentTitle = normalizeTitle(currentTitle);
+  const currentIndex = problems.findIndex((problem) => normalizeTitle(problem.title) === normalizedCurrentTitle);
+
+  if (currentIndex >= 0) {
+    const nextUnsolved = problems.slice(currentIndex + 1).find(isUnsolved);
+    if (nextUnsolved) return nextUnsolved;
+  }
+
+  const firstUnsolved = problems.find((problem, index) => index !== currentIndex && isUnsolved(problem));
+  if (firstUnsolved) return firstUnsolved;
+
+  if (currentIndex >= 0 && problems.length > 1) {
+    return problems[(currentIndex + 1) % problems.length];
+  }
+
+  return null;
+}
+
 /* ─── Severity → badge (API uses 0~10 scale) ─── */
 const severityMeta = (severity: number) => {
   if (severity >= 8) return { tone: "rose",  label: "치명" } as const;
@@ -91,6 +119,16 @@ export default function FeedbackReportPage({ params }: { params: Promise<{ id: s
   });
 
   const problemTitle = useMemo(() => report?.problemTitle ?? "풀이 과제", [report?.problemTitle]);
+  const { data: problems = [] } = useQuery({
+    queryKey: ["problems", "report-next"],
+    queryFn: () => problemApi.getProblems({ category: "ALL" }),
+    enabled: report?.status === "COMPLETED",
+    staleTime: 60_000
+  });
+  const nextProblem = useMemo(
+    () => pickNextProblem(problems, problemTitle),
+    [problems, problemTitle]
+  );
 
   const { fire: fireConfetti } = useCelebrate();
   useEffect(() => {
@@ -136,6 +174,16 @@ export default function FeedbackReportPage({ params }: { params: Promise<{ id: s
   const improvementFindings = report.findings
     .filter((f) => f.category !== "STRENGTH")
     .sort((a, b) => b.severity - a.severity);
+  const traceCount = report.basis?.traceCount ?? report.timeline.length;
+  const hasTraceTimeline = Boolean(report.agentTraceId || report.timeline.length > 0 || traceCount > 0);
+  const traceLabel = report.agentTraceId ? "상세 Trace" : hasTraceTimeline ? "요약 Trace" : "Trace 없음";
+  const traceDescription = report.agentTraceId
+    ? "LLM 호출, Tool 실행, 재시도 단계를 span 단위로 확인할 수 있어요."
+    : hasTraceTimeline
+      ? `Agent Trace ${traceCount}회가 평가에 반영됐어요. 상세 span이 없으면 요약 타임라인으로 표시됩니다.`
+      : "Agent 실행 없이 제출됐거나 서버 응답에 Trace 식별자가 없어 표시할 타임라인이 없습니다.";
+  const nextProblemHref = nextProblem ? `/problems/${nextProblem.id}` : "/problems";
+  const nextProblemLabel = nextProblem ? "다음 과제 풀기" : "과제 찾아보기";
 
   return (
     <div className="relative min-h-screen bg-[#EEF2FF]">
@@ -237,14 +285,25 @@ export default function FeedbackReportPage({ params }: { params: Promise<{ id: s
               <GitBranch size={20} strokeWidth={2.2} />
             </span>
             <div className="min-w-0">
-              <div className="font-display font-bold text-gray-900 text-[17px]">Trace 타임라인</div>
-              <div className="text-sm text-gray-500 mt-0.5">모든 LLM 호출, Tool 실행, 재시도 단계를 한 번에 확인할 수 있어요.</div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="font-display font-bold text-gray-900 text-[17px]">Trace 타임라인</div>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[11px] font-bold">
+                  {traceLabel}
+                </span>
+              </div>
+              <div className="text-sm text-gray-500 mt-0.5">{traceDescription}</div>
             </div>
           </div>
-          <Link href={withPrefix(`/submissions/${submissionId}/timeline`)}
-            className="shrink-0 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border-2 border-indigo-500 text-indigo-600 hover:bg-indigo-50 font-semibold text-sm transition-colors">
-            <span>타임라인 보기</span><ArrowRight size={14} strokeWidth={2.4} />
-          </Link>
+          {hasTraceTimeline ? (
+            <Link href={withPrefix(`/submissions/${submissionId}/timeline`)}
+              className="shrink-0 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border-2 border-indigo-500 text-indigo-600 hover:bg-indigo-50 font-semibold text-sm transition-colors">
+              <span>타임라인 보기</span><ArrowRight size={14} strokeWidth={2.4} />
+            </Link>
+          ) : (
+            <span className="shrink-0 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border-2 border-gray-200 text-gray-400 bg-gray-50 font-semibold text-sm">
+              <span>기록 없음</span>
+            </span>
+          )}
         </section>
 
         {/* ── FOOTER ── */}
@@ -253,9 +312,10 @@ export default function FeedbackReportPage({ params }: { params: Promise<{ id: s
             className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-semibold text-sm transition-colors">
             <ArrowLeft size={14} strokeWidth={2.4} /><span>과제 목록으로</span>
           </Link>
-          <Link href={withPrefix("/problems")}
+          <Link href={withPrefix(nextProblemHref)}
+            title={nextProblem ? `${nextProblem.order}. ${nextProblem.title}` : undefined}
             className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-colors shadow-sm">
-            <span>다음 과제 풀기</span><ArrowRight size={14} strokeWidth={2.4} />
+            <span>{nextProblemLabel}</span><ArrowRight size={14} strokeWidth={2.4} />
           </Link>
         </div>
       </div>
