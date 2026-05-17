@@ -3248,13 +3248,22 @@ html[data-theme="light"] .editor-tabs__mode-button:disabled {
 }
 
 .problem-workspace {
+  width: min(100%, 1680px);
   min-height: 100%;
+  margin-inline: auto;
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr) 320px;
   gap: 18px;
 }
 
+.problem-workspace--no-aside {
+  width: min(100%, 1580px);
+  grid-template-columns: 280px minmax(0, 1fr);
+}
+
 .problem-workspace--empty {
+  width: 100%;
+  grid-template-columns: 1fr;
   display: grid;
   place-items: center;
   min-height: 100%;

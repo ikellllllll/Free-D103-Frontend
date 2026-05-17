@@ -6744,9 +6744,13 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     if (!problem) {
       return <div className="problem-workspace problem-workspace--empty">문제 정보를 불러오지 못했습니다.</div>;
     }
+    const hasProblemAside =
+      resolvedProblemCases.length > 0 ||
+      resolvedProblemCriteria.length > 0 ||
+      Boolean(problem.aiGuide);
 
     return (
-      <div className="problem-workspace">
+      <div className={hasProblemAside ? "problem-workspace" : "problem-workspace problem-workspace--no-aside"}>
         <aside className="problem-workspace__rail">
           <div className="problem-card problem-card--primary">
             <h2>{problem.title}</h2>
@@ -6833,42 +6837,44 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
           ) : null}
         </div>
 
-        <aside className="problem-workspace__aside">
-          {resolvedProblemCases.length ? (
-            <section className="problem-card">
-              <strong>공개 테스트</strong>
-              <div className="problem-cases">
-                {resolvedProblemCases.map((testCase) => (
-                  <div key={testCase.id} className="problem-case">
-                    <div className="problem-case__head">
-                      <span>{testCase.name}</span>
-                      <Badge tone="teal">{testCase.result}</Badge>
+        {hasProblemAside ? (
+          <aside className="problem-workspace__aside">
+            {resolvedProblemCases.length ? (
+              <section className="problem-card">
+                <strong>공개 테스트</strong>
+                <div className="problem-cases">
+                  {resolvedProblemCases.map((testCase) => (
+                    <div key={testCase.id} className="problem-case">
+                      <div className="problem-case__head">
+                        <span>{testCase.name}</span>
+                        <Badge tone="teal">{testCase.result}</Badge>
+                      </div>
+                      <small>{testCase.detail}</small>
                     </div>
-                    <small>{testCase.detail}</small>
-                  </div>
-                ))}
-              </div>
-            </section>
-          ) : null}
+                  ))}
+                </div>
+              </section>
+            ) : null}
 
-          {resolvedProblemCriteria.length ? (
-            <section className="problem-card">
-              <strong>평가 기준</strong>
-              <ul className="problem-list">
-                {resolvedProblemCriteria.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
+            {resolvedProblemCriteria.length ? (
+              <section className="problem-card">
+                <strong>평가 기준</strong>
+                <ul className="problem-list">
+                  {resolvedProblemCriteria.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
 
-          {problem.aiGuide ? (
-            <section className="problem-card">
-              <strong>AI 활용 팁</strong>
-              <p className="muted-copy">{problem.aiGuide}</p>
-            </section>
-          ) : null}
-        </aside>
+            {problem.aiGuide ? (
+              <section className="problem-card">
+                <strong>AI 활용 팁</strong>
+                <p className="muted-copy">{problem.aiGuide}</p>
+              </section>
+            ) : null}
+          </aside>
+        ) : null}
       </div>
     );
   };
