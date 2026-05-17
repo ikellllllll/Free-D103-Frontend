@@ -30,7 +30,7 @@ import { parseApiDateTime } from "@/lib/dateTime";
 import { getProblemById } from "@/lib/mock-data";
 import type { TraceEvent } from "@/lib/types/ai";
 import type { WorkspaceFile } from "@/lib/types/session";
-import type { AgentPatch, AgentRunTrace } from "@/lib/types/trace";
+import type { AgentPatch, AgentRunTrace, AgentUIState } from "@/lib/types/trace";
 import type { BottomPanelTab, SelectionRange, SidebarView } from "@/store/ideStore";
 import { useIdeStore } from "@/store/ideStore";
 import { useThemeStore } from "@/store/themeStore";
@@ -1132,7 +1132,24 @@ function AgentUIStateSection({
   if (!data && isLoading) return null;
   if (!data) return null;
 
-  const files = data.changedFiles ?? [];
+  const statusRank: Record<string, number> = {
+    PENDING: 0,
+    REJECTED: 1,
+    APPROVED: 2,
+    APPLIED: 2
+  };
+  const files = Array.from(
+    (data.changedFiles ?? [])
+      .reduce((acc, file) => {
+        const key = file.relativePath.replace(/\\/g, "/");
+        const prev = acc.get(key);
+        if (!prev || (statusRank[file.reviewStatus] ?? 0) >= (statusRank[prev.reviewStatus] ?? 0)) {
+          acc.set(key, file);
+        }
+        return acc;
+      }, new Map<string, AgentUIState["changedFiles"][number]>())
+      .values()
+  );
   if (files.length === 0 && !data.focus) return null;
 
   const reviewLabel: Record<string, string> = {
@@ -1162,7 +1179,7 @@ function AgentUIStateSection({
       ) : null}
       {files.length > 0 ? (
         <>
-          <div className="agent-uistate__head">변경 파일 {data.changedFileCount}</div>
+          <div className="agent-uistate__head">변경 파일 {files.length}</div>
           <ul className="agent-uistate__list">
             {files.map((f) => (
               <li key={f.fileChangedRequestId} className="agent-uistate__row">
@@ -5064,6 +5081,14 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
     [hydrateFileContent, sessionId]
   );
 
+  const refreshAgentReviewState = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] }),
+      queryClient.invalidateQueries({ queryKey: ["agentUIState", sessionId] }),
+      queryClient.invalidateQueries({ queryKey: ["agentTraces", sessionId] })
+    ]);
+  }, [queryClient, sessionId]);
+
   /**
    * Worktree diff 탭의 [적용] / [거절] — 백엔드 partialEdit API.
    * - 적용: origin 파일을 worktree 내용으로 덮어쓰고 worktree 제거
@@ -5100,8 +5125,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         });
       });
 
-      // workspace 새로고침 — worktree 파일 사라지고, 적용한 경우 origin 파일 새 내용 hydrate
-      await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
+      // workspace + trace review 상태 새로고침 — worktree 파일 제거와 ui-state 의 대기/적용 상태를 함께 반영.
+      await refreshAgentReviewState();
 
       // workspace invalidate 만으로는 origin 파일이 stale 로 남는다 (이중 캐시 가드) — 적용 시
       // 영향받은 origin 을 명시적으로 다시 fetch. refreshOriginFilesAfterApply 주석 참조.
@@ -5114,7 +5139,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       partialEditBusyRef.current = null;
       setPartialEditBusy(null);
     }
-  }, [addToast, closeDiffTabInAllGroups, queryClient, refreshOriginFilesAfterApply, sessionId]);
+  }, [addToast, closeDiffTabInAllGroups, refreshAgentReviewState, refreshOriginFilesAfterApply, sessionId]);
 
   /**
    * 현재 세션의 모든 worktree 파일을 일괄 승인/거절 — 백엔드 allEdit API.
@@ -5157,7 +5182,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         });
       });
 
-      await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
+      await refreshAgentReviewState();
 
       // partialEdit 와 동일 — 적용한 모든 worktree 의 origin 파일을 명시적으로 재로드.
       if (isApproved) {
@@ -5169,7 +5194,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       allEditBusyRef.current = false;
       setAllEditBusy(false);
     }
-  }, [addToast, closeDiffTabInAllGroups, files, queryClient, refreshOriginFilesAfterApply, sessionId]);
+  }, [addToast, closeDiffTabInAllGroups, files, refreshAgentReviewState, refreshOriginFilesAfterApply, sessionId]);
 
   const handleApplyEdit = async () => {
     if (!editorRef.current || !selectedRange || !suggestion || !activeFile) {
@@ -7790,6 +7815,11 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                               {visibleMessages.map((message, idx) => {
                           const hasAgentEvents = (message.agentEvents?.length ?? 0) > 0;
                           const isEmptyAssistant = message.role === "assistant" && !message.content && !hasAgentEvents;
+                          const showAgentUIState =
+                            message.role === "assistant" &&
+                            aiMode === "edit" &&
+                            !!message.traceId &&
+                            (streaming || !message.content);
                           // 마지막 assistant agent 메시지 끝에 worktree patch 카드 inline 노출.
                           // 별도 카드로 빠져 채팅을 가리던 이전 동작을 메시지 흐름 안으로 통합.
                           const isLastMessage = idx === visibleMessages.length - 1;
@@ -7853,12 +7883,12 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                                   <AgentEventList events={message.agentEvents!} />
                                 </details>
                               ) : null}
-                              {/* ui-state — message.traceId 가 있는 한 카드 fold/unmount 와 무관하게 항상 노출.
-                                  hydrate 후엔 백엔드 응답에 trace_id 가 들어와야 매핑됨 (지금은 SSE 시점에만 노출). */}
-                              {message.traceId ? (
+                              {/* ui-state — streaming 중인 agent run 의 focus/변경 상태만 노출.
+                                  완료 메시지에서는 하단 수정 제안 카드가 같은 정보를 담당하므로 중복 노출하지 않는다. */}
+                              {showAgentUIState ? (
                                 <AgentUIStateSection
                                   sessionId={sessionId}
-                                  traceId={message.traceId}
+                                  traceId={message.traceId!}
                                   onOpenDiff={(path) => openDiffTab(path)}
                                   onFocusPath={(path) => {
                                     const active = document.activeElement?.tagName;
