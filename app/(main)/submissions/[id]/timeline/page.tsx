@@ -22,7 +22,9 @@ import {
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { feedbackApi, isBackendFeedbackReportId } from "@/lib/api/feedbackApi";
 import { mockApi } from "@/lib/api/mockApi";
+import { sessionApi } from "@/lib/api/sessionApi";
 import type { TraceEvent, TraceType } from "@/lib/types/ai";
+import type { AgentSpan } from "@/lib/types/trace";
 
 /* ─── Classification ─── */
 
@@ -95,6 +97,120 @@ type Span = {
   outputJson: Record<string, unknown>;
   original: TraceEvent;
 };
+
+/* ─── Real span → Span mapper ─── */
+// AgentSpan 실제 데이터를 Span UI 모델로 변환.
+// synthesize() 는 mock/fallback 용도로만 남겨둠.
+
+function fmtTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString("ko-KR", {
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
+  });
+}
+
+function classifySpan(span: AgentSpan): SpanKind {
+  if (span.llmCalls.length > 0) return "llm";
+  if (span.patches.length > 0) return "patch";
+  return "tool";
+}
+
+function fromRealSpans(spans: AgentSpan[]): Span[] {
+  if (!spans.length) return [];
+  const baseMs = new Date(spans[0].startedAt).getTime();
+
+  return spans.map((span) => {
+    const kind = classifySpan(span);
+    const startedMs = new Date(span.startedAt).getTime() - baseMs;
+    const durationMs =
+      span.durationMs ??
+      (span.endedAt
+        ? new Date(span.endedAt).getTime() - new Date(span.startedAt).getTime()
+        : 400);
+
+    const primaryLlm = span.llmCalls[0] ?? null;
+    const model =
+      kind === "llm"
+        ? (primaryLlm?.modelName ?? "unknown-model")
+        : kind === "patch"
+          ? "patch-writer"
+          : (span.toolCalls[0]?.toolName ?? "tool");
+
+    const tokensIn = span.tokenUsage?.inputTokens ?? primaryLlm?.inputTokens ?? 0;
+    const tokensOut = span.tokenUsage?.outputTokens ?? primaryLlm?.outputTokens ?? 0;
+
+    const timeStr = fmtTime(span.startedAt);
+    const durSec = (durationMs / 1000).toFixed(durationMs < 1000 ? 2 : 1).replace(/\.0$/, "");
+    const subLabel = `${model} · ${durSec}s`;
+
+    // 로그: tool call / llm call / span 상태 변화
+    const logs: Span["logs"] = [{ t: timeStr, msg: `Span 시작 · ${span.spanName}`, kind }];
+    for (const tc of span.toolCalls) {
+      logs.push({ t: timeStr, msg: `Tool: ${tc.toolName} → ${tc.status}`, kind: "tool" });
+    }
+    for (const lc of span.llmCalls) {
+      logs.push({
+        t: timeStr,
+        msg: `LLM: ${lc.modelName} · in=${lc.inputTokens} out=${lc.outputTokens}`,
+        kind: "llm"
+      });
+    }
+    for (const p of span.patches) {
+      logs.push({ t: timeStr, msg: `Patch: ${p.filePath} (+${p.additions}/-${p.deletions})`, kind: "patch" });
+    }
+    if (span.endedAt) {
+      logs.push({ t: fmtTime(span.endedAt), msg: `Span 완료 · ${span.status}`, kind });
+    }
+
+    // Detail 패널 — outputJson 우선, 없으면 도구/LLM 결과 요약
+    const outputJson: Record<string, unknown> =
+      span.outputJson ??
+      (kind === "tool" && span.toolCalls.length > 0
+        ? { tool: span.toolCalls[0].toolName, result: span.toolCalls[0].resultPreview ?? null }
+        : kind === "llm"
+          ? { model, inputTokens: tokensIn, outputTokens: tokensOut, finishReason: primaryLlm?.finishReason ?? null }
+          : { patches: span.patches.map((p) => p.filePath) });
+
+    const promptSummary =
+      span.inputJson
+        ? JSON.stringify(span.inputJson, null, 2).slice(0, 400)
+        : "입력 데이터 없음";
+
+    const statusCode =
+      span.status === "COMPLETED" ? 200 : span.status === "FAILED" ? 500 : 102;
+
+    const original: TraceEvent = {
+      id: span.spanId,
+      time: timeStr,
+      type:
+        kind === "llm"
+          ? ("AI 응답" as TraceType)
+          : kind === "patch"
+            ? ("코드 수정" as TraceType)
+            : ("실행" as TraceType),
+      summary: span.spanName,
+      detail: `span #${span.sequenceNo} · ${durSec}s · tools=${span.toolCalls.length} llm=${span.llmCalls.length} patches=${span.patches.length}`
+    };
+
+    return {
+      id: span.spanId,
+      kind,
+      name: span.spanName,
+      subLabel,
+      time: timeStr,
+      durationMs,
+      startedMs,
+      model,
+      tokensIn,
+      tokensOut,
+      status: statusCode,
+      task: span.spanName,
+      promptSummary,
+      logs,
+      outputJson,
+      original
+    };
+  });
+}
 
 function hashInt(s: string) {
   let h = 2166136261 >>> 0;
@@ -240,10 +356,28 @@ export default function TimelinePage({
     queryFn: async () => {
       if (!isBackendFeedbackReportId(submissionId)) {
         const items = await mockApi.getTimeline(submissionId);
-        return { items, loaded: true } as const;
+        return { items, loaded: true, realSpans: null } as const;
       }
       const report = await feedbackApi.getFeedbackReport(submissionId);
-      return { items: report.timeline, loaded: true } as const;
+
+      // 실제 스팬 데이터 조회 — problemSessionId + agentTraceId 가 있으면 상세 trace 호출.
+      // 실패해도 기존 합성 타임라인으로 fallback (silent).
+      let realSpans: AgentSpan[] | null = null;
+      if (report.problemSessionId && report.agentTraceId) {
+        try {
+          const traceDetail = await sessionApi.getAgentTraceDetail(
+            report.problemSessionId,
+            report.agentTraceId
+          );
+          if (traceDetail?.spans?.length) {
+            realSpans = traceDetail.spans;
+          }
+        } catch {
+          /* fallback to synthetic */
+        }
+      }
+
+      return { items: report.timeline, loaded: true, realSpans } as const;
     },
     refetchInterval: (q) => {
       if (q.state.data?.loaded) return false;
@@ -253,7 +387,11 @@ export default function TimelinePage({
   });
   const timeline = data?.items ?? [];
 
-  const spans = useMemo(() => synthesize(timeline), [timeline]);
+  // 실제 스팬이 있으면 fromRealSpans, 없으면 synthesize (mock / fallback)
+  const spans = useMemo(
+    () => (data?.realSpans?.length ? fromRealSpans(data.realSpans) : synthesize(timeline)),
+    [data?.realSpans, timeline]
+  );
   const totalMs = useMemo(() => spans.reduce((a, s) => a + s.durationMs, 0), [spans]);
   const filteredSpans = useMemo(
     () => spans.filter((s) => activeKinds.has(s.kind)),
