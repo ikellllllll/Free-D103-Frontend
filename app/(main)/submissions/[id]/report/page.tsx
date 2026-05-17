@@ -20,9 +20,7 @@ import {
 import { useRouteScope } from "@/components/routing/RouteScopeProvider";
 import { useCelebrate } from "@/hooks/useCelebrate";
 import { feedbackApi } from "@/lib/api/feedbackApi";
-import { problemApi } from "@/lib/api/problemApi";
 import { useAuthStore } from "@/store/authStore";
-import type { ProblemSummary } from "@/lib/types/problem";
 import type {
   ActionGuideItem,
   DimensionCriterion,
@@ -60,32 +58,6 @@ const CRITERION_LABELS: Record<string, string> = {
 const criterionLabel = (name: string) =>
   CRITERION_LABELS[name] ?? name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
-const normalizeTitle = (value?: string | null) =>
-  (value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
-
-const isUnsolved = (problem: ProblemSummary) => problem.status !== "풀이한 문제";
-
-function pickNextProblem(problems: ProblemSummary[], currentTitle: string): ProblemSummary | null {
-  if (!problems.length) return null;
-
-  const normalizedCurrentTitle = normalizeTitle(currentTitle);
-  const currentIndex = problems.findIndex((problem) => normalizeTitle(problem.title) === normalizedCurrentTitle);
-
-  if (currentIndex >= 0) {
-    const nextUnsolved = problems.slice(currentIndex + 1).find(isUnsolved);
-    if (nextUnsolved) return nextUnsolved;
-  }
-
-  const firstUnsolved = problems.find((problem, index) => index !== currentIndex && isUnsolved(problem));
-  if (firstUnsolved) return firstUnsolved;
-
-  if (currentIndex >= 0 && problems.length > 1) {
-    return problems[(currentIndex + 1) % problems.length];
-  }
-
-  return null;
-}
-
 /* ─── Severity → badge (API uses 0~10 scale) ─── */
 const severityMeta = (severity: number) => {
   if (severity >= 8) return { tone: "rose",  label: "치명" } as const;
@@ -119,16 +91,6 @@ export default function FeedbackReportPage({ params }: { params: Promise<{ id: s
   });
 
   const problemTitle = useMemo(() => report?.problemTitle ?? "풀이 과제", [report?.problemTitle]);
-  const { data: problems = [] } = useQuery({
-    queryKey: ["problems", "report-next"],
-    queryFn: () => problemApi.getProblems({ category: "ALL" }),
-    enabled: report?.status === "COMPLETED",
-    staleTime: 60_000
-  });
-  const nextProblem = useMemo(
-    () => pickNextProblem(problems, problemTitle),
-    [problems, problemTitle]
-  );
 
   const { fire: fireConfetti } = useCelebrate();
   useEffect(() => {
@@ -182,8 +144,6 @@ export default function FeedbackReportPage({ params }: { params: Promise<{ id: s
     : hasTraceTimeline
       ? `Agent Trace ${traceCount}회가 평가에 반영됐어요. 상세 span이 없으면 요약 타임라인으로 표시됩니다.`
       : "Agent 실행 없이 제출됐거나 서버 응답에 Trace 식별자가 없어 표시할 타임라인이 없습니다.";
-  const nextProblemHref = nextProblem ? `/problems/${nextProblem.id}` : "/problems";
-  const nextProblemLabel = nextProblem ? "다음 과제 풀기" : "과제 찾아보기";
 
   return (
     <div className="relative min-h-screen bg-[#EEF2FF]">
@@ -308,14 +268,13 @@ export default function FeedbackReportPage({ params }: { params: Promise<{ id: s
 
         {/* ── FOOTER ── */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 pt-4">
-          <Link href={withPrefix("/problems")}
+          <Link href={withPrefix("/reports")}
             className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-semibold text-sm transition-colors">
-            <ArrowLeft size={14} strokeWidth={2.4} /><span>과제 목록으로</span>
+            <ArrowLeft size={14} strokeWidth={2.4} /><span>리포트 목록으로</span>
           </Link>
-          <Link href={withPrefix(nextProblemHref)}
-            title={nextProblem ? `${nextProblem.order}. ${nextProblem.title}` : undefined}
+          <Link href={withPrefix("/problems")}
             className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-colors shadow-sm">
-            <span>{nextProblemLabel}</span><ArrowRight size={14} strokeWidth={2.4} />
+            <span>과제 목록으로</span><ArrowRight size={14} strokeWidth={2.4} />
           </Link>
         </div>
       </div>
