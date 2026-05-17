@@ -13,6 +13,7 @@ interface ProblemListItem {
   summary: string;
   difficulty: string;
   category?: string;
+  timeLimit: number;
   passRate: number;
   userBestPassRate?: number | null;
   status: string;
@@ -76,12 +77,6 @@ function formatEstimate(timeLimitMinutes: number): string {
   return Number.isInteger(h) ? `${h}h` : `${h.toFixed(1)}h`;
 }
 
-function estimateFromLevel(level: ProblemLevel): string {
-  if (level === 1) return "1h";
-  if (level === 2) return "2h";
-  return "3h";
-}
-
 function toOrder(index: number): string {
   return String(index + 1).padStart(2, "0");
 }
@@ -136,7 +131,7 @@ export const problemApi = {
         passRate: item.passRate,
         userBestPassRate: mapUserPassRate(item),
         status: mapStatus(item.status),
-        estimate: estimateFromLevel(level)
+        estimate: formatEstimate(item.timeLimit)
       };
     });
   },
