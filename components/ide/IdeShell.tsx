@@ -601,6 +601,23 @@ const areStringArraysEqual = (left: string[], right: string[]) =>
 const getEditorLayoutStorageKey = (sessionId: string) => `${EDITOR_LAYOUT_STORAGE_PREFIX}:${sessionId}`;
 const resolveHarnessBaseModel = (model?: string | null) =>
   model && HARNESS_BASE_MODELS.has(model) ? model : DEFAULT_HARNESS_BASE_MODEL;
+const isHarnessBuildSucceeded = (compileStatus: string | null | undefined, errorCount: number) =>
+  compileStatus === "COMPLETED"
+    ? true
+    : compileStatus === "PARTIAL" || compileStatus === "FAILED"
+      ? false
+      : errorCount === 0;
+const formatHarnessBuildErrorPreview = (
+  errors: Array<{ path?: string | null; message?: string | null }>
+) => {
+  const firstErr = errors[0];
+  if (!firstErr || (!firstErr.path && !firstErr.message)) return "";
+  return `\n첫 오류: ${firstErr.path ? `${firstErr.path} · ` : ""}${firstErr.message?.slice(0, 80) ?? ""}`;
+};
+const getHarnessRuntimeFileCount = (runtimeConfig: Record<string, unknown> | null | undefined) => {
+  const files = runtimeConfig?.files;
+  return Array.isArray(files) ? files.length : null;
+};
 const pad2 = (value: number) => String(value).padStart(2, "0");
 const toTimestamp = (value?: string | null) => {
   if (!value) return Date.now();
@@ -2048,7 +2065,15 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   const editorLayoutApplyingSnapshotRef = useRef(false);
 
   const [chatInput, setChatInput] = useState("");
+  const chatInputRef = useRef("");
+  const chatInputComposingRef = useRef(false);
+  const chatInputSendAfterCompositionRef = useRef(false);
+  const updateChatInput = useCallback((value: string) => {
+    chatInputRef.current = value;
+    setChatInput(value);
+  }, []);
   const [chatModel, setChatModel] = useState<string>(DEFAULT_CHAT_MODEL);
+  const [agentBuildModel, setAgentBuildModel] = useState<string>(DEFAULT_HARNESS_BASE_MODEL);
   // 테스트 실행 (handleTest) 의 비동기 폴링 핸들 — sessionApi.runExecution 의 sync for-loop 폴링을
   // useQuery 기반 비동기로 전환 (2026-05-15). RabbitMQ 큐 길어져도 timeout 없이 결과까지 대기.
   // 페이지 이탈 / 세션 변경 시 useQuery 가 자동 cleanup.
@@ -5696,18 +5721,14 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
       }
 
-      const baseModel = resolveHarnessBaseModel(session?.aiModel);
+      // Agent 런타임 모델은 일반 채팅 모델과 별도다. 실제 적용값은 build API 의 baseModel 로 결정된다.
+      const baseModel = resolveHarnessBaseModel(agentBuildModel);
       const result = await sessionApi.buildHarness(sessionId, baseModel);
       const validErrors = result.validErrors ?? [];
       const errorCount = validErrors.length;
       // compileStatus 가 들어오면 그걸 신뢰. null/undefined 면 errorCount === 0 으로 폴백.
       // (백엔드 snake_case 매핑이 들어오기 전엔 항상 null 이라 errorCount 만 봐야 했음.)
-      const buildSucceeded =
-        result.compileStatus === "COMPLETED"
-          ? true
-          : result.compileStatus === "PARTIAL" || result.compileStatus === "FAILED"
-            ? false
-            : errorCount === 0;
+      const buildSucceeded = isHarnessBuildSucceeded(result.compileStatus, errorCount);
 
       // 빌드 결과를 store 에 영구적으로 저장 — 빌드 버튼 옆 indicator + valid_errors 드롭다운에서 사용.
       setLastBuildResult({
@@ -5723,11 +5744,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
       const partialNote = result.compileStatus === "PARTIAL" ? " (부분 컴파일)" : "";
       // 토스트 메시지 풍부화 — 첫 1개 에러는 path + message 까지 표시해서 어디부터 봐야 할지 즉시 파악.
-      const firstErr = validErrors[0];
-      const firstErrPreview =
-        firstErr && (firstErr.path || firstErr.message)
-          ? `\n첫 오류: ${firstErr.path ? `${firstErr.path} · ` : ""}${firstErr.message?.slice(0, 80) ?? ""}`
-          : "";
+      const firstErrPreview = formatHarnessBuildErrorPreview(validErrors);
       addToast(
         buildSucceeded
           ? `하네스 빌드 완료 (${baseModel})${partialNote}`
@@ -5870,7 +5887,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   );
 
   const handleSend = async () => {
-    if (!chatInput.trim()) {
+    if (!chatInputRef.current.trim()) {
       return;
     }
     // streaming 중이면 즉시 차단 — 이전엔 textarea Ctrl+Enter 가 두 번째 stream 을 열어
@@ -5905,7 +5922,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
 
   // 실제 send 로직 — confirm 통과 후 또는 confirm 필요 없을 때 호출.
   const doSend = async () => {
-    const question = chatInput.trim();
+    const question = chatInputRef.current.trim();
     if (!question && stagedAttachments.length === 0 && !selectedCode) return;
     const mode = aiMode === "edit" ? "agent" : "chat";
 
@@ -5938,13 +5955,19 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
       .join("");
     clearStagedAttachments();
 
-    setChatInput("");
+    updateChatInput("");
 
     try {
       // aiMode "edit" = Agent 패널 (DeepAgent SSE = streamAgentChat),
       // aiMode "chat" = 일반 chat 패널 (streamChat).
       // extraBlocks 는 2번째 이후 첨부를 user 메시지 본문에 직접 append.
-      await send(question + extraBlocks, activeFile?.path, chatModel, attachedCode, mode);
+      await send(
+        question + extraBlocks,
+        activeFile?.path,
+        mode === "agent" ? agentBuildModel : chatModel,
+        attachedCode,
+        mode
+      );
       refreshSession();
     } catch (error) {
       addToast(error instanceof Error ? error.message : "AI 요청에 실패했습니다.", "error");
@@ -6303,10 +6326,9 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
         <HarnessPanel
           available={{ skills: harnessSkills, subAgents: harnessSubAgents }}
           onApply={async ({ modelId, markdown }) => {
-            // 1) 모델 — IDE 의 chat/agent selector 와 동기화. 백엔드는 매 chat 요청마다 model 을 받는
-            //    구조라 세션 모델 변경 endpoint 가 따로 없음 — selector state 갱신만으로 충분.
-            //    (다만 agent run 의 base_model 은 하네스 빌드 시점에 runtime_config 로 굳음 — 아래 참고.)
-            setChatModel(modelId);
+            // 1) Agent 런타임 모델 — 일반 Chat 모델과 분리한다. 실제 런타임 모델은 AGENTS.md 텍스트가
+            //    아니라 build API 의 baseModel 이 결정하고, AI 는 이를 runtime_config_json.base_model 로 저장한다.
+            setAgentBuildModel(modelId);
 
             if (isBackendSessionId(sessionId)) {
               // 2) Instruction → agent/AGENTS.md 저장. 백엔드 raw path 는 'AGENTS.md' (agent/ prefix 없이).
@@ -6346,17 +6368,45 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                   await sessionApi.moveFile(sessionId, f.path, f.path.replace("agent/sub-agent/", "agent/sub_agent/"));
                 } catch { /* 실패해도 빌드 계속 */ }
               }
-              await sessionApi.buildHarness(sessionId, modelId);
+              const buildResult = await sessionApi.buildHarness(sessionId, modelId);
+              const validErrors = buildResult.validErrors ?? [];
+              const errorCount = validErrors.length;
+              const buildSucceeded = isHarnessBuildSucceeded(buildResult.compileStatus, errorCount);
+              const runtimeFileCount = getHarnessRuntimeFileCount(buildResult.runtimeConfig);
+              setLastBuildResult({
+                compileStatus: buildResult.compileStatus ?? null,
+                validErrors,
+                builtAt: new Date().toISOString(),
+                baseModel: modelId
+              });
 
               // 4) store 의 file content 를 즉시 갱신. 이전엔 invalidateQueries 만 호출했는데, store
               //    .files 의 content 가 stale 인 채로 남아 사용자가 새로고침해야 새 본문 보이던 문제
               //    (2026-05-15 보고). hydrateFileContent 가 dirty 가드 있어 사용자 편집 중이면 skip.
               hydrateFileContent(targetDisplayPath, markdown, "markdown");
               await queryClient.invalidateQueries({ queryKey: ["workspace", sessionId] });
+              await queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
+              await queryClient.invalidateQueries({ queryKey: ["agentTraces", sessionId] });
 
               // 5) 사용자가 적용 결과 바로 확인할 수 있게 AGENTS.md 를 IDE 에 열고 활성화.
               openTabInEditorGroup(targetDisplayPath);
               setActivePath(targetDisplayPath);
+
+              if (!buildSucceeded) {
+                const firstErrPreview = formatHarnessBuildErrorPreview(validErrors);
+                const message = `하네스 설정 저장은 완료됐지만 빌드 실패: 검증 오류 ${errorCount}개${
+                  buildResult.compileStatus ? ` · ${buildResult.compileStatus}` : ""
+                }${firstErrPreview}`;
+                addToast(message, "error");
+                throw new Error(message);
+              }
+
+              addToast(
+                `하네스 설정 적용 및 빌드 완료 (${modelId})${
+                  runtimeFileCount != null ? ` · 파일 ${runtimeFileCount}개` : ""
+                }`,
+                "success"
+              );
             } else {
               // mock 세션 — store 만 갱신 (빌드 호출 불가, 효과 없음).
               const targetDisplayPath = "agent/AGENTS.md";
@@ -6371,8 +6421,8 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
               }
               openTabInEditorGroup(targetDisplayPath);
               setActivePath(targetDisplayPath);
+              addToast("하네스 설정을 적용했어요. AGENTS.md 를 열었어요.", "success");
             }
-            addToast("하네스 설정을 적용했어요. AGENTS.md 를 열었어요.", "success");
           }}
         />
       );
@@ -7751,7 +7801,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                                   type="button"
                                   className="chat-bubble__resend"
                                   onClick={() => {
-                                    setChatInput(message.content);
+                                    updateChatInput(message.content);
                                     window.requestAnimationFrame(() => {
                                       document.getElementById("ide-chat-input")?.focus();
                                     });
@@ -7862,10 +7912,28 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                           name="chatPrompt"
                           className="input input--textarea"
                           value={chatInput}
-                          onChange={(event) => setChatInput(event.target.value)}
+                          onChange={(event) => updateChatInput(event.target.value)}
+                          onCompositionStart={() => {
+                            chatInputComposingRef.current = true;
+                            chatInputSendAfterCompositionRef.current = false;
+                          }}
+                          onCompositionEnd={(event) => {
+                            chatInputComposingRef.current = false;
+                            updateChatInput(event.currentTarget.value);
+                            if (chatInputSendAfterCompositionRef.current) {
+                              chatInputSendAfterCompositionRef.current = false;
+                              window.setTimeout(() => {
+                                void handleSend();
+                              }, 0);
+                            }
+                          }}
                           onKeyDown={(event) => {
                             if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
                               event.preventDefault();
+                              if (event.nativeEvent.isComposing || chatInputComposingRef.current) {
+                                chatInputSendAfterCompositionRef.current = true;
+                                return;
+                              }
                               void handleSend();
                             }
                           }}
