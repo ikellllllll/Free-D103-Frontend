@@ -388,8 +388,8 @@ function pathForGroup(group: TourRect[]): string {
 
 // AI 사용 횟수 제한은 백엔드에서 더 이상 강제하지 않음 (2026-05-11~).
 // AI_REQUEST_QUOTA 상수 + aiQuotaLabel 변수 모두 unused 상태로 정리됨.
-// chat 기본 모델과 통일 — UI 하단의 모델 표시(GPT-5 Mini) 와 Agent Build 시 사용 모델을 일치시켜
-// "GPT-5.2로 빌드됐는데 채팅엔 GPT-5 Mini 라고 떠서 어떤 모델 쓰는지 모르겠음" 혼란 제거.
+// Agent 런타임 기본값. 일반 Chat 모델과 별도 상태로 관리하고,
+// AI 패널 하단 드롭다운은 현재 Chat/Agent 탭에 맞는 모델을 표시한다.
 const DEFAULT_HARNESS_BASE_MODEL = "GPT_5_MINI";
 const HARNESS_BASE_MODELS = new Set([
   "GPT_5_2",
@@ -2074,6 +2074,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
   }, []);
   const [chatModel, setChatModel] = useState<string>(DEFAULT_CHAT_MODEL);
   const [agentBuildModel, setAgentBuildModel] = useState<string>(DEFAULT_HARNESS_BASE_MODEL);
+  const composerModel = aiMode === "edit" ? agentBuildModel : chatModel;
   // 테스트 실행 (handleTest) 의 비동기 폴링 핸들 — sessionApi.runExecution 의 sync for-loop 폴링을
   // useQuery 기반 비동기로 전환 (2026-05-15). RabbitMQ 큐 길어져도 timeout 없이 결과까지 대기.
   // 페이지 이탈 / 세션 변경 시 useQuery 가 자동 cleanup.
@@ -6329,6 +6330,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
             // 1) Agent 런타임 모델 — 일반 Chat 모델과 분리한다. 실제 런타임 모델은 AGENTS.md 텍스트가
             //    아니라 build API 의 baseModel 이 결정하고, AI 는 이를 runtime_config_json.base_model 로 저장한다.
             setAgentBuildModel(modelId);
+            setAiMode("edit");
 
             if (isBackendSessionId(sessionId)) {
               // 2) Instruction → agent/AGENTS.md 저장. 백엔드 raw path 는 'AGENTS.md' (agent/ prefix 없이).
@@ -7941,7 +7943,7 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                         />
                         <div className="chat-composer-actions">
                           {(() => {
-                            const currentProvider = CHAT_MODEL_OPTIONS.find((o) => o.id === chatModel)?.provider;
+                            const currentProvider = CHAT_MODEL_OPTIONS.find((o) => o.id === composerModel)?.provider;
                             return currentProvider && hasByokKey(currentProvider) ? (
                               <span className="byok-badge" title={`${currentProvider === "anthropic" ? "Anthropic" : "OpenAI"} API 키로 응답합니다`}>
                                 🔑 내 키
@@ -7955,16 +7957,17 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                               onClick={() => setModelDropdownOpen((v) => !v)}
                               aria-haspopup="listbox"
                               aria-expanded={modelDropdownOpen}
+                              title={aiMode === "edit" ? "Agent 런타임 모델" : "Chat 응답 모델"}
                             >
                               <span className="model-dropdown__label">
-                                {CHAT_MODEL_OPTIONS.find((o) => o.id === chatModel)?.label ?? chatModel}
+                                {CHAT_MODEL_OPTIONS.find((o) => o.id === composerModel)?.label ?? composerModel}
                               </span>
                               <span className="model-dropdown__caret" aria-hidden>▾</span>
                             </button>
                             {modelDropdownOpen ? (
                               <ul className="model-dropdown__menu" role="listbox">
                                 {CHAT_MODEL_OPTIONS.map((option) => {
-                                  const active = option.id === chatModel;
+                                  const active = option.id === composerModel;
                                   return (
                                     <li key={option.id}>
                                       <button
@@ -7973,7 +7976,11 @@ export function IdeShell({ sessionId }: { sessionId: string }) {
                                         aria-selected={active}
                                         className={active ? "model-dropdown__option model-dropdown__option--active" : "model-dropdown__option"}
                                         onClick={() => {
-                                          setChatModel(option.id);
+                                          if (aiMode === "edit") {
+                                            setAgentBuildModel(option.id);
+                                          } else {
+                                            setChatModel(option.id);
+                                          }
                                           setModelDropdownOpen(false);
                                         }}
                                       >
